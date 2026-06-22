@@ -10,10 +10,7 @@
 import { dirname, join } from "path";
 import { $ } from "bun";
 import { makeDir, movePath, pathExists, readText } from "./bun-io.ts";
-import { BUN_SEMVER_DOC_URL } from "./bun-install-config.ts";
 import { manifestPath } from "./paths.ts";
-
-export { BUN_SEMVER_DOC_URL };
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -75,44 +72,8 @@ export async function hasUncommittedChanges(): Promise<boolean> {
 }
 
 // ── Version gating & diagnostics ───────────────────────────────────────
-
-/** Semver comparison using Bun.semver.order — handles pre-release tags correctly. */
-export function compareVersions(a: string, b: string): -1 | 0 | 1 {
-  return Bun.semver.order(a, b) as -1 | 0 | 1;
-}
-
-/** True if the running toolchain is at least `gate` version. */
-export function isVersionAtLeast(gate: string): boolean {
-  return compareVersions(TOOLCHAIN_VERSION, gate) >= 0;
-}
-
-/** Check if a version satisfies a semver range (e.g. ">=1.0.0 <2.0.0"). */
-export function semverSatisfies(version: string, range: string): boolean {
-  return Bun.semver.satisfies(version, range);
-}
-
-/** Map Bun.semver.order result to human-readable label. */
-export function semverOrderLabel(a: string, b: string): "equal" | "a > b" | "a < b" {
-  const order = compareVersions(a, b);
-  if (order === 0) return "equal";
-  return order === 1 ? "a > b" : "a < b";
-}
-
-/** Validate that a string is a valid semver. */
-export function isValidSemver(version: string): boolean {
-  try {
-    Bun.semver.order(version, "0.0.0");
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Returns true if versionA is less than versionB (safe for null inputs). */
-export function versionBelow(a: string | null, b: string): boolean {
-  if (!a) return true;
-  return compareVersions(a, b) < 0;
-}
+// All version comparisons use Bun.semver.order / Bun.semver.satisfies directly.
+// @see https://bun.com/docs/runtime/semver
 
 /** Structured version matrix for diagnostics and API responses. */
 export interface VersionInfo {

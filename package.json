@@ -199,7 +199,7 @@
     "references:generate": "bun run scripts/generate-canonical-references.ts",
     "references:inspect": "bun run scripts/inspect-references.ts",
     "references:inspect:watch": "bun --hot run scripts/inspect-references.ts --watch",
-    "references:lint": "bun run --parallel \"bun run scripts/lint-references.ts\" \"bun run scripts/lint-references-examples.ts\"",
+    "references:lint": "bun run --parallel scripts/lint-references.ts scripts/lint-references-examples.ts",
     "references:lint:examples": "bun run scripts/lint-references-examples.ts",
     "references:lint-online": "bun run scripts/lint-references-online.ts",
     "references:snapshot": "bun test test/canonical-references.unit.test.ts --update-snapshots",

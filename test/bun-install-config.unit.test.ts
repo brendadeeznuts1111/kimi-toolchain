@@ -13,9 +13,14 @@ import {
   BUN_INSTALL_PLATFORM_POLICY,
   BUN_INSTALL_OFFICIAL_ENV_VAR_NAMES,
   BUN_INSTALL_POLICY_GROUP_ORDER,
+  BUN_INSTALL_ENGINES_BUN_HARDENED,
   BUN_INSTALL_POLICY_MIN_BUN,
   BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV,
   buildInstallPolicyReport,
+  compareEnginesBunPolicy,
+  comparePackageManagerPolicy,
+  describeBunVersionPolicy,
+  parsePackageManagerPin,
   BUN_INSTALL_REQUIRED_KEYS,
   collectInstallPropertyReferences,
   extractBunfigScopeRegistries,
@@ -29,7 +34,6 @@ import {
   BUN_CATALOG_PROTOCOL_REFERENCES,
   BUN_PM_CLI_SECTION_DOC_URLS,
   BUN_PM_CLI_SECTIONS,
-  BUN_RUNTIME_BUN_APIS_DOC_URL,
   BUN_SEMVER_DOC_URL,
   BUN_PM_PKG_NOTATION_EXAMPLES,
   BUN_PM_PKG_OPERATIONS,
@@ -70,11 +74,45 @@ const SECURE_PACKAGE_JSON = {
   name: "demo",
   version: "1.0.0",
   packageManager: `bun@${BUN_INSTALL_POLICY_MIN_BUN}`,
-  engines: { bun: `>=${BUN_INSTALL_POLICY_MIN_BUN}` },
+  engines: { bun: BUN_INSTALL_ENGINES_BUN_HARDENED },
   trustedDependencies: [] as string[],
 };
 
 describe("bun-install-config", () => {
+  test("parsePackageManagerPin extracts semver from bun@ pin", () => {
+    expect(parsePackageManagerPin("bun@1.4.0")).toBe("1.4.0");
+    expect(parsePackageManagerPin("bun@1.4.0+sha.abc")).toBe("1.4.0");
+    expect(parsePackageManagerPin("npm@10.0.0")).toBeNull();
+  });
+
+  test("comparePackageManagerPolicy requires exact hardened pin", () => {
+    const hardened = `bun@${BUN_INSTALL_POLICY_MIN_BUN}`;
+    expect(comparePackageManagerPolicy(hardened, hardened)).toBe("ok");
+    expect(comparePackageManagerPolicy("bun@1.3.14", hardened)).toBe("drift");
+    expect(comparePackageManagerPolicy("bun@1.5.0", hardened)).toBe("drift");
+    expect(comparePackageManagerPolicy(null, hardened)).toBe("missing");
+  });
+
+  test("compareEnginesBunPolicy enforces hardened semver floor", () => {
+    expect(
+      compareEnginesBunPolicy(BUN_INSTALL_ENGINES_BUN_HARDENED, BUN_INSTALL_ENGINES_BUN_HARDENED)
+    ).toBe("ok");
+    expect(compareEnginesBunPolicy(">=1.4.0 <2.0.0", BUN_INSTALL_ENGINES_BUN_HARDENED)).toBe("ok");
+    expect(compareEnginesBunPolicy(">=1.0.0", BUN_INSTALL_ENGINES_BUN_HARDENED)).toBe("drift");
+    expect(compareEnginesBunPolicy(null, BUN_INSTALL_ENGINES_BUN_HARDENED)).toBe("missing");
+  });
+
+  test("describeBunVersionPolicy exposes pin + range SSOT", () => {
+    const policy = describeBunVersionPolicy({
+      enginesBun: BUN_INSTALL_ENGINES_BUN_HARDENED,
+      packageManager: `bun@${BUN_INSTALL_POLICY_MIN_BUN}`,
+    });
+    expect(policy.enginesRangeHardened).toBe(BUN_INSTALL_ENGINES_BUN_HARDENED);
+    expect(policy.runtimeSatisfiesEngines).toBe(true);
+    expect(policy.liveSurfacesUnversioned).toBe(true);
+    expect(policy.summary).toContain("MCP/docs unversioned");
+  });
+
   test("BUN_INSTALL_BUNFIG_POLICY rows cover hardened policy keys", () => {
     for (const [key, value] of Object.entries(SECURE_BUN_INSTALL_POLICY)) {
       if (key === "minimumReleaseAgeExcludes") continue;
@@ -126,8 +164,8 @@ describe("bun-install-config", () => {
     );
   });
 
-  test("BUN_SEMVER_DOC_URL anchors Bun.semver on runtime bun-apis doc", () => {
-    expect(BUN_SEMVER_DOC_URL).toBe(`${BUN_RUNTIME_BUN_APIS_DOC_URL}#semver`);
+  test("BUN_SEMVER_DOC_URL points at runtime semver guide", () => {
+    expect(BUN_SEMVER_DOC_URL).toBe("https://bun.com/docs/runtime/semver");
   });
 
   test("BUN_INSTALL_ENV_VARS documents official higher-priority env overrides", async () => {
@@ -782,8 +820,35 @@ other = "https://registry.example.test/"
       expect(audit.ok).toBe(true);
       expect(audit.bunfigInstall?.globalDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalDir);
       expect(audit.bunfigInstall?.globalBinDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalBinDir);
-      expect(audit.versions.packageManager).toMatch(/^bun@/);
+      expect(audit.versions.packageManager).toBe(`bun@${BUN_INSTALL_POLICY_MIN_BUN}`);
+      expect(audit.versions.enginesBun).toBe(BUN_INSTALL_ENGINES_BUN_HARDENED);
+      expect(audit.versions.runtimeSatisfiesEngines).toBe(true);
+      expect(audit.tables["package-json"].find((r) => r.key === "engines.bun")?.status).toBe("ok");
     });
+  });
+
+  test("auditBunInstallConfig flags weak engines.bun and loose packageManager", async () => {
+    const dir = testTempDir("bun-install-version-drift-");
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
+    writeText(
+      join(dir, "package.json"),
+      JSON.stringify(
+        {
+          ...SECURE_PACKAGE_JSON,
+          packageManager: "bun@1.3.14",
+          engines: { bun: ">=1.0.0" },
+        },
+        null,
+        2
+      )
+    );
+
+    const audit = await auditBunInstallConfig(dir);
+    expect(audit.tables["package-json"].find((r) => r.key === "packageManager")?.status).toBe(
+      "drift"
+    );
+    expect(audit.tables["package-json"].find((r) => r.key === "engines.bun")?.status).toBe("drift");
+    expect(audit.ok).toBe(false);
   });
 
   describe("runtimeCapabilities recent Bun additions", () => {

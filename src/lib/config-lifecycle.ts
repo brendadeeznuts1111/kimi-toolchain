@@ -6,7 +6,6 @@
  */
 
 import { pathExists } from "./bun-io.ts";
-import { isValidSemver } from "./version.ts";
 
 import { join } from "path";
 import { Effect } from "effect";
@@ -188,6 +187,16 @@ function validateValueAgainstType(
   }
 
   return issues;
+}
+
+/** Validate a semver string via Bun.semver.order. */
+function isValidSemver(version: string): boolean {
+  try {
+    Bun.semver.order(version, "0.0.0");
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function validateCrossConstantRules(defines: Map<string, DefineEntry>): ConstantValidationIssue[] {

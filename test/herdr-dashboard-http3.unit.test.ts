@@ -15,7 +15,6 @@ import {
 } from "../src/lib/herdr-dashboard-http3.ts";
 import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard-server.ts";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
-import { semverSatisfies } from "../src/lib/version.ts";
 import { REPO_ROOT, withEnv, withTempDir } from "./helpers.ts";
 
 const HTTP3_TEST_MS = 25_000;
@@ -37,7 +36,7 @@ describe("herdr-dashboard-http3", () => {
   test("bunHttp3ServeSupported matches Bun semver floor", () => {
     const supported = bunHttp3ServeSupported();
     expect(typeof supported).toBe("boolean");
-    if (semverSatisfies(Bun.version, `>=${BUN_HTTP3_MIN_VERSION}`)) {
+    if (Bun.semver.satisfies(Bun.version, `>=${BUN_HTTP3_MIN_VERSION}`)) {
       expect(supported).toBe(true);
     } else {
       expect(supported).toBe(false);

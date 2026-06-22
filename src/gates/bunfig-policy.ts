@@ -14,6 +14,10 @@ export interface BunfigPolicyGateSummary {
   minimumReleaseAge: number | null;
   linker: string | null;
   riskyEnvOverrides: string[];
+  runtimeBun: string;
+  packageManager: string | null;
+  enginesBun: string | null;
+  runtimeSatisfiesEngines: boolean;
 }
 
 export interface BunfigPolicyGateResult {
@@ -30,6 +34,7 @@ export interface BunfigPolicyGateResult {
 
 const HARD_LOCKFILE_KEYS = new Set(["saveTextLockfile", "frozenLockfile", "dryRun"]);
 const HARD_LIFECYCLE_KEYS = new Set(["ignoreScripts"]);
+const HARD_PACKAGE_JSON_KEYS = new Set(["packageManager", "engines.bun"]);
 
 function policyRowOk(row: BunInstallPolicyRow | undefined): boolean {
   return row?.status === "ok" || row?.status === "n/a";
@@ -89,6 +94,18 @@ export async function bunfigPolicyGate(
     }
   }
 
+  for (const row of audit.tables["package-json"]) {
+    if (HARD_PACKAGE_JSON_KEYS.has(row.key) && !policyRowOk(row)) {
+      failures.push(policyRowMessage(row));
+    }
+  }
+
+  if (!audit.versions.runtimeSatisfiesEngines) {
+    failures.push(
+      `runtime Bun ${audit.versions.runtimeBun} does not satisfy engines.bun ${audit.versions.enginesBun ?? ">=policy"}`
+    );
+  }
+
   for (const name of riskyEnvOverrides) {
     failures.push(`${name} is set; remove the override for reproducible installs`);
   }
@@ -131,6 +148,10 @@ export async function bunfigPolicyGate(
       minimumReleaseAge: policyValueNumber(minimumReleaseAge),
       linker: linker?.current ?? null,
       riskyEnvOverrides,
+      runtimeBun: audit.versions.runtimeBun,
+      packageManager: audit.versions.packageManager,
+      enginesBun: audit.versions.enginesBun,
+      runtimeSatisfiesEngines: audit.versions.runtimeSatisfiesEngines,
     },
     audit,
     checkedAt: new Date().toISOString(),
@@ -159,6 +180,8 @@ export function formatBunfigPolicyGate(result: BunfigPolicyGateResult): string[]
     `       └─ frozenLockfile: ${result.summary.frozenLockfile ?? "unset"}`,
     `       └─ minimumReleaseAge: ${result.summary.minimumReleaseAge ?? "unset"}`,
     `       └─ linker: ${result.summary.linker ?? "unset"}`,
+    `       └─ runtime: ${result.summary.runtimeBun} | engines.bun=${result.summary.enginesBun ?? "unset"} | ok=${result.summary.runtimeSatisfiesEngines}`,
+    `       └─ packageManager: ${result.summary.packageManager ?? "unset"}`,
   ];
 
   for (const name of result.summary.riskyEnvOverrides) {

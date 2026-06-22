@@ -142,10 +142,9 @@ export const RUNTIME_UTILS_COVERAGE: readonly RuntimeUtilsCoverageEntry[] = [
   {
     api: "Bun.semver",
     anchor: "bun-semver",
-    wrapper: "compareVersions / semverSatisfies / isValidSemver",
-    module: "src/lib/version.ts",
     docUrlConst: "BUN_SEMVER_DOC_URL",
-    status: "wrapped",
+    status: "native-only",
+    notes: "Used directly via Bun.semver.order and Bun.semver.satisfies.",
   },
   { api: "Bun.color", anchor: "bun-color", module: "src/lib/error-format.ts", status: "partial" },
   {

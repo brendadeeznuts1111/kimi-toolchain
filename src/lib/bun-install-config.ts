@@ -174,7 +174,8 @@ export const BUN_MEASURING_TIME_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#measuring
 export const BUN_BENCH_REPO_URL = "https://github.com/oven-sh/bun/tree/main/bench";
 export const BUN_RUNTIME_GLOBALS_DOC_URL = "https://bun.com/docs/runtime/globals";
 export const BUN_RUNTIME_BUN_APIS_DOC_URL = "https://bun.com/docs/runtime/bun-apis";
-export const BUN_SEMVER_DOC_URL = `${BUN_RUNTIME_BUN_APIS_DOC_URL}#semver`;
+/** @see https://bun.com/docs/runtime/semver */
+export const BUN_SEMVER_DOC_URL = "https://bun.com/docs/runtime/semver";
 export const BUN_RUNTIME_WEB_APIS_DOC_URL = "https://bun.com/docs/runtime/web-apis";
 /** Typed API reference index (Bun.*, bun:test, etc.). @see https://bun.com/reference/bun */
 export const BUN_API_REFERENCE_URL = "https://bun.com/reference/bun";
@@ -207,8 +208,11 @@ export const BUN_INSTALL_DOCS_URL = bunInstallDocAnchor("configuring-bun-install
 /** Minimum Bun version this policy matrix was validated against. */
 export const BUN_INSTALL_POLICY_MIN_BUN = "1.4.0";
 
+/** Hardened package.json engines.bun range — semver gate aligned with policyMinBun. */
+export const BUN_INSTALL_ENGINES_BUN_HARDENED = `>=${BUN_INSTALL_POLICY_MIN_BUN}`;
+
 /** Last policy-matrix edit (ISO date) — bump when hardened defaults or rows change. */
-export const BUN_INSTALL_POLICY_LAST_MODIFIED = "2026-06-20";
+export const BUN_INSTALL_POLICY_LAST_MODIFIED = "2026-06-22";
 
 /** bunfig / package.json keys that must be explicit under hardened policy. */
 export const BUN_INSTALL_REQUIRED_KEYS = new Set([
@@ -373,7 +377,7 @@ export type BunInstallPolicyStatus = "ok" | "drift" | "missing" | "weaker" | "n/
 export interface BunInstallPolicyRowDef {
   group: BunInstallPolicyGroup;
   key: string;
-  type: "boolean" | "number" | "string" | "string[]";
+  type: "boolean" | "number" | "string" | "string[]" | "semver-range";
   officialDefault: string;
   hardenedDefault: string;
   bunfigKey: string | null;
@@ -407,8 +411,11 @@ export interface BunInstallPolicyRow extends BunInstallPolicyRowDef {
 export interface BunInstallVersionInfo {
   runtimeBun: string;
   packageManager: string | null;
+  packageManagerPin: string | null;
   enginesBun: string | null;
   policyMinBun: string;
+  runtimeSatisfiesEngines: boolean;
+  runtimeSatisfiesPackageManagerPin: boolean | null;
   docsUrl: string;
 }
 
@@ -718,7 +725,22 @@ export const BUN_INSTALL_PACKAGE_POLICY: readonly BunInstallPolicyRowDef[] = [
     cliFlag: null,
     sinceBun: "1.0",
     docsAnchor: "configuring-bun-install-with-bunfig-toml",
-    notes: "Corepack-style pin; align with engines.bun",
+    notes: "Corepack-style exact pin; must match hardened bun@ version string",
+    requireExplicit: true,
+  },
+  {
+    group: "package-json",
+    key: "engines.bun",
+    type: "semver-range",
+    officialDefault: "unset",
+    hardenedDefault: BUN_INSTALL_ENGINES_BUN_HARDENED,
+    bunfigKey: null,
+    cliFlag: null,
+    sinceBun: "1.0",
+    docsAnchor: "configuring-bun-install-with-bunfig-toml",
+    notes: "Semver range gate; runtime must Bun.semver.satisfies(runtimeBun, engines.bun)",
+    requireExplicit: true,
+    lastModified: BUN_INSTALL_POLICY_LAST_MODIFIED,
   },
 ] as const;
 
@@ -1678,6 +1700,86 @@ function resolveBunfigCurrent(
   }
 }
 
+/** Parse `bun@1.4.0` / `bun@1.4.0+sha` into a semver version string. */
+export function parsePackageManagerPin(value: string | null | undefined): string | null {
+  if (!value?.startsWith("bun@")) return null;
+  const pin = value.slice(4).split("+")[0]?.trim();
+  return pin || null;
+}
+
+/** Exact pin gate — packageManager must match hardened `bun@x.y.z` string. */
+export function comparePackageManagerPolicy(
+  current: string | null,
+  hardened: string
+): BunInstallPolicyStatus {
+  if (current == null) return "missing";
+  if (current === hardened) return "ok";
+  const pin = parsePackageManagerPin(current);
+  const hardenedPin = parsePackageManagerPin(hardened);
+  if (!pin || !hardenedPin) return "drift";
+  if (Bun.semver.order(pin, hardenedPin) < 0) return "drift";
+  return "drift";
+}
+
+const ENGINES_BUN_PROBE_BELOW_MIN = "1.3.99";
+
+/** Semver range gate — must require at least policyMinBun (weaker ranges like >=1.0.0 drift). */
+export function compareEnginesBunPolicy(
+  current: string | null,
+  hardened: string
+): BunInstallPolicyStatus {
+  if (current == null) return "missing";
+  if (current === hardened) return "ok";
+  if (!Bun.semver.satisfies(BUN_INSTALL_POLICY_MIN_BUN, current)) return "drift";
+  if (Bun.semver.satisfies(ENGINES_BUN_PROBE_BELOW_MIN, current)) return "drift";
+  return "ok";
+}
+
+/** Unified Bun version policy snapshot for runtime:deep, doctor, and dashboard. */
+export interface BunVersionPolicySnapshot {
+  policyMinBun: string;
+  enginesRangeHardened: string;
+  packageManagerHardened: string;
+  runtimeBun: string;
+  enginesBun: string | null;
+  packageManager: string | null;
+  packageManagerPin: string | null;
+  runtimeSatisfiesEngines: boolean;
+  runtimeSatisfiesPackageManagerPin: boolean | null;
+  liveSurfacesUnversioned: true;
+  summary: string;
+}
+
+/** Agent-facing Bun version policy — pin (exact) + engines (range) from one SSOT. */
+export function describeBunVersionPolicy(meta?: {
+  enginesBun?: string | null;
+  packageManager?: string | null;
+}): BunVersionPolicySnapshot {
+  const runtimeBun = bunVersion();
+  const enginesBun = meta?.enginesBun ?? null;
+  const packageManager = meta?.packageManager ?? null;
+  const enginesRange = enginesBun ?? BUN_INSTALL_ENGINES_BUN_HARDENED;
+  const packageManagerPin = parsePackageManagerPin(packageManager);
+  const packageManagerHardened = `bun@${BUN_INSTALL_POLICY_MIN_BUN}`;
+  const runtimeSatisfiesEngines = Bun.semver.satisfies(runtimeBun, enginesRange);
+  const runtimeSatisfiesPackageManagerPin =
+    packageManagerPin == null ? null : Bun.semver.order(runtimeBun, packageManagerPin) >= 0;
+
+  return {
+    policyMinBun: BUN_INSTALL_POLICY_MIN_BUN,
+    enginesRangeHardened: BUN_INSTALL_ENGINES_BUN_HARDENED,
+    packageManagerHardened,
+    runtimeBun,
+    enginesBun,
+    packageManager,
+    packageManagerPin,
+    runtimeSatisfiesEngines,
+    runtimeSatisfiesPackageManagerPin,
+    liveSurfacesUnversioned: true,
+    summary: `pin ${packageManagerHardened} · engines ${BUN_INSTALL_ENGINES_BUN_HARDENED} · MCP/docs unversioned`,
+  };
+}
+
 function comparePolicyStatus(
   def: BunInstallPolicyRowDef,
   current: string | null
@@ -1751,6 +1853,9 @@ function resolvePackageCurrent(key: string, meta: PackageJsonInstallMeta | null)
   if (key === "packageManager") {
     return meta.packageManager ?? null;
   }
+  if (key === "engines.bun") {
+    return meta.engines?.bun ?? null;
+  }
   if (key === "workspaces") {
     return JSON.stringify(meta.workspaces ?? []);
   }
@@ -1802,13 +1907,11 @@ function buildPolicyRows(
     const status =
       def.group === "platform"
         ? ("n/a" as const)
-        : def.group === "package-json" && def.key === "packageManager"
-          ? current === def.hardenedDefault || current?.startsWith("bun@")
-            ? ("ok" as const)
-            : current == null
-              ? ("missing" as const)
-              : ("drift" as const)
-          : comparePolicyStatus(def, current);
+        : def.key === "packageManager"
+          ? comparePackageManagerPolicy(current, def.hardenedDefault)
+          : def.key === "engines.bun"
+            ? compareEnginesBunPolicy(current, def.hardenedDefault)
+            : comparePolicyStatus(def, current);
 
     return {
       ...def,
@@ -2618,13 +2721,36 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
     environment: [],
   };
 
+  const runtimeBun = bunVersion();
+  const packageManager = packageMeta?.packageManager ?? null;
+  const packageManagerPin = parsePackageManagerPin(packageManager);
+  const enginesBun = packageMeta?.engines?.bun ?? null;
+  const enginesRange = enginesBun ?? BUN_INSTALL_ENGINES_BUN_HARDENED;
+  const runtimeSatisfiesEngines = Bun.semver.satisfies(runtimeBun, enginesRange);
+  const runtimeSatisfiesPackageManagerPin =
+    packageManagerPin == null ? null : Bun.semver.order(runtimeBun, packageManagerPin) >= 0;
+
   const versions: BunInstallVersionInfo = {
-    runtimeBun: bunVersion(),
-    packageManager: packageMeta?.packageManager ?? null,
-    enginesBun: packageMeta?.engines?.bun ?? null,
+    runtimeBun,
+    packageManager,
+    packageManagerPin,
+    enginesBun,
     policyMinBun: BUN_INSTALL_POLICY_MIN_BUN,
+    runtimeSatisfiesEngines,
+    runtimeSatisfiesPackageManagerPin,
     docsUrl: BUN_INSTALL_DOC_URL,
   };
+
+  if (!runtimeSatisfiesEngines) {
+    warnings.push(
+      `runtime Bun ${runtimeBun} does not satisfy engines.bun ${enginesRange} — upgrade Bun or widen engines`
+    );
+  }
+  if (runtimeSatisfiesPackageManagerPin === false) {
+    warnings.push(
+      `runtime Bun ${runtimeBun} is below packageManager pin bun@${packageManagerPin} — align runtime with Corepack pin`
+    );
+  }
 
   return {
     schemaVersion: 1,
@@ -2724,7 +2850,7 @@ export function formatInstallPropertyReferenceTable(
 /** Format full report for guardian / doctor human output. */
 export function formatInstallPolicyReport(report: BunInstallConfigAudit): string[] {
   const lines: string[] = [
-    `Bun ${report.versions.runtimeBun} | policy≥${report.versions.policyMinBun} | packageManager=${report.versions.packageManager ?? "unset"} | engines.bun=${report.versions.enginesBun ?? "unset"}`,
+    `Bun ${report.versions.runtimeBun} | policy≥${report.versions.policyMinBun} | engines ok=${report.versions.runtimeSatisfiesEngines} | packageManager=${report.versions.packageManager ?? "unset"} | engines.bun=${report.versions.enginesBun ?? "unset"}`,
     `Docs: ${report.versions.docsUrl}`,
     "Install runtime:",
     `  streamingExtraction: ${report.runtimeCapabilities.streamingExtraction.status} (disable: ${report.runtimeCapabilities.streamingExtraction.disableEnv}=1)`,

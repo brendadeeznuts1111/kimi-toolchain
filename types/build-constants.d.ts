@@ -232,7 +232,7 @@ declare const KIMI_EFFECT_BENCHMARK_POST_COOLDOWN_MS: number;
 /**
  * @defineDomain governance
  * @type string
- * @default "1.2.0"
+ * @default "1.4.4"
  * @restrictions semver — bump when any other KIMI_* define is added, changed, or removed
  * @see scripts/lint-tuning-set-version.ts
  */

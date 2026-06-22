@@ -11,10 +11,10 @@ describe("bun-runtime-utils-coverage", () => {
     expect(entry?.status).toBe("wrapped");
   });
 
-  test("includes Bun.semver wrapper", () => {
+  test("includes Bun.semver direct native usage", () => {
     const entry = RUNTIME_UTILS_COVERAGE.find((e) => e.api === "Bun.semver");
-    expect(entry?.module).toBe("src/lib/version.ts");
-    expect(entry?.status).toBe("wrapped");
+    expect(entry?.docUrlConst).toBe("BUN_SEMVER_DOC_URL");
+    expect(entry?.status).toBe("native-only");
   });
 
   test("buildRuntimeUtilsCoverageReport computes coverage", () => {

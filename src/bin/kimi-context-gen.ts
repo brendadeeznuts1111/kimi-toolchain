@@ -8,7 +8,7 @@
  */
 
 import { $, TOML } from "bun";
-import { bunVersion, isDirectRun, semverSatisfies } from "../lib/bun-utils.ts";
+import { bunVersion, isDirectRun } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
@@ -93,7 +93,7 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
     const engineBun = pkg.engines?.bun;
     if (engineBun && stack.runtime?.includes("Bun")) {
       try {
-        if (!semverSatisfies(bunVersion(), engineBun)) {
+        if (!Bun.semver.satisfies(bunVersion(), engineBun)) {
           stack.runtime += ` (⚠ engine mismatch: needs ${engineBun})`;
         }
       } catch {

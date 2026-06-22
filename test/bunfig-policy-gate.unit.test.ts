@@ -2,7 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { writeText } from "../src/lib/bun-io.ts";
 import { bunfigPolicyGate, formatBunfigPolicyGate } from "../src/gates/index.ts";
-import { createTempProject, spawnCaptured, testTempDir, withEnv } from "./helpers.ts";
+import {
+  CLEAN_INSTALL_AUDIT_ENV,
+  createTempProject,
+  spawnCaptured,
+  testTempDir,
+  withEnv,
+} from "./helpers.ts";
 import { pathExists } from "../src/lib/bun-io.ts";
 import { bunfigPolicyGateDefinition, runBunfigPolicyGate } from "../src/gates/bunfig-policy.ts";
 import { runGatesWithDependencies } from "../src/gates/runner.ts";
@@ -25,7 +31,8 @@ minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
-dir = "~/.bun/install/cache"
+disable = false
+disableManifest = false
 `;
 
 const SECURE_PACKAGE = {
@@ -41,11 +48,7 @@ function writeSecureProject(dir: string, bunfig = SECURE_BUNFIG): void {
   writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE, null, 2));
 }
 
-const CLEAN_ENV = {
-  BUN_CONFIG_SKIP_SAVE_LOCKFILE: undefined,
-  BUN_CONFIG_SKIP_LOAD_LOCKFILE: undefined,
-  BUN_CONFIG_SKIP_INSTALL_PACKAGES: undefined,
-};
+const CLEAN_ENV = CLEAN_INSTALL_AUDIT_ENV;
 
 /** Spawn-heavy kimi-doctor invocations need headroom under parallel pre-push gates. */
 const SPAWN_TEST_TIMEOUT_MS = 60_000;
@@ -86,6 +89,30 @@ describe("bunfig-policy-gate", () => {
       const result = await bunfigPolicyGate(dir);
       expect(result.status).toBe("warn");
       expect(result.warnings.some((line) => line.includes("minimumReleaseAge"))).toBe(true);
+    });
+  });
+
+  test("fails when packageManager or engines.bun drift from hardened policy", async () => {
+    const dir = testTempDir("bunfig-policy-version-drift-");
+    writeSecureProject(dir);
+    writeText(
+      join(dir, "package.json"),
+      JSON.stringify(
+        {
+          ...SECURE_PACKAGE,
+          packageManager: "bun@1.3.14",
+          engines: { bun: ">=1.0.0" },
+        },
+        null,
+        2
+      )
+    );
+
+    await withEnv(CLEAN_ENV, async () => {
+      const result = await bunfigPolicyGate(dir);
+      expect(result.status).toBe("fail");
+      expect(result.failures.some((line) => line.includes("packageManager"))).toBe(true);
+      expect(result.failures.some((line) => line.includes("engines.bun"))).toBe(true);
     });
   });
 

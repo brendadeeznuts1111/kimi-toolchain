@@ -26,7 +26,6 @@ import {
   getRepoHead,
   hasUncommittedChanges,
   readManifest,
-  versionBelow,
 } from "../lib/version.ts";
 import { runSystemChecks, printMemoryBudget, countBlockingErrors } from "../lib/system-checks.ts";
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
@@ -335,18 +334,18 @@ async function versionMatrix(): Promise<CheckResult[]> {
 
   if (desktopVersion) {
     results.push(ok("Desktop (kimi)", desktopLabel));
-    if (versionBelow(desktopVersion, "0.9.0")) {
+    if (Bun.semver.order(desktopVersion, "0.9.0") < 0) {
       results.push(warn("kimi acp", "requires kimi >= 0.9.0"));
     }
-    if (versionBelow(desktopVersion, "0.10.0")) {
+    if (Bun.semver.order(desktopVersion, "0.10.0") < 0) {
       results.push(warn("kimi doctor cmd", "requires kimi >= 0.10.0"));
     }
-    if (versionBelow(desktopVersion, "0.12.0")) {
+    if (Bun.semver.order(desktopVersion, "0.12.0") < 0) {
       results.push(warn("sub-skills", "0.12.0+ for stable sub-skill discovery"));
     } else {
       results.push(ok("sub-skills", "stable since 0.12.0"));
     }
-    if (versionBelow(desktopVersion, "0.14.0")) {
+    if (Bun.semver.order(desktopVersion, "0.14.0") < 0) {
       results.push(warn("kimi-code update", "0.14.0+ recommended — run kimi upgrade"));
     }
   } else {

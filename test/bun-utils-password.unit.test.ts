@@ -5,7 +5,6 @@ import {
   hashPassword,
   verifyPassword,
 } from "../src/lib/bun-utils.ts";
-import { semverSatisfies } from "../src/lib/version.ts";
 
 const PLAIN = "super-secure-pa$$word";
 const WRONG = "wrong-password";
@@ -137,7 +136,7 @@ describe("password hashing wrapper", () => {
     });
 
     test("argon2 accepts Bun-supported low memoryCost values", async () => {
-      const memoryCost = semverSatisfies(Bun.version, ">=1.4.0") ? 8 : 4;
+      const memoryCost = Bun.semver.satisfies(Bun.version, ">=1.4.0") ? 8 : 4;
       const hash = await hashPassword(PLAIN, { algorithm: "argon2id", memoryCost });
       expect(hash).toStartWith(`$argon2id$v=19$m=${memoryCost},t=`);
     });

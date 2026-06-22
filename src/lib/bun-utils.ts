@@ -20,13 +20,6 @@ import {
   userInfo,
 } from "os";
 import { elapsedMs, nowNs } from "./timing.ts";
-import {
-  compareVersions,
-  isValidSemver,
-  semverOrderLabel,
-  semverSatisfies,
-  versionBelow,
-} from "./version.ts";
 import { safeToml } from "./utils.ts";
 
 /** Monotonic UUID v7 — prefer for session/db ids (see Bun.randomUUIDv7). */
@@ -284,8 +277,8 @@ export async function fetchJsonBody<T>(
   return { ok: res.ok, status: res.status, data: JSON.parse(text) as T };
 }
 
-export { compareVersions, isValidSemver, semverOrderLabel, semverSatisfies, versionBelow };
-
+// All version comparisons use Bun.semver directly.
+// @see https://bun.com/docs/runtime/semver
 /**
  * Gzip compression (`Bun.gzipSync` / `Bun.gunzipSync`) — `Uint8Array` ↔ `Uint8Array`.
  * String helpers encode/decode UTF-8 at the boundary; prefer bytes pass-through when already binary.
@@ -556,8 +549,7 @@ export async function checkBunVersionPin(
   if (!pinned) {
     return { ok: true, pinned: null, actual: actualVersion };
   }
-  const { compareVersions } = await import("./version.ts");
-  const cmp = compareVersions(actualVersion, pinned);
+  const cmp = Bun.semver.order(actualVersion, pinned) as -1 | 0 | 1;
   if (cmp < 0) {
     return {
       ok: false,
@@ -945,7 +937,9 @@ export function bunRuntimeReport(engineRange?: string): BunRuntimeSnapshot & {
   return {
     ...snapshot,
     engineRange,
-    engineSatisfied: snapshot.detected ? semverSatisfies(snapshot.version, engineRange) : false,
+    engineSatisfied: snapshot.detected
+      ? Bun.semver.satisfies(snapshot.version, engineRange)
+      : false,
   };
 }
 

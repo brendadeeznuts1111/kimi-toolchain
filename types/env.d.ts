@@ -49,6 +49,8 @@ declare module "bun" {
     // -- Test isolation -----------------------------------------------------
     /** Isolated home directory used by test/setup.ts. */
     KIMI_TEST_HOME?: string;
+    /** Repo root exported by git hook shell templates to avoid redundant rev-parse. */
+    KIMI_REPO_ROOT?: string;
     /** Timezone for deterministic tests (defaults to Etc/UTC). */
     TZ?: string;
     HOME?: string;
