@@ -471,3 +471,38 @@ export async function resolveGithubEnv(): Promise<{
 
   return { token, apiDomain };
 }
+
+/**
+ * Resolve `NPM_TOKEN` from `Bun.secrets` and populate `process.env` so that
+ * `bun publish` and `npm` commands can authenticate to the registry.
+ *
+ * - `NPM_TOKEN` is read from `com.herdr.cli/npm-token`.
+ * - Existing `process.env` values take precedence (env wins over keychain).
+ * - Also sets `NPM_CONFIG_TOKEN` if not already set (Bun's preferred var).
+ *
+ * @see https://bun.com/docs/api/publish
+ */
+export async function resolveNpmEnv(): Promise<{
+  token: string | null;
+}> {
+  const token =
+    process.env.NPM_TOKEN ??
+    process.env.NPM_CONFIG_TOKEN ??
+    (await Bun.secrets.get(SecretKeys.NPM_TOKEN)) ??
+    null;
+
+  if (token) {
+    if (!process.env.NPM_TOKEN) process.env.NPM_TOKEN = token;
+    if (!process.env.NPM_CONFIG_TOKEN) process.env.NPM_CONFIG_TOKEN = token;
+  }
+
+  return { token };
+}
+
+/**
+ * Resolve all known development tool secrets from `Bun.secrets` into
+ * `process.env`. Convenience wrapper for `kimi-new` and `kimi-fix`.
+ */
+export async function resolveDevSecrets(): Promise<void> {
+  await Promise.all([resolveGithubEnv(), resolveNpmEnv()]);
+}

@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { join, resolve } from "path";
 import { $ } from "bun";
-import { bunVersion, isDirectRun, readableStreamToText, resolveGithubEnv } from "../lib/bun-utils.ts";
+import { bunVersion, isDirectRun, readableStreamToText, resolveDevSecrets } from "../lib/bun-utils.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -35,6 +35,7 @@ function printHelp() {
   logger.info("Env vars (resolved from Bun.secrets if absent):");
   logger.info("  GITHUB_TOKEN         GitHub auth for private repos / rate limits");
   logger.info("  GITHUB_API_DOMAIN    Custom GitHub enterprise / proxy domain");
+  logger.info("  NPM_TOKEN            npm registry auth for bun publish");
 }
 
 function resolveParent(args: string[]): string {
@@ -153,7 +154,7 @@ async function runScaffold(args: string[]): Promise<number> {
 
   if (dryRun) {
     logger.info(`  [dry-run] mkdir ${projectDir}`);
-    logger.info(`  [dry-run] resolveGithubEnv() — GITHUB_TOKEN from Bun.secrets`);
+    logger.info(`  [dry-run] resolveDevSecrets() — GITHUB_TOKEN + NPM_TOKEN from Bun.secrets`);
     logger.info(`  [dry-run] bun init -y (cwd=${projectDir})`);
     logger.info(`  [dry-run] kimi-fix ${projectDir}`);
     if (open) logger.info(`  [dry-run] --open: would launch browser`);
@@ -161,8 +162,8 @@ async function runScaffold(args: string[]): Promise<number> {
     return 0;
   }
 
-  // Resolve GitHub credentials from Bun.secrets before spawning child processes
-  await resolveGithubEnv();
+  // Resolve dev secrets (GitHub + NPM) from Bun.secrets before spawning child processes
+  await resolveDevSecrets();
 
   makeDir(projectDir, { recursive: true });
   const initArgs = ["init", "-y"]
