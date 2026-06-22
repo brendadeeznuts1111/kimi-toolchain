@@ -151,11 +151,11 @@ numa nodes:       1
   });
 
   test("captureMimallocStats handles non-existent script gracefully", async () => {
-    const { output, exitCode } = await captureMimallocStats("/nonexistent/script.ts", {
+    const { combined, exitCode } = await captureMimallocStats("/nonexistent/script.ts", {
       timeout: 5_000,
     });
     expect(exitCode).not.toBe(0);
-    // stderr may be empty or contain an error — either is acceptable
+    expect(typeof combined).toBe("string");
   });
 
   test("parseMimallocStats handles truncated mimalloc output", () => {
