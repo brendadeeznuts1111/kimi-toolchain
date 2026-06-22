@@ -59,22 +59,8 @@ export function printProjectBanner(title: string, project?: string, subtitle?: s
 }
 
 // ── Hashing ──────────────────────────────────────────────────────────
-
-/** Compute the SHA-256 hex digest of a file. */
-export async function sha256File(path: string): Promise<string> {
-  const file = Bun.file(path);
-  const content = await file.arrayBuffer();
-  const hash = new Bun.CryptoHasher("sha256");
-  hash.update(content);
-  return hash.digest("hex");
-}
-
-/** Compute the SHA-256 hex digest of a string. */
-export function sha256String(data: string): string {
-  const hash = new Bun.CryptoHasher("sha256");
-  hash.update(data);
-  return hash.digest("hex");
-}
+// Canonical implementations live in hash.ts to avoid circular imports.
+export { sha256File, sha256String } from "./hash.ts";
 
 // ── Safe Parse ────────────────────────────────────────────────────────
 // Canonical implementations live in safe-parse.ts to avoid circular imports.

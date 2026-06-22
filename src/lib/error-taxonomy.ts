@@ -9,7 +9,7 @@ import { join } from "path";
 import yaml from "js-yaml";
 
 import { homeDir } from "./paths.ts";
-import { sha256String } from "./utils.ts";
+import { sha256String } from "./hash.ts";
 
 export interface TaxonomyPattern {
   regex: string;

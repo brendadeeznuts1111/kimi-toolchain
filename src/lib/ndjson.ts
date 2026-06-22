@@ -11,7 +11,7 @@
 import { appendText, makeDir, pathExistsAsync, removeFile } from "./bun-io.ts";
 import { dirname, join } from "path";
 import { tmpdir } from "os";
-import { safeParse } from "./utils.ts";
+import { safeParse } from "./safe-parse.ts";
 
 /** Serialize one JSONL/NDJSON record (includes trailing newline). */
 export function formatNdjsonLine(record: unknown): string {
