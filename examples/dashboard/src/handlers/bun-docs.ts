@@ -48,7 +48,7 @@ export async function apiBunDocs(): Promise<Response> {
 }
 
 export async function apiBunDocsSearch(req: Request): Promise<Response> {
-  const body = await readJson<{ query?: string; tool?: string }>(asReadable(req));
+  const body = await readJson<{ query?: string; command?: string; tool?: string }>(asReadable(req));
   if (!body) {
     return jsonErrorResponse(
       {
@@ -60,8 +60,22 @@ export async function apiBunDocsSearch(req: Request): Promise<Response> {
     );
   }
 
+  const tool = body.tool?.trim() || "search_bun";
   const query = body.query?.trim();
-  if (!query) {
+  const command = body.command?.trim() ?? query;
+
+  if (tool === "query_docs_filesystem_bun") {
+    if (!command) {
+      return jsonErrorResponse(
+        {
+          domain: BUN_DOCS_DOMAIN,
+          taxonomyId: "dashboard_missing_command",
+          message: "command is required for query_docs_filesystem_bun",
+        },
+        400
+      );
+    }
+  } else if (!query) {
     return jsonErrorResponse(
       {
         domain: BUN_DOCS_DOMAIN,
@@ -72,7 +86,6 @@ export async function apiBunDocsSearch(req: Request): Promise<Response> {
     );
   }
 
-  const tool = body.tool?.trim() || "search_bun";
   if (!SEARCH_TOOLS.has(tool)) {
     return jsonErrorResponse(
       {
@@ -86,13 +99,13 @@ export async function apiBunDocsSearch(req: Request): Promise<Response> {
 
   const result =
     tool === "query_docs_filesystem_bun"
-      ? await queryBunDocsFilesystem(query)
-      : await searchBunDocs(query);
+      ? await queryBunDocsFilesystem(command!)
+      : await searchBunDocs(query!);
 
   return jsonResponse({
     ok: result.ok,
     tool,
-    query,
+    query: tool === "query_docs_filesystem_bun" ? command : query,
     text: result.ok ? formatBunDocsContent(result.content) : undefined,
     content: result.content,
     error: result.error,

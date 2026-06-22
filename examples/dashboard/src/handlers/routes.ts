@@ -58,6 +58,7 @@ import { apiInspectTable } from "./inspect-table.ts";
 import { apiIpcMatrix } from "./ipc-matrix.ts";
 import { apiIpc } from "./ipc.ts";
 import { apiBunDocs, apiBunDocsSearch } from "./bun-docs.ts";
+import { apiRuntimeUtilsCoverage } from "./runtime-utils-coverage.ts";
 import { apiKimiDoctor } from "./kimi-doctor.ts";
 import { apiKimiPublish } from "./kimi-publish.ts";
 import { apiHardcodedAudit } from "./hardcoded-audit.ts";
@@ -240,6 +241,7 @@ export const DASHBOARD_STATIC_ROUTES: readonly DashboardStaticRoute[] = [
   route("/api/env", apiEnv),
   route0("/api/build-info", apiBuildInfo),
   route0("/api/runtime-info", apiRuntimeInfo),
+  route0("/api/runtime-utils-coverage", apiRuntimeUtilsCoverage),
   route0("/api/serve-metrics", apiServeMetrics),
   route0("/api/cookies", apiCookiesInfo),
   route0("/api/tokens", apiTokensInfo),

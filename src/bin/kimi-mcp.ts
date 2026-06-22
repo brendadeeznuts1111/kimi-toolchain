@@ -11,12 +11,24 @@
  *   scaffold <name> --kind <filesystem|http|sandbox|dashboard> [--json]
  *                                Generate a bridge script in ~/.kimi-code/tools/.
  *   doctor [--profile <name>]    Run MCP health checks.
+ *   bun-docs [query] [--json] [--refresh]
+ *   query <text> [--json] [--refresh]
+ *   fs <command> [--top N] [--json] [--refresh]
+ *   catalog [--probe] [--json]
  */
 
 import { isDirectRun } from "../lib/bun-utils.ts";
+import {
+  buildBunDocsKnowledgeCard,
+  clearBunDocsMcpCache,
+  formatBunDocsContent,
+  queryBunDocsFilesystem,
+  searchBunDocs,
+} from "../lib/bun-docs-mcp.ts";
 import { createLogger } from "../lib/logger.ts";
 import {
   applyMcpProfile,
+  buildMcpCatalogReport,
   readMcpJson,
   userMcpPath,
   validateMcpConfig,
@@ -69,6 +81,56 @@ function printHelp(): void {
   logger.line("  profile <name> [--json]");
   logger.line("  scaffold <name> --kind <filesystem|http|sandbox|dashboard> [--json]");
   logger.line("  doctor [--profile <name>] [--json]");
+  logger.line("  bun-docs [query] [--json] [--refresh]");
+  logger.line("  query <text> [--json] [--refresh]");
+  logger.line("  fs <command> [--top N] [--json] [--refresh]");
+  logger.line("  catalog [--probe] [--json]");
+}
+
+function trimOutput(text: string, top?: number): string {
+  if (!top || top <= 0) return text;
+  return text.split("\n").slice(0, top).join("\n");
+}
+
+function positionalArgs(fromIndex: number): string {
+  const out: string[] = [];
+  for (let i = fromIndex; i < Bun.argv.length; i++) {
+    const arg = Bun.argv[i];
+    if (!arg) continue;
+    if (arg.startsWith("-")) {
+      const next = Bun.argv[i + 1];
+      if (next && !next.startsWith("-")) i++;
+      continue;
+    }
+    out.push(arg);
+  }
+  return out.join(" ").trim();
+}
+
+async function runBunDocsSearch(
+  query: string,
+  tool: "search_bun" | "query_docs_filesystem_bun" = "search_bun"
+): Promise<number> {
+  if (hasFlag("--refresh")) clearBunDocsMcpCache();
+  const timeoutMs = Number(argValue("--timeout") ?? 30000);
+  const topRaw = argValue("--top") ?? (hasFlag("--top") ? "20" : "");
+  const top = Number(topRaw);
+  const result =
+    tool === "search_bun"
+      ? await searchBunDocs(query, timeoutMs, { refresh: hasFlag("--refresh") })
+      : await queryBunDocsFilesystem(query, timeoutMs, { refresh: hasFlag("--refresh") });
+  const text = trimOutput(
+    formatBunDocsContent(result.content),
+    Number.isFinite(top) ? top : undefined
+  );
+  if (hasFlag("--json")) {
+    await writeJson({ ok: result.ok, tool, query, text, error: result.error });
+  } else if (result.ok) {
+    logger.line(text);
+  } else {
+    logger.error(result.error ?? "search failed");
+  }
+  return result.ok ? 0 : 1;
 }
 
 async function listCommand(): Promise<number> {
@@ -300,6 +362,36 @@ async function main(): Promise<number> {
   if (command === "profile") return await profileCommand();
   if (command === "scaffold") return await scaffoldCommand();
   if (command === "doctor") return await doctorCommand();
+  if (command === "bun-docs") {
+    const query = positionalArgs(3);
+    if (query) return runBunDocsSearch(query);
+    const card = await buildBunDocsKnowledgeCard(15000);
+    if (hasFlag("--json")) await writeJson(card);
+    else logger.info(`${card.server}: ${card.toolCount} tools`);
+    return card.ok ? 0 : 1;
+  }
+  if (command === "query") {
+    const query = positionalArgs(3);
+    if (!query) {
+      logger.error("Usage: query <text> [--json] [--refresh]");
+      return 1;
+    }
+    return runBunDocsSearch(query);
+  }
+  if (command === "fs") {
+    const cmd = positionalArgs(3);
+    if (!cmd) {
+      logger.error("Usage: fs <command> [--json] [--refresh]");
+      return 1;
+    }
+    return runBunDocsSearch(cmd, "query_docs_filesystem_bun");
+  }
+  if (command === "catalog") {
+    const report = await buildMcpCatalogReport(homeDir(), { probe: hasFlag("--probe") });
+    if (hasFlag("--json")) await writeJson(report);
+    else for (const meta of report.catalog) logger.line(`  ${meta.serverName} [${meta.layer}]`);
+    return 0;
+  }
 
   logger.error(`Unknown command: ${command}`);
   printHelp();

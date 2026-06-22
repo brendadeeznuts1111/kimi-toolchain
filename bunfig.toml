@@ -20,8 +20,8 @@ depth = 6
 # Pin editor in bunfig (matches Bun.openInEditor SSOT — bunfig > $VISUAL > $EDITOR).
 # Uncomment to override env; leave commented when $EDITOR/$VISUAL already resolve (e.g. cursor).
 # @see https://bun.com/docs/runtime/utils#bun-openineditor
-# [debug]
-# editor = "cursor"
+[debug]
+editor = "cursor"
 
 # ── Run ──────────────────────────────────────────────────────────────────
 [run]

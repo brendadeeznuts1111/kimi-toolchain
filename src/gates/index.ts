@@ -25,6 +25,12 @@ export {
   formatHardcodedSecretsGate,
 } from "./hardcoded-secrets.ts";
 export {
+  runRuntimeUtilsCoverageGate,
+  runtimeUtilsCoverageGateDefinition,
+  type RuntimeUtilsCoverageGateResult,
+  formatRuntimeUtilsCoverageGate,
+} from "./runtime-utils-coverage.ts";
+export {
   runTlsComplianceGate,
   tlsComplianceGateDefinition,
   type TlsComplianceDoctorResult,

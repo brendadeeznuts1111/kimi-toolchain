@@ -101,11 +101,11 @@ export async function searchBunDocs(
 
 /** Query Bun docs filesystem via the `query_docs_filesystem_bun` MCP tool. */
 export async function queryBunDocsFilesystem(
-  query: string,
+  command: string,
   timeoutMs: number = 30000,
   options?: { refresh?: boolean }
 ): Promise<BunDocsSearchResult> {
-  return callBunDocsTool("query_docs_filesystem_bun", { query }, timeoutMs, options?.refresh);
+  return callBunDocsTool("query_docs_filesystem_bun", { command }, timeoutMs, options?.refresh);
 }
 
 /** Probe Bun docs MCP and return tool names + descriptions. */

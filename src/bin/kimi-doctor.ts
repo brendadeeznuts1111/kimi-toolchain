@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 import {
-  bunRevision,
-  bunVersion,
   inspectBunRuntime,
+  inspectEditorRuntime,
   isDirectRun,
+  openFileInEditor,
   readableStreamToText,
 } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
@@ -54,6 +54,13 @@ import {
   type OptimizerDoctorJsonRecommendation,
   type OptimizerDoctorRecommendation,
 } from "../lib/constant-optimizer.ts";
+import {
+  formatBunDocsContent,
+  searchBunDocs,
+  buildBunDocsKnowledgeCard,
+} from "../lib/bun-docs-mcp.ts";
+import { buildRuntimeUtilsCoverageReport } from "../lib/bun-runtime-utils-coverage.ts";
+import { openFirstFailedCheck, openFirstGateFinding } from "../lib/open-check-source.ts";
 import { fixMcpConfig, validateMcpConfig } from "../lib/mcp-config.ts";
 import {
   auditKimiConfig,
@@ -69,7 +76,7 @@ import { auditSecretsStorage } from "../lib/secrets-probe.ts";
 import { auditTrustedDeps } from "../lib/doctor-trusted-deps.ts";
 import { auditSuccessMetrics } from "../lib/success-metrics.ts";
 import { generateAgentDiagnosisReport } from "../lib/agent-diagnosis.ts";
-import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
+import { aggregateChecks, type HealthCheck, type CheckSource } from "../lib/health-check.ts";
 import { createCli, writeStdout, writeStdoutLine } from "../lib/cli-contract.ts";
 import {
   appendEffectGatesSnapshot,
@@ -197,6 +204,7 @@ const REPORT = Bun.argv.includes("--report");
 const REGRESSION = Bun.argv.includes("--regression");
 const PERF_AUTO_TRAIN = Bun.argv.includes("--perf-auto-train");
 const OPEN = Bun.argv.includes("--open");
+const BUN_DOCS_QUERY = argValue("--bun-docs");
 const GATE = argValue("--gate");
 const RUN_GATES = Bun.argv.includes("--run-gates");
 const GATE_GRAPH = Bun.argv.includes("--gate-graph") || Bun.argv.includes("--graph");
@@ -287,6 +295,7 @@ interface CheckResult {
   taxonomyId?: string;
   known?: WorkspaceKnownContext;
   optimizerRecommendations?: OptimizerDoctorJsonRecommendation[];
+  source?: CheckSource;
 }
 
 function ok(name: string, message: string): CheckResult {
@@ -1539,6 +1548,25 @@ async function main(): Promise<number> {
 
   const explicitProjectRoot = argValue("--project-root");
 
+  if (BUN_DOCS_QUERY) {
+    const result = await searchBunDocs(BUN_DOCS_QUERY);
+    if (JSON_OUT) {
+      emitJson({
+        mode: "bun-docs",
+        query: BUN_DOCS_QUERY,
+        ok: result.ok,
+        text: result.ok ? formatBunDocsContent(result.content) : undefined,
+        error: result.error,
+        latencyMs: result.latencyMs,
+      });
+    } else if (result.ok) {
+      logger.line(formatBunDocsContent(result.content));
+    } else {
+      logger.error(result.error ?? "bun-docs search failed");
+    }
+    return result.ok ? 0 : 1;
+  }
+
   if (PROBE) {
     const probeRoot = explicitProjectRoot ?? (await resolveProjectRoot(Bun.cwd));
     emitJson(await buildDoctorProbeManifest(probeRoot));
@@ -1822,6 +1850,14 @@ async function main(): Promise<number> {
       }
     }
 
+    if (OPEN && target?.detail) {
+      openFirstGateFinding(
+        GATE,
+        target.detail as { findings?: Array<{ file: string; line: number }> },
+        projectRoot
+      );
+    }
+
     return results.some((row) => row.status === "fail" || row.status === "blocked") ? 1 : 0;
   }
 
@@ -2070,15 +2106,7 @@ async function main(): Promise<number> {
         });
         await Bun.write(reportPath, html);
         logger.info(`Report: ${reportPath}`);
-        if (OPEN) {
-          const cmd =
-            process.platform === "darwin"
-              ? "open"
-              : process.platform === "win32"
-                ? "start"
-                : "xdg-open";
-          Bun.spawn([cmd, reportPath]);
-        }
+        if (OPEN) openFileInEditor(reportPath);
       }
 
       if (PERF_GATES || REGRESSION) {
@@ -2245,6 +2273,23 @@ async function main(): Promise<number> {
       else results.push(error(check.name, check.message));
     }
   });
+
+  if (!QUICK) {
+    logger.section("Bun Docs MCP");
+    await traceSection("bun-docs-mcp", async () => {
+      const card = await buildBunDocsKnowledgeCard(15000);
+      if (card.ok && card.stability.stable) {
+        results.push(
+          ok("bun-docs-live", `${card.toolCount} tools · ${card.latencyMs}ms · ${card.url}`)
+        );
+      } else {
+        const msg =
+          card.error ??
+          `drift missing=[${card.stability.missing.join(", ")}] unexpected=[${card.stability.unexpected.join(", ")}]`;
+        results.push(error("bun-docs-live", msg));
+      }
+    });
+  }
 
   logger.section("Kimi Permissions");
   await traceSection("permissions", async () => {
@@ -2467,6 +2512,35 @@ async function main(): Promise<number> {
       : error("bun", "not found")
   );
 
+  if (!QUICK) {
+    const editor = await inspectEditorRuntime(projectRoot);
+    if (editor.resolved) {
+      results.push(
+        ok(
+          "debug.editor",
+          `${editor.resolved}${editor.bunfigEditor ? " (bunfig)" : " (env fallback)"}`
+        )
+      );
+      if (!editor.bunfigEditor && editor.activeBunfig) {
+        results.push(
+          warn(
+            "debug.editor-bunfig",
+            `no [debug].editor in ${editor.activeBunfig} — using $VISUAL/$EDITOR`
+          )
+        );
+      }
+    } else {
+      results.push(warn("debug.editor", "unset — set $EDITOR or [debug].editor in bunfig.toml"));
+    }
+    const cov = buildRuntimeUtilsCoverageReport();
+    results.push(
+      ok(
+        "runtime-utils-coverage",
+        `${cov.coveragePercent}% · ${cov.wrapped}/${cov.total} wrapped · ${cov.docUrl}`
+      )
+    );
+  }
+
   for (const cmd of ["node", "npm", "pnpm", "yarn"]) {
     const p = Bun.which(cmd);
     if (p) {
@@ -2603,6 +2677,13 @@ async function main(): Promise<number> {
 
   const exitCode = blocking > 0 ? 1 : 0;
   const durationMs = Date.now() - startTime;
+
+  if (OPEN && !JSON_OUT && (blocking > 0 || warnings > 0)) {
+    if (openFirstFailedCheck(results, projectRoot)) {
+      logger.info("Opened first failed check in editor");
+    }
+  }
+
   healthResult("kimi-doctor", {
     checks: results.length,
     errors: results.filter((r) => r.status === "error").length,

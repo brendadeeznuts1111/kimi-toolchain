@@ -9,6 +9,7 @@ import { bunfigPolicyGateDefinition } from "./bunfig-policy.ts";
 import { cardProbeGateDefinition } from "./card-probe.ts";
 import { configStatusGateDefinition } from "./config-status.ts";
 import { hardcodedSecretsGateDefinition } from "./hardcoded-secrets.ts";
+import { runtimeUtilsCoverageGateDefinition } from "./runtime-utils-coverage.ts";
 import { modelDriftGateDefinition } from "./model-drift.ts";
 import { perfGateDefinition } from "./perf-gate.ts";
 import { strategyPerformanceGateDefinition } from "./strategy-performance.ts";
@@ -31,6 +32,7 @@ export function listBuiltinGateDefinitions(): Gate[] {
     strategyPerformanceGateDefinition,
     modelDriftGateDefinition,
     hardcodedSecretsGateDefinition,
+    runtimeUtilsCoverageGateDefinition,
   ];
 }
 

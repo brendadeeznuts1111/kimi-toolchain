@@ -23,7 +23,9 @@ export async function auditBunDocs(query = "latest Bun version"): Promise<BunDoc
     const client = await loadMCPClient("bun-docs");
     const tools = await client.listTools();
     const toolName = selectBunDocsTool(tools);
-    const result = await client.callTool(toolName, { query });
+    const args =
+      toolName === "query_docs_filesystem_bun" ? { command: `rg -l "${query}"` } : { query };
+    const result = await client.callTool(toolName, args);
 
     return {
       dimension: 12,

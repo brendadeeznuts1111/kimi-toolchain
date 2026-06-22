@@ -1279,3 +1279,47 @@ function renderSchema(container, schema) {
   void renderDiffFromUrl();
   void refresh();
 })();
+
+// Bun Docs MCP — live search
+(async () => {
+  const root = document.getElementById("card-bun-docs");
+  if (!root) return;
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  try {
+    const meta = await fetchJson("/api/bun-docs");
+    let h = `<div class="row"><span>Server</span><span class="badge badge-ok">${esc(meta.server)}</span></div>`;
+    h += `<div class="row"><span>Tools</span><span class="badge ${meta.stability?.stable ? "badge-ok" : "badge-warn"}">${meta.toolCount}/${meta.expectedToolCount}</span></div>`;
+    h += `<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">`;
+    h += `<input id="bun-docs-q" placeholder="Search Bun docs…" style="flex:1;min-width:120px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg)">`;
+    h += `<select id="bun-docs-tool" style="font-size:10px"><option value="search_bun">search</option><option value="query_docs_filesystem_bun">fs</option></select>`;
+    h += `<button id="bun-docs-go" type="button" style="font-size:10px;padding:4px 8px">Go</button>`;
+    h += `</div><pre id="bun-docs-out" style="font-size:10px;max-height:200px;overflow:auto;margin-top:6px;color:var(--muted)">Enter a query…</pre>`;
+    card("card-bun-docs", h);
+    const go = () => {
+      const q = document.getElementById("bun-docs-q")?.value?.trim();
+      const tool = document.getElementById("bun-docs-tool")?.value || "search_bun";
+      const out = document.getElementById("bun-docs-out");
+      if (!q || !out) return;
+      out.textContent = "Searching…";
+      const body = tool === "query_docs_filesystem_bun" ? { command: q, tool } : { query: q, tool };
+      fetch("/api/bun-docs/search", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          out.textContent = d.ok ? d.text || "(empty)" : d.error || "failed";
+        })
+        .catch((e) => {
+          out.textContent = e.message;
+        });
+    };
+    document.getElementById("bun-docs-go")?.addEventListener("click", go);
+    document.getElementById("bun-docs-q")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") go();
+    });
+  } catch (e) {
+    card("card-bun-docs", `<p class="status err">${esc(e.message)}</p>`);
+  }
+})();

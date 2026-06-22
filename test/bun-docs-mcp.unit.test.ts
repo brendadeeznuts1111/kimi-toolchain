@@ -6,6 +6,7 @@ import {
   EXPECTED_BUN_DOCS_TOOLS,
   formatBunDocsContent,
   probeBunDocs,
+  queryBunDocsFilesystem,
   searchBunDocs,
 } from "../src/lib/bun-docs-mcp.ts";
 import { clearProbeCache } from "../src/lib/mcp-probe.ts";
@@ -67,5 +68,13 @@ describe("bun-docs-mcp", () => {
     const result = await searchBunDocs("Bun.spawn", 30000);
     expect(result.ok).toBe(true);
     expect(result.content).toBeDefined();
+  });
+
+  test("queryBunDocsFilesystem reads utils.mdx via cat", async () => {
+    if (Bun.env.KIMI_SKIP_NETWORK_PROBE === "1") return;
+    clearBunDocsMcpCache();
+    const result = await queryBunDocsFilesystem("cat runtime/utils.mdx", 30000);
+    expect(result.ok).toBe(true);
+    expect(formatBunDocsContent(result.content)).toContain("Bun.openInEditor");
   });
 });

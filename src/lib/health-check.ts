@@ -23,6 +23,15 @@ export interface HealthCheck {
   autoFix?: string;
   /** Known-blocker context from the decision ledger. */
   known?: WorkspaceKnownContext;
+  /** Navigable source for --open / Bun.openInEditor. */
+  source?: CheckSource;
+}
+
+/** File location attached to a health check for editor navigation. */
+export interface CheckSource {
+  file: string;
+  line?: number;
+  column?: number;
 }
 
 export interface HealthReport {

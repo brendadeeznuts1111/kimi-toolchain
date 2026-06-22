@@ -164,10 +164,13 @@ import { fetchJson, card } from "/dashboard-core.js";
   }
 })();
 
-// Bun Runtime capabilities
+// Bun Runtime capabilities + runtime/utils coverage
 (async () => {
   try {
-    const d = await fetchJson("/api/bun-runtime");
+    const [d, cov] = await Promise.all([
+      fetchJson("/api/bun-runtime"),
+      fetchJson("/api/runtime-utils-coverage"),
+    ]);
     if (!d.applicable) {
       card("card-bun-runtime", '<p class="status warn">Not applicable outside kimi-toolchain</p>');
       return;
@@ -176,33 +179,31 @@ import { fetchJson, card } from "/dashboard-core.js";
     const label = d.aligned ? "ALIGNED" : "MISALIGNED";
     let h = `<div class="row"><span>Inventory</span><strong>${d.capabilityCount} keys</strong></div>`;
     h += `<div class="row"><span>Status</span><span class="badge badge-${tone}">${label}</span></div>`;
+    h += `<div class="row"><span>utils.mdx</span><span class="badge badge-info">${cov.coveragePercent}% · ${cov.wrapped}/${cov.total}</span></div>`;
+    if (cov.editor?.resolved)
+      h += `<div class="row"><span>Editor</span><code style="font-size:10px">${cov.editor.resolved}</code></div>`;
+    if (cov.workspace?.branch)
+      h += `<div class="row"><span>Git</span><code style="font-size:10px">${cov.workspace.branch}${cov.workspace.dirty ? " *" : ""}</code></div>`;
     if (d.runtimeApiDocs) {
       h +=
         '<div class="row" style="flex-direction:column;align-items:flex-start;gap:2px"><span>runtimeApiDocs</span>';
       h += `<a href="${d.runtimeApiDocs.globalsUrl}" style="font-size:9px">globals</a>`;
       h += `<a href="${d.runtimeApiDocs.bunApisUrl}" style="font-size:9px">bun-apis</a>`;
-      h += `<a href="${d.runtimeApiDocs.webApisUrl}" style="font-size:9px">web-apis</a>`;
-      if (d.runtimeApiDocs.apiReferenceUrl) {
-        h += `<a href="${d.runtimeApiDocs.apiReferenceUrl}" style="font-size:9px">reference/bun</a>`;
-      }
-      if (d.runtimeApiDocs.docsRssUrl) {
-        h += `<a href="${d.runtimeApiDocs.docsRssUrl}" style="font-size:9px">docs rss</a>`;
-      }
       h += "</div>";
-    }
-    if (d.fixPlan?.length) {
-      h += `<ul style="margin:4px 0 0 16px;font-size:10px;color:var(--muted)">${d.fixPlan
-        .map((f) => `<li>${f}</li>`)
-        .join("")}</ul>`;
     }
     h += '<table class="tbl" style="margin-top:4px"><tr><th>Check</th><th>Status</th></tr>';
     for (const c of d.checks ?? []) {
-      const statusTone = c.status === "ok" ? "ok" : "err";
-      h += `<tr><td style="font-size:9px">${c.name}</td><td><span class="badge badge-${statusTone}">${c.status}</span></td></tr>`;
+      h += `<tr><td style="font-size:9px">${c.name}</td><td><span class="badge badge-${c.status === "ok" ? "ok" : "err"}">${c.status}</span></td></tr>`;
     }
     h += "</table>";
-    const fetched = d.fetchedAt ? new Date(d.fetchedAt).toLocaleString() : "—";
-    h += `<p class="status ok" style="margin-top:8px;font-size:10px">Fetched at ${fetched}</p>`;
+    if (Array.isArray(cov.entries)) {
+      h += `<details style="margin-top:6px"><summary style="font-size:10px;color:var(--blue);cursor:pointer">runtime/utils wrappers</summary>`;
+      h += `<table class="tbl"><tr><th>API</th><th>Wrapper</th></tr>`;
+      for (const row of cov.entries.filter((e) => e.status === "wrapped").slice(0, 8)) {
+        h += `<tr><td style="font-size:9px"><code>${row.api}</code></td><td style="font-size:9px">${row.wrapper ?? "—"}</td></tr>`;
+      }
+      h += "</table></details>";
+    }
     card("card-bun-runtime", h);
   } catch (e) {
     card("card-bun-runtime", `<p class="status err">${e.message}</p>`);
