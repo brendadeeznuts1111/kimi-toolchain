@@ -6,6 +6,7 @@
  *   bun run config:status
  *   bun run config:status --json
  *   bun run config:status --with-scaffold
+ *   bun run config:status --dry-run
  *   bun run config:status --help
  */
 
@@ -23,6 +24,7 @@ interface CliOptions {
   help: boolean;
   json: boolean;
   withScaffold: boolean;
+  dryRun: boolean;
   projectRoot: string;
 }
 
@@ -35,6 +37,7 @@ function parseCli(): CliOptions {
   let help = false;
   let json = false;
   let withScaffold = false;
+  let dryRun = false;
   let projectRoot = REPO_ROOT;
 
   for (let i = 0; i < argv.length; i++) {
@@ -51,6 +54,10 @@ function parseCli(): CliOptions {
       withScaffold = true;
       continue;
     }
+    if (arg === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
     if (arg === "--project") {
       const next = argv[++i];
       if (!next) throw new Error("--project requires a path");
@@ -64,7 +71,7 @@ function parseCli(): CliOptions {
     if (arg.startsWith("-")) throw new Error(`Unknown option: ${arg}`);
   }
 
-  return { help, json, withScaffold, projectRoot };
+  return { help, json, withScaffold, dryRun, projectRoot };
 }
 
 async function main(): Promise<void> {
@@ -82,6 +89,9 @@ async function main(): Promise<void> {
     await writeStdoutLine(JSON.stringify(report, null, 2));
   } else {
     await printConfigStatusReport(report);
+    if (options.dryRun) {
+      await writeStdoutLine("(config:status dry-run — no fixes applied)");
+    }
   }
 
   if (!report.aligned) process.exit(1);
