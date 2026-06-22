@@ -175,7 +175,8 @@
     "discover:dx": "bun run scripts/discover.ts --dx",
     "scope:run": "bun run scripts/scope-run.ts",
     "docs:check": "bun run scripts/check-docs.ts",
-    "docs:fix": "bun run scripts/check-docs.ts --fix"
+    "docs:fix": "bun run scripts/check-docs.ts --fix",
+    "docs:index": "bun run src/bin/kimi-doctor.ts --index-docs"
   },
   "dependencies": {
     "effect": "^3.21.3",

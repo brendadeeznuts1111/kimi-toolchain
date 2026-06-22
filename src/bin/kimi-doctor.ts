@@ -8,7 +8,7 @@ import { buildTraceEvent, recordTraceEvent } from "../lib/trace-ledger.ts";
 /**
  * kimi-doctor — Comprehensive diagnostics
  * Delegates to individual tool doctor commands + runs system checks
- * Usage: kimi-doctor [--fix] [--quick] [--soft-system] [--memory-budget] [--json]
+ * Usage: kimi-doctor [--fix] [--quick] [--soft-system] [--memory-budget] [--json] [--index-docs]
  */
 
 import { $ } from "bun";
@@ -189,6 +189,7 @@ const PERF_AUTO_TRAIN = Bun.argv.includes("--perf-auto-train");
 const OPEN = Bun.argv.includes("--open");
 const GATE = argValue("--gate");
 const RUN_GATES = Bun.argv.includes("--run-gates");
+const INDEX_DOCS = Bun.argv.includes("--index-docs");
 const GATE_GRAPH = Bun.argv.includes("--gate-graph") || Bun.argv.includes("--graph");
 const DRYRUN = Bun.argv.includes("--dryrun") || Bun.argv.includes("--dry-run");
 const SAVE_ARTIFACT = Bun.argv.includes("--save-artifact") && !DRYRUN;
@@ -1922,6 +1923,29 @@ async function main(): Promise<number> {
 
   if (WORKSPACE_CONTEXT) {
     return runWorkspaceContextMode(projectRoot);
+  }
+
+  if (INDEX_DOCS) {
+    const { buildIndex } = await import("../lib/doc-index.ts");
+    const report = await buildIndex(projectRoot);
+    const outPath = join(projectRoot, "INDEX.md");
+    await Bun.write(outPath, report.output);
+    if (JSON_OUT) {
+      emitJson({
+        totalFiles: report.totalFiles,
+        indexed: report.indexed,
+        categories: report.categories,
+        path: outPath,
+      });
+    } else {
+      logger.banner("Kimi Doctor — Index Docs");
+      logger.info(`Scanned ${report.totalFiles} .md files`);
+      for (const cat of report.categories) {
+        logger.line(`  ${cat.label}: ${cat.count} files`);
+      }
+      logger.info(`Wrote ${outPath}`);
+    }
+    return 0;
   }
 
   if (WATCH) {
