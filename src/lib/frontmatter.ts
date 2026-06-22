@@ -6,7 +6,7 @@ import yaml from "js-yaml";
 import { resolve } from "path";
 import { parseToml } from "./bun-utils.ts";
 import { pathExists } from "./bun-io.ts";
-import { customInspect, formatTable } from "./inspect.ts";
+import { formatTable } from "./inspect.ts";
 
 /** Recursion depth for nested frontmatter values in table cells (avoids [Object]). */
 export const FRONTMATTER_TABLE_DEPTH = 10;
@@ -204,7 +204,7 @@ export class FrontmatterView {
     readonly depth = FRONTMATTER_TABLE_DEPTH
   ) {}
 
-  [customInspect](): string {
+  [Symbol.for("nodejs.util.inspect.custom")](): string {
     return formatFrontmatterTable(this.data, { depth: this.depth });
   }
 }

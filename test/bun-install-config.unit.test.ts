@@ -60,7 +60,6 @@ minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
-dir = "~/.bun/install/cache"
 `;
 
 const SECURE_PACKAGE_JSON = {

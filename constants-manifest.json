@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-20T08:25:34.997Z",
+  "generatedAt": "2026-06-22T21:46:15.557Z",
   "repo": "kimi-toolchain",
   "tuningSetVersion": "1.4.4",
   "domains": {
@@ -191,11 +191,12 @@
           "accounting-telegram": {
             "key": "DRIFT_VELOCITY_WINDOW_DAYS",
             "defineDomain": "drift-predict",
-            "value": 7,
-            "present": true
+            "value": "(missing)",
+            "present": false
           }
         },
-        "aligned": true
+        "aligned": false,
+        "drift": "accounting-telegram:DRIFT_VELOCITY_WINDOW_DAYS missing"
       }
     ]
   }

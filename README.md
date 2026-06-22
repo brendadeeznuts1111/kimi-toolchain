@@ -210,6 +210,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run cleanup:root` | (synced from package.json) |
 | `bun run cleanup:root:dry-run` | (synced from package.json) |
 
+| `bun run cleanup:root:fix` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                                    |
