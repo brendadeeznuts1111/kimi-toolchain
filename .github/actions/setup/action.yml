@@ -4,6 +4,10 @@ description: Checkout, install Bun, cache, and install deps for kimi-toolchain C
 runs:
   using: composite
   steps:
+    - name: Configure Bun log level
+      shell: bash
+      run: echo "BUN_CONFIG_LOG_LEVEL=warn" >> "$GITHUB_ENV"
+
     - name: Setup Bun
       uses: oven-sh/setup-bun@v2
       with:

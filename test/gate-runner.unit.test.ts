@@ -26,10 +26,13 @@ const gitFixtureEnv = {
 describe("gate-runner", () => {
   let projectDir: string;
   let previousNoColor: string | undefined;
+  let previousForceColor: string | undefined;
 
   beforeEach(() => {
     previousNoColor = Bun.env.NO_COLOR;
+    previousForceColor = Bun.env.FORCE_COLOR;
     delete Bun.env.NO_COLOR;
+    delete Bun.env.FORCE_COLOR;
     projectDir = testTempDir("gate-runner-");
     ensureTestDir(join(projectDir, ".kimi"));
     process.chdir(projectDir);
@@ -40,6 +43,8 @@ describe("gate-runner", () => {
     cleanupPath(projectDir);
     if (previousNoColor === undefined) delete Bun.env.NO_COLOR;
     else Bun.env.NO_COLOR = previousNoColor;
+    if (previousForceColor === undefined) delete Bun.env.FORCE_COLOR;
+    else Bun.env.FORCE_COLOR = previousForceColor;
   });
 
   it("should format hook summary with skipped gates", () => {
@@ -126,5 +131,19 @@ describe("gate-runner", () => {
     ]);
     expect(line).toContain("OKlint");
     expect(line).toContain("FAILcheck");
+  });
+
+  it("FORCE_COLOR overrides NO_COLOR for marks", () => {
+    Bun.env.NO_COLOR = "1";
+    Bun.env.FORCE_COLOR = "1";
+    expect(failMark()).toBe("✗");
+    expect(okMark()).toBe("✓");
+  });
+
+  it("FORCE_COLOR=0 does not override NO_COLOR", () => {
+    Bun.env.NO_COLOR = "1";
+    Bun.env.FORCE_COLOR = "0";
+    expect(failMark()).toBe("FAIL");
+    expect(okMark()).toBe("OK");
   });
 });

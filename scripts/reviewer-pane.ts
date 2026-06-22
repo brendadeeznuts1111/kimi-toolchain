@@ -26,6 +26,12 @@ const ANSI = {
 };
 
 function noColor(): boolean {
+  if (
+    Bun.env.FORCE_COLOR !== undefined &&
+    Bun.env.FORCE_COLOR !== "0" &&
+    Bun.env.FORCE_COLOR !== "false"
+  )
+    return false;
   return Bun.env.NO_COLOR !== undefined && Bun.env.NO_COLOR !== "0" && Bun.env.NO_COLOR !== "false";
 }
 

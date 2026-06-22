@@ -73,6 +73,29 @@ describe("error-format", () => {
     });
   });
 
+  test("colorize respects NO_COLOR=true (not just 1)", () => {
+    withClearedEnv(["FORCE_COLOR"], () => {
+      withEnv({ NO_COLOR: "true" }, () => {
+        expect(colorOutputEnabled()).toBe(false);
+        expect(colorize("hello", "red")).toBe("hello");
+      });
+    });
+  });
+
+  test("FORCE_COLOR overrides NO_COLOR", () => {
+    withEnv({ NO_COLOR: "1", FORCE_COLOR: "1" }, () => {
+      expect(colorOutputEnabled()).toBe(true);
+      expect(colorize("hello", "red")).not.toBe("hello");
+    });
+  });
+
+  test("FORCE_COLOR=0 does not force color", () => {
+    withEnv({ NO_COLOR: "1", FORCE_COLOR: "0" }, () => {
+      expect(colorOutputEnabled()).toBe(false);
+      expect(colorize("hello", "red")).toBe("hello");
+    });
+  });
+
   test("inferDomainFromTaxonomy maps known taxonomy ids", () => {
     expect(inferDomainFromTaxonomy("lint_failure")).toBe("cli");
     expect(inferDomainFromTaxonomy("unknown_taxonomy")).toBeUndefined();

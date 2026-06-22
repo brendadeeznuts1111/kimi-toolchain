@@ -48,7 +48,23 @@ export interface FormattedError {
 }
 
 export function colorOutputEnabled(): boolean {
-  return Bun.env.NO_COLOR !== "1" && Bun.env.KIMI_NO_COLOR !== "1";
+  if (forceColorEnabled()) return true;
+  return !noColorActive();
+}
+
+/** FORCE_COLOR set to any non-empty value forces color on (overrides NO_COLOR). */
+function forceColorEnabled(): boolean {
+  const v = Bun.env.FORCE_COLOR;
+  return v !== undefined && v !== "0" && v !== "false";
+}
+
+/** NO_COLOR (or KIMI_NO_COLOR) set to any non-empty, non-"0", non-"false" value disables color. */
+function noColorActive(): boolean {
+  for (const key of ["NO_COLOR", "KIMI_NO_COLOR"] as const) {
+    const v = Bun.env[key];
+    if (v !== undefined && v !== "0" && v !== "false") return true;
+  }
+  return false;
 }
 
 /** Convert a named/hex color to an ANSI 256 foreground prefix. */
