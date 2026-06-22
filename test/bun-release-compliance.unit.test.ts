@@ -705,7 +705,7 @@ describe("bun-release-compliance Effect doc URLs and scaffold patterns", () => {
 // ── Bun v1.4.0 feature compliance ───────────────────────────────────
 
 describe("bun-release-compliance bun-v1.4.0", () => {
-  test("Symbol.dispose on spyOn auto-restores", () => {
+  test("using spy = spyOn(...) auto-restores the original method when the block exits", () => {
     const { spyOn } = require("bun:test");
     const obj = { method: () => "original" as string };
     {
@@ -715,7 +715,7 @@ describe("bun-release-compliance bun-v1.4.0", () => {
     expect(obj.method()).toBe("original");
   });
 
-  test("Symbol.dispose on mock resets call count", () => {
+  test("mock[Symbol.dispose]() resets the mock call count to zero", () => {
     const { mock } = require("bun:test");
     const fn = mock(() => "orig");
     fn();
@@ -724,7 +724,7 @@ describe("bun-release-compliance bun-v1.4.0", () => {
     expect(fn).toHaveBeenCalledTimes(0);
   });
 
-  test("bun run --parallel supported", async () => {
+  test("bun run --help output includes --parallel, --sequential, and --no-exit-on-error", async () => {
     const proc = Bun.spawn({ cmd: ["bun", "run", "--help"], stdout: "pipe" });
     const out = await new Response(proc.stdout).text();
     expect(out).toContain("--parallel");
@@ -732,7 +732,7 @@ describe("bun-release-compliance bun-v1.4.0", () => {
     expect(out).toContain("--no-exit-on-error");
   });
 
-  test("--cpu-prof-interval flag supported", async () => {
+  test("bun --cpu-prof-interval=500 -e exits cleanly on Bun >= 1.3.7", async () => {
     const proc = Bun.spawn({
       cmd: ["bun", "--cpu-prof-interval", "500", "-e", "process.exit(0)"],
       stdout: "pipe",
@@ -757,7 +757,7 @@ describe("bun-release-compliance bun-v1.4.0", () => {
 // ── Compression round-trip compliance ────────────────────────────────
 
 describe("bun-release-compliance compression", () => {
-  test("gzip round-trip", () => {
+  test("compressGzip + decompressGzip round-trips a UTF-8 payload", () => {
     const { compressGzip, decompressGzip } = require("../src/lib/compression.ts");
     const data = new TextEncoder().encode("kimi-toolchain compression test");
     expect(new TextDecoder().decode(decompressGzip(compressGzip(data)))).toBe(
@@ -765,7 +765,7 @@ describe("bun-release-compliance compression", () => {
     );
   });
 
-  test("deflate round-trip", () => {
+  test("compressDeflate + decompressDeflate round-trips a UTF-8 payload", () => {
     const { compressDeflate, decompressDeflate } = require("../src/lib/compression.ts");
     const data = new TextEncoder().encode("deflate round-trip");
     expect(new TextDecoder().decode(decompressDeflate(compressDeflate(data)))).toBe(
@@ -773,30 +773,30 @@ describe("bun-release-compliance compression", () => {
     );
   });
 
-  test("zstd round-trip", () => {
+  test("compressZstd + decompressZstd round-trips a UTF-8 payload", () => {
     const { compressZstd, decompressZstd } = require("../src/lib/compression.ts");
     const data = new TextEncoder().encode("zstd round-trip");
     expect(new TextDecoder().decode(decompressZstd(compressZstd(data)))).toBe("zstd round-trip");
   });
 
-  test("detectFormat identifies gzip magic bytes", () => {
+  test("detectFormat returns 'gzip' for 0x1f8b magic-byte header", () => {
     const { compressGzip, detectFormat } = require("../src/lib/compression.ts");
     expect(detectFormat(compressGzip("test"))).toBe("gzip");
   });
 
-  test("detectFormat identifies zstd magic bytes", () => {
+  test("detectFormat returns 'zstd' for 0x28B52FFD magic-byte header", () => {
     const { compressZstd, detectFormat } = require("../src/lib/compression.ts");
     expect(detectFormat(compressZstd("test"))).toBe("zstd");
   });
 
-  test("autoCompress picks an algorithm for 100KB data", () => {
+  test("autoCompress selects best algorithm for 100KB of repeated data", () => {
     const { autoCompress } = require("../src/lib/compression.ts");
     const result = autoCompress("x".repeat(100_000), "balanced");
     expect(["gzip", "deflate", "zstd"]).toContain(result.algorithm);
     expect(result.ratio).toBeLessThan(1);
   });
 
-  test("zstd async round-trip", async () => {
+  test("compressZstdAsync + decompressZstdAsync round-trips a string payload without blocking", async () => {
     const { compressZstdAsync, decompressZstdAsync } = require("../src/lib/compression.ts");
     const data = "async zstd test";
     const compressed = await compressZstdAsync(data);
@@ -804,12 +804,45 @@ describe("bun-release-compliance compression", () => {
     expect(new TextDecoder().decode(decompressed)).toBe(data);
   });
 
-  test("exportAuditReport round-trip via parseAuditReport", () => {
+  test("exportAuditReport → parseAuditReport round-trips findings through zstd", () => {
     const { exportAuditReport, parseAuditReport } = require("../src/lib/compression.ts");
     const findings = [{ ok: true, id: "test-1" }];
     const compressed = exportAuditReport(findings, "zstd");
     const parsed = parseAuditReport(compressed) as any;
     expect(parsed.findings).toEqual(findings);
+  });
+});
+
+// ── timing / benchmarking ────────────────────────────────────────────
+
+describe("bun-release-compliance timing-benchmarking", () => {
+  test("timing.ts uses Bun.nanoseconds for microbenchmarks", () => {
+    const text = readSrc("src/lib/timing.ts");
+    expect(text).toContain("Bun.nanoseconds");
+    expect(text).toContain("benchSync");
+    expect(text).toContain("benchAsync");
+    expect(text).toContain("bun.com/docs/project/benchmarking");
+  });
+
+  test("bench/core.bench.ts delegates timing to src/lib/timing.ts", () => {
+    const text = readSrc("bench/core.bench.ts");
+    expect(text).toContain('from "../src/lib/timing.ts"');
+    expect(text).not.toContain("function bench(");
+  });
+
+  test("canonical-references.toml links bun runtime to bun-upstream benchmarking docs", () => {
+    const text = readSrc("canonical-references.toml");
+    expect(text).toContain('repoId = "bun-upstream"');
+    expect(text).toContain('id = "bun-upstream"');
+    expect(text).toContain("oven-sh/bun");
+    expect(text).toContain("benchmarking");
+  });
+
+  test("perf-gate-format surfaces profiling hints on failures", () => {
+    const text = readSrc("src/lib/perf-gate-format.ts");
+    expect(text).toContain("formatPerfProfilingHints");
+    expect(text).toContain("--cpu-prof-md");
+    expect(text).toContain("MIMALLOC_SHOW_STATS=1");
   });
 });
 
@@ -863,6 +896,7 @@ describe("bun-release-compliance console-bun-terminal", () => {
     "src/lib/secrets/fast-resolver.ts",
     "src/lib/compression.ts",
     "src/lib/timing.ts",
+    "src/lib/memory/governor.ts",
   ]);
 
   // src/bin/ entry points: console is the primary output mechanism — not linted here

@@ -9,7 +9,7 @@ describe("bun-utils-editor", () => {
     expect(spy).toHaveBeenCalledWith("/tmp/test.ts", { editor: "code", line: 10, column: 5 });
   });
 
-  test("openFileInEditor works with URL input", () => {
+  test("openFileInEditor accepts a URL object and passes it to Bun.openInEditor", () => {
     using spy = spyOn(Bun, "openInEditor").mockImplementation(() => {});
     const url = new URL("file:///tmp/test.ts");
     openFileInEditor(url);

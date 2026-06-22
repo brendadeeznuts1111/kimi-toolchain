@@ -18,7 +18,7 @@ function emptySnap(usedPercent: number) {
 }
 
 describe("memory-governor", () => {
-  test("snapshot combines process, jsc heap, and system memory", () => {
+  test("snapshot aggregates process rss, jsc heap stats, and system free/total memory", () => {
     const snap = snapshot();
     expect(typeof snap.process.rss).toBe("number");
     expect(typeof snap.jscHeap.heapSize).toBe("number");
@@ -40,14 +40,14 @@ describe("memory-governor", () => {
     expect(classifyPressure(emptySnap(100))).toBe("critical");
   });
 
-  test("adaptiveCacheTTL reduces TTL under pressure", () => {
+  test("adaptiveCacheTTL reduces base TTL proportionally under serious pressure", () => {
     expect(adaptiveCacheTTL(30_000, emptySnap(0))).toBe(30_000);
     expect(adaptiveCacheTTL(30_000, emptySnap(70))).toBe(15_000);
     expect(adaptiveCacheTTL(30_000, emptySnap(85))).toBe(3_000);
     expect(adaptiveCacheTTL(30_000, emptySnap(95.1))).toBe(0);
   });
 
-  test("adaptiveCacheTTL floors at zero", () => {
+  test("adaptiveCacheTTL returns zero when memory pressure is critical", () => {
     expect(adaptiveCacheTTL(0, emptySnap(100))).toBe(0);
   });
 
@@ -69,7 +69,7 @@ describe("memory-governor", () => {
     expect(isActuallyCritical(highHeap)).toBe(true);
   });
 
-  test("forceGarbageCollection does not throw", () => {
+  test("forceGarbageCollection invokes Bun.gc(true) without throwing", () => {
     expect(() => forceGarbageCollection()).not.toThrow();
   });
 
@@ -80,7 +80,7 @@ describe("memory-governor", () => {
     expect(ok.message).toContain("test-op");
   });
 
-  test("printMemoryTable writes a table", () => {
+  test("printMemoryTable outputs an inspect.table with pressure, used, and total columns", () => {
     let output = "";
     using spy = spyOn(console, "log").mockImplementation((...args: unknown[]) => {
       output += args.join(" ") + "\n";
