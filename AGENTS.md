@@ -398,6 +398,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `f
 
 - **No secrets in source.** Use `Bun.env` or `Bun.secrets`.
 - **Pre-commit hook** blocks `.env` files from being committed.
+- **Env drift check.** `bun run check:env-drift` compares the local `.env` against `.env.example` and reports missing or local-only keys. It runs automatically in `bun run check` and `bun run check:fast`; it skips safely when `.env` is absent (e.g. CI).
 - **Guardian** baselines `bun.lock` hashes and signs manifests with HMAC (key in macOS Keychain or `~/.kimi-code/guardian/.key` with `chmod 600`).
 - **CVE scanning** uses the OSV API (`api.osv.dev`).
 - **Trusted dependencies** gate: dependency lifecycle scripts must be listed in `package.json` `trustedDependencies` (Bun SSOT). `kimi-guardian check` audits; `kimi-guardian fix` or `bun pm trust <pkg>` adds entries.

@@ -274,6 +274,50 @@ KIMI_HOOK_VERIFIER_MAX_CYCLES = "32"
     );
 
     it(
+      "pre-commit runs env-drift check when script exists",
+      async () => {
+        await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {
+          const scopedDir = testTempDir("hook-env-drift-");
+          await $`git init`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.email test@example.com`.cwd(scopedDir).nothrow().quiet();
+          await $`git config user.name Test`.cwd(scopedDir).nothrow().quiet();
+          ensureTestDir(join(scopedDir, "src"));
+          makeDir(join(scopedDir, "scripts"), { recursive: true });
+          await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 1;\n");
+          writeText(join(scopedDir, ".env.example"), "# Example env\nAPI_KEY=xxx\n");
+          writeText(join(scopedDir, ".env"), "API_KEY=xxx\n");
+          writeText(
+            join(scopedDir, "scripts/check-env-drift.ts"),
+            "await Bun.write('env-drift-ran.txt', 'yes\\n');\n"
+          );
+          writeText(
+            join(scopedDir, "package.json"),
+            JSON.stringify({
+              name: "other-project",
+              scripts: {
+                "format:check": "true",
+                lint: "true",
+                typecheck: "true",
+                "test:fast": "true",
+              },
+            })
+          );
+          await $`git add -A`.cwd(scopedDir).nothrow().quiet();
+          await $`git commit -m init`.cwd(scopedDir).nothrow().quiet();
+          await Bun.write(join(scopedDir, "src/foo.ts"), "export const x = 2;\n");
+          await $`git add src/foo.ts`.cwd(scopedDir).nothrow().quiet();
+
+          const code = await runPreCommitGates(scopedDir);
+
+          expect(code).toBe(0);
+          expect(await Bun.file(join(scopedDir, "env-drift-ran.txt")).text()).toBe("yes\n");
+          removePath(scopedDir, { recursive: true, force: true });
+        });
+      },
+      PRE_COMMIT_GATE_TEST_MS
+    );
+
+    it(
       "pre-commit skips test:fast when bun test --changed finds no matching tests",
       async () => {
         await withClearedEnv(["KIMI_HOOK_SUMMARY"], async () => {

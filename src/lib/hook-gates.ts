@@ -45,6 +45,7 @@ const PRE_COMMIT_CACHE_GATES = [
   "lint",
   "typecheck",
   "canonical-references",
+  "check:env-drift",
   "test:fast",
 ] as const;
 const PRE_PUSH_CACHE_GATES = [
@@ -324,6 +325,22 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
         "run",
         "scripts/generate-canonical-references.ts",
         "--check",
+      ]);
+    },
+    async () => {
+      const script = join(projectRoot, "scripts/check-env-drift.ts");
+      if (!pathExists(script)) return null;
+      if (!summary) printVerboseBanner("Env drift check");
+      if (await shouldSkipGate(projectRoot, "check:env-drift")) {
+        return skippedGateResult("check:env-drift");
+      }
+      if (await shouldSkipGateFromScopedCache(projectRoot, "check:env-drift", staged)) {
+        return skippedGateResult("check:env-drift");
+      }
+      return runGateVisible(projectRoot, "check:env-drift", [
+        "bun",
+        "run",
+        "scripts/check-env-drift.ts",
       ]);
     },
     async () => runPreCommitTestsGate(projectRoot, staged, summary),
@@ -1113,6 +1130,13 @@ export async function planPreCommitGates(projectRoot: string): Promise<PlannedGa
       name: "test:changed",
       cmd: ["bun", "run", "test:changed"],
       skipped: await shouldSkipGate(projectRoot, "test:changed"),
+    });
+  }
+  if (pathExists(join(projectRoot, "scripts/check-env-drift.ts"))) {
+    planned.push({
+      name: "check:env-drift",
+      cmd: ["bun", "run", "scripts/check-env-drift.ts"],
+      skipped: await shouldSkipGate(projectRoot, "check:env-drift"),
     });
   }
   if (pathExists(join(projectRoot, "scripts/lint-tuning-set-version.ts"))) {
