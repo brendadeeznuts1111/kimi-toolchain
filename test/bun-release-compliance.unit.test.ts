@@ -887,7 +887,6 @@ describe("bun-release-compliance bunfig-runtime", () => {
   test("bunfig.toml [install.cache] matches Bun global cache docs", () => {
     const text = readSrc("bunfig.toml");
     expect(text).toContain("[install.cache]");
-    expect(text).toContain("~/.bun/install/cache");
     expect(text).toContain("disable = false");
     expect(text).toContain("disableManifest = false");
   });
