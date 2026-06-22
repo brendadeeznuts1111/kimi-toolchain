@@ -403,7 +403,33 @@ export function cardStatusFromProbe(cardId: string, data: unknown): DashboardCar
       return "unknown";
     }
     case "card-kimi-doctor": {
-      const commands = (data as { commands?: unknown[] }).commands;
+      const body = data as {
+        live?: {
+          perf?: { allPass?: boolean };
+          artifacts?: { savedCount?: number };
+          effectGates?: { ok?: boolean };
+          ok?: boolean;
+        };
+        allPass?: boolean;
+        ok?: boolean;
+        commands?: unknown[];
+      };
+      if (body.live) {
+        if (
+          body.live.perf?.allPass === false ||
+          body.allPass === false ||
+          body.live.effectGates?.ok === false
+        ) {
+          return "error";
+        }
+        if (body.live.ok === true || body.ok === true) return "ok";
+        if (body.live.perf?.allPass === true && (body.live.artifacts?.savedCount ?? 0) === 0) {
+          return "warn";
+        }
+        if (body.live.perf?.allPass === true) return "ok";
+        return "warn";
+      }
+      const commands = body.commands;
       return Array.isArray(commands) && commands.length > 0 ? "ok" : "warn";
     }
     case "card-scaffold": {

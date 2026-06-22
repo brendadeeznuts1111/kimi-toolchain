@@ -19,6 +19,16 @@ describe("dashboard-routes", () => {
     expect(paths).toContain("/api/examples/trading");
     expect(paths).toContain("/api/health");
     expect(paths).toContain("/api/effect-benchmark/refresh");
+    expect(paths).toContain("/api/audit/hardcoded");
+  });
+
+  test("GET /api/audit/hardcoded returns clean audit JSON", async () => {
+    const res = await dispatchDashboardRoute(new Request("http://127.0.0.1/api/audit/hardcoded"));
+    expect(res?.status).toBe(200);
+    const body = await res!.json();
+    expect(body.ok).toBe(true);
+    expect(typeof body.scanned).toBe("number");
+    expect(Array.isArray(body.findings)).toBe(true);
   });
 
   test("POST on GET-only route returns JSON 405", async () => {

@@ -47,6 +47,14 @@ async function renderReport(reportPath: string): Promise<number> {
     `Summary: ${report.summary.passed}/${report.summary.total} passed · ${report.summary.failed} failed · ${report.summary.durationMs}ms`
   );
 
+  if (report.imageAudit) {
+    const { filesScanned, findings } = report.imageAudit;
+    console.log(`\nImage audit: ${filesScanned} file(s) scanned · ${findings.length} finding(s)`);
+    for (const finding of findings) {
+      console.log(`  [${finding.taxonomyId}] ${finding.file}: ${finding.message}`);
+    }
+  }
+
   if (report.summary.failed > 0) {
     console.log(`\nFailed audits:`);
     for (const run of report.runs) {

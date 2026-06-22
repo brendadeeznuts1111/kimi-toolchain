@@ -198,6 +198,10 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run audit:hardcoded` | (synced from package.json) |
 
+| `bun run audit:parallel` | (synced from package.json) |
+| `bun run audit:dry-run:parallel` | (synced from package.json) |
+| `bun run deep-audit:webview` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                                    |

@@ -139,6 +139,35 @@ function renderSchema(container, schema) {
   }
 }
 
+// Hardcoded-secret audit — live scan of src/, scripts/, examples/
+(async () => {
+  try {
+    const d = await fetchJson("/api/audit/hardcoded");
+    const tone = d.ok ? "ok" : "err";
+    const label = d.ok ? "CLEAN" : "LEAKED";
+    let h = `<div class="row"><span>Status</span><span class="badge badge-${tone}">${label}</span></div>`;
+    h += `<div class="row"><span>Files scanned</span><strong>${d.scanned ?? 0}</strong></div>`;
+    h += `<div class="row"><span>Findings</span><strong style="color:${d.ok ? "var(--green)" : "var(--red)"}">${d.count ?? 0}</strong></div>`;
+    if (Array.isArray(d.findings) && d.findings.length > 0) {
+      h += `<details open style="margin-top:8px"><summary style="font-size:11px;cursor:pointer;color:var(--red)">Findings (${d.findings.length})</summary>`;
+      h += `<table class="tbl" style="margin-top:6px"><tr><th>File</th><th>Line</th><th>Type</th></tr>`;
+      for (const f of d.findings.slice(0, 10)) {
+        const file = f.file.replace(/</g, "&lt;");
+        h += `<tr><td style="font-size:9px"><code>${file}</code></td><td class="num">${f.line}</td><td style="font-size:9px">${f.type}</td></tr>`;
+      }
+      h += `</table>`;
+      if (d.findings.length > 10) {
+        h += `<p style="font-size:9px;color:var(--muted);margin-top:4px">…and ${d.findings.length - 10} more.</p>`;
+      }
+      h += `</details>`;
+    }
+    h += `<p style="font-size:9px;color:var(--muted);margin-top:6px">Suppress intentional dev fallbacks with <code>// kimi-audit:ignore-hardcoded-secret</code>.</p>`;
+    card("card-hardcoded-audit", h);
+  } catch (e) {
+    card("card-hardcoded-audit", `<p class="status err">${e.message}</p>`);
+  }
+})();
+
 // Bunfig policy — config surface for the bunfig-policy gate
 (async () => {
   try {
@@ -278,15 +307,115 @@ function renderSchema(container, schema) {
   }
 })();
 
-// perf-doctor + kimi-doctor CLI
-(async () => {
-  try {
-    const d = await fetchJson("/api/kimi-doctor");
-    const perf = d.perfDoctor || {};
-    const kimi = d.kimiDoctor || {};
-    const flags = perf.commands || d.commands || [];
+// perf-doctor + kimi-doctor CLI (live probes — auto-refresh)
+(function kimiDoctorLiveCard() {
+  const PERF_REFRESH_MS = 10_000;
+  const EFFECT_GATES_REFRESH_MS = 30_000;
+  let effectGatesCache = null;
+  let staticDocs = null;
+  let _perfTimer = null;
+  let _effectTimer = null;
 
-    let h = `<p style="font-size:11px;color:var(--blue);margin-bottom:4px">perf-doctor <span style="font-size:9px;color:var(--muted)">${perf.cli || d.cli || ""}</span></p>`;
+  function scrollToPerfRegistry() {
+    document.getElementById("card-perf-registry")?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }
+
+  function wirePerfRegistryLinks(root) {
+    root.querySelectorAll("[data-kimi-perf-registry]").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        scrollToPerfRegistry();
+      });
+    });
+  }
+
+  function renderKimiDoctorCard(d) {
+    const perf = d.perfDoctor || staticDocs?.perfDoctor || {};
+    const kimi = d.kimiDoctor || staticDocs?.kimiDoctor || {};
+    const flags = perf.commands || d.commands || staticDocs?.commands || [];
+    const live = d.live || {};
+    const livePerf = live.perf || {};
+    const liveArtifacts = live.artifacts || {};
+    const liveFiles = live.files || {};
+    const effectGates = live.effectGates || effectGatesCache;
+    const registryRoute = livePerf.registryRoute || "/api/perf-registry";
+    const registryCardId = livePerf.registryCardId || "card-perf-registry";
+
+    let h = "";
+    if (livePerf.registrySize) {
+      const perfTone = livePerf.allPass ? "ok" : "err";
+      const perfLabel = livePerf.allPass ? "PASSING" : "FAILING";
+      h += `<div class="row"><span>Live benchmarks</span><span class="badge badge-${perfTone}">${perfLabel}</span></div>`;
+      h += `<div class="row"><span>Registry</span><strong>${livePerf.passCount ?? 0}/${livePerf.registrySize}</strong>`;
+      h += `<button type="button" data-kimi-perf-registry style="font-size:9px;padding:2px 6px;cursor:pointer;margin-left:6px" title="Scroll to ${registryCardId}">perf-registry ↗</button></div>`;
+      h += `<p style="font-size:9px;color:var(--muted);margin:2px 0 6px">Inspect: <a href="${registryRoute}" target="_blank" rel="noopener"><code>${registryRoute}</code></a> · <button type="button" data-kimi-perf-registry style="background:none;border:none;padding:0;color:var(--blue);cursor:pointer;font-size:9px">#${registryCardId}</button></p>`;
+      if (Array.isArray(livePerf.failures) && livePerf.failures.length) {
+        h += `<details open style="margin-top:4px"><summary style="font-size:10px;cursor:pointer;color:var(--red)">Failures (${livePerf.failures.length}) — <button type="button" data-kimi-perf-registry style="background:none;border:none;padding:0;color:var(--blue);cursor:pointer;font-size:9px">open perf-registry</button></summary>`;
+        for (const failure of livePerf.failures.slice(0, 8)) {
+          h += `<p class="status err" style="font-size:9px;margin:2px 0">${failure}</p>`;
+        }
+        h += `</details>`;
+      }
+      if (Array.isArray(livePerf.metrics) && livePerf.metrics.length) {
+        h += `<details style="margin-top:4px"><summary style="font-size:10px;cursor:pointer;color:var(--blue)">Benchmark table (${livePerf.metrics.length})</summary>`;
+        h += `<table class="tbl" style="margin-top:4px"><tr><th>Key</th><th>ms</th><th>threshold</th><th>Status</th></tr>`;
+        for (const row of livePerf.metrics) {
+          const tone = row.skipped ? "warn" : row.pass ? "ok" : "err";
+          const label = row.skipped ? "skip" : row.pass ? "pass" : "fail";
+          const keyCell = row.pass
+            ? `<code style="font-size:9px">${row.name}</code>`
+            : `<button type="button" data-kimi-perf-registry data-metric="${row.name}" style="background:none;border:none;padding:0;color:var(--blue);cursor:pointer;font-size:9px"><code>${row.name}</code> ↗</button>`;
+          h += `<tr><td>${keyCell}</td><td class="num">${Number(row.actualMs).toFixed(2)}</td><td class="num">${row.thresholdMs}</td><td><span class="badge badge-${tone}">${label}</span></td></tr>`;
+        }
+        h += `</table></details>`;
+      }
+    }
+
+    if (effectGates) {
+      const egTone = effectGates.ok ? "ok" : "err";
+      const egLabel = effectGates.ok ? "PASSING" : "FAILING";
+      h += `<p style="font-size:11px;color:var(--blue);margin:8px 0 4px">Effect gates <span class="badge badge-${egTone}">${egLabel}</span></p>`;
+      h += `<div class="row"><span>Violations</span><strong>${effectGates.summary?.total ?? 0}</strong></div>`;
+      h += `<div class="row"><span>Errors</span><strong style="color:${(effectGates.summary?.errors ?? 0) > 0 ? "var(--red)" : "var(--green)"}">${effectGates.summary?.errors ?? 0}</strong></div>`;
+      h += `<div class="row"><span>Regressions</span><strong>${effectGates.regressionCount ?? 0}</strong></div>`;
+      h += `<p style="font-size:9px;color:var(--muted);margin:2px 0 4px">Inspect: <a href="${effectGates.route || "/api/gates"}" target="_blank" rel="noopener"><code>${effectGates.route || "/api/gates"}</code></a> · <button type="button" id="kimi-scroll-gates" style="background:none;border:none;padding:0;color:var(--blue);cursor:pointer;font-size:9px">#card-gates</button></p>`;
+      if (Array.isArray(effectGates.violations) && effectGates.violations.length) {
+        h += `<details style="margin-top:4px"><summary style="font-size:10px;cursor:pointer;color:var(--red)">Violations (${effectGates.violations.length})</summary>`;
+        for (const v of effectGates.violations.slice(0, 6)) {
+          h += `<p class="status ${v.severity === "error" ? "err" : "warn"}" style="font-size:9px;margin:2px 0">${v.location ? `${v.location}: ` : ""}${v.message}</p>`;
+        }
+        h += `</details>`;
+      }
+      if (effectGates.fetchedAt) {
+        h += `<p style="font-size:9px;color:var(--muted)">Effect-gates probed ${new Date(effectGates.fetchedAt).toLocaleString()}</p>`;
+      }
+    }
+
+    if (Array.isArray(liveArtifacts.gates) && liveArtifacts.gates.length) {
+      h += `<p style="font-size:11px;color:var(--blue);margin:8px 0 4px">Lineage artifacts <span class="badge badge-${(liveArtifacts.savedCount ?? 0) > 0 ? "ok" : "warn"}">art:${liveArtifacts.artBadge ?? 0}</span></p>`;
+      h += `<table class="tbl"><tr><th>Gate</th><th>Count</th><th>Status</th><th>savedAt</th></tr>`;
+      for (const row of liveArtifacts.gates) {
+        const tone =
+          row.count > 0 ? (row.status === "pass" || row.status === "ok" ? "ok" : "warn") : "warn";
+        const savedAt = row.savedAt ? new Date(row.savedAt).toLocaleString() : "—";
+        h += `<tr><td><code style="font-size:9px">${row.gate}</code></td><td class="num">${row.count ?? 0}</td><td><span class="badge badge-${tone}">${row.status || "missing"}</span></td><td style="font-size:9px;color:var(--muted)">${savedAt}</td></tr>`;
+      }
+      h += `</table>`;
+    }
+
+    if (liveFiles.dashboardDir) {
+      h += `<div class="row" style="margin-top:6px"><span>thresholds.json</span><span class="badge badge-${liveFiles.thresholdsJson ? "ok" : "warn"}">${liveFiles.thresholdsJson ? "present" : "missing"}</span></div>`;
+      h += `<div class="row"><span>perf-report.html</span><span class="badge badge-${liveFiles.perfReportHtml ? "ok" : "warn"}">${liveFiles.perfReportHtml ? "present" : "missing"}</span></div>`;
+    }
+
+    if (d.fetchedAt) {
+      h += `<p class="status ok" style="font-size:9px;margin-top:6px">Perf probed ${new Date(d.fetchedAt).toLocaleString()} · refresh ${PERF_REFRESH_MS / 1000}s</p>`;
+    }
+
+    h += `<p style="font-size:11px;color:var(--blue);margin:8px 0 4px">perf-doctor <span style="font-size:9px;color:var(--muted)">${perf.cli || d.cli || ""}</span></p>`;
     h += `<table class="tbl"><tr><th>#</th><th>Flag</th><th>Purpose</th></tr>`;
     flags.forEach((c, i) => {
       h += `<tr><td class="num">${i + 1}.</td><td><code style="font-size:10px">${c.flag}</code></td><td style="font-size:10px">${c.description}</td></tr>`;
@@ -334,16 +463,59 @@ function renderSchema(container, schema) {
       h += `</ul>`;
     }
 
-    if (d.artifactHint) {
-      h += `<p class="status warn" style="font-size:9px;margin-top:8px">${d.artifactHint}</p>`;
+    const artifactHint = d.artifactHint || staticDocs?.artifactHint;
+    if (artifactHint && (liveArtifacts.savedCount ?? 0) === 0) {
+      h += `<p class="status warn" style="font-size:9px;margin-top:8px">${artifactHint}</p>`;
     }
-    if (d.note) {
-      h += `<p style="font-size:9px;color:var(--muted);margin-top:4px">${d.note}</p>`;
+    const note = d.note || staticDocs?.note;
+    if (note) {
+      h += `<p style="font-size:9px;color:var(--muted);margin-top:4px">${note}</p>`;
     }
     card("card-kimi-doctor", h);
-  } catch (e) {
-    card("card-kimi-doctor", `<p class="status err">${e.message}</p>`);
+    const cardEl = document.getElementById("card-kimi-doctor");
+    if (cardEl) wirePerfRegistryLinks(cardEl);
+    document.getElementById("kimi-scroll-gates")?.addEventListener("click", () => {
+      document
+        .getElementById("card-gates")
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
   }
+
+  async function refreshPerf() {
+    try {
+      const d = await fetchJson("/api/kimi-doctor?fast=1");
+      if (!staticDocs) staticDocs = d;
+      if (effectGatesCache) {
+        d.live = { ...(d.live || {}), effectGates: effectGatesCache };
+      }
+      renderKimiDoctorCard(d);
+    } catch (e) {
+      card("card-kimi-doctor", `<p class="status err">${e.message}</p>`);
+    }
+  }
+
+  async function refreshEffectGates() {
+    try {
+      const payload = await fetchJson("/api/kimi-doctor?effectGatesOnly=1");
+      effectGatesCache = payload.effectGates || payload.live?.effectGates || null;
+      await refreshPerf();
+    } catch {
+      /* effect-gates optional on slow path */
+    }
+  }
+
+  void (async () => {
+    try {
+      const d = await fetchJson("/api/kimi-doctor");
+      staticDocs = d;
+      effectGatesCache = d.live?.effectGates ?? null;
+      renderKimiDoctorCard(d);
+    } catch (e) {
+      card("card-kimi-doctor", `<p class="status err">${e.message}</p>`);
+    }
+    _perfTimer = setInterval(() => void refreshPerf(), PERF_REFRESH_MS);
+    _effectTimer = setInterval(() => void refreshEffectGates(), EFFECT_GATES_REFRESH_MS);
+  })();
 })();
 
 // Global Store

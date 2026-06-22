@@ -20,7 +20,7 @@ const ROUTE_PROBE_TIMEOUT_MS = 5000;
 
 const HUB_PROBE_HANDLERS: Record<HubCardProbeId, () => Promise<Response>> = {
   "card-gates": apiGates,
-  "card-kimi-doctor": apiKimiDoctor,
+  "card-kimi-doctor": () => apiKimiDoctor(),
   "card-scaffold": apiScaffold,
   "card-perf-harness": apiPerfHarness,
   "card-perf-registry": apiPerfRegistry,

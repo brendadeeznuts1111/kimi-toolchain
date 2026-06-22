@@ -5,6 +5,8 @@
  * @see src/doctor/deep-audit/report.ts for the report renderer
  */
 
+import type { ImageAuditFinding } from "./image-audit.ts";
+
 export interface DeepAuditRun {
   id: string;
   description: string;
@@ -14,6 +16,9 @@ export interface DeepAuditRun {
   stdout: string;
   stderr: string;
   summary: string;
+  /** Structured findings for audits that emit JSON (e.g., audit:images). */
+  findings?: ImageAuditFinding[];
+  filesScanned?: number;
 }
 
 export interface DeepAuditReport {
@@ -28,5 +33,10 @@ export interface DeepAuditReport {
     passed: number;
     failed: number;
     durationMs: number;
+  };
+  /** Rich image-audit results, present when the audit ran and produced findings. */
+  imageAudit?: {
+    filesScanned: number;
+    findings: ImageAuditFinding[];
   };
 }

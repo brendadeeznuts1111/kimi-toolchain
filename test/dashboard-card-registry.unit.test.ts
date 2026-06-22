@@ -150,6 +150,28 @@ describe("dashboard-card-registry", () => {
     expect(cardStatusFromProbe("card-effect-benchmark", {})).toBe("unknown");
     expect(cardStatusFromProbe("card-kimi-doctor", { commands: [{ flag: "--train" }] })).toBe("ok");
     expect(
+      cardStatusFromProbe("card-kimi-doctor", {
+        live: { perf: { allPass: true }, artifacts: { savedCount: 2 }, ok: true },
+        ok: true,
+      })
+    ).toBe("ok");
+    expect(
+      cardStatusFromProbe("card-kimi-doctor", {
+        live: { perf: { allPass: false }, artifacts: { savedCount: 1 } },
+        allPass: false,
+      })
+    ).toBe("error");
+    expect(
+      cardStatusFromProbe("card-kimi-doctor", {
+        live: { perf: { allPass: true }, artifacts: { savedCount: 0 } },
+      })
+    ).toBe("warn");
+    expect(
+      cardStatusFromProbe("card-kimi-doctor", {
+        live: { perf: { allPass: true }, artifacts: { savedCount: 2 }, effectGates: { ok: false } },
+      })
+    ).toBe("error");
+    expect(
       cardStatusFromProbe("card-scaffold", {
         architecture: {},
         scripts: {},

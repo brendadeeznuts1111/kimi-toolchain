@@ -10,12 +10,14 @@
  *   bun run deep-audit --json
  *   bun run deep-audit --full
  *   bun run deep-audit --report
+ *   bun run deep-audit --webview
  *
  * Flags:
- *   --json    Print JSON report to stdout instead of human summary.
- *   --full    Include the full test suite (secrets/identity + templates).
- *   --report  Run the report renderer after generating the JSON report.
- *   --help    Show this help.
+ *   --json     Print JSON report to stdout instead of human summary.
+ *   --full     Include the full test suite (secrets/identity + templates).
+ *   --report   Run the report renderer after generating the JSON report.
+ *   --webview  Open the HTML report in a Bun.WebView window.
+ *   --help     Show this help.
  */
 
 import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
@@ -25,6 +27,8 @@ import { resolveDevSecrets } from "../lib/resolve-dev-secrets.ts";
 import { join } from "path";
 import { mkdir } from "fs/promises";
 import type { DeepAuditReport, DeepAuditRun } from "../lib/deep-audit-types.ts";
+import type { ImageAuditFinding } from "../lib/image-audit.ts";
+import { showWebviewReport } from "../doctor/deep-audit/webview-report.ts";
 
 interface AuditCommand {
   id: string;
@@ -45,6 +49,11 @@ const AUDIT_COMMANDS: readonly AuditCommand[] = [
     id: "audit-all",
     cmd: ["bun", "run", "scripts/audit-all.ts", "--dry-run"],
     description: "Parallel secret + isolation + image + config audit bundle",
+  },
+  {
+    id: "audit-images",
+    cmd: ["bun", "run", "scripts/audit-images.ts", "--json"],
+    description: "Image asset entropy / metadata / geometry scan",
   },
   {
     id: "check-secrets-registry",
@@ -148,6 +157,20 @@ function firstLine(text: string): string {
   return text.split("\n")[0]?.trim() ?? "";
 }
 
+function parseImageAuditJson(
+  stdout: string
+): { filesScanned: number; findings: ImageAuditFinding[] } | null {
+  try {
+    const parsed = JSON.parse(stdout);
+    if (typeof parsed.filesScanned === "number" && Array.isArray(parsed.findings)) {
+      return { filesScanned: parsed.filesScanned, findings: parsed.findings };
+    }
+  } catch {
+    // stdout is not JSON or does not match image-audit shape
+  }
+  return null;
+}
+
 async function buildReport(projectRoot: string, full: boolean): Promise<DeepAuditReport> {
   const runs: DeepAuditRun[] = [];
   const commands = AUDIT_COMMANDS.filter((c) => full || !c.full);
@@ -160,7 +183,7 @@ async function buildReport(projectRoot: string, full: boolean): Promise<DeepAudi
     );
     const ok = exitCode === 0;
     const summary = firstLine(stdout) || firstLine(stderr) || "no output";
-    runs.push({
+    const run: DeepAuditRun = {
       id: command.id,
       description: command.description,
       ok,
@@ -169,13 +192,30 @@ async function buildReport(projectRoot: string, full: boolean): Promise<DeepAudi
       stdout,
       stderr,
       summary,
-    });
+    };
+
+    if (command.id === "audit-images") {
+      const imageAudit = parseImageAuditJson(stdout);
+      if (imageAudit) {
+        run.filesScanned = imageAudit.filesScanned;
+        run.findings = imageAudit.findings;
+        run.summary = `${imageAudit.filesScanned} image(s) scanned · ${imageAudit.findings.length} finding(s)`;
+      }
+    }
+
+    runs.push(run);
   }
 
   const total = runs.length;
   const passed = runs.filter((r) => r.ok).length;
   const failed = total - passed;
   const durationMs = runs.reduce((acc, r) => acc + r.durationMs, 0);
+
+  const imageAuditRun = runs.find((r) => r.id === "audit-images");
+  const imageAudit =
+    imageAuditRun && imageAuditRun.filesScanned !== undefined
+      ? { filesScanned: imageAuditRun.filesScanned, findings: imageAuditRun.findings ?? [] }
+      : undefined;
 
   return {
     schemaVersion: 1,
@@ -185,6 +225,7 @@ async function buildReport(projectRoot: string, full: boolean): Promise<DeepAudi
     full,
     runs,
     summary: { total, passed, failed, durationMs },
+    imageAudit,
   };
 }
 
@@ -212,6 +253,14 @@ function printHumanReport(report: DeepAuditReport): void {
   console.log(
     `Summary: ${report.summary.passed}/${report.summary.total} passed · ${report.summary.failed} failed · ${report.summary.durationMs}ms`
   );
+
+  if (report.imageAudit) {
+    const { filesScanned, findings } = report.imageAudit;
+    console.log(`\nImage audit: ${filesScanned} file(s) scanned · ${findings.length} finding(s)`);
+    for (const finding of findings) {
+      console.log(`  [${finding.taxonomyId}] ${finding.file}: ${finding.message}`);
+    }
+  }
 
   if (report.summary.failed > 0) {
     console.log(`\nFailed audits:`);
@@ -244,24 +293,26 @@ async function main(): Promise<number> {
     console.log(`kimi-deep-audit — comprehensive deep audit
 
 Usage:
-  bun run deep-audit [--json] [--full] [--report]
+  bun run deep-audit [--json] [--full] [--report] [--webview]
 
 Flags:
-  --json    Output JSON report to stdout
-  --full    Include full test suites (secrets/identity + template policy)
-  --report  Render the JSON report via src/doctor/deep-audit/report.ts
-  --help    Show this help
+  --json     Output JSON report to stdout
+  --full     Include full test suites (secrets/identity + template policy)
+  --report   Render the JSON report via src/doctor/deep-audit/report.ts
+  --webview  Open the HTML report in a Bun.WebView window
+  --help     Show this help
 
 Report is always written to .kimi-artifacts/deep-audit-report.json.`);
     return 0;
   }
 
   const flags = parseCliFlags(Bun.argv, "kimi-deep-audit", {
-    allowedFlags: ["--full", "--report"],
+    allowedFlags: ["--full", "--report", "--webview"],
   });
 
   const full = argv.includes("--full");
   const report = argv.includes("--report");
+  const webview = argv.includes("--webview");
   const json = flags.json;
   const projectRoot = await resolveProjectRoot(Bun.cwd);
 
@@ -278,6 +329,17 @@ Report is always written to .kimi-artifacts/deep-audit-report.json.`);
     if (report) {
       const code = await runReportRenderer(reportPath);
       if (code !== 0) return code;
+    }
+    if (webview) {
+      try {
+        const htmlPath = await showWebviewReport(auditReport);
+        console.log(`Webview report opened from ${htmlPath}`);
+      } catch (err) {
+        console.error(
+          `Failed to open webview: ${err instanceof Error ? err.message : String(err)}`
+        );
+        return 1;
+      }
     }
     console.log(`Report written to ${reportPath}`);
   }

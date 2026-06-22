@@ -10,6 +10,7 @@ export const DASHBOARD_LOADER_LANES = {
   ],
   governance: [
     "card-gates",
+    "card-hardcoded-audit",
     "card-convergence",
     "card-bunfig-policy",
     "card-config-status",
@@ -96,6 +97,7 @@ export const DASHBOARD_HUB_PRELOAD = [
   "card-perf-registry",
   "card-effect-benchmark",
   "card-gates",
+  "card-hardcoded-audit",
   "card-kimi-doctor",
   "card-scaffold",
   "card-artifacts",

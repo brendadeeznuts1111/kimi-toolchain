@@ -59,6 +59,7 @@ import { apiIpcMatrix } from "./ipc-matrix.ts";
 import { apiIpc } from "./ipc.ts";
 import { apiKimiDoctor } from "./kimi-doctor.ts";
 import { apiKimiPublish } from "./kimi-publish.ts";
+import { apiHardcodedAudit } from "./hardcoded-audit.ts";
 import { apiMarkdownHtml, apiMarkdownAnsi } from "./markdown.ts";
 import { apiMetricsSchema } from "./metrics-schema.ts";
 import { apiNanoseconds } from "./nanoseconds.ts";
@@ -212,7 +213,7 @@ export const DASHBOARD_STATIC_ROUTES: readonly DashboardStaticRoute[] = [
   route0("/api/symbols", apiSymbols),
   route0("/api/set-headers", apiSetHeaders),
   route0("/api/metrics-schema", apiMetricsSchema),
-  route0("/api/kimi-doctor", apiKimiDoctor),
+  route("/api/kimi-doctor", apiKimiDoctor),
   route0("/api/perf-threaded", apiPerfThreaded),
   route("/api/effect-benchmark/refresh", () => apiEffectBenchmarkRefresh(), ["POST"]),
   route("/api/effect-benchmark/train", () => apiEffectBenchmarkTrain(), ["POST"]),
@@ -244,6 +245,7 @@ export const DASHBOARD_STATIC_ROUTES: readonly DashboardStaticRoute[] = [
   route("/api/identity/flow", apiIdentityFlow),
   route0("/api/toolchain/health", apiToolchainHealth),
   route0("/api/toolchain/heal", apiToolchainHeal),
+  route0("/api/audit/hardcoded", apiHardcodedAudit),
   route0("/api/deps", apiDeps),
   route0("/api/inspect", apiInspect),
   route0("/api/inspect-table", apiInspectTable),
