@@ -702,6 +702,57 @@ describe("bun-release-compliance Effect doc URLs and scaffold patterns", () => {
   });
 });
 
+// ── Bun v1.4.0 feature compliance ───────────────────────────────────
+
+describe("bun-release-compliance bun-v1.4.0", () => {
+  test("Symbol.dispose on spyOn auto-restores", () => {
+    const { spyOn } = require("bun:test");
+    const obj = { method: () => "original" as string };
+    {
+      using _spy = spyOn(obj, "method").mockReturnValue("mocked");
+      expect(obj.method()).toBe("mocked");
+    }
+    expect(obj.method()).toBe("original");
+  });
+
+  test("Symbol.dispose on mock resets call count", () => {
+    const { mock } = require("bun:test");
+    const fn = mock(() => "orig");
+    fn();
+    expect(fn).toHaveBeenCalledTimes(1);
+    fn[Symbol.dispose]();
+    expect(fn).toHaveBeenCalledTimes(0);
+  });
+
+  test("bun run --parallel supported", async () => {
+    const proc = Bun.spawn({ cmd: ["bun", "run", "--help"], stdout: "pipe" });
+    const out = await new Response(proc.stdout).text();
+    expect(out).toContain("--parallel");
+    expect(out).toContain("--sequential");
+    expect(out).toContain("--no-exit-on-error");
+  });
+
+  test("--cpu-prof-interval flag supported", async () => {
+    const proc = Bun.spawn({
+      cmd: ["bun", "--cpu-prof-interval", "500", "-e", "process.exit(0)"],
+      stdout: "pipe", stderr: "pipe",
+    });
+    const exit = await proc.exited;
+    expect(exit).toBe(0);
+  });
+
+  test("Bun.stringWidth Thai spacing vowels return width 2", () => {
+    expect(Bun.stringWidth("คำ")).toBe(2);
+    expect(Bun.stringWidth("ຄຳ")).toBe(2);
+  });
+
+  test("package.json uses --parallel/--sequential for script orchestration", () => {
+    const text = readSrc("package.json");
+    expect(text).toContain("bun run --parallel");
+    expect(text).toContain("bun run --sequential");
+  });
+});
+
 // ── Global raw URL lint sweep ─────────────────────────────────────────
 
 describe("bun-release-compliance global doc-links lint sweep", () => {
