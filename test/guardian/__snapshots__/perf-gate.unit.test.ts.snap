@@ -1,0 +1,8 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`perf-gate a metric exceeding threshold -> fail with message 1`] = `
+"fail: Symbol(kimi.effect.image).thumbnail exceeded threshold (120ms > 50ms)
+       └─ symbol: Symbol(kimi.effect.image)
+       └─ operation: thumbnail
+       └─ threshold: 50ms"
+`;

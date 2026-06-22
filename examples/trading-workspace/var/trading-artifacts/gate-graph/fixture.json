@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "gate": "gate-graph",
+  "savedAt": "2026-01-01T00:00:00.000Z",
+  "metadata": {
+    "level": 2,
+    "runId": "run_fixture"
+  },
+  "payload": {
+    "status": "pass",
+    "nodes": ["data-freshness", "risk-limits", "strategy-performance", "model-drift"]
+  }
+}

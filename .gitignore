@@ -8,11 +8,11 @@
 .kimi-code/
 
 # Live runtime state (not tracked)
-tools/
-var/
-memory/
-guardian/
-governor/
+/tools/
+/var/
+/memory/
+/guardian/
+/governor/
 node_modules/
 *.sqlite
 *.sqlite-wal

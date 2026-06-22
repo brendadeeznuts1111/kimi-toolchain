@@ -24,7 +24,6 @@ import {
   parseHostSession,
 } from "../src/lib/herdr-orchestrator.ts";
 import { buildCanonicalReferencesManifest } from "../src/lib/canonical-references.ts";
-import { tmpdir } from "os";
 import type { HerdrProjectConfig } from "../src/lib/herdr-project-config.ts";
 
 // ── core orchestrator config ──────────────────────────────────────────────
@@ -886,7 +885,6 @@ describe("handoff probe conditions", () => {
   test("evaluateCrossWorkspaceHandoffs fires on finish-work:pushed probe", async () => {
     const root = testTempDir("handoff-fw-");
     makeDir(join(root, ".kimi"), { recursive: true });
-    const head = "abc123def456";
     writeText(
       join(root, ".kimi", "finish-work-report.json"),
       JSON.stringify(
@@ -899,7 +897,6 @@ describe("handoff probe conditions", () => {
           results: [{ name: "check:fast", exitCode: 0, ms: 1 }],
           git: { attempted: true, committed: true, pushed: true, error: null },
           tree: { clean: true, dirty: [] },
-          gitHead: head,
         },
         null,
         2
@@ -962,7 +959,7 @@ describe("handoff probe conditions", () => {
       "default",
       labelMap,
       true,
-      { projectRoot: root, home: tmpdir() }
+      { projectRoot: root, home: join(root, "home") }
     );
 
     expect(results[0]?.ok).toBe(true);
@@ -1134,7 +1131,7 @@ describe("handoff probe conditions", () => {
       "default",
       undefined,
       true,
-      { projectRoot: root, home: tmpdir() }
+      { projectRoot: root, home: join(root, "home") }
     );
 
     expect(results[0]?.ok).toBe(true);
@@ -1238,7 +1235,7 @@ describe("handoff probe conditions", () => {
       "default",
       undefined,
       true,
-      { projectRoot: root, home: tmpdir() }
+      { projectRoot: root, home: join(root, "home") }
     );
 
     expect(results[0]?.ok).toBe(true);

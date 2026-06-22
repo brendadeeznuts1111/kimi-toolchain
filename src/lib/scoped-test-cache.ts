@@ -2,8 +2,9 @@
  * Scoped test pass cache — test:fast entries live in .last-good-scoped-gates.
  */
 
-import { $ } from "bun";
 import { pathExists } from "./bun-io.ts";
+import { readableStreamToText } from "./bun-utils.ts";
+import { GIT_LOCAL_ENV_KEYS } from "./tool-runner.ts";
 import {
   hashFileSet,
   isFileSetSubset,
@@ -27,6 +28,17 @@ export function scopedTestCachePath(projectRoot: string): string {
 }
 
 export { hashFileSet, isFileSetSubset };
+
+const GIT_LOCAL_ENV_KEY_SET = new Set<string>(GIT_LOCAL_ENV_KEYS);
+
+function scrubbedGitEnv(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(Bun.env).filter(
+      (entry): entry is [string, string] =>
+        entry[1] !== undefined && !GIT_LOCAL_ENV_KEY_SET.has(entry[0])
+    )
+  );
+}
 
 export async function readScopedTestCache(
   projectRoot: string
@@ -59,10 +71,15 @@ export async function clearScopedTestCache(projectRoot: string): Promise<void> {
 
 /** Paths staged for commit (`git diff --cached --name-only`). */
 export async function listStagedPaths(projectRoot: string): Promise<string[]> {
-  const result = await $`git diff --cached --name-only`.cwd(projectRoot).nothrow().quiet();
-  if (result.exitCode !== 0) return [];
-  return result.stdout
-    .toString()
+  const proc = Bun.spawn(["git", "diff", "--cached", "--name-only"], {
+    cwd: projectRoot,
+    env: scrubbedGitEnv(),
+    stdout: "pipe",
+    stderr: "ignore",
+  });
+  const [stdout, exitCode] = await Promise.all([readableStreamToText(proc.stdout), proc.exited]);
+  if (exitCode !== 0) return [];
+  return stdout
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);

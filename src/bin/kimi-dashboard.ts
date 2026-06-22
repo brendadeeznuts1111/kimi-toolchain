@@ -18,7 +18,7 @@
  */
 
 import { join } from "path";
-import { isDirectRun } from "../lib/bun-utils.ts";
+import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { makeDir, movePath, pathExists } from "../lib/bun-io.ts";
 import {
   CANONICAL_DASHBOARD_PORT,
@@ -39,6 +39,10 @@ const repoRoot = import.meta.dir.includes("kimi-toolchain")
 
 const dashboardDir = join(repoRoot, "examples", "dashboard");
 const dashboardScript = join(dashboardDir, "src", "index.ts");
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}
 
 if (!isDirectRun(import.meta.path)) {
   // Imported as a module — skip CLI dispatch.
@@ -167,21 +171,38 @@ if (!isDirectRun(import.meta.path)) {
       if (pathExists(rotatedLogPath)) movePath(rotatedLogPath, `${logPath}.2`);
       movePath(logPath, rotatedLogPath);
     }
-    // Direct script spawn — `bun run` wrapper does not survive detached unref on macOS.
-    // @see BUN_CHILD_PROCESS_DOC_URL — stdout/stderr: Bun.file(logPath)
-    // @see BUN_SPAWN_STDERR_DOC_URL — merge stderr into log via same BunFile
-    const log = Bun.file(logPath);
-    const proc = Bun.spawn(withBunNoOrphans(["bun", dashboardScript]), {
+    // Direct script spawn — `bun run` wrapper does not survive daemon handoff on macOS.
+    // Use nohup so the dashboard continues after this launcher exits.
+    const daemonCommand = [
+      "nohup",
+      shellQuote(process.execPath),
+      shellQuote(dashboardScript),
+      ">",
+      shellQuote(logPath),
+      "2>&1",
+      "&",
+      "echo",
+      "$!",
+    ].join(" ");
+    const proc = Bun.spawn(["/bin/sh", "-c", daemonCommand], {
       cwd: dashboardDir,
       env,
-      detached: true,
       stdin: "ignore",
-      stdout: log,
-      stderr: log,
+      stdout: "pipe",
+      stderr: "pipe",
     });
-    proc.unref();
-    await Bun.write(pidPath, `${proc.pid}\n`);
-    console.log(`Dashboard daemon pid=${proc.pid} port=${listenPort}`);
+    const [stdout, stderr, exitCode] = await Promise.all([
+      readableStreamToText(proc.stdout),
+      readableStreamToText(proc.stderr),
+      proc.exited,
+    ]);
+    const daemonPid = Number(stdout.trim());
+    if (exitCode !== 0 || !Number.isFinite(daemonPid)) {
+      console.error(stderr.trim() || stdout.trim() || "failed to launch dashboard daemon");
+      process.exit(exitCode || 1);
+    }
+    await Bun.write(pidPath, `${daemonPid}\n`);
+    console.log(`Dashboard daemon pid=${daemonPid} port=${listenPort}`);
     console.log(`Log: ${logPath}`);
     console.log(`URL: http://127.0.0.1:${listenPort}/`);
     process.exit(0);

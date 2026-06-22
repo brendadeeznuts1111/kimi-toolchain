@@ -5,7 +5,7 @@
 import { readableStreamToText } from "./bun-utils.ts";
 import { makeDir, pathExists } from "./bun-io.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
-import { withBunNoOrphans } from "./tool-runner.ts";
+import { GIT_LOCAL_ENV_KEYS, withBunNoOrphans } from "./tool-runner.ts";
 import { formatErrorColored } from "./error-format.ts";
 
 import { join } from "path";
@@ -32,6 +32,17 @@ export function gateCachePath(projectRoot: string): string {
   return join(projectRoot, ".kimi", ".last-good-commit");
 }
 
+const GIT_LOCAL_ENV_KEY_SET = new Set<string>(GIT_LOCAL_ENV_KEYS);
+
+function scrubbedGitEnv(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(Bun.env).filter(
+      (entry): entry is [string, string] =>
+        entry[1] !== undefined && !GIT_LOCAL_ENV_KEY_SET.has(entry[0])
+    )
+  );
+}
+
 function ensureValidCwd(fallbackDir: string): void {
   try {
     process.cwd();
@@ -46,6 +57,7 @@ export async function currentGitHead(projectRoot: string): Promise<string | null
   ensureValidCwd(projectRoot);
   const proc = Bun.spawn(["git", "rev-parse", "HEAD"], {
     cwd: projectRoot,
+    env: scrubbedGitEnv(),
     stdout: "pipe",
     stderr: "pipe",
   });

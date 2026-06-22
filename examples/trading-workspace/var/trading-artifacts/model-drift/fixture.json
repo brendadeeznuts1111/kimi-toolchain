@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "gate": "model-drift",
+  "savedAt": "2026-01-01T00:00:00.000Z",
+  "metadata": {
+    "level": 2,
+    "runId": "run_fixture",
+    "dependsOn": {
+      "strategy-performance": "var/trading-artifacts/strategy-performance/fixture.json"
+    }
+  },
+  "payload": {
+    "status": "pass",
+    "metrics": {
+      "accuracy": 0.72,
+      "mae": 0.08
+    }
+  }
+}

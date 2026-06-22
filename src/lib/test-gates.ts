@@ -352,6 +352,7 @@ export const UNIT_TEST_FILES = [
   "test/dashboard-loader-lanes-lint.unit.test.ts",
   "test/dashboard-token-handlers.unit.test.ts",
   "test/dashboard-trace-ledger.unit.test.ts",
+  "test/deep-audit-webview-report.unit.test.ts",
   "test/doctor-trace.unit.test.ts",
   "test/error-format.unit.test.ts",
   "test/examples-dashboard-webview-probe.unit.test.ts",

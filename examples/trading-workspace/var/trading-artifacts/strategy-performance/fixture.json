@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "gate": "strategy-performance",
+  "savedAt": "2026-01-01T00:00:00.000Z",
+  "metadata": {
+    "level": 2,
+    "runId": "run_fixture",
+    "dependsOn": {
+      "data-freshness": "var/trading-artifacts/data-freshness/fixture.json",
+      "risk-limits": "var/trading-artifacts/risk-limits/fixture.json"
+    }
+  },
+  "payload": {
+    "status": "pass",
+    "metrics": {
+      "pnlBps": 31,
+      "sharpe": 1.5
+    }
+  }
+}

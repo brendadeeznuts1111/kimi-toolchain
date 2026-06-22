@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "gate": "risk-limits",
+  "savedAt": "2026-01-01T00:00:00.000Z",
+  "metadata": {
+    "level": 1,
+    "runId": "run_fixture"
+  },
+  "payload": {
+    "status": "pass",
+    "metrics": {
+      "varBps": 220,
+      "marginUsagePct": 0.67
+    }
+  }
+}

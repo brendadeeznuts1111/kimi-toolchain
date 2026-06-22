@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
-import { $ } from "bun";
 import { cleanupPath, ensureTestDir, testTempDir } from "./helpers.ts";
+import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import {
   hashFileSet,
   isFileSetSubset,
@@ -10,19 +10,46 @@ import {
   shouldSkipTestFastFromScopedCache,
   writeScopedTestCache,
 } from "../src/lib/scoped-test-cache.ts";
+import { GIT_LOCAL_ENV_KEYS } from "../src/lib/tool-runner.ts";
+
+const GIT_LOCAL_ENV_KEY_SET = new Set<string>(GIT_LOCAL_ENV_KEYS);
+
+function scrubbedGitFixtureEnv(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(Bun.env).filter(
+      (entry): entry is [string, string] =>
+        entry[1] !== undefined && !GIT_LOCAL_ENV_KEY_SET.has(entry[0])
+    )
+  );
+}
+
+async function runFixtureGit(projectRoot: string, args: string[]): Promise<void> {
+  const proc = Bun.spawn(["git", ...args], {
+    cwd: projectRoot,
+    env: scrubbedGitFixtureEnv(),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    readableStreamToText(proc.stdout),
+    readableStreamToText(proc.stderr),
+    proc.exited,
+  ]);
+  expect({ args, stdout, stderr, exitCode }).toMatchObject({ exitCode: 0 });
+}
 
 describe("scoped-test-cache", () => {
   let projectDir: string;
 
   beforeEach(async () => {
     projectDir = testTempDir("scoped-test-cache-");
-    await $`git init`.cwd(projectDir).nothrow().quiet();
-    await $`git config user.email test@example.com`.cwd(projectDir).nothrow().quiet();
-    await $`git config user.name Test`.cwd(projectDir).nothrow().quiet();
+    await runFixtureGit(projectDir, ["init"]);
+    await runFixtureGit(projectDir, ["config", "user.email", "test@example.com"]);
+    await runFixtureGit(projectDir, ["config", "user.name", "Test"]);
     ensureTestDir(join(projectDir, "src"));
     await Bun.write(join(projectDir, "src/foo.ts"), "export const x = 1;\n");
-    await $`git add src/foo.ts`.cwd(projectDir).nothrow().quiet();
-    await $`git commit -m init`.cwd(projectDir).nothrow().quiet();
+    await runFixtureGit(projectDir, ["add", "src/foo.ts"]);
+    await runFixtureGit(projectDir, ["commit", "-m", "init"]);
   });
 
   afterEach(() => {
@@ -48,8 +75,8 @@ describe("scoped-test-cache", () => {
   test("shouldSkip false when HEAD changes", async () => {
     await writeScopedTestCache(projectDir, ["src/foo.ts"], "main");
     await Bun.write(join(projectDir, "src/bar.ts"), "export const y = 2;\n");
-    await $`git add src/bar.ts`.cwd(projectDir).nothrow().quiet();
-    await $`git commit -m second`.cwd(projectDir).nothrow().quiet();
+    await runFixtureGit(projectDir, ["add", "src/bar.ts"]);
+    await runFixtureGit(projectDir, ["commit", "-m", "second"]);
     expect(await shouldSkipTestFastFromScopedCache(projectDir, ["src/foo.ts"])).toBe(false);
   });
 
