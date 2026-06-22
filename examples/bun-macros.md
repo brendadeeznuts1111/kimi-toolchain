@@ -1,4 +1,15 @@
+---
+title: "Bun Macros — Practical Examples"
+tags: [macros, bun, build-time, examples, color, fetch, htmlrewriter, base64]
+category: "examples"
+priority: high
+---
+
+<!-- status: stable; owner: @nolarose; review-date: 2026-07-21 -->
+
 # Bun Macros — Practical Examples
+
+## Description
 
 This document shows how Bun macros are used throughout kimi-toolchain to eliminate runtime overhead by executing functions at build time.
 
@@ -17,6 +28,7 @@ const primary = color("#007acc", "css");
 const primary = "#007acc";
 ```
 
+<!-- #find:macro-color-theme -->
 ## Pattern 1: Color Theming
 
 Resolve hex colors to CSS/ANSI strings at build time using `Bun.color`:
@@ -48,6 +60,7 @@ bun run scripts/build-theme.ts --outdir dist --format css
 # Produces dist/theme.css with :root { --severity-critical: red; ... }
 ```
 
+<!-- #find:macro-build-metadata -->
 ## Pattern 2: Build Metadata
 
 Embed git hash, branch, build time, and version at build time:
@@ -71,6 +84,7 @@ console.log(buildBanner);
 // kimi-secrets v1.0.0 (f52d9c0b @ 2026-06-22T00:50:22.829Z)
 ```
 
+<!-- #find:macro-feature-flags -->
 ## Pattern 3: Feature Flags with Dead Code Elimination
 
 Compile-time feature flags enable entire code blocks to be removed from the bundle:
@@ -99,6 +113,7 @@ if (false) { /* dashboard code */ }
 // After minification: block removed entirely
 ```
 
+<!-- #find:macro-async-fetch -->
 ## Pattern 4: Async Fetch (npm Registry)
 
 Fetch data from external APIs at build time. The `fetch()` call happens during bundling — the result is inlined:
@@ -121,6 +136,7 @@ var dependencyVersions = { effect: "3.21.4", bun: "1.3.14", typescript: "6.0.3" 
 
 No `fetch()`, no network calls at runtime.
 
+<!-- #find:macro-htmlrewriter -->
 ## Pattern 5: HTMLRewriter for Documentation Extraction
 
 Parse Markdown files at build time using `Bun.markdown.html()` + `HTMLRewriter`:
@@ -140,6 +156,7 @@ var installGuide = "bun install -g github:brendadeeznuts1111/kimi-toolchain\n...
 
 No `Bun.markdown`, no `HTMLRewriter`, no file reads at runtime.
 
+<!-- #find:macro-base64-assets -->
 ## Pattern 6: Base64 Asset Embedding
 
 Read binary files (SVGs, fonts, icons) at build time and inline as base64:
@@ -159,6 +176,7 @@ export const shieldIconDataUri = `data:image/svg+xml;base64,${shieldIcon}`;
 <img src={shieldIconDataUri} alt="Shield" />
 ```
 
+<!-- #find:macro-cli-help -->
 ## Pattern 7: CLI Help with Colored Output
 
 Combine multiple macros (color, build info, embedded docs) for rich CLI help:
@@ -186,6 +204,7 @@ kimi-secrets --help    # prints colored, macro-generated help
 kimi-guardian --help    # prints colored, macro-generated help
 ```
 
+<!-- #find:macro-verification -->
 ## Verification
 
 Verify macros are inlined correctly:
@@ -204,6 +223,7 @@ grep -E "(getGitHash|extractReadmeSection|embedAsset|getLatestVersion)" dist/kim
 # should return nothing
 ```
 
+<!-- #find:macro-adding-new -->
 ## Adding Your Own Macro
 
 1. Create a macro source file:
@@ -232,3 +252,9 @@ cat dist/my-consumer.js
 ```
 
 4. Add tests in `test/my-macro.unit.test.ts`.
+
+## Related
+
+- [MACROS.md](../MACROS.md) — Full Bun macros API reference
+- [examples/secrets-and-identity.md](secrets-and-identity.md) — Secrets & identity usage guide
+- [docs/scanner-pipeline-spec.md](../docs/scanner-pipeline-spec.md) — Scanner pipeline specification

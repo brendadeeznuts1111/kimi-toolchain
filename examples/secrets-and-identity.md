@@ -1,7 +1,19 @@
+---
+title: "Secrets & Identity — Usage Examples"
+tags: [secrets, identity, jwt, csrf, session, scanner, security]
+category: "examples"
+priority: high
+---
+
+<!-- status: stable; owner: @nolarose; review-date: 2026-07-21 -->
+
 # Secrets & Identity — Usage Examples
+
+## Description
 
 This document shows how to use the secrets management system, identity layer (JWT, CSRF, sessions), and the secure install scanner pipeline.
 
+<!-- #find:secrets-management -->
 ## Secrets Management
 
 ### Initialize a Policy
@@ -105,6 +117,7 @@ const customBackend: SecretsBackend = {
 };
 ```
 
+<!-- #find:identity-layer -->
 ## Identity Layer
 
 ### JWT Authentication
@@ -189,6 +202,7 @@ Endpoints:
 | POST   | `/data`    | Submit data (requires CSRF)    |
 | GET    | `/token`   | Get JWT for API access         |
 
+<!-- #find:scanner-pipeline -->
 ## Scanner Pipeline
 
 ### Automatic Dependency Discovery
@@ -236,6 +250,7 @@ bun run src/bin/install-secure.ts install --patch
 bun run src/bin/install-secure.ts install --dry-run
 ```
 
+<!-- #find:testing-secrets-identity -->
 ## Testing
 
 All modules have comprehensive unit tests:
@@ -250,3 +265,9 @@ bun test test/identity-service.unit.test.ts
 bun test test/scanner-pipeline.unit.test.ts
 bun test test/macros.unit.test.ts
 ```
+
+## Related
+
+- [MACROS.md](../MACROS.md) — Bun macros API reference (used in CLI help generation)
+- [examples/bun-macros.md](bun-macros.md) — Practical macro usage examples
+- [docs/scanner-pipeline-spec.md](../docs/scanner-pipeline-spec.md) — Scanner pipeline specification

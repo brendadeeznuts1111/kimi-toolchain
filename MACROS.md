@@ -1,4 +1,15 @@
+---
+title: "Bun Macros — Build-Time Code Execution"
+tags: [macros, bun, build-time, zero-overhead, bundling]
+category: "core"
+priority: high
+---
+
+<!-- status: stable; owner: @nolarose; review-date: 2026-07-21 -->
+
 # Bun Macros — Build-Time Code Execution
+
+## Description
 
 This project uses [Bun macros](https://bun.com/docs/bundler/macros) to execute functions at **build time** and inline their return values as static literals in the bundle. This eliminates runtime overhead for color conversion, file reading, network requests, and documentation parsing.
 
@@ -23,6 +34,7 @@ After bundling with `bun build`, the `color()` call is gone — only the static 
 
 ## Existing Macros
 
+<!-- #find:macros-color-theme -->
 ### Color Theming
 
 | File                      | Type     | Purpose                                                                            |
@@ -38,6 +50,7 @@ import { theme, cssVars } from "./theme.ts";
 console.log(theme.severity.critical); // "red" (static in bundle)
 ```
 
+<!-- #find:macros-build-info -->
 ### Build Metadata
 
 | File                           | Type     | Purpose                                                                                                       |
@@ -52,6 +65,7 @@ import { buildInfo, buildBanner } from "./build-info.ts";
 console.log(buildInfo.gitHash); // "f52d9c0b" (static in bundle)
 ```
 
+<!-- #find:macros-feature-flags -->
 ### Feature Flags
 
 | File                             | Type    | Purpose                                                                           |
@@ -69,6 +83,7 @@ if (isDashboardEnabled()) {
 }
 ```
 
+<!-- #find:macros-cli-help -->
 ### CLI Help Text
 
 | File                            | Type     | Purpose                                                                                        |
@@ -83,6 +98,7 @@ import { printHelp } from "./cli-help-generator.ts";
 printHelp("kimi-secrets"); // colored, macro-generated help
 ```
 
+<!-- #find:macros-embedded-docs -->
 ### Embedded Documentation (HTMLRewriter)
 
 | File                       | Type     | Purpose                                                                                                                 |
@@ -97,6 +113,7 @@ import { installGuide } from "./embedded-docs.ts";
 console.log(installGuide); // full install instructions (static in bundle)
 ```
 
+<!-- #find:macros-dependency-versions -->
 ### Dependency Versions (Async Fetch)
 
 | File                             | Type     | Purpose                                                                                      |
@@ -111,6 +128,7 @@ import { dependencyVersions } from "./dependency-versions.ts";
 console.log(dependencyVersions.effect); // "3.21.4" (static in bundle)
 ```
 
+<!-- #find:macros-embedded-assets -->
 ### Embedded Assets (Base64)
 
 | File                            | Type     | Purpose                                                |
@@ -126,6 +144,7 @@ import { shieldIconDataUri } from "./embedded-assets.ts";
 // Use in HTML: <img src={shieldIconDataUri} />
 ```
 
+<!-- #find:macros-adding-new -->
 ## Adding a New Macro
 
 1. **Create the macro source file** (e.g., `src/lib/my-macro.ts`):
@@ -153,12 +172,14 @@ import { shieldIconDataUri } from "./embedded-assets.ts";
 
 4. **Add tests** in `test/my-macro.unit.test.ts`.
 
+<!-- #find:macros-no-macros-flag -->
 ## The `--no-macros` Flag
 
 Bun supports a `--no-macros` flag that is intended to disable macro execution. However, in **Bun 1.3.14**, this flag does not produce build errors — macros still execute and values are still inlined. The flag is accepted but has no effect.
 
 If a future Bun version changes this behavior, update `test/macros-no-macros.unit.test.ts` to expect build failures instead of successful builds.
 
+<!-- #find:macros-cli-integration -->
 ## CLI Integration
 
 Both `kimi-secrets` and `kimi-guardian` use `printHelp()` from `cli-help-generator.ts` for their `--help` / `-h` flags:
@@ -183,6 +204,7 @@ The help output includes:
 - For `general` help: table of contents and install guide (from `embedded-docs.ts` macro)
 - ANSI color codes (from `Bun.color` macro) for terminal readability
 
+<!-- #find:macros-build-verification -->
 ## Build Verification
 
 To verify all macros are working:
@@ -200,6 +222,7 @@ bun build src/lib/embedded-docs.ts --outdir dist
 grep -r "spawnSync\|HTMLRewriter\|Bun.markdown\|fetch(" dist/  # should return nothing
 ```
 
+<!-- #find:macros-test-coverage -->
 ## Test Coverage
 
 | Test File                              | Tests   | Covers                                              |
@@ -211,3 +234,10 @@ grep -r "spawnSync\|HTMLRewriter\|Bun.markdown\|fetch(" dist/  # should return n
 | `test/macros-no-macros.unit.test.ts`   | 7       | `--no-macros` flag behavior                         |
 | `test/cli-help-generator.unit.test.ts` | 13      | CLI help generator output                           |
 | **Total**                              | **113** |                                                     |
+
+## Related
+
+- [examples/bun-macros.md](examples/bun-macros.md) — Practical macro usage examples
+- [docs/scanner-pipeline-spec.md](docs/scanner-pipeline-spec.md) — Scanner pipeline spec (uses macros for build info)
+- [examples/secrets-and-identity.md](examples/secrets-and-identity.md) — Secrets & identity usage guide
+- [docs/style-guide.md](docs/style-guide.md) — Documentation style guide

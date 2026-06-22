@@ -1,5 +1,17 @@
+---
+title: "Scanner Pipeline Specification"
+tags: [scanner, security, cve, osv, bun-patch, bun-glob, semver]
+category: "core"
+priority: high
+---
+
+<!-- status: stable; owner: @nolarose; review-date: 2026-07-21 -->
+
 # Scanner Pipeline Specification
 
+## Description
+
+<!-- #find:scanner-overview -->
 ## Overview
 
 The scanner pipeline integrates vulnerability detection, version evaluation, and automated patching into the secure install flow. It bridges `kimi-guardian`'s existing CVE scanning (OSV API), `Bun.semver` for version comparison, `Bun.patch` for persistent fixes, and `SecretsManager` for pre-flight credential validation.
@@ -13,6 +25,7 @@ The scanner pipeline integrates vulnerability detection, version evaluation, and
 └─────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
 ```
 
+<!-- #find:scanner-preflight -->
 ### Phase 1: Pre-flight (`SecretsManager.check()`)
 
 - **Source**: `install-secure.ts` → `runPreflight()`
@@ -21,6 +34,7 @@ The scanner pipeline integrates vulnerability detection, version evaluation, and
 - If any secret is stale → **warn but continue** (stale secrets still function)
 - If `--skip-preflight` flag is passed → skip entirely
 
+<!-- #find:scanner-scan -->
 ### Phase 2: Scan (OSV API)
 
 - **Source**: `kimi-guardian.ts` → `checkCVEs()` (already implemented)
@@ -35,6 +49,7 @@ The scanner pipeline integrates vulnerability detection, version evaluation, and
 - API rate limit (429) → exponential backoff (max 3 retries)
 - Invalid response → skip dep, log warning
 
+<!-- #find:scanner-evaluate -->
 ### Phase 3: Evaluate (`Bun.semver`)
 
 For each CVE found, determine the fix strategy using `Bun.semver`:
@@ -67,6 +82,7 @@ For each CVE:
 | LOW (CVSS < 4.0)      | Info          | No                     |
 | unknown               | Warn          | No                     |
 
+<!-- #find:scanner-patch -->
 ### Phase 4: Patch (`Bun.patch`)
 
 When `--patch` flag is set and strategy is "patch" or "upgrade":
@@ -94,12 +110,14 @@ When `--patch` flag is set and strategy is "patch" or "upgrade":
 - If patching fails, rollback to pre-patch state
 - Patches are stored in `patches/` directory (Bun default)
 
+<!-- #find:scanner-audit -->
 ### Phase 5: Audit
 
 - All scan results, evaluations, and patch actions are recorded to `secrets-audit.ndjson`
 - Uses `SecretsManager.recordAudit()` (fire-and-forget)
 - Audit records include: `action: "check"`, `consumer: "bun-install"`, CVE IDs, severity, strategy used
 
+<!-- #find:scanner-exit-codes -->
 ## Exit Codes
 
 | Code | Meaning                                                  |
@@ -112,6 +130,7 @@ When `--patch` flag is set and strategy is "patch" or "upgrade":
 | 22   | Vulnerabilities found, patching failed                   |
 | 30   | Network error during scan (retries exhausted)            |
 
+<!-- #find:scanner-cli-flags -->
 ## CLI Flags
 
 ```
@@ -128,8 +147,10 @@ Options:
   --args <args...>     Extra args to pass to bun install
 ```
 
+<!-- #find:scanner-integration -->
 ## Integration Points
 
+<!-- #find:scanner-discovery -->
 ### Dependency Discovery (`Bun.Glob`)
 
 The `discoverTargets()` function in `scanner-pipeline.ts` automates dependency discovery using `Bun.Glob`:
@@ -171,6 +192,7 @@ const deps = await discoverTargets(Bun.cwd, { includeDev: false });
 - `applyPatch()` — wraps `bun patch` / `bun update` commands
 - `runScannerPipeline()` — orchestrates phases 2–4
 
+<!-- #find:scanner-semver-usage -->
 ## `Bun.semver` Usage
 
 ```typescript
@@ -186,6 +208,7 @@ semver.order("1.2.1", "1.2.0"); // 1 → fixed is newer
 advisories.sort((a, b) => semver.order(a.fixedVersion, b.fixedVersion));
 ```
 
+<!-- #find:scanner-patch-usage -->
 ## `Bun.patch` Usage
 
 ```typescript
@@ -202,6 +225,7 @@ await Bun.spawn(["bun", "patch", "--commit", `${pkg}@${version}`]).exited;
 // "patchedDependencies": { "react@17.0.2": "patches/react@17.0.2.patch" }
 ```
 
+<!-- #find:scanner-secrets-integration -->
 ## SecretsManager Integration
 
 The `scanner-api-key` secret (service: `com.herdr.security`, name: `scanner-api-key`) is used for authenticated access to premium vulnerability databases. The OSV API is free and unauthenticated, but future integrations (Snyk, GitHub Advisory Database) may require API keys.
@@ -220,3 +244,9 @@ The `scanner-api-key` secret (service: `com.herdr.security`, name: `scanner-api-
 ```
 
 **Injection**: When `requiredSecrets` includes the scanner API key, `resolveSecretsForEnv()` converts it to `SCANNER_API_KEY` env var for the scan subprocess.
+
+## Related
+
+- [examples/secrets-and-identity.md](../examples/secrets-and-identity.md) — Secrets & identity usage examples
+- [MACROS.md](../MACROS.md) — Bun macros API reference (used in CLI help)
+- [docs/style-guide.md](style-guide.md) — Documentation style guide
