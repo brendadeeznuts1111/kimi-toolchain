@@ -120,7 +120,7 @@
       if (!hit) {
         setCardLineageBadge(
           h2,
-          `<span class="badge badge-warn lineage-badge" title="No saved artifacts for mapped gates (${gates.join(", ")})">art:0</span>`
+          `<span class="badge badge-warn lineage-badge" title="No saved artifacts for ${gates.join(", ")} — run: kimi-doctor --gate perf-gate --save-artifact">art:0</span>`
         );
         continue;
       }

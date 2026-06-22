@@ -193,7 +193,8 @@ function renderSchema(container, schema) {
       if (!node) return "";
       if (node.cli) return node.cli;
       if (node.role) return node.role;
-      if (node.exports) return Array.isArray(node.exports) ? node.exports.join(", ") : String(node.exports);
+      if (node.exports)
+        return Array.isArray(node.exports) ? node.exports.join(", ") : String(node.exports);
       return "";
     };
     const archRow = (label, node) => {
@@ -277,18 +278,45 @@ function renderSchema(container, schema) {
   }
 })();
 
-// kimi-doctor CLI
+// perf-doctor + kimi-doctor CLI
 (async () => {
   try {
     const d = await fetchJson("/api/kimi-doctor");
-    let h = `<table class="tbl"><tr><th>#</th><th>Flag</th><th>Purpose</th></tr>`;
-    d.commands.forEach((c, i) => {
+    const perf = d.perfDoctor || {};
+    const kimi = d.kimiDoctor || {};
+    const flags = perf.commands || d.commands || [];
+
+    let h = `<p style="font-size:11px;color:var(--blue);margin-bottom:4px">perf-doctor <span style="font-size:9px;color:var(--muted)">${perf.cli || d.cli || ""}</span></p>`;
+    h += `<table class="tbl"><tr><th>#</th><th>Flag</th><th>Purpose</th></tr>`;
+    flags.forEach((c, i) => {
       h += `<tr><td class="num">${i + 1}.</td><td><code style="font-size:10px">${c.flag}</code></td><td style="font-size:10px">${c.description}</td></tr>`;
     });
     h += `</table>`;
+
+    const scripts = perf.npmScripts || {};
+    if (Object.keys(scripts).length) {
+      h += `<p style="font-size:11px;color:var(--blue);margin:8px 0 4px">npm scripts (examples/dashboard)</p>`;
+      h += `<table class="tbl"><tr><th>Script</th><th>Purpose</th></tr>`;
+      for (const [name, desc] of Object.entries(scripts)) {
+        h += `<tr><td><code style="font-size:9px">bun run ${name}</code></td><td style="font-size:9px;color:var(--muted)">${desc}</td></tr>`;
+      }
+      h += `</table>`;
+    }
+
+    if (Array.isArray(d.threeSurfaces) && d.threeSurfaces.length) {
+      h += `<details style="margin-top:6px"><summary style="font-size:11px;cursor:pointer;color:var(--blue)">Three perf surfaces (do not conflate)</summary>`;
+      h += `<table class="tbl" style="margin-top:4px"><tr><th>Surface</th><th>Command</th><th>Role</th></tr>`;
+      for (const row of d.threeSurfaces) {
+        h += `<tr><td style="font-size:9px">${row.surface}</td><td><code style="font-size:8px">${row.command}</code></td><td style="font-size:9px;color:var(--muted)">${row.role}</td></tr>`;
+      }
+      h += `</table></details>`;
+    }
+
     h += `<details style="margin-top:4px"><summary style="font-size:11px;cursor:pointer;color:var(--blue)">Pipeline</summary>`;
-    h += `<code style="font-size:9px;display:block">${d.pipeline}</code>`;
+    h += `<code style="font-size:9px;display:block">${perf.pipeline || d.pipeline}</code>`;
+    h += `<code style="font-size:9px;display:block;margin-top:4px">${perf.allAtOnce || d.allAtOnce}</code>`;
     h += `</details>`;
+
     if (d.watchModes) {
       h += `<details style="margin-top:4px"><summary style="font-size:11px;cursor:pointer;color:var(--blue)">Watch modes</summary>`;
       h += `<table class="tbl" style="margin-top:4px"><tr><th>Tool</th><th>Mechanism</th><th>Entry</th></tr>`;
@@ -296,7 +324,22 @@ function renderSchema(container, schema) {
       h += `<tr><td><code>${d.watchModes.kimiDoctor.tool}</code></td><td style="font-size:10px">${d.watchModes.kimiDoctor.mechanism}</td><td><code style="font-size:9px">${d.watchModes.kimiDoctor.entry}</code></td></tr>`;
       h += `</table></details>`;
     }
-    h += `<p style="font-size:10px;color:var(--muted);margin-top:4px"><code>${d.allAtOnce}</code></p>`;
+
+    if (kimi.gateCommands?.length) {
+      h += `<p style="font-size:11px;color:var(--blue);margin:8px 0 4px">kimi-doctor (main repo)</p>`;
+      h += `<ul style="margin:0 0 0 16px;font-size:9px;color:var(--muted)">`;
+      for (const cmd of kimi.gateCommands) {
+        h += `<li><code>${cmd}</code></li>`;
+      }
+      h += `</ul>`;
+    }
+
+    if (d.artifactHint) {
+      h += `<p class="status warn" style="font-size:9px;margin-top:8px">${d.artifactHint}</p>`;
+    }
+    if (d.note) {
+      h += `<p style="font-size:9px;color:var(--muted);margin-top:4px">${d.note}</p>`;
+    }
     card("card-kimi-doctor", h);
   } catch (e) {
     card("card-kimi-doctor", `<p class="status err">${e.message}</p>`);

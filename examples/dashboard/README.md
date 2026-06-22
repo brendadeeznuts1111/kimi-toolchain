@@ -89,14 +89,14 @@ Identity filters on list endpoints: `sessionId`, `workspaceId`, `paneId`, `agent
 | `GET`  | `/api/bundle`           | —     | `kimi-doctor --bundle --json` output                                            |
 | `GET`  | `/api/compile`          | —     | `kimi-doctor --compile-check --json` output                                     |
 | `GET`  | `/api/gates`            | —     | `kimi-doctor --effect-gates --json` output                                      |
-| `GET`  | `/api/kimi-doctor`      | —     | Doctor automation summary + gate snapshot                                       |
+| `GET`  | `/api/kimi-doctor`      | —     | perf-doctor flags, npm scripts, three perf surfaces, kimi-doctor gate commands  |
 | `GET`  | `/api/kimi-publish`     | —     | Publish workflow demo payload                                                   |
 | `GET`  | `/api/toolchain/health` | —     | `{ ok, total, found, missing[], shadowed[], all[] }`                            |
 | `GET`  | `/api/toolchain/heal`   | —     | `{ action, missing[], command, note }` — read-only install hint                 |
 | `GET`  | `/api/env`              | —     | `{ path[], tools[], keyVars, dashboardUrl, listenPort, probePort, portSource }` |
 | `GET`  | `/api/deps`             | —     | `{ binDir, totalPackages, tree, bunx }`                                         |
 | `GET`  | `/api/secrets`          | —     | `{ available, methods, note }` — Bun.secrets probe                              |
-| `GET`  | `/api/scaffold`         | —     | Bootstrap paths, `TEMPLATE_POLICY_CHECK_IDS`, skills catalog, perf scripts    |
+| `GET`  | `/api/scaffold`         | —     | Bootstrap paths, `TEMPLATE_POLICY_CHECK_IDS`, skills catalog, perf scripts      |
 | `GET`  | `/api/file-split`       | —     | `{ sections[{ name, content }], note }` — handler split demo                    |
 
 ### Perf harness

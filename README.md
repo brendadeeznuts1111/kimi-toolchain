@@ -197,6 +197,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run check:templates` | bun-create registry alignment (slice of template policy) |
 
 | `bun run audit:hardcoded` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                                    |
