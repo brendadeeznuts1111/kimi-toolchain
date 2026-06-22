@@ -90,13 +90,24 @@ const AUDIT_COMMANDS: readonly AuditCommand[] = [
   },
 ];
 
+function expandTestGlobs(cmd: string[], root: string): string[] {
+  return cmd.flatMap((arg) => {
+    if (!arg.includes("*")) return [arg];
+    const matches = [
+      ...new Bun.Glob(arg).scanSync({ cwd: root, absolute: false, onlyFiles: true }),
+    ];
+    return matches.length > 0 ? matches : [arg];
+  });
+}
+
 async function runCommand(
   cmd: string[],
   cwd: string
 ): Promise<{ exitCode: number; stdout: string; stderr: string; durationMs: number }> {
   const start = Bun.nanoseconds();
+  const expandedCmd = expandTestGlobs(cmd, cwd);
   const proc = Bun.spawn({
-    cmd,
+    cmd: expandedCmd,
     cwd,
     stdout: "pipe",
     stderr: "pipe",

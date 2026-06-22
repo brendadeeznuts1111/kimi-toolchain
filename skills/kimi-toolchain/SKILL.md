@@ -20,7 +20,7 @@ trigger:
 dependencies: []
 loaded_by: System / On-demand
 role: Toolchain meta-runbook — CLI routing, gates, Kimi vs toolchain split
-token_estimate: 760
+token_estimate: 1100
 run_as: inline
 metadata:
   companionSkills:
@@ -227,6 +227,61 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 | Artifact lineage   | `kimi-doctor --artifacts-lineage <gate>` or `--artifact-graph <gate>` |
 
 Workflow: `examples/dependency-graphs-developer-workflow.md`. API tables: `docs/references/kimi-doctor.md` § gate graphs.
+
+## Templates & audit scripts
+
+### Bun-create templates
+
+Local `bun create <template>` (from `.bun-create/`) **copies files but does not execute `bun-create.postinstall` commands in Bun 1.3.14/1.4.0**. Therefore:
+
+- Any file a verification checklist expects to exist immediately after `bun create` must be present as a static file in the template directory.
+- The `scripts.postinstall` hook should still exist and be idempotent; users run it manually after `bun create` to hydrate placeholders (e.g. `dx.config.toml`).
+- Keep template `package.json` dependency fields empty (`{}` or omitted) so `bun create` does not fall back to npm/pnpm/yarn.
+
+Verify a template with:
+
+```bash
+bun run check-templates          # registry/package/postinstall constraints
+rm -rf /tmp/tmpl && bun create <name> /tmp/tmpl
+find /tmp/tmpl -type f | sort    # inspect generated layout
+```
+
+### Audit scripts
+
+Read-only audit scripts are safe to run in parallel:
+
+| Script                  | Purpose                                                                                      |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| `bun run audit:secrets` | Scan for raw secret-style `Bun.env` / `process.env` access outside `com.herdr.*` registry    |
+| `bun run audit:config`  | Verify canonical-references, constants-manifest, constant-parity, bun-install-runtime layers |
+| `bun run audit:images`  | Scan image files for anomalies                                                               |
+| `bun run audit:network` | Verify `NO_PROXY` bypass configuration                                                       |
+| `bun run audit`         | Run the four above in parallel via `bun run --parallel`                                      |
+| `bun run audit:dry-run` | Parallel dry-run of all audits                                                               |
+
+Run them after config changes or before a release gate. They do not write files, so `--parallel` is safe.
+
+## Troubleshooting `bun run check:fast`
+
+`check:fast` runs success-metrics, format, `lint --names-only`, typecheck, and unit tests in parallel. Common failures:
+
+1. **README drift (`success-metrics` → `drift-latency`)**
+   - `package.json` scripts must be represented in `README.md`.
+   - Fix: `bun run docs:sync` (patches README script table).
+   - If new scripts keep appearing in `package.json`, check for background sync/MCP processes mutating the workspace.
+
+2. **Bun-native enforce-mode violations (`lint --names-only` → `bun-native`)**
+   - `src/lib/globs.ts` must use `Bun.Glob`, not `node:fs` `globSync`/`glob`.
+   - `src/doctor/secret-audit.ts` must not contain a literal `process.env` source pattern (build regexes dynamically).
+   - Fix: replace Node APIs with Bun equivalents; do not add exemption comments for active code paths.
+
+3. **Background process pollution**
+   - Orphaned `bun test --watch`, `bun test src/doctor`, `bun run typecheck`, or `kimi-githooks run-gates` processes can create/delete files and add scripts to `package.json`.
+   - Diagnose: `ps aux | grep -E "bun test|bun run typecheck|run-gates"`
+   - Fix: kill orphaned PIDs, then re-run the gate.
+
+4. **Format/typecheck/test debt**
+   - `check:fast` stops at the first failing gate. After fixing lint, pre-existing format/typecheck/test errors may surface. Use `--skip-tests` to iterate faster.
 
 ## Related
 
