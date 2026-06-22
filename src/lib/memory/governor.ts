@@ -201,18 +201,127 @@ export interface MimallocStatsOptions {
   timeout?: number;
 }
 
+/** Parsed mimalloc heap stats. */
+export interface MimallocStats {
+  reserved: { peak: number; total: number; freed: number; current: number };
+  committed: { peak: number; total: number; freed: number; current: number };
+  reset: { peak: number; total: number; freed: number; current: number };
+  touched: { peak: number; total: number; freed: number; current: number };
+  segments: { peak: number; total: number; freed: number; current: number };
+  abandoned: { peak: number; total: number; freed: number; current: number };
+  cached: { peak: number; total: number; freed: number; current: number };
+  pages: { peak: number; total: number; freed: number; current: number };
+  threads: { peak: number; total: number; freed: number; current: number };
+  elapsedSeconds: number;
+  process: {
+    userSeconds: number;
+    systemSeconds: number;
+    faults: number;
+    rssBytes: number;
+    commitBytes: number;
+  };
+}
+
+function parseMimallocSize(value: string): number {
+  const normalized = value.trim().toLowerCase().replace(/,/g, "");
+  if (normalized === "0" || normalized === "") return 0;
+  const match = normalized.match(/^([0-9.]+)\s*(b|kib|mib|gib|kb|mb|gb|k|m|g)?$/);
+  if (!match) return Number.NaN;
+  const num = Number.parseFloat(match[1]);
+  const unit = match[2] ?? "b";
+  const multipliers: Record<string, number> = {
+    b: 1,
+    k: 1024,
+    m: 1024 ** 2,
+    g: 1024 ** 3,
+    kb: 1024,
+    mb: 1024 ** 2,
+    gb: 1024 ** 3,
+    kib: 1024,
+    mib: 1024 ** 2,
+    gib: 1024 ** 3,
+  };
+  return num * (multipliers[unit] ?? 1);
+}
+
+function parseMimallocRow(
+  raw: string,
+  name: string
+): { peak: number; total: number; freed: number; current: number } | undefined {
+  const linePattern = new RegExp(
+    "^[ \\t]*-?" + name.replace(/[-/]/g, "[-/]") + ":.*$",
+    "im"
+  );
+  const lineMatch = raw.match(linePattern);
+  if (!lineMatch) return undefined;
+  const columns = lineMatch[0]
+    .split(/\s{2,}/)
+    .map((c) => c.trim())
+    .filter(Boolean);
+  if (columns.length < 5) return undefined;
+  return {
+    peak: parseMimallocSize(columns[1]),
+    total: parseMimallocSize(columns[2]),
+    freed: parseMimallocSize(columns[3]),
+    current: parseMimallocSize(columns[4]),
+  };
+}
+
 /**
- * Run a Bun script with `MIMALLOC_SHOW_STATS=1` and return the mimalloc stats
- * block printed to stderr on exit.
+ * Parse the raw text block produced by `MIMALLOC_SHOW_STATS=1`.
+ * Returns `undefined` when the block is missing or unrecognizable.
+ */
+export function parseMimallocStats(raw: string): MimallocStats | undefined {
+  if (!raw.includes("heap stats:")) return undefined;
+  const reserved = parseMimallocRow(raw, "reserved");
+  if (!reserved) return undefined;
+  const committed = parseMimallocRow(raw, "committed") ?? reserved;
+  const elapsedMatch = raw.match(/elapsed:\s+([0-9.]+)\s*s/i);
+  const processMatch = raw.match(
+    /process:\s*user:\s*([0-9.]+)\s*s,\s*system:\s*([0-9.]+)\s*s,\s*faults:\s*(\d+),\s*rss:\s*([0-9.]+)\s*(\S*),\s*commit:\s*([0-9.]+)\s*(\S*)/i
+  );
+  return {
+    reserved,
+    committed,
+    reset: parseMimallocRow(raw, "reset") ?? { peak: 0, total: 0, freed: 0, current: 0 },
+    touched: parseMimallocRow(raw, "touched") ?? { peak: 0, total: 0, freed: 0, current: 0 },
+    segments: parseMimallocRow(raw, "segments") ?? { peak: 0, total: 0, freed: 0, current: 0 },
+    abandoned: parseMimallocRow(raw, "abandoned") ?? { peak: 0, total: 0, freed: 0, current: 0 },
+    cached: parseMimallocRow(raw, "cached") ?? { peak: 0, total: 0, freed: 0, current: 0 },
+    pages: parseMimallocRow(raw, "pages") ?? { peak: 0, total: 0, freed: 0, current: 0 },
+    threads: parseMimallocRow(raw, "threads") ?? { peak: 0, total: 0, freed: 0, current: 0 },
+    elapsedSeconds: elapsedMatch ? Number.parseFloat(elapsedMatch[1]) : Number.NaN,
+    process: processMatch
+      ? {
+          userSeconds: Number.parseFloat(processMatch[1]),
+          systemSeconds: Number.parseFloat(processMatch[2]),
+          faults: Number.parseInt(processMatch[3], 10),
+          rssBytes: parseMimallocSize(`${processMatch[4]} ${processMatch[5]}`),
+          commitBytes: parseMimallocSize(`${processMatch[6]} ${processMatch[7]}`),
+        }
+      : {
+          userSeconds: Number.NaN,
+          systemSeconds: Number.NaN,
+          faults: Number.NaN,
+          rssBytes: Number.NaN,
+          commitBytes: Number.NaN,
+        },
+  };
+}
+
+/**
+ * Run a Bun script with `MIMALLOC_SHOW_STATS=1` and return the captured
+ * streams. Stats are printed on exit to stderr (or stdout on some builds),
+ * so both streams are returned for inspection.
  *
  * @example
- * const stats = await captureMimallocStats("scripts/runtime-info.ts");
- * console.log(stats);
+ * const { combined, exitCode } = await captureMimallocStats("scripts/runtime-info.ts");
+ * console.log(combined);
  */
 export async function captureMimallocStats(
   scriptPath: string,
   options: MimallocStatsOptions = {}
-): Promise<{ output: string; exitCode: number | null }> {
+): Promise<{ stdout: string; stderr: string; combined: string; exitCode: number | null }> {
   const proc = Bun.spawn(["bun", scriptPath, ...(options.args ?? [])], {
     env: { ...Bun.env, MIMALLOC_SHOW_STATS: "1" },
     cwd: options.cwd,
@@ -220,12 +329,18 @@ export async function captureMimallocStats(
     stderr: "pipe",
   });
 
+  let timeoutId: Timer | undefined;
   if (options.timeout) {
-    setTimeout(() => proc.kill("SIGTERM"), options.timeout);
+    timeoutId = setTimeout(() => proc.kill("SIGTERM"), options.timeout);
   }
 
-  const stderr = await readableStreamToText(proc.stderr);
-  const exitCode = await proc.exited;
+  const [stdout, stderr, exitCode] = await Promise.all([
+    readableStreamToText(proc.stdout),
+    readableStreamToText(proc.stderr),
+    proc.exited.then((code) => code),
+  ]);
 
-  return { output: stderr, exitCode };
+  if (timeoutId) clearTimeout(timeoutId);
+
+  return { stdout, stderr, combined: `${stdout}${stderr}`, exitCode };
 }

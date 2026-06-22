@@ -9,7 +9,7 @@ import {
   inspectBunRuntime,
   processMemoryUsage,
 } from "../src/lib/bun-utils.ts";
-import { captureMimallocStats } from "../src/lib/memory/governor.ts";
+import { captureMimallocStats, parseMimallocStats } from "../src/lib/memory/governor.ts";
 
 function parseArg(name: string): string | undefined {
   const prefix = `${name}=`;
@@ -105,16 +105,24 @@ const payload = {
     : undefined,
   packageManager: meta.packageManager,
   mimalloc: undefined as
-    | { script: string; available: boolean; raw: string; exitCode: number | null }
+    | {
+        script: string;
+        available: boolean;
+        raw: string;
+        parsed: ReturnType<typeof parseMimallocStats>;
+        exitCode: number | null;
+      }
     | undefined,
 };
 
 if (mimallocScript) {
   const stats = await captureMimallocStats(mimallocScript, { timeout: 30_000 });
+  const raw = stats.combined;
   payload.mimalloc = {
     script: mimallocScript,
-    available: stats.output.length > 0,
-    raw: stats.output,
+    available: raw.length > 0,
+    raw,
+    parsed: parseMimallocStats(raw),
     exitCode: stats.exitCode,
   };
 }

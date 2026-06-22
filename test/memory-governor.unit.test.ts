@@ -7,6 +7,7 @@ import {
   classifyPressure,
   forceGarbageCollection,
   isActuallyCritical,
+  parseMimallocStats,
   preflightCheck,
   printMemoryTable,
   snapshot,
@@ -97,16 +98,54 @@ describe("memory-governor", () => {
     const script = join(dir, "main.ts");
     await Bun.write(script, "console.log('ok');");
     try {
-      const { output, exitCode } = await captureMimallocStats(script, { timeout: 10_000 });
+      const { combined, stderr, stdout, exitCode } = await captureMimallocStats(script, {
+        timeout: 10_000,
+      });
       expect(exitCode).toBe(0);
+      expect(stdout).toContain("ok");
       // Mimalloc stats may not be available on all platforms/builds.
-      // When present, stderr contains the stats block; otherwise it is empty.
-      if (output.length > 0) {
-        expect(output).toContain("heap stats:");
-        expect(output).toContain("rss:");
+      // When present, the combined output contains the stats block.
+      if (stderr.length > 0 || combined.includes("heap stats:")) {
+        expect(combined).toContain("heap stats:");
+        expect(combined).toContain("rss:");
       }
     } finally {
       cleanupPath(dir);
     }
+  });
+
+  test("parseMimallocStats extracts the stats block", () => {
+    const fixture = `heap stats:    peak      total      freed    current       unit      count
+  reserved:   64.0 MiB   64.0 MiB      0       64.0 MiB                        not all freed!
+ committed:   64.0 MiB   64.0 MiB      0       64.0 MiB                        not all freed!
+     reset:      0          0          0          0                            ok
+   touched:  128.5 KiB  128.5 KiB    5.4 MiB   -5.3 MiB                        ok
+  segments:      1          1          0          1                            not all freed!
+-abandoned:      0          0          0          0                            ok
+   -cached:      0          0          0          0                            ok
+     pages:      0          0         53        -53                            ok
+-abandoned:      0          0          0          0                            ok
+ -extended:      0
+ -noretire:      0
+     mmaps:      0
+   commits:      0
+   threads:      0          0          0          0                            ok
+  searches:     0.0 avg
+numa nodes:       1
+   elapsed:       0.068 s
+   process: user: 0.061 s, system: 0.014 s, faults: 0, rss: 57.4 MiB, commit: 64.0 MiB`;
+    const stats = parseMimallocStats(fixture);
+    expect(stats).toBeDefined();
+    expect(stats?.reserved.peak).toBe(64 * 1024 ** 2);
+    expect(stats?.committed.total).toBe(64 * 1024 ** 2);
+    expect(stats?.touched.freed).toBe(5.4 * 1024 ** 2);
+    expect(stats?.elapsedSeconds).toBe(0.068);
+    expect(stats?.process.rssBytes).toBe(57.4 * 1024 ** 2);
+    expect(stats?.process.faults).toBe(0);
+  });
+
+  test("parseMimallocStats returns undefined for unrelated text", () => {
+    expect(parseMimallocStats("")).toBeUndefined();
+    expect(parseMimallocStats("some log line\nanother line")).toBeUndefined();
   });
 });
