@@ -224,10 +224,8 @@ export async function captureMimallocStats(
     setTimeout(() => proc.kill("SIGTERM"), options.timeout);
   }
 
-  const [stderr, exitCode] = await Promise.all([
-    readableStreamToText(proc.stderr),
-    proc.exited.then((code) => code),
-  ]);
+  const stderr = await readableStreamToText(proc.stderr);
+  const exitCode = await proc.exited;
 
   return { output: stderr, exitCode };
 }
