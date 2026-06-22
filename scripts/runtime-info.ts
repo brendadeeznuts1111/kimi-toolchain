@@ -118,11 +118,12 @@ const payload = {
 if (mimallocScript) {
   const stats = await captureMimallocStats(mimallocScript, { timeout: 30_000 });
   const raw = stats.combined;
+  const parsed = parseMimallocStats(raw);
   payload.mimalloc = {
     script: mimallocScript,
-    available: raw.length > 0,
+    available: parsed !== undefined,
     raw,
-    parsed: parseMimallocStats(raw),
+    parsed,
     exitCode: stats.exitCode,
   };
 }

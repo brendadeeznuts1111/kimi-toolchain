@@ -248,10 +248,7 @@ function parseMimallocRow(
   raw: string,
   name: string
 ): { peak: number; total: number; freed: number; current: number } | undefined {
-  const linePattern = new RegExp(
-    "^[ \\t]*-?" + name.replace(/[-/]/g, "[-/]") + ":.*$",
-    "im"
-  );
+  const linePattern = new RegExp("^[ \\t]*-?" + name.replace(/[-/]/g, "[-/]") + ":.*$", "im");
   const lineMatch = raw.match(linePattern);
   if (!lineMatch) return undefined;
   const columns = lineMatch[0]
