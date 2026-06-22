@@ -2,8 +2,8 @@
  * secrets-api.ts — Dashboard-safe secrets storage payload (no secret values).
  */
 
-import { Effect } from "effect";
 import { SecretsManager } from "./secrets-manager.ts";
+import { runSecretsList } from "./effect/secrets-runtime.ts";
 import { effectiveStorageTier, isStrictStorageEnabled } from "./secrets-storage.ts";
 import { secretsPolicyPath } from "./paths.ts";
 import type { StorageStatus } from "./secrets-storage.ts";
@@ -36,7 +36,7 @@ export async function buildSecretsApiResponse(projectRoot: string): Promise<Secr
 
   const [storage, listed] = await Promise.all([
     manager.storageStatus(),
-    Effect.runPromise(manager.list()),
+    runSecretsList(manager),
   ]);
 
   return {

@@ -2,11 +2,16 @@
  * secrets-cli.ts — Command implementations for kimi-secrets CLI.
  */
 
-import { Effect, Either } from "effect";
+import { Either } from "effect";
 import { SecretsManager } from "./secrets-manager.ts";
 import { auditSecretsStorage } from "./secrets-probe.ts";
 import { runSecretsStorageGate, SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY } from "./secrets-gate.ts";
 import { SecretRotationRequired, SecretPolicyViolation, SecretNotFound } from "./effect/errors.ts";
+import {
+  runSecretsCheck,
+  runSecretsList,
+  runSecretsRotate,
+} from "./effect/secrets-runtime.ts";
 import type { AnySecretKey, SecretCheckResult } from "./secrets-types.ts";
 import { aggregateChecks } from "./health-check.ts";
 import { inspectAgent } from "./inspect.ts";
@@ -44,7 +49,7 @@ export async function cmdSecretsStorage(opts: SecretsCliOptions): Promise<number
 
 export async function cmdSecretsList(opts: SecretsCliOptions): Promise<number> {
   const manager = new SecretsManager({ projectRoot: opts.projectRoot, onWarn: () => {} });
-  const rows = await Effect.runPromise(manager.list());
+  const rows = await runSecretsList(manager);
   if (opts.json) {
     emitJson(rows);
     return 0;
@@ -69,7 +74,7 @@ function printCheckRows(results: SecretCheckResult[]): void {
 export async function cmdSecretsCheck(opts: SecretsCliOptions): Promise<number> {
   const manager = new SecretsManager({ projectRoot: opts.projectRoot });
   const gate = await runSecretsStorageGate(opts.projectRoot);
-  const result = await Effect.runPromise(Effect.either(manager.check()));
+  const result = await runSecretsCheck(manager);
 
   if (opts.json) {
     emitJson({
@@ -110,7 +115,7 @@ export async function cmdSecretsRotate(
 ): Promise<number> {
   const manager = new SecretsManager({ projectRoot: opts.projectRoot });
   const key = parseKey(service, name);
-  const result = await Effect.runPromise(Effect.either(manager.rotate(key, newValue)));
+  const result = await runSecretsRotate(manager, key, newValue);
 
   if (Either.isLeft(result)) {
     const err = result.left;
