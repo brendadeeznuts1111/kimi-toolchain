@@ -9,7 +9,12 @@ import { Effect } from "effect";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { join, resolve } from "path";
 import { $ } from "bun";
-import { bunVersion, isDirectRun, readableStreamToText, resolveDevSecrets } from "../lib/bun-utils.ts";
+import {
+  bunVersion,
+  isDirectRun,
+  readableStreamToText,
+  resolveDevSecrets,
+} from "../lib/bun-utils.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -28,6 +33,7 @@ function printHelp() {
   logger.info("  mkdir <name> && bun init -y && kimi-fix .");
   logger.info("");
   logger.info("Flags:");
+  logger.info("  --version, -v  Print build banner and exit");
   logger.info("  --force       Overwrite existing files");
   logger.info("  --no-install  Skip installing node_modules & tasks");
   logger.info("  --no-git      Don't initialize a git repository");
@@ -136,9 +142,7 @@ async function runScaffold(args: string[]): Promise<number> {
   const noGit = args.includes("--no-git");
   const noSecrets = args.includes("--no-secrets");
   const open = args.includes("--open");
-  const filtered = args.filter(
-    (a) => !a.startsWith("--")
-  );
+  const filtered = args.filter((a) => !a.startsWith("--"));
 
   const name = filtered[0];
   if (!NAME_RE.test(name)) {
@@ -149,7 +153,9 @@ async function runScaffold(args: string[]): Promise<number> {
   const projectDir = join(parent, name);
 
   if (pathExists(projectDir) && !force) {
-    throw new CliError({ message: `Directory already exists: ${projectDir} (use --force to overwrite)` });
+    throw new CliError({
+      message: `Directory already exists: ${projectDir} (use --force to overwrite)`,
+    });
   }
 
   logger.section(`Creating ${name}`);
@@ -172,7 +178,7 @@ async function runScaffold(args: string[]): Promise<number> {
   }
 
   makeDir(projectDir, { recursive: true });
-  const initArgs = ["init", "-y"]
+  const initArgs = ["init", "-y"];
   if (noGit) initArgs.push("--no-git");
   await $`bun ${initArgs}`.cwd(projectDir).quiet();
 
@@ -231,14 +237,15 @@ async function main(): Promise<number> {
 
   if (args.includes("--secrets-dry-run")) {
     const resolution = await resolveDevSecrets();
-    const sourceIcon = (s: string) => (s === "env" ? "📋 env" : s === "keychain" ? "🔑 keychain" : "❌ missing");
+    const sourceIcon = (s: string) =>
+      s === "env" ? "📋 env" : s === "keychain" ? "🔑 keychain" : "❌ missing";
     logger.info("Secret resolution status:");
     for (const entry of resolution.entries) {
       logger.info(`  ${entry.envVar.padEnd(22)} ${sourceIcon(entry.source)}`);
     }
     logger.info(
       `  ── resolved ${resolution.resolved}/${resolution.total} ` +
-      `(${resolution.fromEnv} env, ${resolution.fromKeychain} keychain, ${resolution.missing} missing)`
+        `(${resolution.fromEnv} env, ${resolution.fromKeychain} keychain, ${resolution.missing} missing)`
     );
     return 0;
   }

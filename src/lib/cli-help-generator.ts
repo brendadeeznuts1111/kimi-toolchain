@@ -51,6 +51,7 @@ export function getHelpText(tool: "kimi-secrets" | "kimi-guardian" | "general"):
       lines.push("  --json          Output as JSON");
       lines.push("  --unmask        Show full secret values");
       lines.push("  --project <dir> Project directory");
+      lines.push("  --version, -v   Print build banner and exit");
       lines.push("");
       lines.push(`${c.section}Examples:${c.reset}`);
       lines.push(`  ${c.dim}kimi-secrets check${c.reset}`);
@@ -70,6 +71,7 @@ export function getHelpText(tool: "kimi-secrets" | "kimi-guardian" | "general"):
       lines.push(`${c.section}Options:${c.reset}`);
       lines.push("  --project <dir> Project directory");
       lines.push("  --json          Output as JSON");
+      lines.push("  --version, -v   Print build banner and exit");
       lines.push("");
       lines.push(`${c.section}Examples:${c.reset}`);
       lines.push(`  ${c.dim}kimi-guardian check${c.reset}`);

@@ -541,7 +541,7 @@ async function main(): Promise<number> {
   }
 
   if (Bun.argv.includes("--version") || Bun.argv.includes("-v")) {
-    console.log(buildBanner);
+    writeStdoutLine(buildBanner);
     return 0;
   }
 

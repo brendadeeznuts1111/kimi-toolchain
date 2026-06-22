@@ -143,7 +143,12 @@ async function runDoctor(projectDir: string): Promise<number> {
   return 0;
 }
 
-async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile, noInstall = false): Promise<void> {
+async function runFix(
+  project: string,
+  dryRun: boolean,
+  profile: ScaffoldProfile,
+  noInstall = false
+): Promise<void> {
   logger.section(`Fixing ${basename(project)}`);
   logger.info(`Path: ${project}`);
   logger.info(`Profile: ${profile}`);
@@ -353,6 +358,7 @@ function printHelp() {
   logger.line("  kimi-fix <project-path> [--dry-run] [--no-install] [--profile app|toolchain]");
   logger.line("  kimi-fix fix <project-path> [--dry-run] [--no-install] [--profile app|toolchain]");
   logger.line("  kimi-fix doctor [project-path]");
+  logger.line("  kimi-fix --version, -v");
   logger.line("");
   logger.line("Fixes missing project scaffolding:");
   logger.line("  - git init, governance files, CONTEXT.md, guardian baseline, git hooks");
@@ -364,11 +370,6 @@ function printHelp() {
 }
 
 async function main(): Promise<number> {
-  scrubProcessGitEnv();
-
-  // Resolve dev secrets before any git or bun operations
-  await resolveDevSecrets();
-
   const rawArgs = Bun.argv.slice(2);
   const profile = resolveScaffoldProfile(rawArgs);
   const args = filterScaffoldArgv(rawArgs.filter((a) => a !== "--dry-run" && a !== "--no-install"));
@@ -384,6 +385,11 @@ async function main(): Promise<number> {
     writeStdoutLine(buildBanner);
     return 0;
   }
+
+  scrubProcessGitEnv();
+
+  // Resolve dev secrets before any git or bun operations
+  await resolveDevSecrets();
 
   const command = args[0];
 

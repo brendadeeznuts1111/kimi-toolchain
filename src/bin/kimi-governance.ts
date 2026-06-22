@@ -5,7 +5,7 @@
  * P2: License/CONTRIBUTING/CODEOWNERS checker, documentation drift, ADR scaffold
  *
  * Usage:
- *   kimi-governance [score|coverage [N]|docs|adr <title>|fix|doctor]
+ *   kimi-governance [score|coverage [N]|docs|adr <title>|fix|doctor] [--version, -v]
  */
 
 import { $ } from "bun";
@@ -19,6 +19,7 @@ import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { buildBanner } from "../lib/build-info.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 import { recordDoctorRun, getPersistentWarnings, type DoctorWarning } from "../lib/doctor-runs.ts";
 import { createLogger } from "../lib/logger.ts";
 import { ARTIFACTS_COVERAGE_DIR } from "../lib/artifacts.ts";
@@ -402,7 +403,7 @@ async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
 
   if (args[0] === "--version" || args[0] === "-v") {
-    console.log(buildBanner);
+    writeStdoutLine(buildBanner);
     return 0;
   }
 
