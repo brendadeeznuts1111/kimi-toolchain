@@ -132,6 +132,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "dashboard-trace-ledger": "examples/dashboard/src/handlers/trace-ledger.ts",
   "doctor-trace": "src/lib/trace-ledger.ts",
   shadowrealm: "examples/dashboard/src/handlers/shadowrealm.ts",
+  "dashboard-card-loader": "src/lib/dashboard-card-loader.ts",
   "dashboard-card-loaders": "src/lib/dashboard-card-loaders.ts",
   "dashboard-loader-lanes-lint": "src/lib/dashboard-loader-lanes-lint.ts",
   "examples-dashboard-artifacts": "examples/dashboard/src/handlers/artifacts.ts",

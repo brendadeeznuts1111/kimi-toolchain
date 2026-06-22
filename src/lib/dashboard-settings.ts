@@ -13,11 +13,12 @@ import {
 } from "./card-probe-server.ts";
 import { ARTIFACT_IDENTITY_MAX_LEN, DEFAULT_ARTIFACT_MAX_AGE_MS } from "./artifact-store.ts";
 import { buildDashboardCardRegistry } from "./dashboard-card-registry.ts";
+import { CANONICAL_DASHBOARD_PORT } from "./dashboard-constants.ts";
 import { readTomlDocument, resolveProjectConfigPath } from "./dx-config-parse.ts";
 import { readDoctorProbeConfig } from "./doctor-probe-config.ts";
 
 /** Herdr / kimi-dashboard canonical listen port (Dashboard Contract v1.0). */
-export const CANONICAL_DASHBOARD_PORT = 5678;
+export { CANONICAL_DASHBOARD_PORT };
 
 /** Direct `bun run src/index.ts` fallback — converged to canonical 5678 (Dashboard Contract v1.0). */
 export const LEGACY_DIRECT_DASHBOARD_PORT = 5678;

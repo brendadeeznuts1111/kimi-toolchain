@@ -4,9 +4,9 @@
  */
 
 import { join } from "path";
-import { CANONICAL_DASHBOARD_PORT } from "./dashboard-settings.ts";
+import { CANONICAL_DASHBOARD_PORT } from "./dashboard-constants.ts";
 import { listDir, pathExists, readText } from "./bun-io.ts";
-import { loadDashboardCardIds } from "./dashboard-card-registry.ts";
+import { loadDashboardCardIds } from "./dashboard-card-loader.ts";
 
 export const EXAMPLES_SHOWCASE_SCHEMA_VERSION = 1 as const;
 
