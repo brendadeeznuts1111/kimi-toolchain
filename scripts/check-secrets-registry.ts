@@ -200,8 +200,6 @@ if (templateMatch) {
       }
     }
   }
-} else {
-  warn("init-template", "Could not extract init template from kimi-secrets.ts — check skipped");
 }
 
 // ─── Output ───────────────────────────────────────────────────────────────────

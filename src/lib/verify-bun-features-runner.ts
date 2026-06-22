@@ -454,14 +454,12 @@ async function checkBunColorStringFormats(): Promise<void> {
 
 async function checkCpuProfCapture(): Promise<void> {
   const start = Bun.nanoseconds();
-  const profDir = join(tmpdir(), `kimi-cpu-prof-${Date.now()}`);
-  await Bun.write(join(profDir, ".gitkeep"), "");
   const scriptPath = join(reportProjectRoot, "scripts", "verify-bun-features.ts");
   const proc = Bun.spawn({
     cmd: ["bun", "--cpu-prof", "--cpu-prof-interval=500", "run", scriptPath],
     stdout: "pipe",
     stderr: "pipe",
-    cwd: profDir,
+    cwd: reportProjectRoot,
   });
   const exit = await proc.exited;
   const err = await readableStreamToText(proc.stderr);
@@ -471,8 +469,19 @@ async function checkCpuProfCapture(): Promise<void> {
     return;
   }
   const glob = new Bun.Glob("*.cpuprofile");
-  const files = [...glob.scanSync(profDir)].sort();
+  const files = [...glob.scanSync(reportProjectRoot)].sort();
   const latest = files.at(-1);
+  if (latest) {
+    // Move the captured profile out of the repo root into a temp dir.
+    const profDir = join(tmpdir(), `kimi-cpu-prof-${Date.now()}`);
+    await Bun.write(join(profDir, ".gitkeep"), "");
+    const oldPath = join(reportProjectRoot, latest);
+    const newPath = join(profDir, latest);
+    await Bun.write(newPath, await Bun.file(oldPath).arrayBuffer());
+    await Bun.file(oldPath)
+      .delete()
+      .catch(() => {});
+  }
   record(
     "cpu-prof.capture",
     "profile",

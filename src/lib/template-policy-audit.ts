@@ -51,8 +51,7 @@ const TEMPLATE_BANNED_TERMS: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /Tier[- ]?1380/i, label: "Tier-1380 internal tag (use global Bun-native wording)" },
 ];
 
-const TEMPLATE_TEST_FILENAME =
-  /^[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke)\.test\.ts$/;
+const TEMPLATE_TEST_FILENAME = /^[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke)\.test\.ts$/;
 
 const KEBAB_CASE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
@@ -598,7 +597,7 @@ export async function auditTemplateTestConventions(
       violations.push({
         file: relPath,
         field: "test-describe",
-        message: "Missing top-level describe(\"…\") block",
+        message: 'Missing top-level describe("…") block',
       });
       continue;
     }
@@ -658,7 +657,10 @@ export async function auditTemplateBannedTerms(root: string): Promise<TemplatePo
 export async function auditTemplateHardcodedSecrets(
   root: string
 ): Promise<TemplatePolicyViolation[]> {
-  const result = await auditHardcodedSecretsInGlob(root, ["templates/**/*.ts", "templates/**/*.tsx"]);
+  const result = await auditHardcodedSecretsInGlob(root, [
+    "templates/**/*.ts",
+    "templates/**/*.tsx",
+  ]);
   return result.findings.map((finding) => ({
     file: finding.file,
     field: finding.type,

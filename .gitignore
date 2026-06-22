@@ -67,3 +67,6 @@ CLAUDE.md
 # OS
 .DS_Store
 profiles/
+
+# Temporary compile-smoke artifacts
+*.tmp-compile-smoke.ts
