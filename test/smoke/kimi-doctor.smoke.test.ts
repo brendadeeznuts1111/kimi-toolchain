@@ -187,6 +187,7 @@ describe("kimi-doctor smoke", () => {
     const parent = Bun.env.TMPDIR || "/tmp";
     const { stdout, exitCode } = await runTool(KIMI_NEW, [name, "--path", parent, "--dry-run"]);
     expect(stdout).toContain("[dry-run]");
+    expect(stdout).toContain("bun init -m");
     expect(stdout).toContain("kimi-fix");
     expect(exitCode).toBe(0);
   }, 15_000);

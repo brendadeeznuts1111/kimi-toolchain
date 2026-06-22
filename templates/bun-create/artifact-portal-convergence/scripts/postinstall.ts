@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 /**
+ * template-bootstrap: chmod shell scripts only — no secrets registry at template copy time.
  * artifact-portal-convergence template postinstall.
  *
  * Usage:

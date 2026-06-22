@@ -309,8 +309,16 @@ export const REPO_SKILL_CODE_COVERAGE: Record<
     ],
   },
   "skills/create-template/SKILL.md": {
-    libModules: ["src/lib/scaffold-templates.ts", "src/bin/kimi-fix.ts"],
-    testFiles: ["test/scaffold-templates.unit.test.ts"],
+    libModules: [
+      "src/lib/scaffold-templates.ts",
+      "src/lib/template-policy-audit.ts",
+      "src/bin/kimi-fix.ts",
+      "src/bin/kimi-new.ts",
+    ],
+    testFiles: [
+      "test/scaffold-templates.unit.test.ts",
+      "test/template-policy-audit.unit.test.ts",
+    ],
   },
 };
 
@@ -589,6 +597,86 @@ export function auditKimiToolchainSkillContract(
       rule: "kimi-toolchain-effect-hardening-pointer",
       message: "must point L3 Effect scaffolds to effect-hardening skill",
     },
+    {
+      re: /create-template/,
+      rule: "kimi-toolchain-create-template-pointer",
+      message: "must point template authoring to create-template skill",
+    },
+    {
+      re: /check:template-policy/,
+      rule: "kimi-toolchain-template-policy-gate",
+      message: "must document check:template-policy for template edits",
+    },
+  ];
+
+  for (const { re, rule, message } of required) {
+    if (!re.test(text)) issues.push({ skill: skillRel, rule, message });
+  }
+
+  return issues;
+}
+
+/** L2 create-template — policy gate, bootstrap bridge, scaffold families. */
+export function auditCreateTemplateSkillContract(
+  skillRel: string,
+  text: string
+): SkillContractIssue[] {
+  const issues: SkillContractIssue[] = [
+    ...findSyncedSkillEscapeLinks(skillRel, text),
+    ...findBarePortableDocLinks(skillRel, text),
+  ];
+
+  const required: Array<{ re: RegExp; rule: string; message: string }> = [
+    {
+      re: /bun-create/,
+      rule: "create-template-bun-create-family",
+      message: "must document bun-create template family",
+    },
+    {
+      re: /templates\/scaffold\//,
+      rule: "create-template-scaffold-family",
+      message: "must document templates/scaffold/ family",
+    },
+    {
+      re: /bun run check:template-policy/,
+      rule: "create-template-policy-gate",
+      message: "must document bun run check:template-policy verification gate",
+    },
+    {
+      re: /src\/lib\/template-policy-audit\.ts/,
+      rule: "create-template-policy-pointer",
+      message: "must point to src/lib/template-policy-audit.ts",
+    },
+    {
+      re: /bun init -m/,
+      rule: "create-template-bootstrap-bridge",
+      message: "must document bun init -m bridge (kimi-new greenfield)",
+    },
+    {
+      re: /postinstall.*not.*call.*bun init/i,
+      rule: "create-template-bun-init-guard",
+      message: "must state bun-create postinstall must not call bun init",
+    },
+    {
+      re: /src\/lib\/scaffold-templates\.ts/,
+      rule: "create-template-scaffold-ssot",
+      message: "must point to src/lib/scaffold-templates.ts",
+    },
+    {
+      re: /src\/bin\/kimi-fix\.ts/,
+      rule: "create-template-kimi-fix-pointer",
+      message: "must point to src/bin/kimi-fix.ts deployment",
+    },
+    {
+      re: /TEMPLATES\.md/,
+      rule: "create-template-templates-doc",
+      message: "must reference TEMPLATES.md",
+    },
+    {
+      re: /kimi-toolchain/,
+      rule: "create-template-kimi-toolchain-pointer",
+      message: "must reference kimi-toolchain skill as companion dependency",
+    },
   ];
 
   for (const { re, rule, message } of required) {
@@ -781,6 +869,9 @@ export function auditRepoSkill(skillRel: string, text: string): SkillContractIss
   }
   if (skillRel === "skills/finish-work/SKILL.md") {
     return [...loader, ...auditFinishWorkSkillContract(skillRel, text)];
+  }
+  if (skillRel === "skills/create-template/SKILL.md") {
+    return [...loader, ...auditCreateTemplateSkillContract(skillRel, text)];
   }
   return [...loader, ...findSyncedSkillEscapeLinks(skillRel, text)];
 }

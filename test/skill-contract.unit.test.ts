@@ -3,6 +3,7 @@ import { join } from "path";
 import { REPO_ROOT } from "./helpers.ts";
 import {
   auditCloudflareAccessSkillContract,
+  auditCreateTemplateSkillContract,
   auditCodeProbeWhenExports,
   auditEffectDisciplineSkillContract,
   auditEffectHardeningSkillContract,
@@ -114,6 +115,12 @@ describe("skill-contract", () => {
   test("effect-hardening skill passes contract gates", async () => {
     const text = await Bun.file(join(REPO_ROOT, "skills/effect-hardening/SKILL.md")).text();
     const issues = auditEffectHardeningSkillContract("skills/effect-hardening/SKILL.md", text);
+    expect(formatSkillContractReport(issues)).toBe("skill-contract OK");
+  });
+
+  test("create-template skill passes contract gates", async () => {
+    const text = await Bun.file(join(REPO_ROOT, "skills/create-template/SKILL.md")).text();
+    const issues = auditCreateTemplateSkillContract("skills/create-template/SKILL.md", text);
     expect(formatSkillContractReport(issues)).toBe("skill-contract OK");
   });
 

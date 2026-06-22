@@ -60,4 +60,11 @@ The default module (`doctor`) is sourced from `examples/dashboard/src/harness/` 
 - `templates/bun-create/` → `~/.bun-create/` (used by `bun create`)
 - `templates/desktop-runtime/package.json` → `~/.kimi-code/package.json`
 
-Verify after changing templates: `bun run sync && bun run sync:verify`.
+Verify after changing templates:
+
+```bash
+bun run check:template-policy   # install, registry, scaffold, secrets, typecheck, tests
+bun run sync && bun run sync:verify
+```
+
+Policy SSOT: `src/lib/template-policy-audit.ts` · runbook: `skills/create-template/SKILL.md`.

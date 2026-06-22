@@ -210,6 +210,18 @@ Templates shared across both profiles just exist in `templates/scaffold/`. Toolc
 
 **Solution:** The `bun create` template's postinstall does **not** call `bun init`. `kimi-fix` handles everything, including `@types/bun` installation. Only use `bun init` separately for its AI agent rule files (`CLAUDE.md`, `.cursor/rules/`).
 
+**Greenfield bridge (`kimi-new`):** Use `bun init -m -y` before `kimi-fix` — enforced in `src/bin/kimi-new.ts` and `auditTemplateBootstrapBridge()`.
+
+### Secrets (bun create)
+
+| Template | Secrets layout | Bootstrap |
+| -------- | -------------- | --------- |
+| `herdr-service-template` | `src/lib/secrets/` stubs + postinstall generator | `Bun.secrets` → env fallback; `resolveDevSecrets()` in `legacy.ts` |
+| `kimi-toolchain` | Optional root `secrets/` via `--with-secrets` | Same contract when flag is set |
+| Others | `.env.example` only | Document `Bun.secrets` first; never commit `.env` |
+
+Postinstall scripts that `Bun.spawn` before a secrets registry exists must include a `template-bootstrap` header (see `auditTemplatePostinstallBootstrap()`). Gate: `bun run check:template-policy`.
+
 ### kimi-fix skip rule
 
 `kimi-fix` writes a file **only if it doesn't exist**. This is intentional — it never overwrites user customizations. If you need a template that updates on every `kimi-fix` run, add an explicit overwrite flag or hash check.
@@ -223,17 +235,23 @@ Templates shared across both profiles just exist in `templates/scaffold/`. Toolc
 After creating/modifying a template:
 
 ```
-1. bun run typecheck          ← TypeScript compiles
-2. bun run format             ← oxfmt passes
-3. bun test test/scaffold-*   ← scaffold tests pass
-4. kimi-fix .tmp-test && find .tmp-test -type f | sort  ← files land correctly
-5. rm -rf .tmp-test
-6. kimi-doctor --quick        ← no health regressions
-7. git add + commit
+1. bun run check:template-policy   ← SSOT gate (install, registry, scaffold, secrets, bootstrap, oxlint, tsc, bun test)
+2. bun run check:template-policy --dry-run
+3. bun run typecheck
+4. bun run format
+5. bun test test/scaffold-* test/template-policy-audit.unit.test.ts
+6. kimi-fix .tmp-test && find .tmp-test -type f | sort  ← files land correctly
+7. rm -rf .tmp-test
+8. kimi-doctor --quick
+9. bun run verify:bun-features:strict  ← when touching verify ritual wiring
+10. git add + commit
 ```
+
+Policy implementation: `src/lib/template-policy-audit.ts` · CLI: `scripts/check-template-policy.ts`.
 
 ## Related
 
+- **Template policy gate:** `src/lib/template-policy-audit.ts` — 29 audit layers (see `TEMPLATES.md` § Template policy gate)
 - **Template matrix:** `docs/references/template-matrix.md` — full breakdown of all 28 template files
 - **Template directory index:** `templates/README.md` — all template families and sync targets
 - **bun-create index:** `templates/bun-create/README.md` — current bun-create templates and examples mapping

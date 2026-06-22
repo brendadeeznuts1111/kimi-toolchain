@@ -50,7 +50,7 @@ Walkthrough: [examples/artifact-portal.md](examples/artifact-portal.md). With da
 ## New project
 
 ```bash
-kimi-new my-app              # mkdir + bun init + kimi-fix
+kimi-new my-app              # mkdir + bun init -m -y + kimi-fix
 cd my-app
 bun run check:fast
 kimi login
@@ -164,7 +164,8 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run setup` | (synced from package.json) |
 | `bun run check:lockfile` | (synced from package.json) |
 
-| `bun run check:template-policy` | (synced from package.json) |
+| `bun run check:template-policy` | Template install/registry/scaffold/secrets gate (`templates/**`) |
+| `bun run skills:table` | Repo skill catalog (layer, contract, lib/test coverage) |
 | `bun run check:secret-resolution` | (synced from package.json) |
 | `bun run check:secret-leaks` | (synced from package.json) |
 | `bun run doctor:audit` | (synced from package.json) |
@@ -193,14 +194,14 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run autophagy:scan` | (synced from package.json) |
 | `bun run autophagy:scan:gate` | (synced from package.json) |
 
-| `bun run check:templates` | (synced from package.json) |
+| `bun run check:templates` | bun-create registry alignment (slice of template policy) |
 
 ### Core
 
 | Command                        | Description                           |
 | ------------------------------ | ------------------------------------- |
 | `kimi-doctor`                  | Full toolchain diagnostics            |
-| `kimi-new <name> [--path dir]` | Create and scaffold a new Bun project |
+| `kimi-new <name> [--path dir]` | Create project (`bun init -m -y` + `kimi-fix`) |
 | `kimi-fix <path> [--dry-run]`  | Auto-repair project scaffolding       |
 | `kimi-fix doctor [path]`       | Check scaffold completeness           |
 

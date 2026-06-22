@@ -25,7 +25,9 @@ function printHelp() {
   logger.info("       kimi-new doctor [--path <parent-dir>]");
   logger.info("");
   logger.info("Creates a new Bun project and runs kimi-fix:");
-  logger.info("  mkdir <name> && bun init -y && kimi-fix .");
+  logger.info("  mkdir <name> && bun init -m -y && kimi-fix .");
+  logger.info("");
+  logger.info("Uses -m (minimal) so bun init does not collide with kimi-fix scaffold files.");
 }
 
 function resolveParent(args: string[]): string {
@@ -138,14 +140,14 @@ async function runScaffold(args: string[]): Promise<number> {
 
   if (dryRun) {
     logger.info(`  [dry-run] mkdir ${projectDir}`);
-    logger.info(`  [dry-run] bun init -y (cwd=${projectDir})`);
+    logger.info(`  [dry-run] bun init -m -y (cwd=${projectDir})`);
     logger.info(`  [dry-run] kimi-fix ${projectDir}`);
     logger.info("Dry run complete. Remove --dry-run to create.");
     return 0;
   }
 
   makeDir(projectDir, { recursive: true });
-  await $`bun init -y`.cwd(projectDir).quiet();
+  await $`bun init -m -y`.cwd(projectDir).quiet();
 
   const desktopFix = join(toolsDir(), "kimi-fix.ts");
   const fixScript = pathExists(desktopFix) ? desktopFix : join(import.meta.dir, "kimi-fix.ts");

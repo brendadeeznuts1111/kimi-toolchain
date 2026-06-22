@@ -1,4 +1,7 @@
 #!/usr/bin/env bun
+/**
+ * template-bootstrap: generates secrets slice then delegates to kimi-fix (pre-registry spawn).
+ */
 import { parseArgs } from "util";
 import { join } from "path";
 

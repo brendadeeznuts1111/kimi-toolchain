@@ -201,6 +201,19 @@ bun run sync:verify       # Runtime paths match repo paths
 | `scaffoldFiles`  | 22                                          | `kimi-fix` skipped due to `pathExists`                                             |
 | `collisionRisk`  | 0                                           | `bun init` ran without `-m`                                                        |
 | `bunfig.toml`    | `linker = "isolated"`, `globalStore = true` | Template stale or overwritten                                                      |
+| `templatePolicy` | `bun run check:template-policy` exits 0    | Install/registry/scaffold/secrets/bootstrap/oxlint/typecheck/test drift on `templates/**` |
+
+### Template policy gate
+
+```bash
+bun run check:template-policy
+bun run check:template-policy --json
+bun run verify:bun-features:strict   # templates.policy + templates.registry
+```
+
+Implementation: `src/lib/template-policy-audit.ts` · CLI: `scripts/check-template-policy.ts` · tests: `test/template-policy-audit.unit.test.ts`.
+
+Notable layers: `bootstrap-bridge` (`kimi-new` → `bun init -m -y`), `bun-init-guard` (postinstall), `secrets-slice` (herdr + `--with-secrets`), `secret-leaks`, `postinstall-bootstrap` headers.
 
 ---
 
@@ -226,6 +239,8 @@ bun run sync:verify       # Runtime paths match repo paths
 | 2026-06-18 | `bun create kimi-toolchain` template                | No — new scaffold path                     |
 | 2026-06-18 | `scripts/scan.ts` upgrade advisor (scaffold family) | No — advisory Bun-native migration scanner |
 | 2026-06-17 | `bun init -m` bridge pattern documented             | No — template postinstall only             |
+| 2026-06-22 | `check:template-policy` gate (29 layers)          | No — CI + verify ritual                   |
+| 2026-06-22 | `kimi-new` enforces `bun init -m -y`                | No — greenfield bridge fix                |
 
 ---
 

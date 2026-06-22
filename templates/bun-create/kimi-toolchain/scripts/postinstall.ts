@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 /**
+ * template-bootstrap: global install + kimi-fix run before project secrets registry exists.
  * kimi-toolchain template postinstall.
  *
  * Usage:

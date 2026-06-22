@@ -100,7 +100,11 @@ kimi-why <topic> --json
 - `CODE_REFERENCES.md` — Bun-native exemplars
 - `UNIFIED.md` — product map
 - `TEMPLATES.md` — scaffolds
-- `skills/kimi-toolchain/SKILL.md` — agent workflow
+- `templates/README.md` — template families (`bun-create`, `scaffold`, `modules`)
+- `docs/references/template-matrix.md` — collision rules, bridge pattern, skill mapping
+- `src/lib/template-policy-audit.ts` — `bun run check:template-policy` (secrets + bun init guards)
+- `skills/kimi-toolchain/SKILL.md` — agent workflow (L1)
+- `skills/create-template/SKILL.md` — template authoring (L2); indexed in `templates/scaffold/skills-readme.md`
 
 ---
 

@@ -129,6 +129,9 @@ const BUN_INIT_FORBIDDEN_RE = /\bbun\s+init\b(?!.*(?:-m|--minimal))/;
 
 const ENV_EXAMPLE_REQUIRED_MARKERS = ["Never commit .env"] as const;
 
+const KIMI_NEW_ENTRY = "src/bin/kimi-new.ts";
+const POSTINSTALL_BOOTSTRAP_MARKER = "template-bootstrap";
+
 const TEMPLATE_TS_GLOBS = ["templates/**/*.ts", "templates/**/*.tsx"] as const;
 
 const TEMPLATE_BUN_NATIVE_EXEMPT = ["templates/scaffold/scripts/lib/bun-io.ts"] as const;
@@ -1034,6 +1037,13 @@ export async function auditTemplateSecretsSlice(root: string): Promise<TemplateP
         message: `postinstall generator must emit ${needle}`,
       });
     }
+    if (!postinstall.includes("secrets.unit.test.ts")) {
+      violations.push({
+        file: `${HERDR_SERVICE_TEMPLATE}/scripts/postinstall.ts`,
+        field: "secrets-slice",
+        message: "postinstall must generate test/secrets.unit.test.ts regression scaffold",
+      });
+    }
     if (/\bbun\s+init\b/.test(postinstall)) {
       violations.push({
         file: `${HERDR_SERVICE_TEMPLATE}/scripts/postinstall.ts`,
@@ -1113,6 +1123,60 @@ export async function auditTemplateSecretLeaks(root: string): Promise<TemplatePo
     field: "secret-leak",
     message: `${finding.type} access to ${finding.key} (line ${finding.line})`,
   }));
+}
+
+export async function auditTemplateBootstrapBridge(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const path = join(root, KIMI_NEW_ENTRY);
+  if (!(await Bun.file(path).exists())) {
+    return [
+      {
+        file: KIMI_NEW_ENTRY,
+        field: "bootstrap-bridge",
+        message: "Missing kimi-new greenfield entry (bridge pattern SSOT)",
+      },
+    ];
+  }
+  const text = await Bun.file(path).text();
+  const violations: TemplatePolicyViolation[] = [];
+  if (!/\bbun\s+init\s+(?:-m\b|--minimal\b)/.test(text)) {
+    violations.push({
+      file: KIMI_NEW_ENTRY,
+      field: "bootstrap-bridge",
+      message: "kimi-new must use bun init -m -y (minimal bridge) before kimi-fix",
+    });
+  }
+  if (!text.includes("ensureDevSecretsResolved")) {
+    violations.push({
+      file: KIMI_NEW_ENTRY,
+      field: "bootstrap-bridge",
+      message: "kimi-new must call ensureDevSecretsResolved() before scaffolding",
+    });
+  }
+  return violations;
+}
+
+export async function auditTemplatePostinstallBootstrap(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  for (const path of new Bun.Glob(POSTINSTALL_SCRIPT_GLOB).scanSync({
+    cwd: root,
+    absolute: true,
+    onlyFiles: true,
+  })) {
+    const text = await Bun.file(path).text();
+    if (!text.includes("Bun.spawn")) continue;
+    const relPath = rel(root, path);
+    if (text.includes(POSTINSTALL_BOOTSTRAP_MARKER)) continue;
+    violations.push({
+      file: relPath,
+      field: "postinstall-bootstrap",
+      message: `Postinstall spawns subprocesses — add "${POSTINSTALL_BOOTSTRAP_MARKER}" header documenting pre-registry bootstrap`,
+    });
+  }
+  return violations;
 }
 
 export async function auditTemplateBootstrapDocs(root: string): Promise<TemplatePolicyViolation[]> {
@@ -1224,6 +1288,8 @@ export async function auditTemplatePolicy(root: string): Promise<TemplatePolicyA
     ...(await auditTemplateRegistrySchema(root)),
     ...(await auditTemplateReadmeRegistry(root)),
     ...(await auditTemplateBootstrapDocs(root)),
+    ...(await auditTemplateBootstrapBridge(root)),
+    ...(await auditTemplatePostinstallBootstrap(root)),
     ...(await auditTemplateBunInitGuard(root)),
     ...(await auditTemplateSecretsSlice(root)),
     ...(await auditTemplateSecretsEnvDocs(root)),

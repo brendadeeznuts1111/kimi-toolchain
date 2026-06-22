@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 /**
+ * template-bootstrap: bun install only — no secrets registry at template copy time.
  * kimi-gates template postinstall.
  *
  * Usage:

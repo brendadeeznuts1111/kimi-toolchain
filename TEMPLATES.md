@@ -11,6 +11,29 @@ This file contains copy-paste templates for new projects. For the authoritative 
 - [`docs/references/template-matrix.md`](docs/references/template-matrix.md) — full file matrix, sync targets, and collision rules
 - [`skills/create-template/SKILL.md`](skills/create-template/SKILL.md) — runbook for authoring and registering templates
 
+## Template policy gate
+
+After changing anything under `templates/`:
+
+```bash
+bun run check:template-policy          # full gate (install, registry, scaffold, secrets, typecheck, tests)
+bun run check:template-policy --dry-run
+bun run check:templates              # registry slice only
+bun run verify:bun-features:strict   # includes templates.policy in verify ritual
+```
+
+SSOT: `src/lib/template-policy-audit.ts`. Key policy groups:
+
+| Group | Examples |
+| ----- | -------- |
+| Install / registry | `trustedDependencies`, `saveTextLockfile`, `globalStore`, `templates.json` parity |
+| Scaffold | required `templates/scaffold/` files, toolchain profile, drift markers |
+| Secrets | `Bun.secrets` slice stubs, env.example docs, secret-leak scan, no committed `.env` |
+| Bootstrap | no `bun init` in postinstall; `kimi-new` uses `bun init -m -y`; `template-bootstrap` headers on spawn postinstalls |
+| Quality | oxlint, bun-native, `tsc --noEmit`, `bun test` in template projects |
+
+Authoring runbook: [`skills/create-template/SKILL.md`](skills/create-template/SKILL.md).
+
 ## CONTEXT.md Template
 
 ```markdown

@@ -253,6 +253,8 @@ This improves runtime performance and avoids CommonJS wrapper bugs (e.g., `.cjs`
 | Scaffold `bunfig.toml` template   | `templates/scaffold/bunfig.toml`                                                                                                                              |
 | Configuration layers model        | [configuration-layers.md](./configuration-layers.md)                                                                                                          |
 | `bun create` template             | `templates/bun-create/kimi-toolchain/`                                                                                                                        |
+| `kimi-new` greenfield bridge      | `src/bin/kimi-new.ts` — `bun init -m -y` then `kimi-fix` (avoids scaffold collision)                                                                         |
+| Template policy gate              | `src/lib/template-policy-audit.ts` — `bun run check:template-policy`                                                                                          |
 | `kimi-fix` source                 | `src/bin/kimi-fix.ts`                                                                                                                                         |
 | Bun module resolution             | [bun.com/docs/runtime/module-resolution](https://bun.com/docs/runtime/module-resolution) — CJS/ESM interop, `import.meta`, path re-mapping, custom conditions |
 
@@ -264,6 +266,12 @@ The `bun create` template is a minimal skeleton — just a `package.json` with a
 2. **`HOME="${KIMI_SCAFFOLD_HOME:-$HOME}" PATH="..." kimi-fix .`** — runs the full scaffold: hardened `bunfig.toml`, `dx.config.toml`, `tsconfig.json`, `AGENTS.md`, `.oxfmtrc.json`, CI workflow, governance files, git hooks
 
 The `bun-create` section is auto-stripped from the destination `package.json` by Bun.
+
+### `kimi-new` bridge (no `bun create`)
+
+`kimi-new <name>` runs `bun init -m -y` before `kimi-fix` so Bun does not create basic `tsconfig.json`, `README.md`, `index.ts`, or `.gitignore` that would block hardened scaffold files. Enforced by `auditTemplateBootstrapBridge()` in `check:template-policy`.
+
+Postinstall hooks in bun-create templates must **not** call `bun init`; they delegate to `kimi-fix` instead.
 
 ```bash
 # One-time setup

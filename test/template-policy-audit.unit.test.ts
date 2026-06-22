@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { REPO_ROOT } from "./helpers.ts";
 import {
+  auditTemplateBootstrapBridge,
   auditTemplateBootstrapDocs,
   auditTemplateBunInitGuard,
+  auditTemplatePostinstallBootstrap,
   auditTemplateBunNative,
   auditTemplateEnvHygiene,
   auditTemplateInstallPolicy,
@@ -105,6 +107,16 @@ describe("template-policy-audit", () => {
 
   test("auditTemplateBootstrapDocs passes on repo templates", async () => {
     const violations = await auditTemplateBootstrapDocs(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateBootstrapBridge passes on repo templates", async () => {
+    const violations = await auditTemplateBootstrapBridge(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplatePostinstallBootstrap passes on repo templates", async () => {
+    const violations = await auditTemplatePostinstallBootstrap(REPO_ROOT);
     expect(violations).toEqual([]);
   });
 

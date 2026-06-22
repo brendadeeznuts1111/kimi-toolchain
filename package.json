@@ -128,6 +128,7 @@
     "check:lockfile": "bun install --frozen-lockfile --ignore-scripts",
     "check:template-policy": "bun run scripts/check-template-policy.ts",
     "check:templates": "bun run scripts/check-templates.ts",
+    "skills:table": "bun run scripts/skills-table.ts",
     "lint": "bun run scripts/lint.ts",
     "check:secret-resolution": "bun test test/doctor-secret-isolation.unit.test.ts --parallel --isolate",
     "check:secret-leaks": "bun run scripts/scan-secret-leaks.ts",

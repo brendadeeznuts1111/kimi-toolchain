@@ -20,14 +20,11 @@
 
 import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
-import { createLogger } from "../lib/logger.ts";
 import { parseCliFlags } from "../lib/cli-contract.ts";
 import { resolveDevSecrets } from "../lib/resolve-dev-secrets.ts";
 import { join } from "path";
 import { mkdir } from "fs/promises";
 import type { DeepAuditReport, DeepAuditRun } from "../lib/deep-audit-types.ts";
-
-const logger = createLogger(Bun.argv, "kimi-deep-audit");
 
 interface AuditCommand {
   id: string;
@@ -235,22 +232,23 @@ Report is always written to .kimi-artifacts/deep-audit-report.json.`);
   const json = flags.json;
   const projectRoot = await resolveProjectRoot(Bun.cwd);
 
-  logger.info(`Running deep audit (${full ? "full" : "default"} mode)…`);
+  if (!json) {
+    console.log(`Running deep audit (${full ? "full" : "default"} mode)…`);
+  }
   const auditReport = await buildReport(projectRoot, full);
-  const reportPath = await writeReport(auditReport);
 
   if (json) {
     console.log(JSON.stringify(auditReport, null, 2));
   } else {
+    const reportPath = await writeReport(auditReport);
     printHumanReport(auditReport);
+    if (report) {
+      const code = await runReportRenderer(reportPath);
+      if (code !== 0) return code;
+    }
+    console.log(`Report written to ${reportPath}`);
   }
 
-  if (report) {
-    const code = await runReportRenderer(reportPath);
-    if (code !== 0) return code;
-  }
-
-  logger.info(`Report written to ${reportPath}`);
   return auditReport.summary.failed > 0 ? 1 : 0;
 }
 

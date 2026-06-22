@@ -147,7 +147,7 @@ Compatibility matrix: `docs/references/bun-runtime-scaffold.md` (`bun pm ls` sco
 ## Greenfield project
 
 ```bash
-kimi-new my-app              # or: mkdir my-app && cd my-app && bun init -y && kimi-fix .
+kimi-new my-app              # or: mkdir my-app && cd my-app && bun init -m -y && kimi-fix .
 cd my-app
 bun run check:fast
 kimi login

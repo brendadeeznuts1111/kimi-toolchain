@@ -140,7 +140,7 @@ Taxonomy lookup: `kimi-debug analyze --json` or `kimi-debug classify <text>` (`~
 ### Scaffold New Project
 
 ```
-1. bun create kimi-toolchain <name>  OR  kimi-new <name>  OR  mkdir + bun init + kimi-fix .
+1. bun create kimi-toolchain <name>  OR  kimi-new <name>  OR  mkdir + bun init -m -y + kimi-fix .
 2. Default KIMI_MODULES=doctor → perf-doctor harness + isolation factory (override with KIMI_MODULES=image,trace)
 3. kimi-fix --profile toolchain when finish-work / Herdr layout needed
 4. bun run perf:gates  → verify perf harness after scaffold
@@ -148,6 +148,7 @@ Taxonomy lookup: `kimi-debug analyze --json` or `kimi-debug classify <text>` (`~
 6. kimi-governance score (target ≥ C)
 7. kimi login
 8. Customize AGENTS.md one-liner, CODE_REFERENCES.md, CODEOWNERS
+9. IF editing repo templates → bun run check:template-policy (see create-template skill)
 ```
 
 ### Effect Discipline Repair
@@ -212,7 +213,7 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 - **Decision ledger:** `kimi-decision log --json` — prior rationale for handoffs and audits
 - **Hooks:** Git (`kimi-githooks`), Bun postinstall, Kimi lifecycle (`kimi-hooks/`) — see [AGENTS.md](~/.kimi-code/AGENTS.md) § Hooks taxonomy
 - **Paths:** `src/lib/paths.ts` helpers; layout in [UNIFIED.md](~/.kimi-code/UNIFIED.md)
-- **Skills sync:** `bun run sync` → `~/.kimi-code/skills/` + `~/.agents/skills/` (`kimi-toolchain`, `cloudflare-access`, `effect-discipline`, `effect-hardening`, `herdr`)
+- **Skills sync:** `bun run sync` → `~/.kimi-code/skills/` + `~/.agents/skills/` (`kimi-toolchain`, `create-template`, `cloudflare-access`, `effect-discipline`, `effect-hardening`, `herdr`, `orchestrator`, `finish-work`); catalog: `bun run skills:table`
 - **Health channel:** `~/.kimi-code/var/health-events.jsonl` — cross-tool telemetry. `kimi-doctor` publishes, `kimi-resource-governor health-listen` subscribes. See `src/lib/health-channel.ts`.
 
 ## Doctor gates (dependency graphs)

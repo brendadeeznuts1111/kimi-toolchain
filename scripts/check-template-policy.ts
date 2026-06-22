@@ -31,6 +31,8 @@ async function main(): Promise<number> {
         "registry-schema",
         "readme-registry",
         "bootstrap-docs",
+        "bootstrap-bridge",
+        "postinstall-bootstrap",
         "bun-init-guard",
         "secrets-slice",
         "secrets-env-docs",

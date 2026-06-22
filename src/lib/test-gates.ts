@@ -339,6 +339,7 @@ export const UNIT_TEST_FILES = [
   "test/herdr-remote-host-probe.unit.test.ts",
   "test/hook-gates.unit.test.ts",
   "test/bun-release-compliance.unit.test.ts",
+  "test/bun-secrets-runtime.unit.test.ts",
   "test/bun-compile-autoload.unit.test.ts",
   "test/bun-console-j.unit.test.ts",
   "test/bun-dns.unit.test.ts",

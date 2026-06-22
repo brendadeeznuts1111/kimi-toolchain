@@ -76,6 +76,12 @@ One command publishes diagnostics + manifest to `.kimi/artifacts/artifact-portal
 - `scripts/cleanup-legacy-workspace.sh` + `bun run cleanup-legacy` (audit legacy paths; opt-in `--remove-cursor-slugs`)
 - Unify runs cleanup-legacy audit after verify-workspace
 
+### Added
+
+- `check:template-policy` gate — 29 audit layers on `templates/**` (install/registry/scaffold/secrets/bootstrap); SSOT `src/lib/template-policy-audit.ts`; wired into `verify:bun-features:strict` and `quality:check:ci`
+- `create-template` skill indexed in `REPO_SKILL_CODE_COVERAGE` + `templates/scaffold/skills-readme.md` catalog
+- `kimi-new` enforces `bun init -m -y` before `kimi-fix` (greenfield bootstrap bridge)
+
 ### Added (prior)
 
 - `scripts/verify-workspace.sh` + `bun run verify-workspace` (unify gate; blocks wrong folder name)
@@ -89,7 +95,7 @@ One command publishes diagnostics + manifest to `.kimi/artifacts/artifact-portal
 
 ### Added (prior)
 
-- `kimi-new` greenfield scaffold CLI (`mkdir` + `bun init` + `kimi-fix`)
+- `kimi-new` greenfield scaffold CLI (`mkdir` + `bun init -m -y` + `kimi-fix`)
 - `kimi-fix doctor` subcommand + scaffold checks in `kimi-doctor`
 - `src/lib/scaffold-templates.ts` single source of truth for kimi-fix templates
 - `scaffoldAligned` soft gate in kimi-governance (dx.config.toml preflight projects)

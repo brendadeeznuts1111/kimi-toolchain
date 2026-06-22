@@ -78,6 +78,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "template-policy-audit": "src/lib/template-policy-audit.ts",
   "audit-endpoints-metadata": "src/lib/audit-endpoints-metadata.ts",
   "bun-release-compliance": "src/lib/cli-contract.ts",
+  "bun-secrets-runtime": "src/lib/secrets-api.ts",
   "bun-utils-gzip": "src/lib/bun-utils.ts",
   "bun-utils-password": "src/lib/bun-utils.ts",
   "bunfig-policy-gate": "src/gates/bunfig-policy.ts",

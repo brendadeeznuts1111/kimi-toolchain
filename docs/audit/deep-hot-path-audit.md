@@ -118,13 +118,11 @@
 
 ## 🟡 MEDIUM
 
-### M1. `doctor-trusted-deps.ts` and `check-template-policy.ts` only check `bunfig.toml`
+### M1. ~~`doctor-trusted-deps.ts` and `check-template-policy.ts` only check `bunfig.toml`~~ (resolved)
 
-**Hot path:** `src/lib/doctor-trusted-deps.ts`, `scripts/check-template-policy.ts`
+**Hot path:** `src/lib/doctor-trusted-deps.ts`, `src/lib/template-policy-audit.ts` (`scripts/check-template-policy.ts`)
 
-**Finding:** Both new files I created only verify `[install]` policy in `bunfig.toml`. They do not check `package.json` `trustedDependencies`, which is Bun's canonical location.
-
-**Fix:** Extend both to check `package.json` as primary source.
+**Status:** Fixed. `doctor-trusted-deps.ts` reads root `package.json` `trustedDependencies` as primary. `template-policy-audit.ts` audits root and every `templates/bun-create/*/package.json` for explicit `trustedDependencies` arrays, plus `bunfig.toml` install parity.
 
 ---
 
@@ -161,7 +159,7 @@
 | H2  | `check-templates.ts` misses `trustedDependencies`       | 🟠 HIGH     | `scripts/check-templates.ts`                                         | Add check                    |
 | H3  | `install-bin-wrappers.sh` unvalidated                   | 🟠 HIGH     | `scripts/install-bin-wrappers.sh`                                    | Hash check or inline         |
 | H4  | Sync copies files without integrity                     | 🟠 HIGH     | `scripts/sync-to-desktop.ts`                                         | Manifest verification        |
-| M1  | New checks only verify `bunfig.toml`                    | 🟡 MEDIUM   | `src/lib/doctor-trusted-deps.ts`, `scripts/check-template-policy.ts` | Check `package.json` too     |
+| M1  | ~~New checks only verify `bunfig.toml`~~ (resolved)     | ✅ FIXED    | `src/lib/doctor-trusted-deps.ts`, `src/lib/template-policy-audit.ts` | `package.json` + bunfig parity |
 | M2  | Signing key fallback weak                               | 🟡 MEDIUM   | `src/bin/kimi-guardian.ts`                                           | Derive key or use OS keyring |
 | M3  | Missing `--frozen-lockfile`                             | 🟡 MEDIUM   | `src/lib/governance.ts`, `scripts/install-herdr-plugin.sh`           | Add flag                     |
 
