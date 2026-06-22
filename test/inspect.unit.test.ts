@@ -205,7 +205,7 @@ describe("inspect", () => {
   });
 
   describe("inspectHuman", () => {
-    test("returns a string", () => {
+    test("produces string output containing the inspected object's keys", () => {
       const output = inspectHuman({ hello: "world" });
       expect(typeof output).toBe("string");
       expect(output).toContain("hello");
@@ -308,11 +308,11 @@ describe("inspect", () => {
   });
 
   describe("customInspect", () => {
-    test("is a symbol", () => {
+    test("exposes a Symbol that can be registered as a custom inspect function", () => {
       expect(typeof customInspect).toBe("symbol");
     });
 
-    test("can be used as a property key", () => {
+    test("works as a Symbol-keyed method on objects for custom inspect output", () => {
       const obj = {
         [customInspect]() {
           return "custom";

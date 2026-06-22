@@ -757,36 +757,25 @@ describe("bun-release-compliance bun-v1.4.0", () => {
 // ── Compression round-trip compliance ────────────────────────────────
 
 describe("bun-release-compliance compression", () => {
-  test("compressGzip + decompressGzip round-trips a UTF-8 payload", () => {
-    const { compressGzip, decompressGzip } = require("../src/lib/compression.ts");
-    const data = new TextEncoder().encode("kimi-toolchain compression test");
-    expect(new TextDecoder().decode(decompressGzip(compressGzip(data)))).toBe(
-      "kimi-toolchain compression test"
+  test.each([
+    ["gzip", "compressGzip", "decompressGzip"],
+    ["deflate", "compressDeflate", "decompressDeflate"],
+    ["zstd", "compressZstd", "decompressZstd"],
+  ])("%s: compress + decompress round-trips a UTF-8 payload", (_algo, compressFn, decompressFn) => {
+    const mod = require("../src/lib/compression.ts");
+    const data = new TextEncoder().encode(`kimi-toolchain ${_algo} round-trip`);
+    expect(new TextDecoder().decode(mod[decompressFn](mod[compressFn](data)))).toBe(
+      `kimi-toolchain ${_algo} round-trip`
     );
   });
 
-  test("compressDeflate + decompressDeflate round-trips a UTF-8 payload", () => {
-    const { compressDeflate, decompressDeflate } = require("../src/lib/compression.ts");
-    const data = new TextEncoder().encode("deflate round-trip");
-    expect(new TextDecoder().decode(decompressDeflate(compressDeflate(data)))).toBe(
-      "deflate round-trip"
-    );
-  });
-
-  test("compressZstd + decompressZstd round-trips a UTF-8 payload", () => {
-    const { compressZstd, decompressZstd } = require("../src/lib/compression.ts");
-    const data = new TextEncoder().encode("zstd round-trip");
-    expect(new TextDecoder().decode(decompressZstd(compressZstd(data)))).toBe("zstd round-trip");
-  });
-
-  test("detectFormat returns 'gzip' for 0x1f8b magic-byte header", () => {
-    const { compressGzip, detectFormat } = require("../src/lib/compression.ts");
-    expect(detectFormat(compressGzip("test"))).toBe("gzip");
-  });
-
-  test("detectFormat returns 'zstd' for 0x28B52FFD magic-byte header", () => {
-    const { compressZstd, detectFormat } = require("../src/lib/compression.ts");
-    expect(detectFormat(compressZstd("test"))).toBe("zstd");
+  // Only gzip and zstd have magic-byte headers; raw deflate has no detectable header
+  test.each([
+    ["gzip", "compressGzip"],
+    ["zstd", "compressZstd"],
+  ])("detectFormat returns '%s' for its magic-byte header", (expected, compressFn) => {
+    const mod = require("../src/lib/compression.ts");
+    expect(mod.detectFormat(mod[compressFn]("test"))).toBe(expected);
   });
 
   test("autoCompress selects best algorithm for 100KB of repeated data", () => {
