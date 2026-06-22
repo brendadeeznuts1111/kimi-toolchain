@@ -95,7 +95,7 @@ describe("canonical-references", () => {
     const repoNameById = new Map(REPO_REFERENCES.map((r) => [r.id, r.name]));
     const row = ecosystemReferenceInspectRow(ECOSYSTEM_BY_ID["bun"], repoNameById);
     expect(row.status).toBe("✅ active");
-    expect(row.repoId).toBe("(noRepo)");
+    expect(row.repoId).toBe("bun-upstream");
   });
 
   test("ecosystemReferenceById resolves docs URLs", () => {
@@ -520,7 +520,8 @@ describe("canonical-references", () => {
   test("lintManifestBunNative detects invalid repo url shape", () => {
     const manifest = buildCanonicalReferencesManifest();
     const repos = [...manifest.repos];
-    repos[0] = { ...repos[0]!, url: "http://example.com/foo" };
+    const idx = repos.findIndex((r) => r.id === "kimi-toolchain");
+    repos[idx] = { ...repos[idx]!, url: "http://example.com/foo" };
     const violations = lintManifestBunNative({ ...manifest, repos });
     expect(violations.some((v) => v.includes("repos.kimi-toolchain.url"))).toBe(true);
   });
@@ -659,7 +660,11 @@ describe("canonical-references", () => {
   test("lintCanonicalReferencesLinkTables rejects repo url ending in .git", () => {
     const manifest = buildCanonicalReferencesManifest();
     const repos = [...manifest.repos];
-    repos[0] = { ...repos[0]!, url: "https://github.com/brendadeeznuts1111/kimi-toolchain.git" };
+    const idx = repos.findIndex((r) => r.id === "kimi-toolchain");
+    repos[idx] = {
+      ...repos[idx]!,
+      url: "https://github.com/brendadeeznuts1111/kimi-toolchain.git",
+    };
     const violations = lintCanonicalReferencesLinkTables({
       ecosystem: manifest.ecosystem,
       localDocs: manifest.localDocs,
@@ -673,7 +678,8 @@ describe("canonical-references", () => {
   test("lintCanonicalReferencesLinkTables rejects repo url with trailing slash", () => {
     const manifest = buildCanonicalReferencesManifest();
     const repos = [...manifest.repos];
-    repos[0] = { ...repos[0]!, url: "https://github.com/brendadeeznuts1111/kimi-toolchain/" };
+    const idx = repos.findIndex((r) => r.id === "kimi-toolchain");
+    repos[idx] = { ...repos[idx]!, url: "https://github.com/brendadeeznuts1111/kimi-toolchain/" };
     const violations = lintCanonicalReferencesLinkTables({
       ecosystem: manifest.ecosystem,
       localDocs: manifest.localDocs,

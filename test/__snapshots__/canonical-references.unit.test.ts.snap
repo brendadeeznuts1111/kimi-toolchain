@@ -9,7 +9,7 @@ Machine-readable manifest: \`canonical-references.json\` (synced to \`~/.kimi-co
 
 | Stack | Status | Docs | Source repo | Usage in this repo |
 | :--- | :--- | :--- | :--- | :--- |
-| Bun | ✅ active | [docs](https://bun.sh/docs) | — | Runtime, test runner, package manager, and native I/O for kimi-toolchain |
+| Bun | ✅ active | [docs](https://bun.sh/docs) | [Bun (oven-sh)](https://github.com/oven-sh/bun) | Runtime, test runner, package manager, and native I/O for kimi-toolchain |
 | Effect | ✅ active | [docs](https://effect.website/docs) | [Effect](https://github.com/Effect-TS/effect) | Typed errors, CLI/runtime adapters, and Herdr pane orchestration in src/lib/effect/ |
 | Kimi Code | ✅ active | [docs](https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html) | [Kimi Code (Moonshot)](https://github.com/MoonshotAI/kimi-code) | Official agent CLI (\`kimi\`), config.toml, sessions, MCP — distinct from \`kimi-doctor\` |
 | Herdr | ✅ active | [docs](https://herdr.dev/docs/) | — | Terminal-native multiplexer; socket API for herdr-pane, herdr-latm, herdr-orchestrator |
@@ -56,6 +56,7 @@ Machine-readable manifest: \`canonical-references.json\` (synced to \`~/.kimi-co
 
 | Key | Project | Source | Clone path | Role / provides |
 | :--- | :--- | :--- | :--- | :--- |
+| \`bun-upstream\` | Bun (oven-sh) | [oven-sh/bun](https://github.com/oven-sh/bun) | — | upstream / bun |
 | \`kimi-toolchain\` | kimi-toolchain | [brendadeeznuts1111/kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) | \`~/kimi-toolchain\` | tool |
 | \`kimi-code-upstream\` | Kimi Code (Moonshot) | [MoonshotAI/kimi-code](https://github.com/MoonshotAI/kimi-code) | — | upstream / kimi-code |
 | \`effect-upstream\` | Effect | [Effect-TS/effect](https://github.com/Effect-TS/effect) | — | upstream / effect |
@@ -77,7 +78,7 @@ Ecosystem references:
 ┌───┬────────────────┬──────────┬─────────┬────────────┬───────────┬────────────────────┬──────────────────────┐
 │   │ id             │ kind     │ package │ minVersion │ status    │ repoId             │ sourceRepo           │
 ├───┼────────────────┼──────────┼─────────┼────────────┼───────────┼────────────────────┼──────────────────────┤
-│ 0 │ bun            │ runtime  │ bun     │ 1.4.0      │ ✅ active │ (noRepo)           │ —                    │
+│ 0 │ bun            │ runtime  │ bun     │ 1.4.0      │ ✅ active │ bun-upstream       │ Bun (oven-sh)        │
 │ 1 │ effect         │ library  │ effect  │ 3.21.3     │ ✅ active │ effect-upstream    │ Effect               │
 │ 2 │ kimi-code      │ product  │ —       │ —          │ ✅ active │ kimi-code-upstream │ Kimi Code (Moonshot) │
 │ 3 │ herdr          │ product  │ —       │ —          │ ✅ active │ (noRepo)           │ —                    │
@@ -93,10 +94,11 @@ Repository references:
 ┌───┬────────────────────┬──────────┬───────────┬──────────────────┬───────────────────────────────────┐
 │   │ id                 │ role     │ provides  │ clonePath        │ source                            │
 ├───┼────────────────────┼──────────┼───────────┼──────────────────┼───────────────────────────────────┤
-│ 0 │ kimi-toolchain     │ tool     │ —         │ ~/kimi-toolchain │ brendadeeznuts1111/kimi-toolchain │
-│ 1 │ kimi-code-upstream │ upstream │ kimi-code │ —                │ MoonshotAI/kimi-code              │
-│ 2 │ effect-upstream    │ upstream │ effect    │ —                │ Effect-TS/effect                  │
-│ 3 │ oxc-upstream       │ upstream │ oxc       │ —                │ oxc-project/oxc                   │
+│ 0 │ bun-upstream       │ upstream │ bun       │ —                │ oven-sh/bun                       │
+│ 1 │ kimi-toolchain     │ tool     │ —         │ ~/kimi-toolchain │ brendadeeznuts1111/kimi-toolchain │
+│ 2 │ kimi-code-upstream │ upstream │ kimi-code │ —                │ MoonshotAI/kimi-code              │
+│ 3 │ effect-upstream    │ upstream │ effect    │ —                │ Effect-TS/effect                  │
+│ 4 │ oxc-upstream       │ upstream │ oxc       │ —                │ oxc-project/oxc                   │
 └───┴────────────────────┴──────────┴───────────┴──────────────────┴───────────────────────────────────┘
 
 
@@ -151,7 +153,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     "package": "bun",
     "usage": "Runtime, test runner, package manager, and native I/O for kimi-toolchain",
     "minVersion": "1.4.0",
-    "noRepo": true,
+    "repoId": "bun-upstream",
   },
 {
     "id": "effect",
@@ -512,6 +514,17 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
 
 export const REPO_REFERENCES: readonly RepoReference[] = [
 {
+    "id": "bun-upstream",
+    "name": "Bun (oven-sh)",
+    "url": "https://github.com/oven-sh/bun",
+    "description": "Bun runtime upstream — public benchmarks in /bench; profiling and timing at bun.com/docs/project/benchmarking",
+    "defaultBranch": "main",
+    "ciStatusUrl": "https://github.com/oven-sh/bun/actions",
+    "provides": ["bun"],
+    "role": "upstream",
+    "frameworks": ["bun"],
+  },
+{
     "id": "kimi-toolchain",
     "name": "kimi-toolchain",
     "url": "https://github.com/brendadeeznuts1111/kimi-toolchain",
@@ -567,7 +580,7 @@ export const REPO_REFERENCES: readonly RepoReference[] = [
 exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
 "{
   "schemaVersion": 1,
-  "generatedAt": "2026-06-22T02:28:20.964Z",
+  "generatedAt": "2026-06-22T20:39:07.197Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -579,7 +592,7 @@ exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
       "package": "bun",
       "usage": "Runtime, test runner, package manager, and native I/O for kimi-toolchain",
       "minVersion": "1.4.0",
-      "noRepo": true
+      "repoId": "bun-upstream"
     },
     {
       "id": "effect",
@@ -1005,6 +1018,21 @@ exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
     }
   ],
   "repos": [
+    {
+      "id": "bun-upstream",
+      "name": "Bun (oven-sh)",
+      "url": "https://github.com/oven-sh/bun",
+      "description": "Bun runtime upstream — public benchmarks in /bench; profiling and timing at bun.com/docs/project/benchmarking",
+      "defaultBranch": "main",
+      "ciStatusUrl": "https://github.com/oven-sh/bun/actions",
+      "provides": [
+        "bun"
+      ],
+      "role": "upstream",
+      "frameworks": [
+        "bun"
+      ]
+    },
     {
       "id": "kimi-toolchain",
       "name": "kimi-toolchain",
