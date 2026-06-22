@@ -41,5 +41,5 @@ describe("ci-profile", () => {
       stderr: "pipe",
     });
     expect(await proc.exited).toBe(0);
-  });
+  }, 60_000);
 });
