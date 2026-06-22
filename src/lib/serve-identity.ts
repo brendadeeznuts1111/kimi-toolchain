@@ -4,8 +4,8 @@
  * Composes IdentityLive over SecretsManager with demo fallbacks for local dev.
  */
 
-import { Effect, Layer, Either } from "effect";
-import { Identity, IdentityLive } from "./effect/identity-service.ts";
+import { Layer } from "effect";
+import { IdentityLive } from "./effect/identity-service.ts";
 import { SecretsTest } from "./effect/secrets-service.ts";
 import { readSecretFromEnv } from "./secrets-env.ts";
 import { SecretKeys } from "./secrets-constants.ts";
@@ -56,19 +56,13 @@ export function createDashboardSecretsBackend(): SecretsBackend {
   };
 }
 
-export function dashboardIdentityLayer(projectRoot: string): Layer.Layer<Identity> {
+export function dashboardIdentityLayer(projectRoot: string): Layer.Layer<import("./effect/identity-service.ts").Identity> {
   const secretsLayer = SecretsTest(createDashboardSecretsBackend(), { projectRoot });
   return Layer.provide(IdentityLive, secretsLayer);
 }
 
-export function runDashboardIdentity<A, E>(
-  effect: Effect.Effect<A, E, Identity>,
-  projectRoot: string
-): Promise<Either.Either<A, E>> {
-  return Effect.runPromise(
-    effect.pipe(Effect.either, Effect.provide(dashboardIdentityLayer(projectRoot)))
-  );
-}
+// Runtime boundary lives in src/lib/effect/ so Effect.runPromise is permitted.
+export { runDashboardIdentity } from "./effect/dashboard-identity-runtime.ts";
 
 export function isJwtSecretMissingError(err: unknown): boolean {
   return err instanceof JwtMissingSecret;
