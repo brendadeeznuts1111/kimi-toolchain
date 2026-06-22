@@ -217,7 +217,13 @@ const CANVAS_ROUTING_ROW_TONE = [
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
+<<<<<<< HEAD
   { id: "test", label: "bun run check:fast", sub: "372 unit gates" },
+||||||| parent of 89ff63f2 (fix(push): align tool registry, dashboard card counts, and format)
+  { id: "test", label: "bun run check:fast", sub: "371 unit gates" },
+=======
+  { id: "test", label: "bun run check:fast", sub: "373 unit gates" },
+>>>>>>> 89ff63f2 (fix(push): align tool registry, dashboard card counts, and format)
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -245,7 +251,13 @@ const TOOL_CATEGORIES = [
 
 const BIN_COUNT = 29;
 const LIB_COUNT = 423;
+<<<<<<< HEAD
 const UNIT_COUNT = 372;
+||||||| parent of 89ff63f2 (fix(push): align tool registry, dashboard card counts, and format)
+const UNIT_COUNT = 371;
+=======
+const UNIT_COUNT = 373;
+>>>>>>> 89ff63f2 (fix(push): align tool registry, dashboard card counts, and format)
 const INTEGRATION_COUNT = 18;
 const SMOKE_COUNT = 8;
 const CURSOR_CANVAS_COUNT = 13;

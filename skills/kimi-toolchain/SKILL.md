@@ -207,7 +207,7 @@ Points out of 110; grades A≥90%, B≥80%, C≥70%, D≥60%, F<60%. Preflight a
 ## Runtime & MCP
 
 - **Memory:** `~/.kimi-code/var/sessions.db` (not Kimi `sessions/wd_*`) — `kimi-memory trends|recall|search`
-- **MCP:** `unified-shell` auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`; verify with `kimi-doctor --quick` or `/mcp`
+- **MCP:** `unified-shell` and `bun-docs` auto-registered in `~/.kimi-code/mcp.json` on `bun run sync`; verify with `kimi-doctor --quick`, `kimi-mcp probe bun-docs`, or `/mcp`
 - **Capabilities:** `kimi-capabilities --json` — structured capability manifest; pair with `kimi-doctor --probe` for agent automation
 - **Introspection:** `kimi-trace <trace-id> --json`, `kimi-contract validate --json`, `kimi-why <topic> --json`; compose via `KimiIntrospectionLive` (`src/lib/effect/kimi-introspection-services.ts`)
 - **Decision ledger:** `kimi-decision log --json` — prior rationale for handoffs and audits

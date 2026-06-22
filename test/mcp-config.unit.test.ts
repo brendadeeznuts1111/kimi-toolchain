@@ -3,9 +3,11 @@ import { existsSync, mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
+  buildBunDocsEntry,
   buildCloudflareApiEntry,
   buildUnifiedShellEntry,
   CLOUDFLARE_API_SERVER,
+  mergeRegistryMcpServers,
   mergeToolchainMcpServers,
   mergeUnifiedShellServer,
   provisionUserMcp,
@@ -15,6 +17,7 @@ import {
   validateMcpConfig,
   writeMcpJson,
 } from "../src/lib/mcp-config.ts";
+import { BUN_DOCS_MCP_URL, BUN_DOCS_SERVER } from "../src/lib/mcp-registry.ts";
 import { withEnv } from "./helpers.ts";
 
 let tmpHome: string;
@@ -52,6 +55,7 @@ describe("mcp-config", () => {
     expect(config.mcpServers.other?.url).toBe("https://example.com/mcp");
     expect(config.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
     expect(config.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
+    expect(config.mcpServers[BUN_DOCS_SERVER]).toBeDefined();
   });
 
   test("mergeToolchainMcpServers is idempotent when entries match", () => {
@@ -63,6 +67,7 @@ describe("mcp-config", () => {
     expect(second.mcpServers[CLOUDFLARE_API_SERVER]?.url).toBe(
       first.mcpServers[CLOUDFLARE_API_SERVER]?.url
     );
+    expect(second.mcpServers[BUN_DOCS_SERVER]?.url).toBe(first.mcpServers[BUN_DOCS_SERVER]?.url);
     expect(changed).toBe(false);
   });
 
@@ -71,11 +76,28 @@ describe("mcp-config", () => {
     expect(changed).toBe(true);
     expect(config.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
     expect(config.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
+    expect(config.mcpServers[BUN_DOCS_SERVER]).toBeDefined();
   });
 
   test("buildCloudflareApiEntry points to Cloudflare MCP URL", () => {
     const entry = buildCloudflareApiEntry();
     expect(entry.url).toBe("https://mcp.cloudflare.com/mcp");
+  });
+
+  test("buildBunDocsEntry points to Bun docs MCP URL", () => {
+    const entry = buildBunDocsEntry();
+    expect(entry.url).toBe(BUN_DOCS_MCP_URL);
+  });
+
+  test("mergeRegistryMcpServers refreshes stale bun-docs URL", async () => {
+    const existing = {
+      mcpServers: {
+        [BUN_DOCS_SERVER]: { url: "https://old.example/mcp" },
+      },
+    };
+    const { config, changed } = await mergeRegistryMcpServers(existing, tmpHome);
+    expect(changed).toBe(true);
+    expect(config.mcpServers[BUN_DOCS_SERVER]?.url).toBe(BUN_DOCS_MCP_URL);
   });
 
   test("provisionUserMcp creates mcp.json with unified-shell, cloudflare-api, and bun-docs", async () => {
@@ -91,7 +113,7 @@ describe("mcp-config", () => {
       expect(parsed?.data?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
       expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
       expect(parsed?.data?.mcpServers["bun-docs"]).toBeDefined();
-      expect(parsed?.data?.mcpServers["bun-docs"]?.url).toBe("https://bun.com/docs/mcp");
+      expect(parsed?.data?.mcpServers["bun-docs"]?.url).toBe(BUN_DOCS_MCP_URL);
     });
   });
 
@@ -112,6 +134,10 @@ describe("mcp-config", () => {
       const cfCheck = report.checks.find((c) => c.name === "cloudflare-api-mcp");
       expect(cfCheck?.status).toBe("ok");
       expect(cfCheck?.message).toContain("Cloudflare API");
+
+      const bunDocsCheck = report.checks.find((c) => c.name === "bun-docs-mcp");
+      expect(bunDocsCheck?.status).toBe("ok");
+      expect(bunDocsCheck?.message).toContain("Bun docs MCP");
 
       const projectRoot = join(tmpHome, "proj");
       const projectMcp = join(projectRoot, ".kimi-code", "mcp.json");

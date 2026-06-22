@@ -9,8 +9,10 @@
  * a native webview window. The HTML is written to .kimi-artifacts/deep-audit-report.html.
  */
 
-import { isDirectRun } from "../../lib/bun-utils.ts";
+import { fileUrlFromPath, isDirectRun } from "../../lib/bun-utils.ts";
 import type { DeepAuditReport } from "../../lib/deep-audit-types.ts";
+import { ensureDir } from "../../lib/utils.ts";
+import { formatWebViewExperimentalNotice, webViewSupported } from "../../lib/webview-console.ts";
 import { join } from "path";
 
 function escapeHtml(text: string): string {
@@ -349,29 +351,27 @@ export function renderReportHtml(report: DeepAuditReport): string {
 </html>`;
 }
 
-async function ensureDir(dir: string): Promise<void> {
-  await Bun.spawn({ cmd: ["mkdir", "-p", dir] }).exited;
-}
-
 async function writeHtmlReport(report: DeepAuditReport): Promise<string> {
   const artifactsDir = join(report.projectRoot, ".kimi-artifacts");
-  await ensureDir(artifactsDir);
+  ensureDir(artifactsDir);
   const htmlPath = join(artifactsDir, "deep-audit-report.html");
   await Bun.write(htmlPath, renderReportHtml(report));
   return htmlPath;
 }
 
 async function openWebviewReport(htmlPath: string): Promise<Bun.WebView> {
-  if (typeof Bun.WebView !== "function") {
+  if (!webViewSupported()) {
     throw new Error("Bun.WebView is not available in this runtime");
   }
+
+  process.stderr.write(`${formatWebViewExperimentalNotice()}\n`);
 
   const view = new Bun.WebView({
     width: 1024,
     height: 768,
   });
 
-  await view.navigate(`file://${htmlPath}`);
+  await view.navigate(fileUrlFromPath(htmlPath).href);
   return view;
 }
 

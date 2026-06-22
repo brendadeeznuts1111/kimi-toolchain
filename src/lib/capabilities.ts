@@ -214,14 +214,23 @@ async function checkMcpConfig(): Promise<Omit<CapabilityResult, "latencyMs">> {
       : undefined;
   const names = servers && typeof servers === "object" ? Object.keys(servers) : [];
   const unifiedShell = names.includes("unified-shell");
+  const bunDocs = names.includes("bun-docs");
+  const status =
+    unifiedShell && bunDocs ? "healthy" : unifiedShell || bunDocs ? "degraded" : "unavailable";
+  const summary =
+    unifiedShell && bunDocs
+      ? "unified-shell and bun-docs MCP registered"
+      : unifiedShell
+        ? "MCP config missing bun-docs"
+        : bunDocs
+          ? "MCP config missing unified-shell"
+          : "MCP config present without toolchain servers";
   return {
     id: "mcp-config",
     type: "mcp",
-    status: unifiedShell ? "healthy" : "degraded",
-    summary: unifiedShell
-      ? "unified-shell MCP registered"
-      : "MCP config present without unified-shell",
-    details: { path, servers: names },
+    status,
+    summary,
+    details: { path, servers: names, unifiedShell, bunDocs },
   };
 }
 

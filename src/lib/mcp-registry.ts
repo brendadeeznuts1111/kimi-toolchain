@@ -42,6 +42,8 @@ export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const CLOUDFLARE_API_SERVER = "cloudflare-api";
 export const DASHBOARD_MCP_SERVER = "kimi-dashboard";
 export const BUN_DOCS_SERVER = "bun-docs";
+export const BUN_DOCS_MCP_URL = "https://bun.com/docs/mcp";
+export const BUN_DOCS_MCP_TOOLS = ["search_bun", "query_docs_filesystem_bun"] as const;
 export const UNIFIED_SHELL_BRIDGE = "unified-shell-bridge.ts";
 
 function resolveBunPath(): string {
@@ -82,12 +84,13 @@ function builtinCloudflareApi(): McpServerDefinition {
 function builtinBunDocs(): McpServerDefinition {
   return {
     name: BUN_DOCS_SERVER,
-    url: "https://bun.com/docs/mcp",
-    description: "Bun docs MCP: search and query the Bun documentation",
+    url: BUN_DOCS_MCP_URL,
+    description: "Bun docs MCP: search_bun + query_docs_filesystem_bun",
     default: true,
     startupTimeoutMs: 30000,
     toolTimeoutMs: 60000,
-    profiles: ["full"],
+    profiles: ["full", "safe"],
+    enabledTools: [...BUN_DOCS_MCP_TOOLS],
   };
 }
 

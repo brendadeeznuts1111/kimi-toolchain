@@ -8,6 +8,8 @@ import {
   getDefaultServerNames,
   mcpServersDirPath,
   DASHBOARD_MCP_SERVER,
+  BUN_DOCS_MCP_TOOLS,
+  BUN_DOCS_MCP_URL,
   BUN_DOCS_SERVER,
 } from "../src/lib/mcp-registry.ts";
 
@@ -73,8 +75,9 @@ requiredEnv = ["GITHUB_TOKEN"]
   test("bun-docs server points to Bun documentation MCP endpoint", async () => {
     const registry = await loadMcpRegistry(tmpHome);
     const bunDocs = registry.servers[BUN_DOCS_SERVER]!;
-    expect(bunDocs.url).toBe("https://bun.com/docs/mcp");
+    expect(bunDocs.url).toBe(BUN_DOCS_MCP_URL);
     expect(bunDocs.default).toBe(true);
+    expect(bunDocs.enabledTools).toEqual([...BUN_DOCS_MCP_TOOLS]);
     expect(serverEnvAvailable(bunDocs)).toBe(true);
   });
 

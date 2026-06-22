@@ -7,7 +7,21 @@ import { pathExists } from "./bun-io.ts";
 import { join, resolve } from "path";
 import { ensureDir } from "./utils.ts";
 import { homeDir, mcpPath, toolsDir } from "./paths.ts";
-import { type McpServerDefinition, loadMcpRegistry } from "./mcp-registry.ts";
+import {
+  BUN_DOCS_MCP_URL,
+  BUN_DOCS_SERVER,
+  type McpServerDefinition,
+  loadMcpRegistry,
+  serverEnvAvailable,
+} from "./mcp-registry.ts";
+import {
+  buildBuiltinMcpCatalog,
+  mcpCatalogSummary,
+  mcpEndpointForServer,
+  type McpCatalogReport,
+  type McpProbeSnapshot,
+  validateDiscoveredTools,
+} from "./mcp-endpoints-metadata.ts";
 import { probeMcpServer } from "./mcp-probe.ts";
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
@@ -56,6 +70,8 @@ export interface McpValidationReport {
   activeProfile?: string;
   discoveredTools: Record<string, string[]>;
   blockedTools: Record<string, string[]>;
+  metadata?: ReturnType<typeof mcpCatalogSummary>;
+  catalog?: ReturnType<typeof buildBuiltinMcpCatalog>;
 }
 
 export interface ReadMcpJsonResult {
@@ -127,6 +143,15 @@ export function buildCloudflareApiEntry(): McpServerEntry {
   };
 }
 
+/** Canonical remote entry for Bun documentation MCP (SSE JSON-RPC). */
+export function buildBunDocsEntry(): McpServerEntry {
+  return {
+    name: BUN_DOCS_SERVER,
+    url: BUN_DOCS_MCP_URL,
+    description: "Bun docs MCP: search_bun + query_docs_filesystem_bun",
+  };
+}
+
 function unifiedShellNeedsRefresh(
   existing: McpServerEntry | undefined,
   expected: McpServerEntry
@@ -147,6 +172,24 @@ function cloudflareApiNeedsRefresh(
 ): boolean {
   if (!existing) return true;
   if (existing.url !== expected.url) return true;
+  return false;
+}
+
+function bunDocsNeedsRefresh(
+  existing: McpServerEntry | undefined,
+  expected: McpServerEntry
+): boolean {
+  if (!existing) return true;
+  if (existing.url !== expected.url) return true;
+  return false;
+}
+
+function remoteRegistryEntryNeedsRefresh(
+  existing: McpServerEntry | undefined,
+  def: McpServerDefinition
+): boolean {
+  if (!existing) return true;
+  if (def.url && existing.url !== def.url) return true;
   return false;
 }
 
@@ -172,6 +215,12 @@ export function mergeToolchainMcpServers(
     changed = true;
   }
 
+  const bunDocs = buildBunDocsEntry();
+  if (bunDocsNeedsRefresh(config.mcpServers[BUN_DOCS_SERVER], bunDocs)) {
+    config.mcpServers[BUN_DOCS_SERVER] = bunDocs;
+    changed = true;
+  }
+
   return { config, changed };
 }
 
@@ -189,9 +238,16 @@ export async function mergeRegistryMcpServers(
   const registry = await loadMcpRegistry(home);
   for (const [name, def] of Object.entries(registry.servers)) {
     if (def.default === false) continue;
-    if (config.mcpServers[name]) continue;
-    config.mcpServers[name] = def;
-    changed = true;
+    const existing = config.mcpServers[name];
+    if (!existing) {
+      config.mcpServers[name] = def;
+      changed = true;
+      continue;
+    }
+    if (def.url && remoteRegistryEntryNeedsRefresh(existing, def)) {
+      config.mcpServers[name] = { ...existing, ...def };
+      changed = true;
+    }
   }
 
   return { config, changed };
@@ -222,7 +278,7 @@ export async function provisionUserMcp(home: string = homeDir()): Promise<{
 export async function validateMcpConfig(
   home: string = homeDir(),
   projectRoot?: string,
-  options: { probe?: boolean; profile?: string } = {}
+  options: { probe?: boolean; profile?: string; catalog?: boolean } = {}
 ): Promise<McpValidationReport> {
   const checks: McpCheck[] = [];
   const discoveredTools: Record<string, string[]> = {};
@@ -259,7 +315,9 @@ export async function validateMcpConfig(
         ? "unified-shell"
         : name === CLOUDFLARE_API_SERVER
           ? "cloudflare-api-mcp"
-          : `mcp-server-${name}`;
+          : name === BUN_DOCS_SERVER
+            ? "bun-docs-mcp"
+            : `mcp-server-${name}`;
 
     if (entry.enabled === false) {
       checks.push({
@@ -305,11 +363,16 @@ export async function validateMcpConfig(
       );
       if (probe.ok) {
         discoveredTools[name] = probe.tools ?? [];
+        const meta = mcpEndpointForServer(name, home);
+        const drift = meta ? validateDiscoveredTools(meta, probe.tools ?? []) : null;
         checks.push({
           name: checkName,
           server: name,
           status: "ok",
-          message: `probed (${probe.tools?.length ?? 0} tool(s))`,
+          message:
+            drift && drift.missing.length > 0
+              ? `probed (${probe.tools?.length ?? 0} tool(s); missing catalog: ${drift.missing.join(", ")})`
+              : `probed (${probe.tools?.length ?? 0} tool(s))`,
           fixable: false,
         });
       } else {
@@ -478,7 +541,85 @@ export async function validateMcpConfig(
     }
   }
 
-  return { checks, userPath, projectPath, activeProfile, discoveredTools, blockedTools };
+  const report: McpValidationReport = {
+    checks,
+    userPath,
+    projectPath,
+    activeProfile,
+    discoveredTools,
+    blockedTools,
+  };
+  if (options.catalog !== false) {
+    report.metadata = mcpCatalogSummary(home);
+    report.catalog = buildBuiltinMcpCatalog(home);
+  }
+  return report;
+}
+
+export async function buildMcpCatalogReport(
+  home: string = homeDir(),
+  options: { probe?: boolean } = {}
+): Promise<McpCatalogReport> {
+  const catalog = buildBuiltinMcpCatalog(home);
+  const { data: userMcp } = await readMcpJson(userMcpPath());
+  const configured = userMcp?.mcpServers ?? {};
+  const probes: McpProbeSnapshot[] = [];
+
+  for (const meta of catalog) {
+    const entry = configured[meta.serverName];
+    const def = (await loadMcpRegistry(home)).servers[meta.serverName];
+    const configuredFlag = !!entry;
+    const enabled = entry ? entry.enabled !== false : meta.default;
+    const envAvailable = def ? serverEnvAvailable(def) : true;
+
+    if (!options.probe || !entry || !enabled || !envAvailable) {
+      probes.push({
+        serverName: meta.serverName,
+        ok: false,
+        ms: 0,
+        tools: [],
+        error: !configuredFlag
+          ? "not configured"
+          : !enabled
+            ? "disabled"
+            : !envAvailable
+              ? `missing env: ${(def?.requiredEnv ?? []).join(", ")}`
+              : "probe skipped",
+        configured: configuredFlag,
+        enabled,
+        envAvailable,
+      });
+      continue;
+    }
+
+    const merged: McpServerDefinition = { ...(def ?? { name: meta.serverName }), ...entry };
+    const started = Date.now();
+    const result = await probeMcpServer(merged, entry.startupTimeoutMs ?? def?.startupTimeoutMs);
+    const ms = Date.now() - started;
+    probes.push({
+      serverName: meta.serverName,
+      ok: result.ok,
+      ms,
+      tools: result.tools ?? [],
+      error: result.error,
+      configured: true,
+      enabled: true,
+      envAvailable: true,
+    });
+
+    if (result.ok && result.tools) {
+      const drift = validateDiscoveredTools(meta, result.tools);
+      if (drift.missing.length > 0) {
+        probes[probes.length - 1]!.error = `missing tools: ${drift.missing.join(", ")}`;
+      }
+    }
+  }
+
+  return {
+    metadata: mcpCatalogSummary(home),
+    catalog,
+    probes,
+  };
 }
 
 export async function fixMcpConfig(
