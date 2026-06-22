@@ -5,11 +5,10 @@
  * the CLI emits, so any MCP client gets a stable, versioned contract.
  */
 
-import { Effect, Exit } from "effect";
-import { resolve } from "path";
+import { Exit } from "effect";
 import { buildDoctorProbeManifest } from "./doctor-probe.ts";
 import { ToolTimeout, ExitNonZero, ToolNotFound } from "./effect/errors.ts";
-import { invokeCommandEffect } from "./effect/tool-runner-effect.ts";
+import { runDoctorMcpCommand } from "./effect/doctor-mcp-runtime.ts";
 import { inspectAgent } from "./inspect.ts";
 import type { ToolInvocation } from "./tool-runner.ts";
 
@@ -20,8 +19,6 @@ try {
 } catch {
   // Probe manifest is best-effort; fall back to a static version.
 }
-
-const SCRIPT_PATH = resolve(import.meta.dir, "..", "bin", "kimi-doctor.ts");
 
 const TOOLS = [
   {
@@ -145,10 +142,7 @@ function runnerFailureToInvocation(
 }
 
 async function runDoctor(mode: string, extraArgs: string[]): Promise<ToolInvocation> {
-  const args = ["run", SCRIPT_PATH, `--${mode}`, "--json", ...extraArgs];
-  const exit = await Effect.runPromiseExit(
-    invokeCommandEffect(["bun", ...args], { cwd: process.cwd(), tool: "kimi-doctor" })
-  );
+  const exit = await runDoctorMcpCommand(mode, extraArgs, process.cwd());
   if (Exit.isSuccess(exit)) return exit.value;
   if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
     const error = exit.cause.error;

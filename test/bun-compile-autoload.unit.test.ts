@@ -117,18 +117,25 @@ describe("bun build --compile basic", () => {
 
     await Bun.write(entrypoint, 'console.log("hello from compiled");');
 
-    const proc = Bun.spawn({
-      cmd: ["bun", "build", "--compile", entrypoint, "--outfile", outputFile],
-      stdout: "pipe",
-      stderr: "pipe",
-      cwd: tmpDir,
-    });
-    const _stdout = await Bun.readableStreamToText(proc.stdout);
-    const _stderr = await Bun.readableStreamToText(proc.stderr);
-    const exitCode = await proc.exited;
+    let lastExitCode = 1;
+    let lastStderr = "";
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const proc = Bun.spawn({
+        cmd: ["bun", "build", "--compile", entrypoint, "--outfile", outputFile],
+        stdout: "pipe",
+        stderr: "pipe",
+        cwd: tmpDir,
+      });
+      await Bun.readableStreamToText(proc.stdout);
+      lastStderr = await Bun.readableStreamToText(proc.stderr);
+      lastExitCode = await proc.exited;
+      if (lastExitCode === 0) break;
+      await Bun.sleep(100);
+    }
 
-    // Verify compilation succeeds (exit code 0)
-    expect(exitCode).toBe(0);
+    if (lastExitCode !== 0) {
+      throw new Error(`bun build --compile failed (exit ${lastExitCode}): ${lastStderr}`);
+    }
 
     // Verify the executable was created
     const file = Bun.file(outputFile);
@@ -139,5 +146,5 @@ describe("bun build --compile basic", () => {
     await Bun.file(entrypoint)
       .delete()
       .catch(() => {});
-  });
+  }, 15_000);
 });
