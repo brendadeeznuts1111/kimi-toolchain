@@ -62,6 +62,8 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "doctor-network-audit": "src/lib/network-config.ts",
   "image-audit": "src/lib/image-audit.ts",
   "perf-gate": "src/guardian/perf-gate.ts",
+  "perf-gate-format": "src/lib/perf-gate-format.ts",
+  timing: "src/lib/timing.ts",
   "tls-compliance": "src/guardian/tls-compliance.ts",
   "artifact-store": "src/lib/artifact-store.ts",
   "portal-convergence": "src/lib/artifact-portal.ts",

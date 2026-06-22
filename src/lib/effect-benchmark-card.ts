@@ -23,6 +23,7 @@ import {
   trainEffectThresholds,
 } from "./effect-benchmark.ts";
 import type { BenchmarkConvergenceBlock } from "./benchmark-convergence.ts";
+import { formatPerfProfilingHints } from "./perf-gate-format.ts";
 import { buildBenchmarkConvergenceBlock } from "./benchmark-convergence.ts";
 import { BUN_TEST_CHANGED_IMPORT_GRAPH } from "./test-runtime.ts";
 import type { ConfigStatusReport } from "./config-status.ts";
@@ -737,6 +738,9 @@ export function formatPerfGatesHuman(envelope: BenchmarkApiEnvelope): string {
     for (const err of envelope.taxonomyErrors.slice(0, 5)) {
       lines.push(`  [${err.type}] ${err.details}`);
     }
+  }
+  if (envelope.gates.effectBenchmarkGate.status === "fail") {
+    lines.push(formatPerfProfilingHints("run bench"));
   }
   return lines.join("\n");
 }

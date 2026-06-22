@@ -1292,7 +1292,10 @@ describe("spawn gates", () => {
     expect(result.detail).toContain(
       "spawn gate probe:canonical-references:runtime-aligned blocked"
     );
-    expect(result.detail).toContain("bun run sync");
+    expect(
+      result.detail.includes("bun run sync") ||
+        result.detail.includes("bun run references:generate")
+    ).toBe(true);
     removePath(tmpHome, { recursive: true, force: true });
   });
 

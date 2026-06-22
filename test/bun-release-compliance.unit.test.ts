@@ -775,7 +775,14 @@ describe("bun-release-compliance compression", () => {
     ["deflate", "compressDeflate", "decompressDeflate"],
     ["zstd", "compressZstd", "decompressZstd"],
   ])("%s: compress + decompress round-trips a UTF-8 payload", (_algo, compressFn, decompressFn) => {
-    const mod = { compressGzip, compressDeflate, compressZstd, decompressGzip, decompressDeflate, decompressZstd } as Record<string, (data: Uint8Array) => Uint8Array>;
+    const mod = {
+      compressGzip,
+      compressDeflate,
+      compressZstd,
+      decompressGzip,
+      decompressDeflate,
+      decompressZstd,
+    } as Record<string, (data: Uint8Array) => Uint8Array>;
     const data = new TextEncoder().encode(`kimi-toolchain ${_algo} round-trip`);
     expect(new TextDecoder().decode(mod[decompressFn](mod[compressFn](data)))).toBe(
       `kimi-toolchain ${_algo} round-trip`
@@ -787,7 +794,10 @@ describe("bun-release-compliance compression", () => {
     ["gzip", "compressGzip"],
     ["zstd", "compressZstd"],
   ])("detectFormat returns '%s' for its magic-byte header", (expected, compressFn) => {
-    const mod = { compressGzip, compressZstd, detectFormat } as Record<string, (data: string | Uint8Array) => unknown>;
+    const mod = { compressGzip, compressZstd, detectFormat } as Record<
+      string,
+      (data: string | Uint8Array) => unknown
+    >;
     expect(mod.detectFormat((mod[compressFn] as (d: string) => Uint8Array)("test"))).toBe(expected);
   });
 

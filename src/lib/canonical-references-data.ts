@@ -16,7 +16,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     package: "bun",
     usage: "Runtime, test runner, package manager, and native I/O for kimi-toolchain",
     minVersion: "1.4.0",
-    noRepo: true,
+    repoId: "bun-upstream",
   },
   {
     id: "effect",
@@ -431,6 +431,18 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
 ];
 
 export const REPO_REFERENCES: readonly RepoReference[] = [
+  {
+    id: "bun-upstream",
+    name: "Bun (oven-sh)",
+    url: "https://github.com/oven-sh/bun",
+    description:
+      "Bun runtime upstream — public benchmarks in /bench; profiling and timing at bun.com/docs/project/benchmarking",
+    defaultBranch: "main",
+    ciStatusUrl: "https://github.com/oven-sh/bun/actions",
+    provides: ["bun"],
+    role: "upstream",
+    frameworks: ["bun"],
+  },
   {
     id: "kimi-toolchain",
     name: "kimi-toolchain",

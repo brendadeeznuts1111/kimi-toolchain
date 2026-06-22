@@ -135,17 +135,30 @@ numa nodes:       1
    elapsed:       0.068 s
    process: user: 0.061 s, system: 0.014 s, faults: 0, rss: 57.4 MiB, commit: 64.0 MiB`;
     const stats = parseMimallocStats(fixture);
-    expect(stats).toBeDefined();
-    expect(stats?.reserved.peak).toBe(64 * 1024 ** 2);
-    expect(stats?.committed.total).toBe(64 * 1024 ** 2);
-    expect(stats?.touched.freed).toBe(5.4 * 1024 ** 2);
-    expect(stats?.elapsedSeconds).toBe(0.068);
-    expect(stats?.process.rssBytes).toBe(57.4 * 1024 ** 2);
-    expect(stats?.process.faults).toBe(0);
+    expect(stats).not.toBeUndefined();
+    const s = stats!;
+    expect(s.reserved.peak).toBe(64 * 1024 ** 2);
+    expect(s.committed.total).toBe(64 * 1024 ** 2);
+    expect(s.touched.freed).toBe(5.4 * 1024 ** 2);
+    expect(s.elapsedSeconds).toBe(0.068);
+    expect(s.process.rssBytes).toBe(57.4 * 1024 ** 2);
+    expect(s.process.faults).toBe(0);
   });
 
   test("parseMimallocStats returns undefined for unrelated text", () => {
     expect(parseMimallocStats("")).toBeUndefined();
     expect(parseMimallocStats("some log line\nanother line")).toBeUndefined();
+  });
+
+  test("captureMimallocStats handles non-existent script gracefully", async () => {
+    const { output, exitCode } = await captureMimallocStats("/nonexistent/script.ts", {
+      timeout: 5_000,
+    });
+    expect(exitCode).not.toBe(0);
+    // stderr may be empty or contain an error — either is acceptable
+  });
+
+  test("parseMimallocStats handles truncated mimalloc output", () => {
+    expect(parseMimallocStats("heap stats:\n  reserved:   64.0 MiB")).toBeUndefined();
   });
 });

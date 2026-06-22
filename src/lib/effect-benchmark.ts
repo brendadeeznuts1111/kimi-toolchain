@@ -13,7 +13,7 @@
  */
 
 import { join } from "path";
-import { formatPerfGateFailure } from "./perf-gate-format.ts";
+import { formatPerfGateFailure, withPerfProfilingHints } from "./perf-gate-format.ts";
 import {
   effectBenchmarkSnapshotsPath,
   thresholdsBaselinePath,
@@ -530,7 +530,7 @@ export async function evaluateEffectBenchmarkGate(
     }
   }
 
-  return { pass: failures.length === 0, failures };
+  return { pass: failures.length === 0, failures: withPerfProfilingHints(failures) };
 }
 
 /** Detect latency regressions between current metrics and a previous snapshot. */

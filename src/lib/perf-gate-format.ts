@@ -1,5 +1,6 @@
 import { isAbsolute, relative } from "node:path";
 import type { Metric } from "../harness/html-reporter.ts";
+import { BUN_BENCHMARKING_DOC_URL } from "./bun-install-config.ts";
 
 export interface PerfGateFailureDetails {
   thresholdSourceFile?: string;
@@ -55,4 +56,21 @@ export function formatPerfGateFailure(
   }
 
   return lines.join("\n");
+}
+
+/** LLM/grep-friendly profiling commands when perf gates fail (@see Bun benchmarking docs). */
+export function formatPerfProfilingHints(script = "run bench"): string {
+  return [
+    "perf profiling (@see bun.com/docs/project/benchmarking):",
+    `  bun --cpu-prof-md ${script}`,
+    `  bun --heap-prof-md ${script}`,
+    `  MIMALLOC_SHOW_STATS=1 bun ${script}`,
+    `  docs: ${BUN_BENCHMARKING_DOC_URL}`,
+  ].join("\n");
+}
+
+/** Append profiling hints once when a gate reported failures. */
+export function withPerfProfilingHints(failures: readonly string[]): string[] {
+  if (failures.length === 0) return [...failures];
+  return [...failures, formatPerfProfilingHints()];
 }

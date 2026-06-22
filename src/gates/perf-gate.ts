@@ -1,4 +1,5 @@
 import { evaluateEffectBenchmarkGate } from "../lib/effect-benchmark.ts";
+import { formatPerfProfilingHints } from "../lib/perf-gate-format.ts";
 import type { Metric } from "../harness/html-reporter.ts";
 import type { Gate, GateResult, GateRunOptions } from "./types.ts";
 
@@ -36,7 +37,17 @@ export const perfGateDefinition: Gate = {
   format: (result) => {
     const row = result as PerfGateDoctorResult;
     const lines = [`${row.status}: perf-gate`];
-    for (const failure of row.failures ?? []) lines.push(`       └─ ${failure}`);
+    const failures = row.failures ?? [];
+    for (const failure of failures) {
+      if (failure.startsWith("perf profiling")) {
+        lines.push(failure);
+        continue;
+      }
+      lines.push(`       └─ ${failure}`);
+    }
+    if (row.status === "fail" && !failures.some((f) => f.startsWith("perf profiling"))) {
+      lines.push(formatPerfProfilingHints());
+    }
     return lines;
   },
 };

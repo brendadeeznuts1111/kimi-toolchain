@@ -12,7 +12,7 @@ docs = "https://bun.sh/docs"
 package = "bun"
 usage = "Runtime, test runner, package manager, and native I/O for kimi-toolchain"
 minVersion = "1.4.0"
-noRepo = true
+repoId = "bun-upstream"
 
 [[ecosystem]]
 id = "effect"
@@ -395,6 +395,17 @@ id = "canonical-references"
 repoPath = "canonical-references.json"
 runtimePath = "~/.kimi-code/canonical-references.json"
 purpose = "Cached canonical ecosystem links (this manifest)"
+
+[[repos]]
+id = "bun-upstream"
+name = "Bun (oven-sh)"
+url = "https://github.com/oven-sh/bun"
+description = "Bun runtime upstream — public benchmarks in /bench; profiling and timing at bun.com/docs/project/benchmarking"
+defaultBranch = "main"
+ciStatusUrl = "https://github.com/oven-sh/bun/actions"
+provides = ["bun"]
+role = "upstream"
+frameworks = ["bun"]
 
 [[repos]]
 id = "kimi-toolchain"

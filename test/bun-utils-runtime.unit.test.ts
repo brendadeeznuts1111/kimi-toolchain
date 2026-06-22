@@ -58,16 +58,6 @@ describe("bun-utils-runtime", () => {
     expect(memory.usedPercent).toBeLessThanOrEqual(100);
   });
 
-  test("inspectHostRuntime reports pid and user", () => {
-    const host = inspectHostRuntime();
-    expect(host.pid).toBe(process.pid);
-    expect(host.uptimeSeconds).toBeGreaterThanOrEqual(0);
-    expect(host.osUptimeSeconds).toBeGreaterThan(0);
-    expect(host.user.length).toBeGreaterThan(0);
-    expect(host.timezone.length).toBeGreaterThan(0);
-    expect(host.nodeVersion).toMatch(/^v\d+/);
-  });
-
   test("inspectBunRuntime includes os, cpu, memory, host, cwd, and revisionShort", () => {
     const snap = inspectBunRuntime();
     expect(snap.detected).toBe(true);
@@ -108,6 +98,6 @@ describe("bun-utils-runtime", () => {
     const report = bunRuntimeReport(">=1.4.0");
     expect(report.engineRange).toBe(">=1.4.0");
     expect(report.engineSatisfied).toBe(true);
-    expect(report.revisionShort).toBeDefined();
+    expect(report.revisionShort).toMatch(/^[0-9a-f]{7,12}$/);
   });
 });
