@@ -98,6 +98,7 @@ interface Issue {
   severity: Severity;
   message: string;
   issueType: string;
+  line?: number;
   fixed?: boolean;
 }
 
@@ -245,7 +246,9 @@ function generateFrontmatter(filePath: string): string {
 }
 
 function generateRelated(filePath: string): string {
-  return "\n## Related\n\n- [INDEX.md](../INDEX.md) — Documentation index\n";
+  const depth = filePath.replace(/^\.?\//, "").split("/").length - 1;
+  const prefix = depth === 0 ? "" : "../".repeat(depth);
+  return `\n## Related\n\n- [${prefix}INDEX.md](${prefix}INDEX.md) — Documentation index\n`;
 }
 
 // ─── File checks ──────────────────────────────────────────────────────────────
@@ -257,23 +260,26 @@ async function checkFile(filePath: string): Promise<Issue[]> {
   const category = getCategory(filePath);
 
   if (lines[0]?.trim() !== "---") {
-    issues.push({ file: filePath, category, severity: "ERROR", message: "missing frontmatter (---)", issueType: "frontmatter" });
+    issues.push({ file: filePath, category, severity: "ERROR", message: "missing frontmatter (---)", issueType: "frontmatter", line: 1 });
   }
 
-  if (!lines.some((l) => /^##\s+Related/.test(l))) {
-    issues.push({ file: filePath, category, severity: "ERROR", message: "missing '## Related' section", issueType: "related" });
+  const relatedLineIdx = lines.findIndex((l) => /^##\s+Related/.test(l));
+  if (relatedLineIdx === -1) {
+    issues.push({ file: filePath, category, severity: "ERROR", message: "missing '## Related' section", issueType: "related", line: lines.length });
   }
 
-  if (!/^tags:/m.test(content)) {
-    issues.push({ file: filePath, category, severity: "WARN", message: "missing 'tags' in frontmatter", issueType: "tags" });
+  const tagsLineIdx = lines.findIndex((l) => /^tags:/.test(l));
+  if (tagsLineIdx === -1) {
+    issues.push({ file: filePath, category, severity: "WARN", message: "missing 'tags' in frontmatter", issueType: "tags", line: 1 });
   }
 
-  if (!/^category:/m.test(content)) {
-    issues.push({ file: filePath, category, severity: "WARN", message: "missing 'category' in frontmatter", issueType: "category" });
+  const categoryLineIdx = lines.findIndex((l) => /^category:/.test(l));
+  if (categoryLineIdx === -1) {
+    issues.push({ file: filePath, category, severity: "WARN", message: "missing 'category' in frontmatter", issueType: "category", line: 1 });
   }
 
   if (!/#find:/.test(content)) {
-    issues.push({ file: filePath, category, severity: "INFO", message: "has no #find: anchor (optional)", issueType: "find" });
+    issues.push({ file: filePath, category, severity: "INFO", message: "has no #find: anchor (optional)", issueType: "find", line: 1 });
   }
 
   return issues;
@@ -409,6 +415,7 @@ async function main() {
         severity: i.severity,
         message: i.message,
         issueType: i.issueType,
+        line: i.line,
         fixed: i.fixed ?? false,
       })),
       issuesByType: issueTypeCounts,
@@ -586,14 +593,18 @@ async function main() {
     console.log(paintBold(`✗ ${totalErrors} error(s) found — see above (${elapsedMs}ms)`, HEX.ERROR));
 
     if (OPEN_MODE) {
-      const errorFiles = [...new Set(allIssues.filter((i) => i.severity === "ERROR" && !i.fixed).map((i) => i.file))];
-      for (const f of errorFiles.slice(0, 5)) {
-        console.log(paint(`  Opening: ${f}`, HEX.DIM));
-        Bun.openInEditor(f);
+      const errorIssues = allIssues.filter((i) => i.severity === "ERROR" && !i.fixed);
+      const seen = new Set<string>();
+      const errorFiles = errorIssues.filter((i) => !seen.has(i.file) && seen.add(i.file));
+      for (const issue of errorFiles.slice(0, 5)) {
+        const loc = issue.line ? `:${issue.line}` : "";
+        console.log(paint(`  Opening: ${issue.file}${loc}`, HEX.DIM));
+        Bun.openInEditor(issue.file, { line: issue.line ?? 1 });
       }
       if (errorFiles.length > 5) {
         console.log(paint(`  ... and ${errorFiles.length - 5} more (open manually)`, HEX.DIM));
       }
+
     }
   }
 
