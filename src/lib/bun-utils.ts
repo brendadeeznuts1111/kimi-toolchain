@@ -205,12 +205,12 @@ export function hashInflightPayload(payload: unknown): string {
   return hasher.digest("hex").slice(0, 16);
 }
 
-/** Read a ReadableStream as UTF-8 text (Bun.readableStreamToText). */
+/** Read a ReadableStream as UTF-8 text (ReadableStream.text — replaces deprecated Bun.readableStreamToText). */
 export async function readableStreamToText(
   stream: ReadableStream<Uint8Array> | null | undefined
 ): Promise<string> {
   if (!stream) return "";
-  return Bun.readableStreamToText(stream);
+  return stream.text();
 }
 
 /** Read a ReadableStream into an ArrayBuffer (Bun.readableStreamToArrayBuffer). */
@@ -221,29 +221,29 @@ export async function readableStreamToArrayBuffer(
   return Bun.readableStreamToArrayBuffer(stream);
 }
 
-/** Read a ReadableStream into a Uint8Array (Bun.readableStreamToBytes). */
+/** Read a ReadableStream into a Uint8Array (ReadableStream.bytes — replaces deprecated Bun.readableStreamToBytes). */
 export async function readableStreamToBytes(
   stream: ReadableStream<Uint8Array> | null | undefined
 ): Promise<Uint8Array> {
   if (!stream) return new Uint8Array(0);
-  const result = await Bun.readableStreamToBytes(stream);
+  const result = await stream.bytes();
   return result instanceof Uint8Array ? result : new Uint8Array(result);
 }
 
-/** Read a ReadableStream into a Blob (Bun.readableStreamToBlob). */
+/** Read a ReadableStream into a Blob (ReadableStream.blob — replaces deprecated Bun.readableStreamToBlob). */
 export async function readableStreamToBlob(
   stream: ReadableStream<Uint8Array> | null | undefined
 ): Promise<Blob> {
   if (!stream) return new Blob([]);
-  return Bun.readableStreamToBlob(stream);
+  return stream.blob();
 }
 
-/** Read a ReadableStream and parse it as JSON (Bun.readableStreamToJSON). */
+/** Read a ReadableStream and parse it as JSON (ReadableStream.json — replaces deprecated Bun.readableStreamToJSON). */
 export async function readableStreamToJSON<T>(
   stream: ReadableStream<Uint8Array> | null | undefined
 ): Promise<T> {
   if (!stream) return undefined as unknown as T;
-  return Bun.readableStreamToJSON(stream) as T;
+  return stream.json() as T;
 }
 
 /** Read a ReadableStream into an array of chunks (Bun.readableStreamToArray). */
@@ -589,6 +589,16 @@ export function formatProcessMemoryUsage(
   };
 }
 
+/** Cached timezone — resolved once, constant for process lifetime. */
+let _cachedTimezone: string | undefined;
+
+function resolveTimezone(): string {
+  if (_cachedTimezone === undefined) {
+    _cachedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
+  return _cachedTimezone;
+}
+
 /** Collect process/host session metadata. */
 export function inspectHostRuntime(): HostRuntimeSnapshot {
   let user = "unknown";
@@ -602,7 +612,7 @@ export function inspectHostRuntime(): HostRuntimeSnapshot {
     uptimeSeconds: Math.round(process.uptime()),
     osUptimeSeconds: Math.round(osUptime()),
     user,
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezone: resolveTimezone(),
     nodeVersion: process.version,
   };
 }
