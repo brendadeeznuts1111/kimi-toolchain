@@ -247,7 +247,7 @@ const BIN_COUNT = 29;
 const LIB_COUNT = 432;
 const UNIT_COUNT = 379;
 const INTEGRATION_COUNT = 18;
-const SMOKE_COUNT = 8;
+const SMOKE_COUNT = 9;
 const CURSOR_CANVAS_COUNT = 13;
 
 function SyncFlowDag() {
