@@ -1,9 +1,18 @@
 // ── Scaffold ───────────────────────────────────────────────────────
 
+import {
+  TEMPLATE_POLICY_CHECK_IDS,
+  templatePolicyDryRunSummary,
+} from "../../../../src/lib/template-policy-audit.ts";
 import { jsonResponse } from "./api-handlers.ts";
+import { resolveRoot } from "./shared.ts";
 
 export async function apiScaffold(): Promise<Response> {
+  const root = resolveRoot();
+  const policySummary = await templatePolicyDryRunSummary(root);
+
   return jsonResponse({
+    schemaVersion: 1,
     architecture: {
       scriptGenerator: {
         file: "src/lib/scaffold-modules.ts",
@@ -36,8 +45,16 @@ export async function apiScaffold(): Promise<Response> {
       },
     },
     bootstrapPaths: [
-      { id: "bun-create", command: "bun create kimi-toolchain my-app", note: "postinstall → kimi-fix; no bun init" },
-      { id: "kimi-new", command: "kimi-new my-app", note: "bun init -m -y bridge before kimi-fix" },
+      {
+        id: "bun-create",
+        command: "bun create kimi-toolchain my-app",
+        note: "postinstall → kimi-fix; no bun init",
+      },
+      {
+        id: "kimi-new",
+        command: "kimi-new my-app",
+        note: "bun init -m -y bridge before kimi-fix",
+      },
       {
         id: "manual",
         command: "mkdir my-app && cd my-app && bun init -m -y && kimi-fix .",
@@ -56,9 +73,18 @@ export async function apiScaffold(): Promise<Response> {
     },
     templatePolicy: {
       gate: "bun run check:template-policy",
-      layers: 29,
+      layers: TEMPLATE_POLICY_CHECK_IDS.length,
+      checkIds: [...TEMPLATE_POLICY_CHECK_IDS],
       ssot: "src/lib/template-policy-audit.ts",
       guide: "examples/template-policy-and-scaffold.md",
+      showcaseId: "template-policy-and-scaffold",
+      summary: policySummary,
+    },
+    skills: {
+      catalog: "bun run skills:table",
+      verbose: "bun run skills:table --verbose",
+      json: "bun run skills:table --json",
+      ssot: "src/lib/skill-contract.ts",
     },
     scripts: {
       perf: "bun run src/bin/perf-doctor.ts --perf-gates --report",

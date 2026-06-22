@@ -230,9 +230,14 @@ function clearShowcaseHighlight() {
         ]
           .filter(Boolean)
           .join("");
+        const cmds = (entry.commands || []).slice(0, 2);
         const cmd = entry.commands?.[0] || "";
         const openCmd = entry.commands?.find((c) => c.startsWith("open http")) || "";
+        const deepLink = `?example=${encodeURIComponent(entry.id)}`;
         const cardCount = (entry.cardIds || []).length;
+        const commandsHtml = cmds.length
+          ? `<div class="showcase-commands">${cmds.map((c) => `<code>${c}</code>`).join("")}</div>`
+          : "";
         let probeLine = "";
         if (entry.probe?.cardCount) {
           probeLine = `<div class="showcase-probe">${entry.probe.cardCount} live dashboard cards</div>`;
@@ -243,9 +248,11 @@ function clearShowcaseHighlight() {
           <h3>${entry.title}</h3>
           <p>${entry.tagline}</p>
           ${probeLine}
+          ${commandsHtml}
           <div class="showcase-meta">${chips}</div>
           <div class="showcase-actions">
             <button type="button" class="showcase-btn" data-action="cards" data-cards="${(entry.cardIds || []).join(",")}">Show ${cardCount} cards</button>
+            <button type="button" class="showcase-btn muted" data-deep-link="${deepLink}" title="Copyable hub URL">⎘ ${entry.id}</button>
             ${openCmd ? `<button type="button" class="showcase-btn muted showcase-open-cmd" title="${openCmd.replace(/"/g, "&quot;")}" data-open-url="${openCmd.replace(/^open /, "").replace(/"/g, "&quot;")}">↗ open</button>` : ""}
             ${entry.kind === "project" && entry.status?.runnable ? `<button type="button" class="showcase-btn muted" title="${cmd.replace(/"/g, "&quot;")}">▶ ${entry.path}</button>` : `<button type="button" class="showcase-btn muted" title="${entry.path}">📄 ${entry.path.split("/").pop()}</button>`}
           </div>
@@ -260,10 +267,29 @@ function clearShowcaseHighlight() {
       }
       html += `</div></div>`;
     }
-    html += `</div><p style="font-size:10px;color:var(--muted);margin-top:8px">Registry: <code>src/lib/examples-showcase.ts</code> · Index: <code>examples/README.md</code></p>`;
+    html += `</div><p style="font-size:10px;color:var(--muted);margin-top:8px">Registry: <code>src/lib/examples-showcase.ts</code> · Templates: <code>bun run check:template-policy</code> · Skills: <code>bun run skills:table --verbose</code></p>`;
     hub.innerHTML = html;
 
     hub.addEventListener("click", (e) => {
+      const deepBtn = e.target.closest("[data-deep-link]");
+      if (deepBtn) {
+        const link = deepBtn.getAttribute("data-deep-link");
+        if (link) {
+          const url = new URL(link, location.href);
+          history.replaceState(null, "", url.pathname + url.search);
+          const id = url.searchParams.get("example");
+          const entry = entries.find((en) => en.id === id);
+          if (entry) {
+            setExampleFilterIds(new Set(entry.cardIds || []), false);
+            hub.querySelector(`[data-entry="${id}"]`)?.scrollIntoView({
+              behavior: "smooth",
+              block: "nearest",
+            });
+            recomputeCardHighlight(true);
+          }
+        }
+        return;
+      }
       const openBtn = e.target.closest("[data-open-url]");
       if (openBtn) {
         const target = openBtn.getAttribute("data-open-url");

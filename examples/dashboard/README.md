@@ -96,7 +96,7 @@ Identity filters on list endpoints: `sessionId`, `workspaceId`, `paneId`, `agent
 | `GET`  | `/api/env`              | —     | `{ path[], tools[], keyVars, dashboardUrl, listenPort, probePort, portSource }` |
 | `GET`  | `/api/deps`             | —     | `{ binDir, totalPackages, tree, bunx }`                                         |
 | `GET`  | `/api/secrets`          | —     | `{ available, methods, note }` — Bun.secrets probe                              |
-| `GET`  | `/api/scaffold`         | —     | `bun create kimi-toolchain` scaffold demo                                       |
+| `GET`  | `/api/scaffold`         | —     | Bootstrap paths, `TEMPLATE_POLICY_CHECK_IDS`, skills catalog, perf scripts    |
 | `GET`  | `/api/file-split`       | —     | `{ sections[{ name, content }], note }` — handler split demo                    |
 
 ### Perf harness

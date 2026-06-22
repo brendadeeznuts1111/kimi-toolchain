@@ -149,7 +149,15 @@ describe("dashboard-card-registry", () => {
     expect(cardStatusFromProbe("card-effect-benchmark", { allPass: false })).toBe("error");
     expect(cardStatusFromProbe("card-effect-benchmark", {})).toBe("unknown");
     expect(cardStatusFromProbe("card-kimi-doctor", { commands: [{ flag: "--train" }] })).toBe("ok");
-    expect(cardStatusFromProbe("card-scaffold", { architecture: {}, scripts: {} })).toBe("ok");
+    expect(
+      cardStatusFromProbe("card-scaffold", {
+        architecture: {},
+        scripts: {},
+        templatePolicy: { layers: 29 },
+        bootstrapPaths: [{}],
+      })
+    ).toBe("ok");
+    expect(cardStatusFromProbe("card-scaffold", { architecture: {}, scripts: {} })).toBe("warn");
     expect(
       cardStatusFromProbe("card-symbols", { symbols: { domain: [{ key: "kimi.trace" }] } })
     ).toBe("ok");

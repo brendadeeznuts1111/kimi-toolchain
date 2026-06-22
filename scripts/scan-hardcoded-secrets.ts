@@ -39,7 +39,9 @@ async function main(): Promise<number> {
     if (count === 0) {
       console.log(`✓ No hardcoded credential-like literals found (${scanned} files scanned)`);
     } else {
-      console.log(`✗ ${count} hardcoded credential-like literal(s) found (${scanned} files scanned):\n`);
+      console.log(
+        `✗ ${count} hardcoded credential-like literal(s) found (${scanned} files scanned):\n`
+      );
       for (const f of findings) {
         console.log(`  ${f.file}:${f.line} [${f.type}]`);
         console.log(`    ${f.snippet}`);

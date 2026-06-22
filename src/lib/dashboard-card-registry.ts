@@ -407,8 +407,16 @@ export function cardStatusFromProbe(cardId: string, data: unknown): DashboardCar
       return Array.isArray(commands) && commands.length > 0 ? "ok" : "warn";
     }
     case "card-scaffold": {
-      const body = data as { architecture?: unknown; scripts?: unknown };
-      return body.architecture && body.scripts ? "ok" : "warn";
+      const body = data as {
+        architecture?: unknown;
+        scripts?: unknown;
+        templatePolicy?: { layers?: number };
+        bootstrapPaths?: unknown[];
+      };
+      if (!body.architecture || !body.scripts) return "warn";
+      if ((body.templatePolicy?.layers ?? 0) < 1) return "warn";
+      if (!Array.isArray(body.bootstrapPaths) || body.bootstrapPaths.length < 1) return "warn";
+      return "ok";
     }
     case "card-symbols": {
       const domain = (data as { symbols?: { domain?: unknown[] } }).symbols?.domain;

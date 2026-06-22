@@ -189,17 +189,54 @@ function renderSchema(container, schema) {
 (async () => {
   try {
     const d = await fetchJson("/api/scaffold");
-    let h = `<p style="font-size:11px;color:var(--blue);margin-bottom:2px">Architecture</p>`;
-    Object.entries(d.architecture).forEach(([k, v]) => {
-      h += `<div class="row"><span style="font-size:9px">${k}</span><code style="font-size:9px">${v.file}</code></div>`;
-    });
-    h += `<p style="font-size:11px;color:var(--blue);margin:6px 0 2px">Generated scripts</p>`;
+    const archMeta = (node) => {
+      if (!node) return "";
+      if (node.cli) return node.cli;
+      if (node.role) return node.role;
+      if (node.exports) return Array.isArray(node.exports) ? node.exports.join(", ") : String(node.exports);
+      return "";
+    };
+    const archRow = (label, node) => {
+      if (!node?.file) return "";
+      const meta = archMeta(node);
+      return `<div class="row"><span style="font-size:9px">${label}</span><span><code style="font-size:9px">${node.file}</code>${meta ? `<span style="font-size:9px;color:var(--muted);margin-left:6px">${meta}</span>` : ""}</span></div>`;
+    };
+
+    let h = `<p style="font-size:11px;color:var(--blue);margin-bottom:4px">Bootstrap paths</p>`;
+    h += `<table class="tbl"><tr><th>Path</th><th>Command</th></tr>`;
+    for (const path of d.bootstrapPaths || []) {
+      h += `<tr><td><code style="font-size:9px">${path.id}</code></td><td><code style="font-size:8px">${path.command}</code><div style="font-size:9px;color:var(--muted)">${path.note}</div></td></tr>`;
+    }
+    h += `</table>`;
+
+    const tp = d.templatePolicy || {};
+    const ps = tp.summary || {};
+    h += `<p style="font-size:11px;color:var(--blue);margin:8px 0 4px">Template policy <span class="badge badge-ok">${tp.layers ?? 0} layers</span></p>`;
+    h += `<div class="row"><span>Gate</span><code style="font-size:9px">${tp.gate || "—"}</code></div>`;
+    h += `<div class="row"><span>Inventory</span><span style="font-size:9px">${ps.bunfigFiles ?? 0} bunfig · ${ps.registryEntries ?? 0} registry · ${ps.scaffoldFiles ?? 0} scaffold · ${ps.envExampleFiles ?? 0} env.example</span></div>`;
+    if (tp.showcaseId) {
+      h += `<p style="margin-top:6px"><a class="showcase-btn" style="display:inline-block;text-decoration:none" href="?example=${tp.showcaseId}">Open showcase guide</a></p>`;
+    }
+    if (Array.isArray(tp.checkIds) && tp.checkIds.length) {
+      h += `<details style="margin-top:6px"><summary style="font-size:10px;cursor:pointer;color:var(--blue)">Policy layers (${tp.checkIds.length})</summary><p class="scaffold-policy-layers">${tp.checkIds.map((id) => `<code>${id}</code>`).join(" ")}</p></details>`;
+    }
+
+    h += `<p style="font-size:11px;color:var(--blue);margin:8px 0 4px">Architecture</p>`;
+    for (const [k, v] of Object.entries(d.architecture || {})) {
+      h += archRow(k, v);
+    }
+
+    const skills = d.skills || {};
+    h += `<p style="font-size:11px;color:var(--blue);margin:8px 0 4px">Skills index</p>`;
+    h += `<div class="row"><span>Catalog</span><code style="font-size:9px">${skills.verbose || skills.catalog || "bun run skills:table"}</code></div>`;
+
+    h += `<p style="font-size:11px;color:var(--blue);margin:8px 0 4px">Perf scripts (doctor module)</p>`;
     h += `<table class="tbl"><tr><th>Script</th><th>Command</th></tr>`;
-    Object.entries(d.scripts).forEach(([k, v]) => {
+    Object.entries(d.scripts || {}).forEach(([k, v]) => {
       h += `<tr><td><code style="font-size:9px">${k}</code></td><td><code style="font-size:8px">${v}</code></td></tr>`;
     });
     h += `</table>`;
-    h += `<p style="font-size:10px;color:var(--muted);margin-top:4px"><code>${d.example.command}</code></p>`;
+    h += `<p style="font-size:10px;color:var(--muted);margin-top:6px"><code>${d.example?.command || ""}</code></p>`;
     card("card-scaffold", h);
   } catch (e) {
     card("card-scaffold", `<p class="status err">${e.message}</p>`);
