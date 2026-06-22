@@ -29,6 +29,7 @@ import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { severityLabel } from "../lib/cli-format.ts";
 import { printHelp } from "../lib/cli-help-generator.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 import { buildBanner } from "../lib/build-info.ts";
 import { parseSeverity } from "../lib/scanner-pipeline.ts";
 

@@ -1,4 +1,4 @@
-import { tlsComplianceGate } from "../../../guardian/tls-compliance.ts";
+import { tlsComplianceGate } from "../../../gates/tls-compliance.ts";
 
 export interface DashboardTlsCompliancePayload {
   ok: boolean;
