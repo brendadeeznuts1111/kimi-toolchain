@@ -89,7 +89,7 @@ describe("bun-release-compliance codebase API usage", () => {
   });
 
   test("src/lib uses Bun.TOML.parse (not js-yaml for TOML)", () => {
-    const text = readSrc("src/lib/utils.ts");
+    const text = readSrc("src/lib/safe-parse.ts");
     expect(text).toContain("Bun.TOML.parse");
   });
 });

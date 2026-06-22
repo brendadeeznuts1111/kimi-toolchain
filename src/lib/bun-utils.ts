@@ -20,7 +20,7 @@ import {
   userInfo,
 } from "os";
 import { elapsedMs, nowNs } from "./timing.ts";
-import { safeToml } from "./utils.ts";
+import { safeToml } from "./safe-parse.ts";
 
 /** Monotonic UUID v7 — prefer for session/db ids (see Bun.randomUUIDv7). */
 export { randomUUIDv7 } from "bun";

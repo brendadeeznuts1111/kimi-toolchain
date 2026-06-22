@@ -76,34 +76,9 @@ export function sha256String(data: string): string {
   return hash.digest("hex");
 }
 
-// ── Safe Parse (shared implementation) ─────────────────────────────────
-
-function _safeParse<T>(
-  parse: (input: string) => unknown,
-  input: string,
-  fallback: T,
-  validator?: (v: unknown) => v is T
-): T {
-  try {
-    const parsed: unknown = parse(input);
-    if (validator) {
-      return validator(parsed) ? parsed : fallback;
-    }
-    return parsed as T;
-  } catch {
-    return fallback;
-  }
-}
-
-// ── Safe JSON ────────────────────────────────────────────────────────
-
-/** Safely parse JSON with a fallback value on failure. */
-export function safeParse<T>(json: string, fallback: T): T;
-/** Safely parse JSON with a fallback and optional validator. */
-export function safeParse<T>(json: string, fallback: T, validator: (v: unknown) => v is T): T;
-export function safeParse<T>(json: string, fallback: T, validator?: (v: unknown) => v is T): T {
-  return _safeParse(JSON.parse, json, fallback, validator);
-}
+// ── Safe Parse ────────────────────────────────────────────────────────
+// Canonical implementations live in safe-parse.ts to avoid circular imports.
+export { safeParse, safeToml } from "./safe-parse.ts";
 
 // ── Project Info ─────────────────────────────────────────────────────
 
@@ -200,15 +175,6 @@ export {
 /** @deprecated Use Logger.printHealthReport() with createLogger() instead. */
 export function printDoctorReport(report: HealthReport) {
   createLogger(Bun.argv, report.tool).printHealthReport(report);
-}
-
-// ── Safe TOML ────────────────────────────────────────────────────────
-
-export function safeToml<T>(text: string, fallback: T): T;
-/** Safely parse TOML with a fallback and optional validator. */
-export function safeToml<T>(text: string, fallback: T, validate: (val: unknown) => val is T): T;
-export function safeToml<T>(text: string, fallback: T, validate?: (val: unknown) => val is T): T {
-  return _safeParse(Bun.TOML.parse, text, fallback, validate);
 }
 
 // Re-export doctor persistence (canonical impl in doctor-runs.ts)
