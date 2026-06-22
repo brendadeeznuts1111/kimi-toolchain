@@ -12,21 +12,30 @@ export interface ImportScanResult {
   kind: string;
 }
 
-/** Parse TypeScript into Bun's AST representation. */
+/** Parse TypeScript by transforming to JS (Bun.Transpiler has no parseSync). */
 export function parse(code: string): ParseResult {
   const transpiler = new Bun.Transpiler({ loader: "ts" });
-  const expression = transpiler.parseSync(code);
-  return {
-    ok: expression !== undefined && expression !== null,
-    expression: String(expression),
-    kind: typeof expression,
-  };
+  try {
+    const expression = transpiler.transformSync(code);
+    return {
+      ok: expression.length > 0,
+      expression: expression.slice(0, 120),
+      kind: "transformed",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      expression: error instanceof Error ? error.message : String(error),
+      kind: "error",
+    };
+  }
 }
 
 /** Scan TypeScript code for ES module imports/exports. */
 export function scanImports(code: string): ImportScanResult[] {
   const transpiler = new Bun.Transpiler({ loader: "ts" });
-  const imports = transpiler.scan(code);
+  const scanned = transpiler.scan(code) as { imports?: Array<{ path: string; kind: string }> };
+  const imports = scanned.imports ?? [];
   return imports.map((entry) => ({ path: entry.path, kind: entry.kind }));
 }
 

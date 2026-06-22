@@ -1,5 +1,6 @@
 /**
  * Scaffold slim I/O boundary — sync fs confined here; call sites use named helpers.
+ * @bun-native-exempt — intentional sync boundary for scaffold scripts
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";

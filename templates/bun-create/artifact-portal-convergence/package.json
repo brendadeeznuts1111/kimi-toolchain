@@ -5,6 +5,7 @@
   "description": "Artifact Portal convergence workspace — Canvas + Dashboard + Herdr → disk",
   "type": "module",
   "scripts": {
+    "postinstall": "bun run scripts/postinstall.ts",
     "portal": "sh scripts/portal.sh",
     "portal:local": "sh scripts/portal.sh --local-only",
     "portal:json": "sh scripts/portal.sh --json",
@@ -15,12 +16,8 @@
   },
   "bun-create": {
     "postinstall": [
-      "chmod +x scripts/*.sh",
-      "echo '✅ Artifact Portal convergence workspace ready.'",
-      "echo '   Offline publish: bun run portal:local'",
-      "echo '   Convergence test: bun run verify'",
-      "echo '   Install pre-push guard: bun run hooks:install'",
-      "echo '   Docs: README.md'"
+      "echo '>>> Template files copied. Run the explicit postinstall next:'",
+      "echo 'bun run scripts/postinstall.ts --help'"
     ],
     "start": {
       "portal:local": "bun run portal:local",
@@ -39,5 +36,6 @@
         "card-kimi-doctor"
       ]
     }
-  }
+  },
+  "trustedDependencies": []
 }

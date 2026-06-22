@@ -145,7 +145,7 @@ export async function escalateFinishWorkToReviewer(
 ): Promise<FinishWorkReport> {
   if (!shouldEscalateToReviewer(report)) return report;
 
-  if (process.env.HERDR_ENV !== "1") {
+  if (Bun.env.HERDR_ENV !== "1") {
     report.herdr = { escalated: false, skipped: true, reason: "not inside herdr" };
     return report;
   }
@@ -209,7 +209,7 @@ export async function escalateFinishWorkToReviewer(
       report.herdr = { escalated: false, error: created.error || "reviewer tab create failed" };
       return report;
     }
-    reviewerPaneId = parsePaneId(created.json);
+    reviewerPaneId = parsePaneId(created.json as { result?: Record<string, unknown> } | null);
   }
 
   if (!reviewerPaneId) {
@@ -227,7 +227,7 @@ export async function escalateFinishWorkToReviewer(
     return report;
   }
 
-  const sourcePane = process.env.HERDR_PANE_ID;
+  const sourcePane = Bun.env.HERDR_PANE_ID;
   if (sourcePane) {
     await herdrCli([
       "pane",

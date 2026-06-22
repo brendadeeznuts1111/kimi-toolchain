@@ -26,8 +26,11 @@ describe("scaffold-modules", () => {
     const processor = join(TMP, "src/effect/db/processor.ts");
     expect(result.filesWritten).toContain(processor);
     expect(pathExists(processor)).toBe(true);
+    const helper = join(TMP, "src/effect/register-effect.ts");
+    expect(result.filesWritten).toContain(helper);
+    expect(pathExists(helper)).toBe(true);
     const init = await Bun.file(join(TMP, "src/init.ts")).text();
-    expect(init).toContain("kimi.effect.db");
+    expect(init).toContain("registerEffect('db', db)");
   });
 
   test("scaffoldKimiModules writes terminal processor", async () => {
@@ -40,6 +43,22 @@ describe("scaffold-modules", () => {
     expect(result.filesWritten).toContain(processor);
     expect(pathExists(processor)).toBe(true);
     const init = await Bun.file(join(TMP, "src/init.ts")).text();
-    expect(init).toContain("kimi.effect.terminal");
+    expect(init).toContain("registerEffect('terminal', terminal)");
+  });
+
+  test("scaffoldKimiModules writes transpiler processor", async () => {
+    await Bun.write(
+      join(TMP, "package.json"),
+      JSON.stringify({ name: "transpiler-demo", scripts: {} })
+    );
+
+    const result = await scaffoldKimiModules(TMP, ["transpiler"], false);
+
+    expect(result.modules).toEqual(["transpiler"]);
+    const processor = join(TMP, "src/effect/transpiler/processor.ts");
+    expect(result.filesWritten).toContain(processor);
+    expect(pathExists(processor)).toBe(true);
+    const init = await Bun.file(join(TMP, "src/init.ts")).text();
+    expect(init).toContain("registerEffect('transpiler', transpiler)");
   });
 });

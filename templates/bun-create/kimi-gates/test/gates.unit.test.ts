@@ -6,8 +6,6 @@ const PROJECT_ROOT = join(import.meta.dir, "..");
 import { ArtifactStore } from "../src/lib/artifact-store.ts";
 import "../src/gates/init.ts";
 
-
-
 async function cleanupPath(path: string): Promise<void> {
   await Bun.spawn({ cmd: ["rm", "-rf", path] }).exited;
 }
@@ -57,8 +55,8 @@ describe("gates-example", () => {
       stdout: "pipe",
       stderr: "pipe",
     });
-    const stdout = await new Response(proc.stdout).text();
-    const stderr = await new Response(proc.stderr).text();
+    const stdout = await Bun.readableStreamToText(proc.stdout);
+    const stderr = await Bun.readableStreamToText(proc.stderr);
     const exitCode = await proc.exited;
     if (exitCode !== 0) console.error("dry-run failed:", stderr);
     expect(exitCode).toBe(0);

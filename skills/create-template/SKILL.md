@@ -77,12 +77,13 @@ The template must be **maximally minimal**. Only `package.json` is required. Eve
 
 ### Current bun-create templates
 
-| Template                      | Type      | Example / specialization                                                                    |
-| ----------------------------- | --------- | ------------------------------------------------------------------------------------------- |
-| `kimi-toolchain`              | scaffold  | Generic greenfield project                                                                  |
-| `kimi-dashboard`              | server    | [`examples/dashboard/`](../examples/dashboard)                                              |
-| `kimi-gates`                  | cli       | [`examples/trading-workspace/`](../examples/trading-workspace) is a concrete specialization |
-| `artifact-portal-convergence` | workspace | [`examples/portal/`](../examples/portal)                                                    |
+| Template                      | Type      | Example / specialization                                                                                  |
+| ----------------------------- | --------- | --------------------------------------------------------------------------------------------------------- |
+| `kimi-toolchain`              | scaffold  | Generic greenfield project                                                                                |
+| `kimi-dashboard`              | server    | [`examples/dashboard/`](~/kimi-toolchain/examples/dashboard)                                              |
+| `kimi-gates`                  | cli       | [`examples/trading-workspace/`](~/kimi-toolchain/examples/trading-workspace) is a concrete specialization |
+| `artifact-portal-convergence` | workspace | [`examples/portal/`](~/kimi-toolchain/examples/portal)                                                    |
+| `herdr-service-template`      | server    | Herdr service with auto-generated, per-service-isolated secret resolvers                                  |
 
 **Rules:**
 

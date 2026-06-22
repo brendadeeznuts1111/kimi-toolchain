@@ -2,10 +2,14 @@
   "name": "{{name}}",
   "version": "0.0.1",
   "description": "Greenfield Bun project pre-wired with kimi-toolchain governance, guardian, and quality gates.",
+  "type": "module",
+  "scripts": {
+    "postinstall": "bun run scripts/postinstall.ts"
+  },
   "bun-create": {
     "postinstall": [
-      "HOME=\"${KIMI_SCAFFOLD_HOME:-$HOME}\" bun install -g github:brendadeeznuts1111/kimi-toolchain",
-      "HOME=\"${KIMI_SCAFFOLD_HOME:-$HOME}\" PATH=\"${KIMI_SCAFFOLD_HOME:+$KIMI_SCAFFOLD_HOME/.bun/bin:}$PATH\" kimi-fix . ${KIMI_PROFILE:+--profile $KIMI_PROFILE}"
+      "echo '>>> Template files copied. Run the explicit postinstall next:'",
+      "echo 'bun run scripts/postinstall.ts --help'"
     ],
     "start": {
       "dev": "bun run --watch src/index.ts",
@@ -24,5 +28,6 @@
         "card-gates"
       ]
     }
-  }
+  },
+  "trustedDependencies": []
 }

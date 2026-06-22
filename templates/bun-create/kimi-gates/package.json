@@ -4,6 +4,7 @@
   "description": "L1→L2 gate tree with artifact persistence and lineage — scaffolded from kimi-toolchain",
   "type": "module",
   "scripts": {
+    "postinstall": "bun run scripts/postinstall.ts",
     "gate:all": "bun run src/bin/gate-doctor.ts --all --save-artifact",
     "gate:graph": "bun run src/bin/gate-doctor.ts --all --gate-graph",
     "gate:status": "bun run src/bin/gate-doctor.ts --status --json",
@@ -17,11 +18,8 @@
   },
   "bun-create": {
     "postinstall": [
-      "bun install",
-      "echo '✅ Gate loop ready. Add gates to src/gates/'",
-      "echo '   Run: bun run gate:all'",
-      "echo '   Plan: bun run gate:plan'",
-      "echo '   Graph: bun run gate:graph'"
+      "echo '>>> Template files copied. Run the explicit postinstall next:'",
+      "echo 'bun run scripts/postinstall.ts --help'"
     ],
     "start": {
       "all": "bun run src/bin/gate-doctor.ts --all --save-artifact",
@@ -41,5 +39,6 @@
         "card-metrics-schema"
       ]
     }
-  }
+  },
+  "trustedDependencies": []
 }

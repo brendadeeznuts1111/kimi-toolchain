@@ -8,9 +8,9 @@ import { json } from "../lib/response.ts";
 
 async function sha3(
   algorithm: "SHA3-256" | "SHA3-384" | "SHA3-512",
-  data: BufferSource
+  data: Uint8Array
 ): Promise<string> {
-  const digest = await crypto.subtle.digest(algorithm, data);
+  const digest = await crypto.subtle.digest(algorithm, Uint8Array.from(data));
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");

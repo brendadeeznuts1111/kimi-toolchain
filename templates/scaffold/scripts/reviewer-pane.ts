@@ -76,8 +76,8 @@ async function main(): Promise<number> {
   const report = JSON.parse(readText(resolve(filePath))) as FinishWorkReport;
   renderTable(report);
 
-  const paneId = process.env.HERDR_PANE_ID;
-  if (paneId && process.env.HERDR_ENV === "1") {
+  const paneId = Bun.env.HERDR_PANE_ID;
+  if (paneId && Bun.env.HERDR_ENV === "1") {
     await herdrCli([
       "pane",
       "report-agent",

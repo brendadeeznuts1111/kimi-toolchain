@@ -24,7 +24,7 @@ export async function saveArtifact(
 ): Promise<string> {
   const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const path = `${dir}/${gate}/${ts}.json`;
-  await Bun.mkdir(`${dir}/${gate}`, { recursive: true });
+  await Bun.spawn(["mkdir", "-p", `${dir}/${gate}`]).exited;
   await Bun.write(path, JSON.stringify(envelope, null, 2));
   return path;
 }

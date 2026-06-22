@@ -8,6 +8,7 @@
     "kimi-dashboard",
     "kimi-gates",
     "artifact-portal-convergence",
+    "herdr-service-template",
     "templates.json"
   ],
   "type": "module",

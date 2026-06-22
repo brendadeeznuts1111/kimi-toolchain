@@ -1,7 +1,7 @@
 // templates/modules/db/src/processor.ts
 // Bun-native SQLite effect — registered via registerEffect("db") in init.ts
 
-import { Database } from "bun:sqlite";
+import { Database, type SQLQueryBindings } from "bun:sqlite";
 
 export interface SqliteResult<T = unknown> {
   rows: T[];
@@ -18,22 +18,22 @@ export function open(path: string): Database {
 export function query<T = Record<string, unknown>>(
   db: Database,
   sql: string,
-  params: unknown[] = []
+  params: SQLQueryBindings[] = []
 ): SqliteResult<T> {
   const isSelect = /^\s*SELECT/i.test(sql);
   if (isSelect) {
-    const stmt = db.query<T, unknown[]>(sql);
+    const stmt = db.query<T, SQLQueryBindings[]>(sql);
     return {
       rows: stmt.all(...params),
-      changes: db.changes,
-      lastInsertRowid: db.lastInsertRowid,
+      changes: 0,
+      lastInsertRowid: 0,
     };
   }
-  db.run(sql, ...params);
+  const result = db.run(sql, params);
   return {
     rows: [],
-    changes: db.changes,
-    lastInsertRowid: db.lastInsertRowid,
+    changes: result.changes,
+    lastInsertRowid: result.lastInsertRowid,
   };
 }
 

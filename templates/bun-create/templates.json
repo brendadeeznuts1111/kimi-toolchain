@@ -3,38 +3,38 @@
   "templates": [
     {
       "name": "kimi-toolchain",
-      "description": "Greenfield Bun project with governance, guardian, and quality gates",
       "type": "scaffold",
       "complexity": "minimal",
-      "path": "kimi-toolchain",
-      "postinstall": ["kimi-fix"]
+      "example": null,
+      "purpose": "Greenfield Bun project with governance, guardian, and quality gates."
     },
     {
       "name": "kimi-dashboard",
-      "description": "Bun-native HTTP dashboard with handler directory pattern and artifact awareness",
       "type": "server",
       "complexity": "minimal",
-      "path": "kimi-dashboard",
-      "sourceExample": "examples/dashboard",
-      "cards": ["card-kimi-doctor", "card-scaffold", "card-perf-harness"]
+      "example": "examples/dashboard/",
+      "purpose": "Bun-native HTTP dashboard starter."
     },
     {
       "name": "kimi-gates",
-      "description": "L1→L2 gate tree with artifact persistence, lineage, and Mermaid DAG",
       "type": "cli",
       "complexity": "medium",
-      "path": "kimi-gates",
-      "sourceExample": "examples/gates",
-      "cards": ["card-artifacts", "card-gates", "card-metrics-schema"]
+      "example": "examples/gates/",
+      "purpose": "Generic L1→L2 gate tree with artifact persistence and lineage."
     },
     {
       "name": "artifact-portal-convergence",
-      "description": "Artifact Portal convergence workspace with pre-push guard (Canvas + Dashboard + Herdr → disk)",
       "type": "workspace",
       "complexity": "minimal",
-      "path": "artifact-portal-convergence",
-      "sourceExample": "examples/portal",
-      "cards": ["card-effect-benchmark", "card-perf-harness", "card-kimi-doctor"]
+      "example": "examples/portal/",
+      "purpose": "Artifact Portal convergence — Canvas + Dashboard + Herdr → disk."
+    },
+    {
+      "name": "herdr-service-template",
+      "type": "server",
+      "complexity": "minimal",
+      "example": null,
+      "purpose": "Herdr service with auto-generated secret resolvers, per-service isolation, and idempotent postinstall."
     }
   ]
 }

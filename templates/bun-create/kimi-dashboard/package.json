@@ -4,6 +4,7 @@
   "description": "Bun-native HTTP dashboard scaffolded from kimi-toolchain examples",
   "type": "module",
   "scripts": {
+    "postinstall": "bun run scripts/postinstall.ts",
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bun test",
@@ -15,10 +16,8 @@
   },
   "bun-create": {
     "postinstall": [
-      "bun install",
-      "echo '✅ Dashboard ready. Start: bun run dev'",
-      "echo '   Docs: docs/extend.md'",
-      "echo '   Copy handlers from: examples/dashboard/src/handlers/'"
+      "echo '>>> Template files copied. Run the explicit postinstall next:'",
+      "echo 'bun run scripts/postinstall.ts --help'"
     ],
     "start": {
       "dev": "bun run --watch src/index.ts",
@@ -36,5 +35,6 @@
         "card-perf-harness"
       ]
     }
-  }
+  },
+  "trustedDependencies": []
 }

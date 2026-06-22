@@ -21,11 +21,6 @@ class ServerStartError extends Data.TaggedError("ServerStartError")<{
   cause: string;
 }> {}
 
-class RouteError extends Data.TaggedError("RouteError")<{
-  pathname: string;
-  cause: string;
-}> {}
-
 // ── Server lifecycle ───────────────────────────────────────────────
 
 const port = Number(Bun.env.PORT) || 0;
@@ -47,16 +42,14 @@ const program = Effect.gen(function* () {
     }),
     Effect.sync(() => {
       server?.stop(true);
-    }),
+    })
   );
 
   if (!server) {
     return yield* Effect.fail(new ServerStartError({ port, cause: "server not initialized" }));
   }
 
-  yield* Effect.sync(() =>
-    Bun.stdout.write(`Server listening on port ${server!.port}\n`)
-  );
+  yield* Effect.sync(() => Bun.stdout.write(`Server listening on port ${server!.port}\n`));
 
   // Keep process alive — the server handles requests until SIGINT
   yield* Effect.never;

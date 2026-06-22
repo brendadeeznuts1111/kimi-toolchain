@@ -1,0 +1,17 @@
+[herdr.service]
+id = "{{SERVICE}}"
+domain = "com.herdr"
+app = "{{APP}}"
+
+[herdr.secrets]
+provider = "bun.secrets"
+isolation = "strict"
+fallback_env = true
+audit_on_boot = true
+
+[herdr.doctor]
+dimensions = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+tab_order = ["config", "agent", "secrets", "perf"]
+
+[herdr.governance]
+registry_ssot = "templates.json"

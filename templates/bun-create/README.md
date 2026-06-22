@@ -1,6 +1,6 @@
 # bun-create templates
 
-This directory contains the templates consumed by `bun create <name>`. They are minimal `package.json`-only starters whose postinstall hooks delegate the real scaffolding to `kimi-fix`.
+This directory contains the templates consumed by `bun create <name>`. Each template keeps a minimal `bun-create` section for discoverability and relies on an explicit `scripts/postinstall.ts` hook for real scaffolding.
 
 Registry SSOT: [`templates.json`](./templates.json).
 
@@ -12,6 +12,7 @@ Registry SSOT: [`templates.json`](./templates.json).
 | `kimi-dashboard`              | server    | minimal    | [`examples/dashboard/`](../examples/dashboard) | Bun-native HTTP dashboard starter; full showcase is in `examples/dashboard/src/handlers/`.                        |
 | `kimi-gates`                  | cli       | medium     | [`examples/gates/`](../examples/gates)         | Generic L1→L2 gate tree with artifact persistence and lineage. `examples/trading-workspace/` is a specialization. |
 | `artifact-portal-convergence` | workspace | minimal    | [`examples/portal/`](../examples/portal)       | Artifact Portal convergence — Canvas + Dashboard + Herdr → disk.                                                  |
+| `herdr-service-template`      | server    | minimal    | none                                           | Herdr service with auto-generated secret resolvers and per-service isolation.                                     |
 
 ## Important naming note
 
@@ -30,6 +31,13 @@ Registry SSOT: [`templates.json`](./templates.json).
 ```bash
 # From the repo root
 bun create kimi-toolchain /tmp/my-app
+cd /tmp/my-app
+bun run scripts/postinstall.ts
+
+# Herdr service example
+bun create herdr-service-template my-service
+cd my-service
+bun run scripts/postinstall.ts --service market-intel --secrets "a,b,c"
 
 # Or point BUN_CREATE_DIR at this folder for rapid iteration
 export BUN_CREATE_DIR="$PWD/templates/bun-create"
