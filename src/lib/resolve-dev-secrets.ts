@@ -1,12 +1,12 @@
 /**
  * resolve-dev-secrets.ts — Resolve policy secrets before spawning child processes.
  */
-import { Effect } from "effect";
 import { secretsPolicyPath } from "./paths.ts";
 import { getAllPolicyEntries, loadSecretsPolicy } from "./secrets-policy.ts";
 import { readSecretFromEnv, secretEnvCandidates } from "./secrets-env.ts";
 import { allowsEnvFallback } from "./secrets-storage.ts";
 import { SecretsManager } from "./secrets-manager.ts";
+import { runSecretsList } from "./effect/secrets-runtime.ts";
 import { resolveProjectRoot } from "./utils.ts";
 
 /**
@@ -24,7 +24,7 @@ const resolveCache = new Map<string, Promise<Record<string, boolean>>>();
 export async function resolveDevSecrets(projectRoot?: string): Promise<Record<string, boolean>> {
   const root = projectRoot ?? (await resolveProjectRoot(Bun.cwd));
   const manager = new SecretsManager({ projectRoot: root, onWarn: () => {} });
-  const rows = await Effect.runPromise(manager.list());
+  const rows = await runSecretsList(manager);
   const status: Record<string, boolean> = {};
   for (const row of rows) status[`${row.key.service}/${row.key.name}`] = row.present;
 

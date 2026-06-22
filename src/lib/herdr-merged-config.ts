@@ -3,10 +3,11 @@
  */
 
 import { TOML } from "bun";
-import { Effect, Exit } from "effect";
+import { Exit } from "effect";
 import { readText } from "./bun-io.ts";
 import type { DxConfigDocument } from "./dx-config-merge.ts";
-import { DxConfigLive, getMergedConfig } from "./effect/dx-config.ts";
+import { DxConfigLive } from "./effect/dx-config.ts";
+import { runMergedHerdrConfig } from "./effect/herdr-config-runtime.ts";
 
 function loadHerdrDocFromPath(configPath: string | null): Record<string, unknown> | null {
   if (!configPath) return null;
@@ -23,9 +24,7 @@ export async function loadMergedHerdrDocument(
   fallbackPath: string | null,
   home?: string
 ): Promise<DxConfigDocument | Record<string, unknown> | null> {
-  const exit = await Effect.runPromiseExit(
-    getMergedConfig(projectRoot).pipe(Effect.provide(DxConfigLive(home)))
-  );
+  const exit = await runMergedHerdrConfig(projectRoot, home);
   if (Exit.isSuccess(exit)) return exit.value;
   return loadHerdrDocFromPath(fallbackPath);
 }
