@@ -322,7 +322,8 @@ After:
 const PROCESS_ENV = ["process", "env"].join(".") as const;
 function envAccessRegex(prefix: string): RegExp {
   return new RegExp(
-    prefix.replaceAll(".", "\\.") + "(?:\\[[\"']([^\"']+)[\"']\\]|\\.\\s*([A-Z_][A-Z0-9_]*))",
+    prefix.replaceAll(".", "\\.") +
+      "(?:\\[(?:[\"'])([^\"']+)(?:[\"'])\\]|\\.\\s*([A-Z_][A-Z0-9_]*))",
     "g"
   );
 }

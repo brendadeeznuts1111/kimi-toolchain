@@ -173,6 +173,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "hook-error-ledger": "src/lib/hook-error-ledger.ts",
   "expect-type-of": "src/lib/bun-utils.ts",
   "artifact-graph-convergence": "examples/dashboard/src/handlers/artifact-graph-convergence.ts",
+  "deep-audit-webview-report": "src/doctor/deep-audit/webview-report.ts",
 };
 
 /** When the top-level describe uses a shorter module alias than the file stem. */

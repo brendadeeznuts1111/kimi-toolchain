@@ -486,7 +486,7 @@ function renderSchema(container, schema) {
       const d = await fetchJson("/api/kimi-doctor?fast=1");
       if (!staticDocs) staticDocs = d;
       if (effectGatesCache) {
-        d.live = { ...(d.live || {}), effectGates: effectGatesCache };
+        d.live = { ...d.live, effectGates: effectGatesCache };
       }
       renderKimiDoctorCard(d);
     } catch (e) {

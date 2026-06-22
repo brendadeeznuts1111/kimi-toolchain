@@ -130,6 +130,14 @@ export function findStaleDocPathRefs(rel: string, text: string): ContextBloatIss
   return issues;
 }
 
+/** Strip fenced code blocks and inline backtick spans from markdown text so that
+ *  link detection only runs on prose (not on regex or code examples that happen
+ *  to contain `[...](...)` patterns).
+ */
+function stripCodeFromMarkdown(text: string): string {
+  return text.replace(/```[\s\S]*?```/g, "").replace(/`[^`]*`/g, "");
+}
+
 export function findBrokenInternalLinks(
   projectRoot: string,
   rel: string,
@@ -137,8 +145,9 @@ export function findBrokenInternalLinks(
 ): ContextBloatIssue[] {
   const issues: ContextBloatIssue[] = [];
   const dir = dirname(join(projectRoot, rel));
+  const prose = stripCodeFromMarkdown(text);
 
-  for (const match of text.matchAll(LINK_RE)) {
+  for (const match of prose.matchAll(LINK_RE)) {
     const target = match[2]?.trim();
     if (!target) continue;
     if (

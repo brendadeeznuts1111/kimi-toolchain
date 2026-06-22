@@ -8,6 +8,7 @@ import {
   getDefaultServerNames,
   mcpServersDirPath,
   DASHBOARD_MCP_SERVER,
+  BUN_DOCS_SERVER,
 } from "../src/lib/mcp-registry.ts";
 
 let tmpHome: string;
@@ -22,13 +23,15 @@ describe("mcp-registry", () => {
     if (tmpHome) rmSync(tmpHome, { recursive: true, force: true });
   });
 
-  test("loads built-in unified-shell, cloudflare-api, and dashboard servers", async () => {
+  test("loads built-in unified-shell, cloudflare-api, bun-docs, and dashboard servers", async () => {
     const registry = await loadMcpRegistry(tmpHome);
     expect(registry.servers["unified-shell"]).toBeDefined();
     expect(registry.servers["cloudflare-api"]).toBeDefined();
+    expect(registry.servers[BUN_DOCS_SERVER]).toBeDefined();
     expect(registry.servers[DASHBOARD_MCP_SERVER]).toBeDefined();
     expect(registry.builtinNames).toContain("unified-shell");
     expect(registry.builtinNames).toContain("cloudflare-api");
+    expect(registry.builtinNames).toContain(BUN_DOCS_SERVER);
     expect(registry.builtinNames).toContain(DASHBOARD_MCP_SERVER);
   });
 
@@ -55,6 +58,7 @@ requiredEnv = ["GITHUB_TOKEN"]
     const names = getDefaultServerNames(registry);
     expect(names).toContain("unified-shell");
     expect(names).toContain("cloudflare-api");
+    expect(names).toContain(BUN_DOCS_SERVER);
     expect(names).not.toContain(DASHBOARD_MCP_SERVER);
   });
 
@@ -64,6 +68,14 @@ requiredEnv = ["GITHUB_TOKEN"]
     expect(dash.command).toMatch(/bun$/);
     expect(dash.args?.some((a) => a.includes("kimi-dashboard-mcp.ts"))).toBe(true);
     expect(dash.default).toBe(false);
+  });
+
+  test("bun-docs server points to Bun documentation MCP endpoint", async () => {
+    const registry = await loadMcpRegistry(tmpHome);
+    const bunDocs = registry.servers[BUN_DOCS_SERVER]!;
+    expect(bunDocs.url).toBe("https://bun.com/docs/mcp");
+    expect(bunDocs.default).toBe(true);
+    expect(serverEnvAvailable(bunDocs)).toBe(true);
   });
 
   test("serverEnvAvailable checks required env vars", async () => {

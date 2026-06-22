@@ -45,7 +45,7 @@ function sampleReport(overrides: Partial<DeepAuditReport> = {}): DeepAuditReport
   };
 }
 
-describe("deep-audit webview-report", () => {
+describe("deep-audit-webview-report", () => {
   describe("renderReportHtml", () => {
     test("produces a complete HTML document", () => {
       const html = renderReportHtml(sampleReport());

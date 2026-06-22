@@ -28,7 +28,7 @@ import { join } from "path";
 import { mkdir } from "fs/promises";
 import type { DeepAuditReport, DeepAuditRun } from "../lib/deep-audit-types.ts";
 import type { ImageAuditFinding } from "../lib/image-audit.ts";
-import { showWebviewReport } from "../doctor/deep-audit/webview-report.ts";
+import { showWebviewReport, waitForWebviewClose } from "../doctor/deep-audit/webview-report.ts";
 
 interface AuditCommand {
   id: string;
@@ -330,10 +330,13 @@ Report is always written to .kimi-artifacts/deep-audit-report.json.`);
       const code = await runReportRenderer(reportPath);
       if (code !== 0) return code;
     }
+    let webviewView: Bun.WebView | null = null;
     if (webview) {
       try {
-        const htmlPath = await showWebviewReport(auditReport);
-        console.log(`Webview report opened from ${htmlPath}`);
+        const result = await showWebviewReport(auditReport);
+        webviewView = result.view;
+        console.log(`Webview report opened from ${result.htmlPath}`);
+        console.log("Press Ctrl+C to close the webview window.");
       } catch (err) {
         console.error(
           `Failed to open webview: ${err instanceof Error ? err.message : String(err)}`
@@ -342,6 +345,9 @@ Report is always written to .kimi-artifacts/deep-audit-report.json.`);
       }
     }
     console.log(`Report written to ${reportPath}`);
+    if (webviewView) {
+      await waitForWebviewClose(webviewView);
+    }
   }
 
   return auditReport.summary.failed > 0 ? 1 : 0;

@@ -361,7 +361,7 @@ async function writeHtmlReport(report: DeepAuditReport): Promise<string> {
   return htmlPath;
 }
 
-async function openWebviewReport(htmlPath: string): Promise<void> {
+async function openWebviewReport(htmlPath: string): Promise<Bun.WebView> {
   if (typeof Bun.WebView !== "function") {
     throw new Error("Bun.WebView is not available in this runtime");
   }
@@ -372,7 +372,14 @@ async function openWebviewReport(htmlPath: string): Promise<void> {
   });
 
   await view.navigate(`file://${htmlPath}`);
-  // Keep the process alive until the user sends SIGINT so the webview window stays open.
+  return view;
+}
+
+/**
+ * Block until SIGINT/SIGTERM, then close the webview. Call after printing any
+ * confirmation messages so the user sees them before the blocking wait.
+ */
+export async function waitForWebviewClose(view: Bun.WebView): Promise<void> {
   await new Promise<void>((resolve) => {
     process.once("SIGINT", () => {
       view.close();
@@ -385,10 +392,12 @@ async function openWebviewReport(htmlPath: string): Promise<void> {
   });
 }
 
-export async function showWebviewReport(report: DeepAuditReport): Promise<string> {
+export async function showWebviewReport(
+  report: DeepAuditReport
+): Promise<{ htmlPath: string; view: Bun.WebView }> {
   const htmlPath = await writeHtmlReport(report);
-  await openWebviewReport(htmlPath);
-  return htmlPath;
+  const view = await openWebviewReport(htmlPath);
+  return { htmlPath, view };
 }
 
 async function main(): Promise<number> {
@@ -410,7 +419,9 @@ async function main(): Promise<number> {
   try {
     const htmlPath = await writeHtmlReport(report);
     console.log(`HTML report written to ${htmlPath}`);
-    await openWebviewReport(htmlPath);
+    const view = await openWebviewReport(htmlPath);
+    console.log("Webview opened. Press Ctrl+C to close.");
+    await waitForWebviewClose(view);
     return 0;
   } catch (err) {
     console.error(`Failed to open webview: ${err instanceof Error ? err.message : String(err)}`);

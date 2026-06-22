@@ -41,6 +41,7 @@ export interface McpRegistry {
 export const UNIFIED_SHELL_SERVER = "unified-shell";
 export const CLOUDFLARE_API_SERVER = "cloudflare-api";
 export const DASHBOARD_MCP_SERVER = "kimi-dashboard";
+export const BUN_DOCS_SERVER = "bun-docs";
 export const UNIFIED_SHELL_BRIDGE = "unified-shell-bridge.ts";
 
 function resolveBunPath(): string {
@@ -75,6 +76,18 @@ function builtinCloudflareApi(): McpServerDefinition {
     toolTimeoutMs: 60000,
     profiles: ["full"],
     requiredEnv: ["CLOUDFLARE_API_TOKEN"],
+  };
+}
+
+function builtinBunDocs(): McpServerDefinition {
+  return {
+    name: BUN_DOCS_SERVER,
+    url: "https://bun.com/docs/mcp",
+    description: "Bun docs MCP: search and query the Bun documentation",
+    default: true,
+    startupTimeoutMs: 30000,
+    toolTimeoutMs: 60000,
+    profiles: ["full"],
   };
 }
 
@@ -165,6 +178,10 @@ export async function loadMcpRegistry(home: string = homeDir()): Promise<McpRegi
   const cf = builtinCloudflareApi();
   servers[cf.name] = cf;
   builtinNames.push(cf.name);
+
+  const bunDocs = builtinBunDocs();
+  servers[bunDocs.name] = bunDocs;
+  builtinNames.push(bunDocs.name);
 
   const dash = builtinDashboardMcp(home);
   servers[dash.name] = dash;

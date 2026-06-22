@@ -78,7 +78,7 @@ describe("mcp-config", () => {
     expect(entry.url).toBe("https://mcp.cloudflare.com/mcp");
   });
 
-  test("provisionUserMcp creates mcp.json with both servers", async () => {
+  test("provisionUserMcp creates mcp.json with unified-shell, cloudflare-api, and bun-docs", async () => {
     await withEnv({ HOME: tmpHome }, async () => {
       const path = userMcpPath();
       // Clean up any pre-existing file from other test runs
@@ -90,6 +90,8 @@ describe("mcp-config", () => {
       const parsed = await readMcpJson(path);
       expect(parsed?.data?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
       expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
+      expect(parsed?.data?.mcpServers["bun-docs"]).toBeDefined();
+      expect(parsed?.data?.mcpServers["bun-docs"]?.url).toBe("https://bun.com/docs/mcp");
     });
   });
 
