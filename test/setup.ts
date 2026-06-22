@@ -8,9 +8,11 @@
 import { mkdirSync } from "fs";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import { installBuildConstantGlobals, warnIfNodeEnvNotTest } from "../src/lib/test-runtime.ts";
+import { scrubProcessBunInstallCacheEnv } from "../src/lib/root-hygiene.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 warnIfNodeEnvNotTest("test/setup.ts");
+scrubProcessBunInstallCacheEnv();
 
 // Bun.env is an alias of process.env. This repo prefers Bun.env for reads and
 // writes; see https://bun.com/docs/runtime/environment-variables.

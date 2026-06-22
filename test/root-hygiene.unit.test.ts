@@ -7,8 +7,10 @@ import {
   DEFAULT_PROFILE_OUTPUT_DIR,
   envLiteralTildeCacheMisconfig,
   expandInstallCacheDir,
+  applyBunInstallCacheEnvSanitizer,
   fixBunfigCacheMisconfig,
   isLiteralTildeCachePath,
+  scrubProcessBunInstallCacheEnv,
   stripBunfigLiteralTildeCacheDir,
 } from "../src/lib/root-hygiene.ts";
 import { withEnv, withTempDir } from "./helpers.ts";
@@ -79,6 +81,19 @@ describe("root-hygiene", () => {
     const after = stripBunfigLiteralTildeCacheDir(before);
     expect(bunfigLiteralTildeCacheDir(after)).toBe(false);
     expect(after).toContain("disable = false");
+  });
+
+  test("applyBunInstallCacheEnvSanitizer expands literal tilde", () => {
+    const env = { BUN_INSTALL_CACHE_DIR: "~/.bun/install/cache", OTHER: "1" };
+    expect(applyBunInstallCacheEnvSanitizer(env, "/tmp/home")).toBe(true);
+    expect(env.BUN_INSTALL_CACHE_DIR).toBe(join("/tmp/home", ".bun/install/cache"));
+  });
+
+  test("scrubProcessBunInstallCacheEnv fixes process env", () => {
+    withEnv({ BUN_INSTALL_CACHE_DIR: "~/.bun/install/cache" }, () => {
+      expect(scrubProcessBunInstallCacheEnv("/tmp/home")).toBe(true);
+      expect(Bun.env.BUN_INSTALL_CACHE_DIR).toBe(join("/tmp/home", ".bun/install/cache"));
+    });
   });
 
   test("fixBunfigCacheMisconfig patches project bunfig", () => {

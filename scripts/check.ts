@@ -21,6 +21,9 @@ import {
 } from "../src/lib/check-pipeline.ts";
 import { startCheckWatchMode } from "./check-watch-runner.ts";
 import type { CheckOptions } from "../src/lib/check-types.ts";
+import { scrubProcessBunInstallCacheEnv } from "../src/lib/root-hygiene.ts";
+
+scrubProcessBunInstallCacheEnv();
 
 const REPO_ROOT = join(import.meta.dir, "..");
 

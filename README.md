@@ -224,6 +224,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run pm:why` | (synced from package.json) |
 | `bun run pm:outdated` | (synced from package.json) |
 | `bun run pm:outdated:json` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                                    |

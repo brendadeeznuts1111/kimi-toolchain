@@ -18,7 +18,7 @@ import {
 import { DEFAULT_GATE_ARTIFACT_LIMIT } from "../src/gates/types.ts";
 import type { Gate, GateArtifact, GateRunOptions, GateResult } from "../src/gates/types.ts";
 import { writeText } from "../src/lib/bun-io.ts";
-import { withTempDir } from "./helpers.ts";
+import { withTempDir, withEnv, CLEAN_INSTALL_AUDIT_ENV } from "./helpers.ts";
 
 const SECURE_BUNFIG = `[install]
 optional = true
@@ -38,7 +38,8 @@ minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
-dir = "~/.bun/install/cache"
+disable = false
+disableManifest = false
 `;
 
 function writeSecureProject(dir: string): void {
@@ -122,42 +123,46 @@ describe("doctor-gates-runner", () => {
   });
 
   test("runGatesWithDependencies auto-resolves mock perf-gate closure in dependency order", async () => {
-    await withTempDir("doctor-gates-auto-resolve-mock-", async (dir) => {
-      writeSecureProject(dir);
-      const gates = [
-        mockGate("perf-gate", {
-          dependsOn: ["bunfig-policy"],
-          run: async () => ({ status: "pass" }),
-        }),
-      ];
+    await withEnv(CLEAN_INSTALL_AUDIT_ENV, async () => {
+      await withTempDir("doctor-gates-auto-resolve-mock-", async (dir) => {
+        writeSecureProject(dir);
+        const gates = [
+          mockGate("perf-gate", {
+            dependsOn: ["bunfig-policy"],
+            run: async () => ({ status: "pass" }),
+          }),
+        ];
 
-      const { order, autoResolved, results } = await runGatesWithDependencies(gates, {
-        projectRoot: dir,
+        const { order, autoResolved, results } = await runGatesWithDependencies(gates, {
+          projectRoot: dir,
+        });
+        expect(order).toEqual(["bunfig-policy", "perf-gate"]);
+        expect(autoResolved).toEqual(["bunfig-policy"]);
+        expect(results.map((r) => r.gate)).toEqual(["bunfig-policy", "perf-gate"]);
+        expect(results.every((r) => r.status === "pass" || r.status === "warn")).toBe(true);
       });
-      expect(order).toEqual(["bunfig-policy", "perf-gate"]);
-      expect(autoResolved).toEqual(["bunfig-policy"]);
-      expect(results.map((r) => r.gate)).toEqual(["bunfig-policy", "perf-gate"]);
-      expect(results.every((r) => r.status === "pass" || r.status === "warn")).toBe(true);
     });
   });
 
   test(
     "runGatesWithDependencies with perfGateDefinition auto-resolves bunfig-policy first",
     async () => {
-      await withTempDir("doctor-gates-auto-resolve-perf-", async (dir) => {
-        writeSecureProject(dir);
+      await withEnv(CLEAN_INSTALL_AUDIT_ENV, async () => {
+        await withTempDir("doctor-gates-auto-resolve-perf-", async (dir) => {
+          writeSecureProject(dir);
 
-        const { order, autoResolved, results } = await runGatesWithDependencies(
-          [perfGateDefinition],
-          {
-            projectRoot: dir,
-          }
-        );
+          const { order, autoResolved, results } = await runGatesWithDependencies(
+            [perfGateDefinition],
+            {
+              projectRoot: dir,
+            }
+          );
 
-        expect(order).toEqual(["bunfig-policy", "perf-gate"]);
-        expect(autoResolved).toEqual(["bunfig-policy"]);
-        expect(results[0]?.gate).toBe("bunfig-policy");
-        expect(results[0]?.status).toBe("pass");
+          expect(order).toEqual(["bunfig-policy", "perf-gate"]);
+          expect(autoResolved).toEqual(["bunfig-policy"]);
+          expect(results[0]?.gate).toBe("bunfig-policy");
+          expect(results[0]?.status).toBe("pass");
+        });
       });
     },
     { timeout: 120_000 }

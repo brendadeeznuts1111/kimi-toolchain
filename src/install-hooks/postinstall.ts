@@ -18,6 +18,9 @@ import { DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
 import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
 import { provisionUserMcp } from "../lib/mcp-config.ts";
 import { ensureDir } from "../lib/utils.ts";
+import { scrubProcessBunInstallCacheEnv } from "../lib/root-hygiene.ts";
+
+scrubProcessBunInstallCacheEnv();
 
 const REPO_ROOT = resolve(import.meta.dir, "../..");
 const VAR_DIR = join(desktopRoot(), "var");

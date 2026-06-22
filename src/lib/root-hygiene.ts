@@ -113,6 +113,29 @@ export function suggestedInstallCacheEnvExport(home = homeDir()): string {
   return `export BUN_INSTALL_CACHE_DIR="${join(home, ".bun/install/cache")}"`;
 }
 
+/** Expand or drop literal-tilde BUN_INSTALL_CACHE_DIR so Bun does not write `./~/`. */
+export function applyBunInstallCacheEnvSanitizer(
+  env: Record<string, string>,
+  home = homeDir()
+): boolean {
+  const raw = env.BUN_INSTALL_CACHE_DIR;
+  if (!isLiteralTildeCachePath(raw)) return false;
+  const expanded = expandInstallCacheDir(raw, home);
+  if (expanded) env.BUN_INSTALL_CACHE_DIR = expanded;
+  else delete env.BUN_INSTALL_CACHE_DIR;
+  return true;
+}
+
+/** Fix current process env when IDE/shell injected a literal-tilde cache path. */
+export function scrubProcessBunInstallCacheEnv(home = homeDir()): boolean {
+  const raw = Bun.env.BUN_INSTALL_CACHE_DIR;
+  if (!isLiteralTildeCachePath(raw)) return false;
+  const expanded = expandInstallCacheDir(raw, home);
+  if (expanded) Bun.env.BUN_INSTALL_CACHE_DIR = expanded;
+  else delete Bun.env.BUN_INSTALL_CACHE_DIR;
+  return true;
+}
+
 function countTree(path: string): { bytes: number; files: number } {
   let bytes = 0;
   let files = 0;

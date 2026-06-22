@@ -14,6 +14,7 @@ import { recordStep } from "./step-budget.ts";
 import { classifyAndSuggest } from "./error-taxonomy.ts";
 import { childTraceEnv, ensureProcessTrace, TRACE_ID_ENV } from "./effect/trace-context.ts";
 import { buildTraceEvent, recordTraceEvent } from "./trace-ledger.ts";
+import { applyBunInstallCacheEnvSanitizer } from "./root-hygiene.ts";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const AGENT_TOOL_TIMEOUT_MS = 15_000;
@@ -149,6 +150,7 @@ function mergedEnv(env?: Record<string, string | undefined>): Record<string, str
     if (value === undefined) delete merged[key];
     else merged[key] = value;
   }
+  applyBunInstallCacheEnvSanitizer(merged);
   return merged;
 }
 

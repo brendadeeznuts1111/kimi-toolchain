@@ -42,7 +42,7 @@ import {
   SECURE_BUN_INSTALL_POLICY,
 } from "../src/lib/bun-install-config.ts";
 import { loadTaxonomy } from "../src/lib/error-taxonomy.ts";
-import { REPO_ROOT, testTempDir, withEnv } from "./helpers.ts";
+import { REPO_ROOT, testTempDir, withEnv, CLEAN_INSTALL_AUDIT_ENV } from "./helpers.ts";
 
 const SECURE_BUNFIG = `[install]
 optional = true
@@ -65,14 +65,6 @@ minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 disable = false
 disableManifest = false
 `;
-
-/** Clear install-audit env overrides that force audit.ok=false in CI/dev shells. */
-const CLEAN_INSTALL_AUDIT_ENV = {
-  BUN_CONFIG_SKIP_SAVE_LOCKFILE: undefined,
-  BUN_CONFIG_SKIP_LOAD_LOCKFILE: undefined,
-  BUN_CONFIG_SKIP_INSTALL_PACKAGES: undefined,
-  BUN_INSTALL_CACHE_DIR: undefined,
-} as const;
 
 const SECURE_PACKAGE_JSON = {
   name: "demo",

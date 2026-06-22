@@ -16,6 +16,14 @@ import { DECISION_SCHEMA_VERSION, type DecisionRecord } from "../src/lib/decisio
 /** Repository root resolved from this file's location. */
 export const REPO_ROOT = join(import.meta.dir, "..");
 
+/** Clear install-audit env overrides that force audit.ok=false in dev/CI shells. */
+export const CLEAN_INSTALL_AUDIT_ENV = {
+  BUN_CONFIG_SKIP_SAVE_LOCKFILE: undefined,
+  BUN_CONFIG_SKIP_LOAD_LOCKFILE: undefined,
+  BUN_CONFIG_SKIP_INSTALL_PACKAGES: undefined,
+  BUN_INSTALL_CACHE_DIR: undefined,
+} as const;
+
 /** Build a complete DecisionRecord fixture with sensible defaults. */
 export function decisionRecordFixture(overrides: Partial<DecisionRecord> = {}): DecisionRecord {
   const decisionId = overrides.decisionId ?? overrides.id ?? "dec-test";

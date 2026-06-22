@@ -23,6 +23,9 @@ import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { createLogger } from "../lib/logger.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { writeStdout } from "../lib/cli-contract.ts";
+import { scrubProcessBunInstallCacheEnv } from "../lib/root-hygiene.ts";
+
+scrubProcessBunInstallCacheEnv();
 
 const logger = createLogger(Bun.argv, "kimi-toolchain");
 const REPO_BIN = resolve(join(import.meta.dir));

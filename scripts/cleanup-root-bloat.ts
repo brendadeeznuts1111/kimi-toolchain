@@ -17,6 +17,9 @@ import {
   type RootHygieneReport,
 } from "../src/lib/root-hygiene.ts";
 import { resolveEffectiveWorkspaceRoot } from "../src/lib/workspace-health.ts";
+import { scrubProcessBunInstallCacheEnv } from "../src/lib/root-hygiene.ts";
+
+scrubProcessBunInstallCacheEnv();
 
 function parseArgs(argv: string[]): {
   dryRun: boolean;
