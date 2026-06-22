@@ -307,7 +307,7 @@ export function exportAuditReport(
   const payload = JSON.stringify({
     findings,
     meta: {
-      service: (globalThis as Record<string, unknown>).SERVICE_ID ?? "unknown",
+      service: String((globalThis as { SERVICE_ID?: unknown }).SERVICE_ID ?? "unknown"),
       ts: new Date().toISOString(),
       version: Bun.env.npm_package_version ?? "dev",
     },
@@ -338,7 +338,11 @@ export function parseAuditReport(data: Uint8Array): AuditReportEnvelope {
       decompressed = decompressZstd(data);
       break;
     default:
-      throw new Error(`Unknown compression format: ${format}`);
+      try {
+        decompressed = decompressDeflate(data);
+      } catch {
+        throw new Error(`Unknown compression format: ${format}`);
+      }
   }
 
   return JSON.parse(textDecoder.decode(decompressed)) as AuditReportEnvelope;
