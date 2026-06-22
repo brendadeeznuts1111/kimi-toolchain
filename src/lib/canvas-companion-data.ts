@@ -15,6 +15,7 @@ export type HubBinCategory = "diag" | "gov" | "heal" | "scaffold" | "herdr" | "i
 const BIN_CATEGORY: Record<string, HubBinCategory> = {
   "kimi-doctor": "diag",
   "kimi-debug": "diag",
+  "kimi-deep-audit": "diag",
   "kimi-capabilities": "diag",
   "kimi-trace": "diag",
   "kimi-orphan-kill": "diag",

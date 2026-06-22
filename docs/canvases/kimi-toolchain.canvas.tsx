@@ -36,7 +36,10 @@ const NAME_MATRIX = [
 
 /** @generated hub-toolchain-inventory — bun run canvas:generate; do not edit */
 const TOOL_INVENTORY = [
-  ["Diagnostics", "kimi-capabilities, kimi-debug, kimi-doctor, kimi-orphan-kill, kimi-trace"],
+  [
+    "Diagnostics",
+    "kimi-capabilities, kimi-debug, kimi-deep-audit, kimi-doctor, kimi-orphan-kill, kimi-trace",
+  ],
   [
     "Governance / Security",
     "kimi-cloudflare-access, kimi-contract, kimi-githooks, kimi-governance, kimi-guardian, kimi-secrets",
@@ -232,7 +235,7 @@ const DAG_EDGES = [
 
 /** @generated hub-toolchain-stats — bun run canvas:generate; do not edit */
 const TOOL_CATEGORIES = [
-  { id: "diag", label: "Diagnostics", count: 5 },
+  { id: "diag", label: "Diagnostics", count: 6 },
   { id: "gov", label: "Governance", count: 6 },
   { id: "heal", label: "Heal / Memory", count: 7 },
   { id: "scaffold", label: "Scaffold", count: 6 },
@@ -240,7 +243,7 @@ const TOOL_CATEGORIES = [
   { id: "infra", label: "Router / Bridge", count: 4 },
 ] as const;
 
-const BIN_COUNT = 28;
+const BIN_COUNT = 29;
 const LIB_COUNT = 423;
 const UNIT_COUNT = 371;
 const INTEGRATION_COUNT = 18;
