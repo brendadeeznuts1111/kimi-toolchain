@@ -123,6 +123,18 @@ categories:
       - regex: "gate failed: test:fast"
       - regex: "gate failed: test"
 
+  - id: secrets_storage_tier_mismatch
+    name: Secrets storage tier mismatch
+    description: Linux env-fallback backend is active but policy secrets lack storageTier env-fallback.
+    severity: warn
+    expected: false
+    suggestion: 'Add storageTier: "env-fallback" to CI-only secrets in secrets-policy.json5, or install libsecret.'
+    autoFix: "bun run scripts/lint-secrets-registry.ts"
+    patterns:
+      - regex: "secrets-storage-gate failed"
+      - regex: "storage_tier_mismatch"
+      - regex: 'lack storageTier: "env-fallback"'
+
   - id: test_naming_violation
     name: Test naming violation
     description: Lint gate found test files violating naming conventions.
@@ -660,6 +672,120 @@ categories:
     patterns:
       - regex: "ReferenceError: KIMI_.*is not defined"
       - regex: "KIMI_.*is not defined"
+
+  - id: image_oversized
+    name: Oversized image asset
+    description: An image file exceeds dimension or pixel-count limits — decompression-bomb or DOS risk.
+    severity: error
+    expected: false
+    suggestion: "Resize the image to within allowed limits. For large assets, use Bun.Image to generate thumbnails."
+    patterns:
+      - regex: "Image exceeds max dimension"
+      - regex: "Image exceeds max pixels"
+
+  - id: image_corrupt
+    name: Corrupt image file
+    description: An image file could not be decoded — likely truncated or malformed.
+    severity: error
+    expected: false
+    suggestion: "Replace or re-encode the corrupt image file."
+    patterns:
+      - regex: "Corrupt or unparseable image"
+
+  - id: image_header_secrets
+    name: Secrets in image file header
+    description: Suspicious strings (password, API key, private key) found in image file header bytes.
+    severity: warn
+    expected: false
+    suggestion: "Remove embedded credentials from image metadata. Use Bun.secrets or env vars instead."
+    patterns:
+      - regex: "Suspicious strings in file header"
+      - regex: "Suspicious strings in PNG text chunks"
+
+  - id: image_high_entropy
+    name: High-entropy image pixels
+    description: Image pixel data has unusually high Shannon entropy — possible steganographic data hiding.
+    severity: warn
+    expected: false
+    suggestion: "Investigate whether hidden data is embedded in the image. Re-encode from a trusted source."
+    patterns:
+      - regex: "High entropy.*possible steganography"
+
+  - id: image_exif_gps
+    name: GPS coordinates in image EXIF
+    description: Image file contains GPS latitude/longitude in EXIF metadata — potential location leak.
+    severity: warn
+    expected: false
+    suggestion: "Strip GPS EXIF tags before committing the image. Use Bun.Image with autoOrient but strip EXIF."
+    patterns:
+      - regex: "GPSLatitude"
+      - regex: "GPS coordinates found in EXIF"
+
+  - id: image_exif_sensitive
+    name: Sensitive EXIF metadata
+    description: Image file contains potentially sensitive EXIF tags (Artist, Copyright, serial numbers, unique IDs).
+    severity: warn
+    expected: false
+    suggestion: "Strip sensitive EXIF tags (Artist, Copyright, serial numbers) before committing."
+    patterns:
+      - regex: "Potentially sensitive EXIF tags"
+
+  - id: image_oversized
+    name: Oversized image asset
+    description: An image file exceeds dimension or pixel-count limits — decompression-bomb or DOS risk.
+    severity: error
+    expected: false
+    suggestion: "Resize the image to within allowed limits."
+    patterns:
+      - regex: "Image exceeds max dimension"
+      - regex: "Image exceeds max pixels"
+
+  - id: image_corrupt
+    name: Corrupt image file
+    description: An image file could not be decoded — likely truncated or malformed.
+    severity: error
+    expected: false
+    suggestion: "Replace or re-encode the corrupt image file."
+    patterns:
+      - regex: "Corrupt or unparseable image"
+
+  - id: image_header_secrets
+    name: Secrets in image file header
+    description: Suspicious strings (password, API key, private key) found in image file header bytes.
+    severity: warn
+    expected: false
+    suggestion: "Remove embedded credentials from image metadata."
+    patterns:
+      - regex: "Suspicious strings in file header"
+      - regex: "Suspicious strings in PNG text chunks"
+
+  - id: image_high_entropy
+    name: High-entropy image pixels
+    description: Image pixel data has unusually high Shannon entropy — possible steganographic data hiding.
+    severity: warn
+    expected: false
+    suggestion: "Investigate whether hidden data is embedded in the image."
+    patterns:
+      - regex: "High entropy.*possible steganography"
+
+  - id: image_exif_gps
+    name: GPS coordinates in image EXIF
+    description: Image file contains GPS latitude/longitude in EXIF metadata — potential location leak.
+    severity: warn
+    expected: false
+    suggestion: "Strip GPS EXIF tags before committing the image."
+    patterns:
+      - regex: "GPSLatitude"
+      - regex: "GPS coordinates found in EXIF"
+
+  - id: image_exif_sensitive
+    name: Sensitive EXIF metadata
+    description: Image file contains potentially sensitive EXIF tags (Artist, Copyright, serial numbers).
+    severity: warn
+    expected: false
+    suggestion: "Strip sensitive EXIF tags before committing."
+    patterns:
+      - regex: "Potentially sensitive EXIF tags"
 
   - id: unknown
     name: Unknown

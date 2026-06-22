@@ -39,7 +39,7 @@ const TOOL_INVENTORY = [
   ["Diagnostics", "kimi-capabilities, kimi-debug, kimi-doctor, kimi-orphan-kill, kimi-trace"],
   [
     "Governance / Security",
-    "kimi-cloudflare-access, kimi-contract, kimi-githooks, kimi-governance, kimi-guardian",
+    "kimi-cloudflare-access, kimi-contract, kimi-githooks, kimi-governance, kimi-guardian, kimi-secrets",
   ],
   [
     "Heal / Memory",
@@ -214,13 +214,7 @@ const CANVAS_ROUTING_ROW_TONE = [
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-<<<<<<< Updated upstream
-  { id: "test", label: "bun run check:fast", sub: "316 unit gates" },
-||||||| Stash base
-  { id: "test", label: "bun run check:fast", sub: "311 unit gates" },
-=======
-  { id: "test", label: "bun run check:fast", sub: "314 unit gates" },
->>>>>>> Stashed changes
+  { id: "test", label: "bun run check:fast", sub: "370 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -239,30 +233,18 @@ const DAG_EDGES = [
 /** @generated hub-toolchain-stats — bun run canvas:generate; do not edit */
 const TOOL_CATEGORIES = [
   { id: "diag", label: "Diagnostics", count: 5 },
-  { id: "gov", label: "Governance", count: 5 },
+  { id: "gov", label: "Governance", count: 6 },
   { id: "heal", label: "Heal / Memory", count: 7 },
   { id: "scaffold", label: "Scaffold", count: 6 },
   { id: "herdr", label: "Herdr", count: 0 },
   { id: "infra", label: "Router / Bridge", count: 4 },
 ] as const;
 
-<<<<<<< Updated upstream
-const BIN_COUNT = 27;
-const LIB_COUNT = 365;
-const UNIT_COUNT = 316;
+const BIN_COUNT = 28;
+const LIB_COUNT = 422;
+const UNIT_COUNT = 370;
 const INTEGRATION_COUNT = 18;
-||||||| Stash base
-const BIN_COUNT = 26;
-const LIB_COUNT = 324;
-const UNIT_COUNT = 311;
-const INTEGRATION_COUNT = 17;
-=======
-const BIN_COUNT = 26;
-const LIB_COUNT = 325;
-const UNIT_COUNT = 314;
-const INTEGRATION_COUNT = 18;
->>>>>>> Stashed changes
-const SMOKE_COUNT = 7;
+const SMOKE_COUNT = 8;
 const CURSOR_CANVAS_COUNT = 13;
 
 function SyncFlowDag() {
