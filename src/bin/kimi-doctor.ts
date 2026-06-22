@@ -1,10 +1,5 @@
 #!/usr/bin/env bun
-import {
-  bunRevision,
-  bunVersion,
-  isDirectRun,
-  readableStreamToText,
-} from "../lib/bun-utils.ts";
+import { bunRevision, bunVersion, isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { spawnBun, withBunNoOrphans } from "../lib/tool-runner.ts";
 import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
@@ -64,6 +59,8 @@ import { isAgentContext } from "../lib/tool-runner.ts";
 import { resolveProjectRoot, getProjectName } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 import { auditAgentReady } from "../lib/agent-ready.ts";
+import { auditSecretsStorage } from "../lib/secrets-probe.ts";
+import { auditTrustedDeps } from "../lib/doctor-trusted-deps.ts";
 import { auditSuccessMetrics } from "../lib/success-metrics.ts";
 import { generateAgentDiagnosisReport } from "../lib/agent-diagnosis.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
@@ -133,6 +130,7 @@ import {
   listBuiltinGateDefinitions,
   listGates,
 } from "../gates/registry.ts";
+import { inspectAgent } from "../lib/inspect.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
 const doctorTrace = ensureProcessTrace();
@@ -2042,7 +2040,7 @@ async function main(): Promise<number> {
             : `Thresholds written to ${envelope.train.path}`
         );
         if (jsonMode) {
-          console.log(JSON.stringify(envelope, null, 2));
+          console.log(inspectAgent(envelope, { compact: false }));
         }
         return 0;
       }
@@ -2077,7 +2075,7 @@ async function main(): Promise<number> {
         }
 
         if (jsonMode) {
-          console.log(JSON.stringify(envelope, null, 2));
+          console.log(inspectAgent(envelope, { compact: false }));
         } else if (PERF_RICH || PERF_GATES) {
           for (const line of formatPerfGatesHuman(envelope).split("\n")) {
             logger.info(line);
@@ -2150,7 +2148,10 @@ async function main(): Promise<number> {
       }
     } else {
       results.push(
-        error("kimi-code", "not found — curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash")
+        error(
+          "kimi-code",
+          "not found — curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash"
+        )
       );
     }
   });
@@ -2183,6 +2184,40 @@ async function main(): Promise<number> {
     results.push(...syncCheck.results);
     syncReport = syncCheck.drift;
   });
+
+  if (await isKimiToolchainRepo(projectRoot)) {
+    logger.section("Secrets Storage");
+    await traceSection("secrets-storage", async () => {
+      const secretsChecks = await auditSecretsStorage(projectRoot);
+      for (const check of secretsChecks) {
+        if (!JSON_OUT) logger.check(check);
+        const result =
+          check.status === "ok"
+            ? ok(check.name, check.message)
+            : check.status === "warn"
+              ? warn(check.name, check.message)
+              : error(check.name, check.message);
+        if (check.autoFix) result.autoFix = check.autoFix;
+        results.push(result);
+      }
+    });
+
+    logger.section("Trusted Dependencies");
+    await traceSection("trusted-deps", async () => {
+      const trustedChecks = await auditTrustedDeps({ projectRoot });
+      for (const check of trustedChecks) {
+        if (!JSON_OUT) logger.check(check);
+        const result =
+          check.status === "ok"
+            ? ok(check.name, check.message)
+            : check.status === "warn"
+              ? warn(check.name, check.message)
+              : error(check.name, check.message);
+        if (check.autoFix) result.autoFix = check.autoFix;
+        results.push(result);
+      }
+    });
+  }
 
   let unifiedShellRegistered = false;
   logger.section("MCP");

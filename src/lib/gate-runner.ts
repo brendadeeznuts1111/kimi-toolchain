@@ -6,6 +6,7 @@ import { readableStreamToText } from "./bun-utils.ts";
 import { makeDir, pathExists } from "./bun-io.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { withBunNoOrphans } from "./tool-runner.ts";
+import { formatErrorColored } from "./error-format.ts";
 
 import { join } from "path";
 import { $ } from "bun";
@@ -161,8 +162,31 @@ export async function porcelainDirtyLines(projectRoot: string): Promise<string[]
     .filter(Boolean);
 }
 
+const GATE_TAXONOMY_BY_NAME: Partial<Record<string, string>> = {
+  "format:check": "format_check_failure",
+  lint: "lint_failure",
+  typecheck: "typecheck_failure",
+  "effect-gates": "effect_gates_failure",
+  "constant-drift": "constants_drift",
+  "r-score": "lockfile_issue",
+};
+
+function gateFailureHeader(result: GateResult, message: string): string {
+  const taxonomyId = GATE_TAXONOMY_BY_NAME[result.name];
+  if (noColorEnabled()) {
+    return `${failMark()} ${result.name}: ${message}`;
+  }
+  return formatErrorColored({
+    domain: "gates",
+    code: result.name.replace(/[:.]/g, "_"),
+    message,
+    severity: "error",
+    ...(taxonomyId ? { taxonomyId } : {}),
+  });
+}
+
 export function emitGateFailure(result: GateResult): void {
-  Bun.stderr.write(`${failMark()} ${result.name}\n`);
+  Bun.stderr.write(`${gateFailureHeader(result, `exited with code ${result.exitCode}`)}\n`);
   const detail = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
   if (detail) Bun.stderr.write(`${detail}\n`);
 }
@@ -174,11 +198,9 @@ export function emitGateFailureBrief(result: GateResult): void {
     .split("\n")
     .map((line) => line.trim())
     .find(Boolean);
-  if (firstLine) {
-    Bun.stderr.write(`${failMark()} ${result.name}: ${firstLine}\n`);
-    return;
-  }
-  Bun.stderr.write(`${failMark()} ${result.name}\n`);
+  Bun.stderr.write(
+    `${gateFailureHeader(result, firstLine ?? `exited with code ${result.exitCode}`)}\n`
+  );
 }
 
 export function formatHookSummary(hook: string, results: GateResult[]): string {

@@ -510,13 +510,26 @@ export async function scanRepo(
   repoRoot: string,
   config: BunNativeLintConfig
 ): Promise<Violation[]> {
-  const glob = new Bun.Glob("src/**/*.ts");
-  const skipDirs = new Set(["node_modules", ".git", "coverage"]);
-  const violations: Violation[] = [];
+  return scanGlobPatterns(repoRoot, ["src/**/*.ts"], config);
+}
 
-  for await (const rel of glob.scan({ cwd: repoRoot, onlyFiles: true })) {
-    if (rel.split("/").some((seg) => skipDirs.has(seg))) continue;
-    violations.push(...(await scanFile(repoRoot, rel, config)));
+export async function scanGlobPatterns(
+  repoRoot: string,
+  patterns: readonly string[],
+  config: BunNativeLintConfig,
+  skipDirs: ReadonlySet<string> = new Set(["node_modules", ".git", "coverage"])
+): Promise<Violation[]> {
+  const violations: Violation[] = [];
+  const seen = new Set<string>();
+
+  for (const pattern of patterns) {
+    const glob = new Bun.Glob(pattern);
+    for await (const rel of glob.scan({ cwd: repoRoot, onlyFiles: true })) {
+      if (rel.split("/").some((seg) => skipDirs.has(seg))) continue;
+      if (seen.has(rel)) continue;
+      seen.add(rel);
+      violations.push(...(await scanFile(repoRoot, rel, config)));
+    }
   }
 
   return violations.sort((a, b) =>

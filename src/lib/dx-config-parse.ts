@@ -24,7 +24,7 @@ export class ConfigParseError extends Error {
   readonly _tag = "ConfigParseError" as const;
   constructor(
     readonly path: string,
-    readonly cause: string
+    override readonly cause: string
   ) {
     super(`Config parse error (${path}): ${cause}`);
     this.name = "ConfigParseError";

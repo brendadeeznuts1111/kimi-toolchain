@@ -90,7 +90,10 @@ export async function runGovernancePreflight(
   if (guardian) {
     try {
       if (await lockfileNeedsGuardianBaseline(projectDir)) {
-        const result = await runTool("kimi-guardian", ["fix"], {
+        // Baseline hash ONLY — never auto-add trusted deps during preflight.
+        // Use `kimi-guardian sign` for hash baseline; `kimi-guardian fix` is
+        // interactive and may mutate security policy.
+        const result = await runTool("kimi-guardian", ["sign"], {
           cwd: projectDir,
           timeoutMs: 30_000,
         });

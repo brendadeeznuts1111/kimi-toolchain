@@ -23,6 +23,7 @@ import {
 } from "../lib/utils.ts";
 
 import { guardianDir } from "../lib/paths.ts";
+import { ensureDevSecretsResolved } from "../lib/resolve-dev-secrets.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -90,6 +91,7 @@ interface PackageJson {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
+  trustedDependencies?: string[];
   scripts?: {
     postinstall?: string;
     preinstall?: string;
@@ -357,26 +359,25 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
 
   if (!pathExists(pkgPath)) return [];
 
-  let allowed = new Set<string>();
+  // Primary source: package.json (Bun canonical location)
+  const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
+  const pkgTrusted = Array.isArray(pkg.trustedDependencies) ? pkg.trustedDependencies : [];
+  let allowed = new Set<string>(pkgTrusted);
+
+  // Override: bunfig.toml [install].trustedDependencies
   if (pathExists(bunfigPath)) {
     try {
       const config = TOML.parse(await Bun.file(bunfigPath).text()) as BunfigInstallConfig;
-      const trusted = config.install?.trustedDependencies || config.trustedDependencies || [];
-      allowed = new Set(Array.isArray(trusted) ? trusted : []);
-    } catch {
-      const content = await Bun.file(bunfigPath).text();
-      const match = content.match(/trustedDependencies\s*=\s*\[([^\]]*)\]/);
-      if (match) {
-        const deps = match[1]
-          .split(",")
-          .map((d) => d.trim().replace(/["']/g, ""))
-          .filter(Boolean);
-        allowed = new Set(deps);
+      const tomlTrusted = config.install?.trustedDependencies;
+      if (Array.isArray(tomlTrusted)) {
+        // TOML override replaces package.json (Bun behavior: config file wins)
+        allowed = new Set(tomlTrusted);
       }
+    } catch {
+      // Malformed TOML — fall back to package.json only
     }
   }
 
-  const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
   const allDeps = [
     ...Object.keys(pkg.dependencies || {}),
     ...Object.keys(pkg.devDependencies || {}),
@@ -401,30 +402,17 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
 }
 
 async function addTrustedDeps(projectDir: string, deps: string[]) {
-  const bunfigPath = join(projectDir, "bunfig.toml");
-  let content = "";
-  if (pathExists(bunfigPath)) {
-    content = await Bun.file(bunfigPath).text();
-  }
+  const pkgPath = join(projectDir, "package.json");
+  if (!pathExists(pkgPath)) return;
 
-  const trustedMatch = content.match(/trustedDependencies\s*=\s*\[([^\]]*)\]/);
-  if (trustedMatch) {
-    const existing = trustedMatch[1]
-      .split(",")
-      .map((d) => d.trim().replace(/["']/g, ""))
-      .filter(Boolean);
-    const combined = [...new Set([...existing, ...deps])];
-    const newList = combined.map((d) => `"${d}"`).join(", ");
-    content = content.replace(
-      /trustedDependencies\s*=\s*\[[^\]]*\]/,
-      `trustedDependencies = [${newList}]`
-    );
-  } else {
-    const trustedList = deps.map((d) => `"${d}"`).join(", ");
-    content += `\n[install]\ntrustedDependencies = [${trustedList}]\n`;
-  }
+  const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
+  const existing = Array.isArray(pkg.trustedDependencies) ? pkg.trustedDependencies : [];
+  const combined = [...new Set([...existing, ...deps])];
 
-  await Bun.write(bunfigPath, content);
+  if (combined.length === existing.length) return; // No change
+
+  pkg.trustedDependencies = combined;
+  await Bun.write(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 }
 
 // ── Provenance (P1) ──────────────────────────────────────────────────
@@ -530,6 +518,7 @@ async function doctor(
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(): Promise<number> {
+  await ensureDevSecretsResolved();
   const args = Bun.argv.slice(2);
   const command = args[0] || "check";
   const projectDir = await resolveProjectRoot(Bun.cwd);
@@ -651,7 +640,7 @@ async function main(): Promise<number> {
           logger.error(`${dep}: postinstall script NOT in trustedDependencies`);
         }
         logger.warn(
-          "Add to bunfig.toml: trustedDependencies = [" +
+          "Add to package.json: trustedDependencies = [" +
             untrusted.map((d) => `"${d}"`).join(", ") +
             "]"
         );
@@ -673,21 +662,27 @@ async function main(): Promise<number> {
   }
 
   if (command === "fix") {
-    logger.section("Fix");
-    await storeLockfileHash(projectDir);
-
-    // Auto-add untrusted deps to bunfig.toml
-    const untrusted = await checkTrustedDeps(projectDir);
-    if (untrusted.length > 0) {
-      await addTrustedDeps(projectDir, untrusted);
-      logger.info(`Added to trustedDependencies: ${untrusted.join(", ")}`);
+    // Only baseline the hash — never auto-add trusted deps without explicit confirmation.
+    // Use `kimi-guardian fix --trust` to opt into auto-trust behavior.
+    const shouldAutoTrust = args.includes("--trust") || Bun.env.KIMI_GUARDIAN_AUTO_TRUST === "1";
+    if (shouldAutoTrust) {
+      logger.section("Fix — Trusted Dependencies");
+      const untrusted = await checkTrustedDeps(projectDir);
+      if (untrusted.length > 0) {
+        await addTrustedDeps(projectDir, untrusted);
+        logger.info(`Added to trustedDependencies: ${untrusted.join(", ")}`);
+      } else {
+        logger.info("No untrusted deps to add");
+      }
     }
 
+    logger.section("Fix — Hash Baseline");
+    await storeLockfileHash(projectDir);
     logger.info("Baselined lockfile hash");
   }
 
   logger.info(
-    "Commands: check (default) | fix (baseline hash + trusted deps) | sign (v2 manifest) | verify (v2 manifest) | report (full P1) | doctor (health check)"
+    "Commands: check (default) | fix (baseline hash only) | fix --trust (baseline + auto-trust) | sign (v2 manifest) | verify (v2 manifest) | report (full P1) | doctor (health check)"
   );
   return 0;
 }

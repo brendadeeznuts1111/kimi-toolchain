@@ -24,6 +24,7 @@ const BIN_CATEGORY: Record<string, HubBinCategory> = {
   "kimi-guardian": "gov",
   "kimi-githooks": "gov",
   "kimi-cloudflare-access": "gov",
+  "kimi-secrets": "gov",
   "kimi-contract": "gov",
   "kimi-heal": "heal",
   "kimi-memory": "heal",

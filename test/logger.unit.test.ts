@@ -99,7 +99,7 @@ describe("logger", () => {
       logger.info("test message");
     });
     expect(lines.length).toBe(1);
-    const parsed = JSON.parse(lines[0]);
+    const parsed = JSON.parse(lines[0]!);
     expect(parsed.tool).toBe("test-tool");
     expect(parsed.level).toBe("info");
     expect(parsed.message).toBe("test message");
@@ -201,9 +201,9 @@ describe("logger", () => {
 
     const entries = logger.getLogs();
     expect(entries.length).toBe(3);
-    expect(entries[0].message).toBe("first");
-    expect(entries[1].message).toBe("second");
-    expect(entries[2].message).toBe("third");
+    expect(entries[0]!.message).toBe("first");
+    expect(entries[1]!.message).toBe("second");
+    expect(entries[2]!.message).toBe("third");
   });
 
   test("check() emits structured JSON with schemaVersion", () => {
@@ -212,7 +212,7 @@ describe("logger", () => {
       logger.check({ name: "disk", status: "warn", message: "85%", fixable: false });
     });
     expect(lines.length).toBe(1);
-    const parsed = JSON.parse(lines[0]);
+    const parsed = JSON.parse(lines[0]!);
     expect(parsed.schemaVersion).toBe(1);
     expect(parsed.check.name).toBe("disk");
   });
@@ -225,8 +225,8 @@ describe("logger", () => {
       logger.check({ name: "bun", status: "ok", message: "1.3.14", fixable: false });
       logger.check({ name: "disk", status: "error", message: "critical", fixable: false });
       expect(logger.getLogs().length).toBe(2);
-      expect(logger.getLogs()[0].check?.name).toBe("bun");
-      expect(logger.getLogs()[1].level).toBe("error");
+      expect(logger.getLogs()[0]!.check?.name).toBe("bun");
+      expect(logger.getLogs()[1]!.level).toBe("error");
     } finally {
       Bun.env.KIMI_CODE_SESSION = prev;
     }
@@ -285,7 +285,7 @@ describe("logger", () => {
       const logger = new Logger({ json: true, tool: "kimi-debug" });
       logger.suggest("lockfile_issue", "Run bun install", "bun install");
     });
-    const parsed = JSON.parse(lines[0]);
+    const parsed = JSON.parse(lines[0]!);
     expect(parsed.taxonomyId).toBe("lockfile_issue");
     expect(parsed.autoFix).toBe("bun install");
   });
@@ -297,7 +297,7 @@ describe("logger", () => {
         logger.info("parseable");
       });
       expect(lines.length).toBe(1);
-      expect(() => JSON.parse(lines[0])).not.toThrow();
+      expect(() => JSON.parse(lines[0]!)).not.toThrow();
     });
 
     test("fields with numeric values round-trip through JSON correctly", () => {
@@ -305,7 +305,7 @@ describe("logger", () => {
         const logger = new Logger({ json: true, fields: { count: 42, flag: true } });
         logger.info("round-trip");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.fields.count).toBe(42);
       expect(parsed.fields.flag).toBe(true);
     });
@@ -315,7 +315,7 @@ describe("logger", () => {
         const logger = new Logger({ json: true });
         logger.errorObj(new RangeError("out of bounds"));
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.errorName).toBe("RangeError");
       expect(typeof parsed.errorStack).toBe("string");
     });
@@ -327,7 +327,7 @@ describe("logger", () => {
         const logger = new Logger({ json: true, fields: { agentId: "agent-1", env: "test" } });
         logger.info("hello");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.fields?.agentId).toBe("agent-1");
       expect(parsed.fields?.env).toBe("test");
     });
@@ -337,7 +337,7 @@ describe("logger", () => {
         const logger = new Logger({ json: true, traceId: "trace-abc", spanId: "span-xyz" });
         logger.info("traced");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.traceId).toBe("trace-abc");
       expect(parsed.spanId).toBe("span-xyz");
     });
@@ -347,7 +347,7 @@ describe("logger", () => {
         const logger = new Logger({ json: true });
         logger.info("clean");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.fields).toBeUndefined();
       expect(parsed.traceId).toBeUndefined();
       expect(parsed.spanId).toBeUndefined();
@@ -361,7 +361,7 @@ describe("logger", () => {
         const child = parent.child({});
         child.debug("from child");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.tool).toBe("parent-tool");
       expect(parsed.level).toBe("debug");
     });
@@ -372,7 +372,7 @@ describe("logger", () => {
         const child = parent.child({ fields: { requestId: "req-99" } });
         child.info("child msg");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.fields?.region).toBe("us-east");
       expect(parsed.fields?.requestId).toBe("req-99");
     });
@@ -383,7 +383,7 @@ describe("logger", () => {
         const child = parent.child({ tool: "child-tool" });
         child.info("override");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.tool).toBe("child-tool");
     });
 
@@ -393,7 +393,7 @@ describe("logger", () => {
         const child = parent.child({ spanId: "span-child" });
         child.info("span override");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.traceId).toBe("trace-parent");
       expect(parsed.spanId).toBe("span-child");
     });
@@ -407,8 +407,8 @@ describe("logger", () => {
       });
       expect(parent.getLogs().length).toBe(1);
       expect(child.getLogs().length).toBe(1);
-      expect(parent.getLogs()[0].message).toBe("parent msg");
-      expect(child.getLogs()[0].message).toBe("child msg");
+      expect(parent.getLogs()[0]!.message).toBe("parent msg");
+      expect(child.getLogs()[0]!.message).toBe("child msg");
     });
   });
 
@@ -418,7 +418,7 @@ describe("logger", () => {
         const logger = new Logger({ json: true });
         logger.errorObj(new TypeError("bad type"));
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.level).toBe("error");
       expect(parsed.message).toBe("bad type");
       expect(parsed.errorName).toBe("TypeError");
@@ -431,7 +431,7 @@ describe("logger", () => {
         const logger = new Logger({ json: true });
         logger.errorObj("plain string error");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.message).toBe("plain string error");
       expect(parsed.errorName).toBeUndefined();
     });
@@ -441,7 +441,7 @@ describe("logger", () => {
         const logger = new Logger({ json: true });
         logger.errorObj(new Error("boom"), { tool: "my-tool", exitCode: 1 });
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.fields?.tool).toBe("my-tool");
       expect(parsed.fields?.exitCode).toBe(1);
     });
@@ -464,7 +464,7 @@ describe("logger", () => {
         logger.timeEnd("op");
       });
       expect(lines.length).toBe(1);
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.level).toBe("debug");
       expect(typeof parsed.durationMs).toBe("number");
       expect(parsed.durationMs).toBeGreaterThanOrEqual(0);
@@ -488,7 +488,7 @@ describe("logger", () => {
       const lines = withStdoutCapture(() => {
         logger.timeEnd("info-op", "info");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.level).toBe("info");
       expect(parsed.durationMs).toBeGreaterThanOrEqual(0);
     });
@@ -500,7 +500,7 @@ describe("logger", () => {
         expect(result).toBe(-1);
       });
       expect(lines.length).toBe(1);
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.level).toBe("warn");
       expect(parsed.message).toContain("no-such-label");
     });
@@ -524,7 +524,7 @@ describe("logger", () => {
         const lines = withStdoutCapture(() => {
           logger.info("env-wired");
         });
-        const parsed = JSON.parse(lines[0]);
+        const parsed = JSON.parse(lines[0]!);
         expect(parsed.traceId).toBe("env-trace-123");
       } finally {
         if (prev === undefined) delete Bun.env.KIMI_TRACE_ID;
@@ -540,7 +540,7 @@ describe("logger", () => {
         const lines = withStdoutCapture(() => {
           logger.info("no-trace");
         });
-        const parsed = JSON.parse(lines[0]);
+        const parsed = JSON.parse(lines[0]!);
         expect(parsed.traceId).toBeUndefined();
       } finally {
         if (prev === undefined) delete Bun.env.KIMI_TRACE_ID;
@@ -556,7 +556,7 @@ describe("logger", () => {
         const lines = withStdoutCapture(() => {
           logger.info("explicit");
         });
-        const parsed = JSON.parse(lines[0]);
+        const parsed = JSON.parse(lines[0]!);
         expect(parsed.traceId).toBe("explicit-trace");
       } finally {
         if (prev === undefined) delete Bun.env.KIMI_TRACE_ID;
@@ -594,7 +594,7 @@ describe("logger", () => {
         const logger = new Logger({ json: true, traceId });
         logger.info("traced");
       });
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0]!);
       expect(parsed.traceId).toBe(traceId);
       expect(parsed.traceId).toMatch(/^[0-9a-f]{32}$/);
     });

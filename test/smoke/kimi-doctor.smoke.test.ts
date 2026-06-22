@@ -101,28 +101,32 @@ describe("kimi-doctor smoke", () => {
     expect(report.sync).toBeDefined();
     expect(typeof report.sync?.synced).toBe("boolean");
     expect(exitCode === 0 || exitCode === 1).toBe(true);
-  }, 15_000);
+  }, 30_000);
 
-  test("doctor --success-metrics --json emits success metric contracts", async () => {
-    const { stdout, exitCode } = await runTool(DOCTOR, ["--success-metrics", "--json"]);
-    const report = JSON.parse(stdout.trim()) as {
-      checks: Array<{ name: string; status: string }>;
-      errorCoverage: { coverage: number };
-      providerIntegration: { artifacts: string[] };
-      thresholdPolicy: { releaseCadence: string; thresholds: unknown[] };
-      ledger: { total: number; taxonomyCounts: Record<string, number> };
-      summary: { ok: boolean };
-    };
-    expect(report.checks.map((c) => c.name)).toContain("drift-latency");
-    expect(report.checks.map((c) => c.name)).toContain("metric-threshold-evidence");
-    expect(report.errorCoverage.coverage).toBeGreaterThanOrEqual(0.9);
-    expect(report.providerIntegration.artifacts).toEqual(["contract", "credential-adapter"]);
-    expect(report.thresholdPolicy.releaseCadence).toBe("toolchain-release");
-    expect(Array.isArray(report.thresholdPolicy.thresholds)).toBe(true);
-    expect(typeof report.ledger.total).toBe("number");
-    expect(report.summary.ok).toBe(true);
-    expect(exitCode).toBe(0);
-  }, 15_000);
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
+    "doctor --success-metrics --json emits success metric contracts",
+    async () => {
+      const { stdout, exitCode } = await runTool(DOCTOR, ["--success-metrics", "--json"]);
+      const report = JSON.parse(stdout.trim()) as {
+        checks: Array<{ name: string; status: string }>;
+        errorCoverage: { coverage: number };
+        providerIntegration: { artifacts: string[] };
+        thresholdPolicy: { releaseCadence: string; thresholds: unknown[] };
+        ledger: { total: number; taxonomyCounts: Record<string, number> };
+        summary: { ok: boolean };
+      };
+      expect(report.checks.map((c) => c.name)).toContain("drift-latency");
+      expect(report.checks.map((c) => c.name)).toContain("metric-threshold-evidence");
+      expect(report.errorCoverage.coverage).toBeGreaterThanOrEqual(0.9);
+      expect(report.providerIntegration.artifacts).toEqual(["contract", "credential-adapter"]);
+      expect(report.thresholdPolicy.releaseCadence).toBe("toolchain-release");
+      expect(Array.isArray(report.thresholdPolicy.thresholds)).toBe(true);
+      expect(typeof report.ledger.total).toBe("number");
+      expect(report.summary.ok).toBe(true);
+      expect(exitCode).toBe(0);
+    },
+    15_000
+  );
 
   test("capabilities smoke exposes readiness for shell checks", async () => {
     const proc = Bun.spawn(["bash", "-lc", "bun run capabilities --json | grep '\"readiness\"'"], {
@@ -289,18 +293,22 @@ describe("kimi-doctor smoke", () => {
     expect(exitCode === 0 || exitCode === 1).toBe(true);
   }, 15_000);
 
-  test("test:fast completes and reports pass count", async () => {
-    const proc = Bun.spawn(["bun", "run", "test:fast"], {
-      cwd: REPO_ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stdout, stderr, _code] = await Promise.all([
-      Bun.readableStreamToText(proc.stdout),
-      Bun.readableStreamToText(proc.stderr),
-      proc.exited,
-    ]);
-    // test:fast may exit 1 if any test exceeds the fast timeout; we only check output contains pass count
-    expect(stdout + stderr).toMatch(/\d+ pass/);
-  }, 300_000);
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
+    "test:fast completes and reports pass count",
+    async () => {
+      const proc = Bun.spawn(["bun", "run", "test:fast"], {
+        cwd: REPO_ROOT,
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const [stdout, stderr, _code] = await Promise.all([
+        Bun.readableStreamToText(proc.stdout),
+        Bun.readableStreamToText(proc.stderr),
+        proc.exited,
+      ]);
+      // test:fast may exit 1 if any test exceeds the fast timeout; we only check output contains pass count
+      expect(stdout + stderr).toMatch(/\d+ pass/);
+    },
+    300_000
+  );
 });

@@ -91,8 +91,8 @@ export function parseQuickSummary(section: string): BundleQuickSummary | null {
   for (const line of lines) {
     const match = line.match(/^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|$/);
     if (!match) continue;
-    const key = match[1].trim();
-    const value = match[2].trim();
+    const key = match[1]!.trim();
+    const value = match[2]!.trim();
     if (key === "Metric" || key.startsWith("---")) continue;
     metrics[key] = value;
   }
@@ -100,8 +100,8 @@ export function parseQuickSummary(section: string): BundleQuickSummary | null {
   const parseBytes = (raw: string): number => {
     const match = raw.match(/^([\d.]+)\s*(MB|KB|B|GB)/i);
     if (!match) return 0;
-    const num = parseFloat(match[1]);
-    const unit = match[2].toUpperCase();
+    const num = parseFloat(match[1]!);
+    const unit = match[2]!.toUpperCase();
     if (unit === "GB") return num * 1024 * 1024 * 1024;
     if (unit === "MB") return num * 1024 * 1024;
     if (unit === "KB") return num * 1024;
@@ -121,8 +121,8 @@ export function parseQuickSummary(section: string): BundleQuickSummary | null {
     totalBytes,
     inputModules: parseNum(metrics["Input modules"] ?? "0"),
     entryPoints: parseNum(metrics["Entry points"] ?? "0"),
-    nodeModulesFiles: nodeModulesMatch ? parseNum(nodeModulesMatch[1]) : 0,
-    nodeModulesBytes: nodeModulesMatch ? parseBytes(nodeModulesMatch[2]) : 0,
+    nodeModulesFiles: nodeModulesMatch ? parseNum(nodeModulesMatch[1]!) : 0,
+    nodeModulesBytes: nodeModulesMatch ? parseBytes(nodeModulesMatch[2]!) : 0,
     esmModules: parseNum(metrics["ESM modules"] ?? "0"),
     cjsModules: parseNum(metrics["CommonJS modules"] ?? "0"),
     externalImports: parseNum(metrics["External imports"] ?? "0"),
@@ -154,11 +154,11 @@ export function parseLargestModules(section: string): BundleModuleRow[] {
       .filter(Boolean);
     if (cells.length < 4) continue;
 
-    const outputBytes = parseBytes(cells[0]);
-    const pctStr = cells[1].replace("%", "").trim();
+    const outputBytes = parseBytes(cells[0]!);
+    const pctStr = cells[1]!.replace("%", "").trim();
     const pctOfTotal = parseFloat(pctStr) || 0;
-    const module = cells[2];
-    const format = cells[3];
+    const module = cells[2]!;
+    const format = cells[3]!;
 
     if (!isNaN(outputBytes) && module) {
       rows.push({ outputBytes, pctOfTotal, module, format });
@@ -215,8 +215,8 @@ export function evaluate(
   }
 
   // Single module contribution
-  if (largest.length > 0 && largest[0].pctOfTotal > maxSingle * 100) {
-    const top = largest[0];
+  if (largest.length > 0 && largest[0]!.pctOfTotal > maxSingle * 100) {
+    const top = largest[0]!;
     findings.push({
       severity: "warn",
       rule: "single-module-bloat",

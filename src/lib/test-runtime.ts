@@ -278,7 +278,7 @@ export const KIMI_TEST_RUN_ENTRIES = {
   ci: {
     packageScript: "test:ci",
     command:
-      "NODE_ENV=test bun test --timeout 30000 --isolate --parallel --shard=${CI_NODE_INDEX:-1}/${CI_NODE_TOTAL:-1}",
+      "NODE_ENV=test bun test --no-orphans --timeout 30000 --isolate --parallel --shard=${CI_NODE_INDEX:-1}/${CI_NODE_TOTAL:-1}",
     runner: "bare-bun-test",
     selection: "full-discovery",
   },
@@ -503,7 +503,7 @@ export interface KimiBunfigTestContract {
 /** Expected kimi-toolchain `[test]` settings (mirrors bunfig.toml). */
 export const KIMI_BUNFIG_TEST_CONTRACT: KimiBunfigTestContract = {
   preload: ["./test/setup.ts"],
-  concurrentTestGlob: ["test/*.unit.test.ts"],
+  concurrentTestGlob: ["test/*.unit.test.ts", "src/doctor/*.test.ts"],
   coverageSkipTestFiles: true,
   coveragePathIgnorePatterns: [
     "scripts/**",
@@ -1746,7 +1746,12 @@ export async function runBunTest(
     cwd: repoRoot,
     stdout: quiet ? "pipe" : "inherit",
     stderr: quiet ? "pipe" : "inherit",
-    env: buildTestRunnerEnv({}, options.source ?? "runBunTest"),
+    env: buildTestRunnerEnv(
+      options.source === "test:changed" || options.source === "test:changed:push"
+        ? { KIMI_TEST_CHANGED_PARALLEL: "1" }
+        : {},
+      options.source ?? "runBunTest"
+    ),
   });
   if (quiet) {
     const [stdout, stderr, exitCode] = await Promise.all([

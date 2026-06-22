@@ -7,7 +7,7 @@ import { ensureProcessTrace, TRACE_ID_ENV } from "../src/lib/effect/trace-contex
 import { buildTraceEvent, recordTraceEvent, readTraceEvents } from "../src/lib/trace-ledger.ts";
 import { traceEventsPath } from "../src/lib/paths.ts";
 
-describe("doctor tracing", () => {
+describe("doctor-trace", () => {
   let tempHome: string;
   let oldHome: string | undefined;
 
@@ -30,7 +30,7 @@ describe("doctor tracing", () => {
     try {
       const trace = ensureProcessTrace();
       const logger = createLogger(["--json"], "kimi-doctor");
-      const entries = logger.getLogs();
+      logger.getLogs();
       // createLogger reads KIMI_TRACE_ID which ensureProcessTrace sets in env
       expect(Bun.env[TRACE_ID_ENV]).toBe(trace.traceId);
       // Logger should have the same traceId wired from env

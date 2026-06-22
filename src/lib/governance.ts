@@ -134,9 +134,9 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
       // Bun text reporter: " src/lib/utils.ts | 19.05 | 15.00 | ..."
       const bunFileMatch = line.match(/^\s*(\S+\.ts)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/);
       if (bunFileMatch) {
-        const pct = parseFloat(bunFileMatch[3]);
+        const pct = parseFloat(bunFileMatch[3]!);
         report.files.push({
-          path: bunFileMatch[1].trim(),
+          path: bunFileMatch[1]!.trim(),
           percentage: pct,
           covered: Math.round(pct),
           total: 100,
@@ -147,17 +147,17 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
       const fileMatch = line.match(/\|\s*([^|]+\.ts)\s*\|\s*([\d.]+)%\s*\|\s*(\d+)\/(\d+)\s*\|/);
       if (fileMatch) {
         report.files.push({
-          path: fileMatch[1].trim(),
-          percentage: parseFloat(fileMatch[2]),
-          covered: parseInt(fileMatch[3], 10),
-          total: parseInt(fileMatch[4], 10),
+          path: fileMatch[1]!.trim(),
+          percentage: parseFloat(fileMatch[2]!),
+          covered: parseInt(fileMatch[3]!, 10),
+          total: parseInt(fileMatch[4]!, 10),
         });
       }
 
       // Bun summary: "All files | 23.81 | 27.27 |"
       const bunTotalMatch = line.match(/All files\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/);
       if (bunTotalMatch && !foundTotal) {
-        report.percentage = parseFloat(bunTotalMatch[2]);
+        report.percentage = parseFloat(bunTotalMatch[2]!);
         report.total = 100;
         report.covered = Math.round(report.percentage);
         foundTotal = true;
@@ -165,9 +165,9 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
 
       const totalMatch = line.match(/All files.*?(\d+(?:\.\d+)?)%.*?(\d+)\/(\d+)/);
       if (totalMatch && !foundTotal) {
-        report.percentage = parseFloat(totalMatch[1]);
-        report.covered = parseInt(totalMatch[2], 10);
-        report.total = parseInt(totalMatch[3], 10);
+        report.percentage = parseFloat(totalMatch[1]!);
+        report.covered = parseInt(totalMatch[2]!, 10);
+        report.total = parseInt(totalMatch[3]!, 10);
         foundTotal = true;
       }
     }
@@ -188,9 +188,9 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
         let hitLines = 0;
         for (const line of lcov.split("\n")) {
           if (line.startsWith("DA:")) {
-            const [, , hits] = line.split(":")[1].split(",");
+            const [, , hits] = line.split(":")[1]!.split(",");
             totalLines++;
-            if (parseInt(hits, 10) > 0) hitLines++;
+            if (parseInt(hits!, 10) > 0) hitLines++;
           }
         }
         report.total = totalLines;
@@ -279,7 +279,7 @@ export async function refreshStaleLockfile(projectDir: string): Promise<boolean>
   const lockMtime = Bun.file(lockPath).lastModified;
   if (pkgMtime <= lockMtime) return false;
 
-  await $`bun install --ignore-scripts`.cwd(projectDir).nothrow().quiet();
+  await $`bun install --frozen-lockfile --ignore-scripts`.cwd(projectDir).nothrow().quiet();
   if (Bun.file(lockPath).lastModified <= pkgMtime) {
     await Bun.write(lockPath, await Bun.file(lockPath).text());
   }
@@ -341,7 +341,7 @@ export async function scaffoldAdr(projectDir: string, title: string): Promise<st
   const existing = [];
   const glob = new Bun.Glob("*.md");
   for await (const file of glob.scan({ cwd: adrDir, absolute: false })) {
-    const num = parseInt(file.split("-")[0], 10);
+    const num = parseInt(file.split("-")[0]!, 10);
     if (!isNaN(num)) existing.push(num);
   }
   const nextNum = (existing.length > 0 ? Math.max(...existing) : 0) + 1;
@@ -354,7 +354,7 @@ export async function scaffoldAdr(projectDir: string, title: string): Promise<st
   const filename = `${paddedNum}-${slug}.md`;
   const filepath = join(adrDir, filename);
 
-  const content = ADR_TEMPLATE.replace("{{DATE}}", new Date().toISOString().split("T")[0])
+  const content = ADR_TEMPLATE.replace("{{DATE}}", new Date().toISOString().split("T")[0]!)
     .replace("{{DECIDERS}}", "@team")
     .replace("{{TITLE}}", title);
 

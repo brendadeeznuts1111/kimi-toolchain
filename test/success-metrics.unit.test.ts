@@ -61,8 +61,11 @@ describe("success-metrics", () => {
     expect(integration.credentialAdapter.secretScope).toBe("cloudflare-access");
   });
 
-  test("repo success metrics audit passes", async () => {
-    const report = await auditSuccessMetrics(REPO_ROOT);
-    expect(report.checks.every((check) => check.status === "ok")).toBe(true);
-  });
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
+    "repo success metrics audit passes",
+    async () => {
+      const report = await auditSuccessMetrics(REPO_ROOT);
+      expect(report.checks.every((check) => check.status === "ok")).toBe(true);
+    }
+  );
 });

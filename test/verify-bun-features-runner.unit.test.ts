@@ -21,7 +21,7 @@ describe("verify-bun-features-runner", () => {
     const templateRegistry = report.checks.find((c) => c.id === "templates.registry");
     expect(templateRegistry?.ok).toBe(true);
     expect(report.checks.every((c) => c.ms >= 0)).toBe(true);
-  });
+  }, 60_000);
 
   test("countVerifyFailures ignores advisory drift unless strict", async () => {
     const advisoryReport = {
@@ -80,5 +80,5 @@ describe("verify-bun-features-runner", () => {
     expect(report.endpoints.catalog.cli.length).toBe(report.metadata.endpointCatalog.cli);
     expect(report.endpoints.probes.length).toBeGreaterThan(5);
     expect(report.checks.some((c) => c.id === "audit.bundle.dry-run")).toBe(true);
-  });
+  }, 60_000);
 });

@@ -6,6 +6,7 @@ import { pathExists } from "./bun-io.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import { join } from "path";
 import type { HealthCheck } from "./health-check.ts";
+import { auditSecretsStorage } from "./secrets-probe.ts";
 import { homeDir } from "./paths.ts";
 import { validateMcpConfig } from "./mcp-config.ts";
 import { detectSyncDrift } from "./sync-hashes.ts";
@@ -208,6 +209,7 @@ export async function auditAgentReady(projectRoot: string): Promise<AgentReadyRe
   }
 
   checks.push(...(await runRegistryContractChecks(projectRoot)));
+  checks.push(...(await auditSecretsStorage(projectRoot)));
 
   const blockers = checks.filter((c) => c.status === "error").length;
   const warnings = checks.filter((c) => c.status === "warn").length;

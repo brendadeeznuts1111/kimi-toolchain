@@ -15,6 +15,8 @@ import {
 import { BUN_COLOR_STRING_FORMATS, verifyColorFormat } from "./bun-color-formats.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import type { ConfigStatusReport } from "./config-status.ts";
+import { tmpdir } from "os";
+import { join } from "path";
 
 export type VerifyCheckGroup = "runtime" | "audit" | "canvas" | "templates" | "color" | "profile";
 
@@ -176,7 +178,7 @@ async function checkBunGlob(): Promise<void> {
 }
 
 async function checkBunFileRoundTrip(): Promise<void> {
-  const tmp = `.verify-bun-features-${Date.now()}.tmp`;
+  const tmp = join(tmpdir(), `.verify-bun-features-${Date.now()}.tmp`);
   const start = Bun.nanoseconds();
   try {
     const text = "kimi-toolchain verify-bun-features";
@@ -452,10 +454,13 @@ async function checkBunColorStringFormats(): Promise<void> {
 
 async function checkCpuProfCapture(): Promise<void> {
   const start = Bun.nanoseconds();
+  const profDir = join(tmpdir(), `kimi-cpu-prof-${Date.now()}`);
+  await Bun.write(join(profDir, ".gitkeep"), "");
   const proc = Bun.spawn({
     cmd: ["bun", "--cpu-prof", "--cpu-prof-interval=500", "run", "scripts/verify-bun-features.ts"],
     stdout: "pipe",
     stderr: "pipe",
+    cwd: profDir,
   });
   const exit = await proc.exited;
   const err = await readableStreamToText(proc.stderr);
@@ -465,7 +470,7 @@ async function checkCpuProfCapture(): Promise<void> {
     return;
   }
   const glob = new Bun.Glob("*.cpuprofile");
-  const files = [...glob.scanSync(".")].sort();
+  const files = [...glob.scanSync(profDir)].sort();
   const latest = files.at(-1);
   record(
     "cpu-prof.capture",

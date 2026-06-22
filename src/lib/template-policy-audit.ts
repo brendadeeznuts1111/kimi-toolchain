@@ -2,7 +2,7 @@
  * Template policy audit — install parity, tsconfig contract, bun-native, typecheck.
  */
 
-import { join } from "path";
+import { basename, join } from "path";
 import { absoluteScanOpts, GLOBS, repoRoot } from "./globs.ts";
 import {
   evaluateViolations,
@@ -11,6 +11,8 @@ import {
   type Violation,
 } from "./bun-native-lint.ts";
 import { readableStreamToText } from "./bun-utils.ts";
+import { auditHardcodedSecretsInGlob } from "../doctor/hardcoded-secret-audit.ts";
+import { TEMPLATE_MARKERS } from "./scaffold-templates.ts";
 
 export interface TemplatePolicyViolation {
   file: string;
@@ -26,6 +28,8 @@ export interface TemplatePolicySummary {
   registryEntries: number;
   testProjects: number;
   moduleTsFiles: number;
+  scaffoldFiles: number;
+  envExampleFiles: number;
 }
 
 export interface TemplatePolicyAuditResult {
@@ -37,9 +41,50 @@ const REQUIRED_INSTALL_FIELDS = [
   { key: "trustedDependencies", pattern: /trustedDependencies\s*=\s*\[\]/ },
   { key: "ignoreScripts", pattern: /ignoreScripts\s*=\s*false/ },
   { key: "frozenLockfile", pattern: /frozenLockfile\s*=\s*true/ },
+  { key: "saveTextLockfile", pattern: /saveTextLockfile\s*=\s*true/ },
   { key: "linker", pattern: /linker\s*=\s*"isolated"/ },
+  { key: "globalStore", pattern: /globalStore\s*=\s*true/ },
   { key: "minimumReleaseAge", pattern: /minimumReleaseAge\s*=\s*259200/ },
 ] as const;
+
+const TEMPLATE_BANNED_TERMS: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /Tier[- ]?1380/i, label: "Tier-1380 internal tag (use global Bun-native wording)" },
+];
+
+const TEMPLATE_TEST_FILENAME =
+  /^test\/[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke)\.test\.ts$/;
+
+const KEBAB_CASE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+const SCAFFOLD_DIR = "templates/scaffold";
+
+const REQUIRED_SCAFFOLD_FILES = [
+  "bunfig.toml",
+  "tsconfig.json",
+  "index.ts",
+  "README.md",
+  "oxfmtrc.json",
+  "oxlintrc.json",
+  "env.example",
+  "gitignore",
+  "ci.yml",
+  "bun-globals.d.ts",
+  "code-references.md",
+  "adr-template.md",
+  "LICENSE-MIT",
+  "dx.config.toml",
+] as const;
+
+const SCAFFOLD_MARKER_FILES: Record<keyof typeof TEMPLATE_MARKERS, string> = {
+  OXFMTRC: "oxfmtrc.json",
+  CI_WORKFLOW: "ci.yml",
+  TSCONFIG: "tsconfig.json",
+  BUNFIG: "bunfig.toml",
+  GITIGNORE: "gitignore",
+  ENV_EXAMPLE: "env.example",
+};
+
+const REGISTRY_REQUIRED_ENTRY_FIELDS = ["name", "type", "purpose"] as const;
 
 const TEMPLATE_TS_GLOBS = ["templates/**/*.ts", "templates/**/*.tsx"] as const;
 
@@ -302,11 +347,13 @@ export async function auditTemplateRegistry(root: string): Promise<TemplatePolic
     return violations;
   }
 
-  const packages = [...new Bun.Glob("*/package.json").scanSync({
-    cwd: bunCreateRoot,
-    absolute: true,
-    onlyFiles: true,
-  })];
+  const packages = [
+    ...new Bun.Glob("*/package.json").scanSync({
+      cwd: bunCreateRoot,
+      absolute: true,
+      onlyFiles: true,
+    }),
+  ];
   const registryPaths = new Set(registry.templates.map(templateDir));
   const packageDirs = new Set(
     packages.map((p) => p.slice(bunCreateRoot.length + 1).replace("/package.json", ""))
@@ -398,10 +445,12 @@ export async function auditTemplateBunfigRuntime(root: string): Promise<Template
       });
     }
     const projectDir = dirnameForBunfig(path);
-    const hasTests = [...new Bun.Glob("test/**/*.test.ts").scanSync({
-      cwd: projectDir,
-      onlyFiles: true,
-    })].length;
+    const hasTests = [
+      ...new Bun.Glob("test/**/*.test.ts").scanSync({
+        cwd: projectDir,
+        onlyFiles: true,
+      }),
+    ].length;
     if (hasTests > 0 && !/\[test\]/.test(text)) {
       violations.push({
         file: relPath,
@@ -440,7 +489,9 @@ export async function auditTemplateEntryShebangs(root: string): Promise<Template
   return violations;
 }
 
-export async function auditTemplateModulesTypecheck(root: string): Promise<TemplatePolicyViolation[]> {
+export async function auditTemplateModulesTypecheck(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
   const tsconfigPath = join(root, MODULES_TSCONFIG);
   if (!(await Bun.file(tsconfigPath).exists())) {
     return [
@@ -508,6 +559,196 @@ export async function auditTemplateTests(root: string): Promise<TemplatePolicyVi
   return violations;
 }
 
+function parseTestStem(rel: string): string | null {
+  const name = basename(rel);
+  const match = name.match(/^(.+)\.(unit|integration|smoke)\.test\.ts$/);
+  return match?.[1] ?? null;
+}
+
+function firstTopLevelDescribe(text: string): string | null {
+  const match = text.match(/describe\s*\(\s*["'`]([^"'`]+)["'`]/);
+  return match?.[1] ?? null;
+}
+
+export async function auditTemplateTestConventions(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  for (const path of new Bun.Glob("templates/**/test/**/*.test.ts").scanSync({
+    cwd: root,
+    absolute: true,
+    onlyFiles: true,
+  })) {
+    const relPath = rel(root, path);
+    if (!TEMPLATE_TEST_FILENAME.test(relPath.replace(/^templates\/[^/]+\//, "test/"))) {
+      const shortRel = relPath.split("/test/")[1] ?? relPath;
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.(?:unit|integration|smoke)\.test\.ts$/.test(shortRel)) {
+        violations.push({
+          file: relPath,
+          field: "test-filename",
+          message: `Test file must match {stem}.{unit|integration|smoke}.test.ts — got ${shortRel}`,
+        });
+        continue;
+      }
+    }
+    const stem = parseTestStem(basename(path));
+    if (!stem) continue;
+    const describe = firstTopLevelDescribe(await Bun.file(path).text());
+    if (!describe) {
+      violations.push({
+        file: relPath,
+        field: "test-describe",
+        message: "Missing top-level describe(\"…\") block",
+      });
+      continue;
+    }
+    if (!KEBAB_CASE.test(describe)) {
+      violations.push({
+        file: relPath,
+        field: "test-describe",
+        message: `Top-level describe must be kebab-case — got "${describe}"`,
+      });
+      continue;
+    }
+    if (describe !== stem && !describe.startsWith(`${stem}-`)) {
+      violations.push({
+        file: relPath,
+        field: "test-describe",
+        message: `Top-level describe must start with file stem "${stem}" — got "${describe}"`,
+      });
+    }
+  }
+  return violations;
+}
+
+export async function auditTemplateEnvHygiene(root: string): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  const envGlob = new Bun.Glob("templates/**/.env");
+  for (const path of envGlob.scanSync({ cwd: root, absolute: true, onlyFiles: true })) {
+    violations.push({
+      file: rel(root, path),
+      field: "env-hygiene",
+      message: "Committed .env in templates — use .env.example only",
+    });
+  }
+  return violations;
+}
+
+export async function auditTemplateBannedTerms(root: string): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  const scanGlob = new Bun.Glob("templates/**/*.{md,ts,json,toml}");
+  const skipDirs = new Set(["node_modules", ".git", "coverage", ".bun"]);
+  for await (const relPath of scanGlob.scan({ cwd: root, onlyFiles: true })) {
+    if (relPath.split("/").some((seg) => skipDirs.has(seg))) continue;
+    const text = await Bun.file(join(root, relPath)).text();
+    for (const line of text.split("\n")) {
+      for (const { pattern, label } of TEMPLATE_BANNED_TERMS) {
+        if (!pattern.test(line)) continue;
+        violations.push({
+          file: relPath,
+          field: "banned-term",
+          message: `${label} — ${line.trim().slice(0, 100)}`,
+        });
+      }
+    }
+  }
+  return violations;
+}
+
+export async function auditTemplateHardcodedSecrets(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const result = await auditHardcodedSecretsInGlob(root, ["templates/**/*.ts", "templates/**/*.tsx"]);
+  return result.findings.map((finding) => ({
+    file: finding.file,
+    field: finding.type,
+    message: `line ${finding.line}: ${finding.snippet}`,
+  }));
+}
+
+export async function auditTemplateScaffoldFiles(root: string): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  const scaffoldRoot = join(root, SCAFFOLD_DIR);
+  for (const name of REQUIRED_SCAFFOLD_FILES) {
+    const path = join(scaffoldRoot, name);
+    if (!(await Bun.file(path).exists())) {
+      violations.push({
+        file: `${SCAFFOLD_DIR}/${name}`,
+        field: "scaffold-file",
+        message: "Missing required scaffold template file",
+      });
+    }
+  }
+  return violations;
+}
+
+export async function auditTemplateScaffoldMarkers(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  for (const [marker, filename] of Object.entries(SCAFFOLD_MARKER_FILES) as Array<
+    [keyof typeof TEMPLATE_MARKERS, string]
+  >) {
+    const path = join(root, SCAFFOLD_DIR, filename);
+    if (!(await Bun.file(path).exists())) continue;
+    const text = await Bun.file(path).text();
+    for (const needle of TEMPLATE_MARKERS[marker]) {
+      if (text.includes(needle)) continue;
+      violations.push({
+        file: `${SCAFFOLD_DIR}/${filename}`,
+        field: `scaffold-marker:${marker}`,
+        message: `Missing drift marker ${JSON.stringify(needle)}`,
+      });
+    }
+  }
+  return violations;
+}
+
+export async function auditTemplateRegistrySchema(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  let registry: TemplateRegistry & { schemaVersion?: number };
+  try {
+    registry = (await readTemplateRegistry(root)) as TemplateRegistry & { schemaVersion?: number };
+  } catch {
+    return [
+      {
+        file: REGISTRY_PATH,
+        field: "registry-schema",
+        message: "Failed to read templates.json for schema audit",
+      },
+    ];
+  }
+  if (registry.schemaVersion !== 1) {
+    violations.push({
+      file: REGISTRY_PATH,
+      field: "schemaVersion",
+      message: 'templates.json must declare "schemaVersion": 1',
+    });
+  }
+  for (const entry of registry.templates) {
+    for (const field of REGISTRY_REQUIRED_ENTRY_FIELDS) {
+      const value = entry[field as keyof TemplateRegistryEntry];
+      if (typeof value !== "string" || value.trim().length === 0) {
+        violations.push({
+          file: REGISTRY_PATH,
+          field: `registry.${field}`,
+          message: `Registry entry "${entry.name ?? "?"}" missing required field: ${field}`,
+        });
+      }
+    }
+  }
+  return violations;
+}
+
+function countEnvExampleFiles(root: string): number {
+  return [...new Bun.Glob("templates/**/.env.example").scanSync({
+    cwd: root,
+    onlyFiles: true,
+  })].length;
+}
+
 export async function auditTemplateTypecheck(root: string): Promise<TemplatePolicyViolation[]> {
   const violations: TemplatePolicyViolation[] = [];
   for (const tsconfigPath of collectTemplateTsconfigs(root)) {
@@ -567,10 +808,17 @@ export async function auditTemplatePolicy(root: string): Promise<TemplatePolicyA
   const violations = [
     ...(await auditTemplateInstallPolicy(root)),
     ...(await auditTemplateRegistry(root)),
+    ...(await auditTemplateRegistrySchema(root)),
     ...(await auditTemplateBunfigRuntime(root)),
     ...(await auditTemplateTsconfigs(root)),
+    ...(await auditTemplateScaffoldFiles(root)),
+    ...(await auditTemplateScaffoldMarkers(root)),
     ...(await auditTemplateEntryShebangs(root)),
+    ...(await auditTemplateEnvHygiene(root)),
+    ...(await auditTemplateBannedTerms(root)),
+    ...(await auditTemplateHardcodedSecrets(root)),
     ...(await auditTemplateBunNative(root)),
+    ...(await auditTemplateTestConventions(root)),
     ...(await auditTemplateTypecheck(root)),
     ...(await auditTemplateModulesTypecheck(root)),
     ...(await auditTemplateTests(root)),
@@ -586,6 +834,8 @@ export async function auditTemplatePolicy(root: string): Promise<TemplatePolicyA
       registryEntries: await registryEntryCount(root),
       testProjects: collectTemplateTestProjects(root).length,
       moduleTsFiles: await countModuleTsFiles(root),
+      scaffoldFiles: REQUIRED_SCAFFOLD_FILES.length,
+      envExampleFiles: countEnvExampleFiles(root),
     },
   };
 }
@@ -599,6 +849,8 @@ export async function templatePolicyDryRunSummary(root: string): Promise<Templat
     registryEntries: await registryEntryCount(root),
     testProjects: collectTemplateTestProjects(root).length,
     moduleTsFiles: await countModuleTsFiles(root),
+    scaffoldFiles: REQUIRED_SCAFFOLD_FILES.length,
+    envExampleFiles: countEnvExampleFiles(root),
   };
 }
 

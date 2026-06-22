@@ -17,12 +17,21 @@ import { inspectAgent } from "./inspect.ts";
 import { isAgentContext } from "./tool-runner.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
 import { nowNanos } from "./bun-utils.ts";
+import type { ErrorSeverity } from "./error-domains-constants.ts";
+import { colorOutputEnabled, formatError, type FormattedErrorInput } from "./error-format.ts";
 
 function writeJsonLine(value: unknown): void {
   process.stdout.write(`${inspectAgent(value)}\n`);
 }
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
+
+function severityToLogLevel(severity: ErrorSeverity): LogLevel {
+  if (severity === "debug") return "debug";
+  if (severity === "info") return "info";
+  if (severity === "warn") return "warn";
+  return "error";
+}
 
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
   debug: 0,
@@ -217,6 +226,46 @@ export class Logger {
   }
   error(msg: string): void {
     this.emit("error", msg);
+  }
+
+  /**
+   * Log a reverse-domain structured error with optional Bun.color tinting.
+   * JSON mode emits structured fields; agent context uses plain text.
+   */
+  errorFormatted(input: FormattedErrorInput): void {
+    const formatted = formatError(input);
+    const level = severityToLogLevel(formatted.structured.severity);
+    const entry: LogEntry = {
+      ...this.baseEntry(level, formatted.plain),
+      ...(input.taxonomyId ? { taxonomyId: input.taxonomyId } : {}),
+      fields: {
+        ...this.fields,
+        errorDomain: formatted.structured.domain,
+        errorSeverity: formatted.structured.severity,
+        ...(input.code ? { errorCode: input.code } : {}),
+        ...(input.cause ? { errorCause: input.cause } : {}),
+      },
+    };
+    this.pushEntry(entry);
+    if (!this.shouldEmit(level)) return;
+
+    if (this.json) {
+      writeJsonLine({ ...entry, structuredError: formatted.structured });
+      return;
+    }
+
+    const agentLike = this.humanStderr || isAgentContext();
+    const display = agentLike
+      ? formatted.plain
+      : colorOutputEnabled()
+        ? formatted.colored
+        : formatted.plain;
+    const prefix = agentLike ? (level === "warn" ? "  ⚠" : "  ✗") : " ";
+    const line = agentLike ? `${prefix} ${display}` : `  ${display}`;
+
+    if (level === "error") console.error(line);
+    else if (level === "warn") console.warn(line);
+    else console.log(line);
   }
 
   /**

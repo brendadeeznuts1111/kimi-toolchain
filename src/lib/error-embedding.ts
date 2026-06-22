@@ -45,7 +45,7 @@ export function embedText(text: string): Float32Array {
   const vector = new Float32Array(EMBEDDING_DIM);
   for (const feature of extractFeatures(text)) {
     const index = feature.index % EMBEDDING_DIM;
-    vector[index] += feature.sign * feature.weight;
+    vector[index]! += feature.sign * feature.weight;
   }
   return l2Normalize(vector);
 }
@@ -55,9 +55,9 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   let normA = 0;
   let normB = 0;
   for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
+    dot += a[i]! * b[i]!;
+    normA += a[i]! * a[i]!;
+    normB += b[i]! * b[i]!;
   }
   if (normA === 0 || normB === 0) return 0;
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
@@ -86,9 +86,9 @@ export function embedFailure(
 function describeFailingStep(record: FailureTraceRecord, traces: TraceEvent[]): string {
   const events = traces.filter((event) => event.traceId === record.traceId);
   if (events.length === 0) return record.toolName ? `tool:${record.toolName}` : "";
-  const event = events.find((item) => item.status === "error") ?? events[events.length - 1];
-  const command = event.command?.join(" ") ?? "";
-  return [event.tool, event.eventType, command].filter(Boolean).join(" ");
+  const event = events.find((item) => item.status === "error") ?? events[events.length - 1]!;
+  const command = event!.command?.join(" ") ?? "";
+  return [event!.tool, event!.eventType, command].filter(Boolean).join(" ");
 }
 
 function describeCausalChain(record: FailureTraceRecord, traces: TraceEvent[]): string {
@@ -165,9 +165,9 @@ function normalize(text: string): string {
 
 function l2Normalize(vector: Float32Array): Float32Array {
   let norm = 0;
-  for (let i = 0; i < vector.length; i++) norm += vector[i] * vector[i];
+  for (let i = 0; i < vector.length; i++) norm += vector[i]! * vector[i]!;
   if (norm === 0) return vector;
   const scale = 1 / Math.sqrt(norm);
-  for (let i = 0; i < vector.length; i++) vector[i] *= scale;
+  for (let i = 0; i < vector.length; i++) vector[i]! *= scale;
   return vector;
 }

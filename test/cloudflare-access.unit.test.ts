@@ -1,13 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
-  AccessApplication,
-  AccessPolicy,
   auditApps,
   checkTokenExpiry,
   CREDENTIAL_SERVICE,
   getCredentials,
   loadCredentialsFromSecrets,
   parseSessionHours,
+} from "../src/lib/cloudflare-access.ts";
+import type {
+  AccessApplication,
+  AccessPolicy,
   ServiceToken,
 } from "../src/lib/cloudflare-access.ts";
 
@@ -206,11 +208,15 @@ describe("cloudflare-access logic", () => {
   });
 
   describe("credentials", () => {
-    test("getCredentials prefers env vars over Bun.secrets", async () => {
+    test("getCredentials prefers Bun.secrets over env vars", async () => {
       const originalAccount = Bun.env.CLOUDFLARE_ACCOUNT_ID;
       const originalToken = Bun.env.CLOUDFLARE_API_TOKEN;
       const mockSecrets = {
-        get: async () => "secret-value",
+        get: async ({ name }: { name: string }) => {
+          if (name === "cloudflare-account-id") return "secret-account";
+          if (name === "cloudflare-api-token") return "secret-token";
+          return null;
+        },
       };
 
       const restore = () => {
@@ -224,8 +230,8 @@ describe("cloudflare-access logic", () => {
         Bun.env.CLOUDFLARE_ACCOUNT_ID = "env-account";
         Bun.env.CLOUDFLARE_API_TOKEN = "env-token";
         const creds = await getCredentials(mockSecrets);
-        expect(creds.accountId).toBe("env-account");
-        expect(creds.apiToken).toBe("env-token");
+        expect(creds.accountId).toBe("secret-account");
+        expect(creds.apiToken).toBe("secret-token");
       } finally {
         restore();
       }

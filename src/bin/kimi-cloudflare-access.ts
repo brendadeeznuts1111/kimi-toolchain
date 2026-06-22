@@ -33,7 +33,6 @@ import {
   loadPolicyConfig,
 } from "../lib/cloudflare-access-policy.ts";
 import {
-  AccessApplication,
   apiGet,
   auditApps,
   buildDashboard,
@@ -44,9 +43,9 @@ import {
   listApplications,
   listServiceTokens,
   rotateServiceToken,
-  ServiceToken,
   verifyToken,
 } from "../lib/cloudflare-access.ts";
+import type { AccessApplication, ServiceToken } from "../lib/cloudflare-access.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 

@@ -62,7 +62,14 @@ describe("kimi-toolchain router", () => {
         const script = join(desktopRoot(), "tools", "kimi-toolchain.ts");
         const { stdout, stderr, exitCode } = await spawnCaptured(
           ["bun", script, "workspace", "verify"],
-          { cwd: REPO_ROOT, env: { HOME: tmpHome, KIMI_QUIET: "0" } }
+          {
+            cwd: REPO_ROOT,
+            env: {
+              HOME: tmpHome,
+              KIMI_QUIET: "0",
+              NODE_PATH: join(REPO_ROOT, "node_modules"),
+            },
+          }
         );
         expect(stdout + stderr).toContain(`Path: ${REPO_ROOT}`);
         expect(exitCode === 0 || exitCode === 1).toBe(true);

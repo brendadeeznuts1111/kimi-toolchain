@@ -30,16 +30,12 @@ describe("template-policy-audit", () => {
     expect(violations).toEqual([]);
   });
 
-  test(
-    "auditTemplatePolicy is clean end-to-end",
-    async () => {
-      const result = await auditTemplatePolicy(REPO_ROOT);
-      if (result.violations.length > 0) {
-        console.error(result.violations);
-      }
-      expect(result.violations).toEqual([]);
-      expect(result.summary.tsconfigProjects).toBeGreaterThanOrEqual(4);
-    },
-    60_000
-  );
+  test("auditTemplatePolicy is clean end-to-end", async () => {
+    const result = await auditTemplatePolicy(REPO_ROOT);
+    if (result.violations.length > 0) {
+      console.error(result.violations);
+    }
+    expect(result.violations).toEqual([]);
+    expect(result.summary.tsconfigProjects).toBeGreaterThanOrEqual(4);
+  }, 60_000);
 });

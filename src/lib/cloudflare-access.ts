@@ -11,6 +11,8 @@ import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { homeDir } from "./paths.ts";
 import { parsePolicyConfig } from "./cloudflare-access-policy.ts";
+import { SecretKeys } from "./secrets-constants.ts";
+import { readSecretFromEnv } from "./secrets-env.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -136,16 +138,22 @@ export async function getCredentials(
     get: (opts: { service: string; name: string }) => Promise<string | null>;
   } = Bun.secrets
 ): Promise<{ accountId: string; apiToken: string }> {
-  const accountId = Bun.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiToken = Bun.env.CLOUDFLARE_API_TOKEN;
+  const fromSecrets = await loadCredentialsFromSecrets(secrets);
+  const accountId =
+    fromSecrets.accountId ??
+    readSecretFromEnv(
+      SecretKeys.CLOUDFLARE_ACCOUNT_ID.service,
+      SecretKeys.CLOUDFLARE_ACCOUNT_ID.name
+    );
+  const apiToken =
+    fromSecrets.apiToken ??
+    readSecretFromEnv(
+      SecretKeys.CLOUDFLARE_API_TOKEN.service,
+      SecretKeys.CLOUDFLARE_API_TOKEN.name
+    );
 
   if (accountId && apiToken) {
     return { accountId, apiToken };
-  }
-
-  const fromSecrets = await loadCredentialsFromSecrets(secrets);
-  if (fromSecrets.accountId && fromSecrets.apiToken) {
-    return { accountId: fromSecrets.accountId, apiToken: fromSecrets.apiToken };
   }
 
   throw new Error(

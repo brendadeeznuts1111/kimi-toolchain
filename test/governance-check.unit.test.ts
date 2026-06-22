@@ -143,9 +143,9 @@ describe("generateReadme", () => {
     expect(path).toBe(join(dir, "README.md"));
     const content = await Bun.file(path).text();
     expect(content).toContain("# my-project");
-    expect(content).toContain("## Getting Started");
+    expect(content).toContain("## Quickstart");
     expect(content).toContain("bun install");
-    expect(content).toContain("bun run dev");
+    expect(content).toContain("bun run check:fast");
     await cleanup(dir);
   });
 });
@@ -158,7 +158,7 @@ describe("generateLicense", () => {
     const content = await Bun.file(path).text();
     expect(content).toContain("MIT License");
     expect(content).toContain("Copyright (c)");
-    expect(content).toContain("Permission is hereby granted...");
+    expect(content).toContain("Permission is hereby granted,");
     await cleanup(dir);
   });
 

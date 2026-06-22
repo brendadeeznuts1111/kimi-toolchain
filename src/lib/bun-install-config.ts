@@ -23,6 +23,8 @@ import { pathExists } from "./bun-io.ts";
 import { spawnBun } from "./tool-runner.ts";
 import { join } from "path";
 import { TOML } from "bun";
+import { SecretKeys } from "./secrets-constants.ts";
+import { readSecretFromEnv } from "./secrets-env.ts";
 
 export const BUN_INSTALL_DOC_URL = "https://bun.com/docs/pm/cli/install";
 /** @see https://bun.com/docs/pm/cli/update */
@@ -185,13 +187,15 @@ export const BUN_TCP_DEFER_ACCEPT_DOC_URL = `${BUN_RUNTIME_HTTP_DOC_URL}#bun-ser
 export const BUN_PUBLISH_DOC_URL = "https://bun.com/docs/cli/publish";
 export const BUN_PUBLISH_DRY_RUN_COMMAND = "bun publish --dry-run";
 
-/** Effect-TS documentation URLs (effect.website). */
-export const EFFECT_DOCS_URL = "https://effect.website/docs";
-export const EFFECT_GEN_DOC_URL = "https://effect.website/docs/effect/gen";
-export const EFFECT_TAGGED_ERROR_DOC_URL = "https://effect.website/docs/error-management/tagged-errors";
-export const EFFECT_LAYER_DOC_URL = "https://effect.website/docs/layers";
-export const EFFECT_RUNTIME_DOC_URL = "https://effect.website/docs/runtime";
-export const EFFECT_ENSUREING_DOC_URL = "https://effect.website/docs/effect/ensuring";
+/** Effect-TS documentation URLs (effect.website) — SSOT in effect-docs.ts. */
+export {
+  EFFECT_DOCS_URL,
+  EFFECT_ENSUREING_DOC_URL,
+  EFFECT_GEN_DOC_URL,
+  EFFECT_LAYER_DOC_URL,
+  EFFECT_RUNTIME_DOC_URL,
+  EFFECT_TAGGED_ERROR_DOC_URL,
+} from "./effect-docs.ts";
 
 export function bunInstallDocAnchor(fragment: string): string {
   return `${BUN_INSTALL_DOC_URL}#${fragment}`;
@@ -2849,7 +2853,7 @@ function isBunComDocsUrl(url: string, pathname: string): boolean {
 }
 
 function hasPublishRegistryToken(): boolean {
-  return Boolean(Bun.env.NPM_CONFIG_TOKEN?.trim() || Bun.env.NPM_TOKEN?.trim());
+  return Boolean(readSecretFromEnv(SecretKeys.NPM_TOKEN.service, SecretKeys.NPM_TOKEN.name));
 }
 
 function buildPublishRegistryChecks(
@@ -2919,6 +2923,10 @@ function isPublishAuthOnlyFailure(output: string, exitCode: number | null): bool
   return (
     isPublishPackSuccessful(output) && /missing authentication|npm login|ENEEDAUTH/i.test(output)
   );
+}
+
+function isPublishPrivatePackageFailure(output: string): boolean {
+  return /attempted to publish a private package/i.test(output);
 }
 
 export interface BunPmCliAudit {
@@ -3034,15 +3042,18 @@ export async function auditBunPublishDryRun(projectRoot: string): Promise<BunPub
   });
   const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
   const authOnly = isPublishAuthOnlyFailure(output, result.exitCode);
-  const ok = (result.exitCode === 0 && !result.isError) || authOnly;
+  const privatePackage = isPublishPrivatePackageFailure(output);
+  const ok = (result.exitCode === 0 && !result.isError) || authOnly || privatePackage;
   return {
     ok,
     command: BUN_PUBLISH_DRY_RUN_COMMAND,
     exitCode: result.exitCode,
     message: ok
-      ? authOnly
-        ? "bun publish --dry-run packed tarball (registry auth deferred to release)"
-        : "bun publish --dry-run exited 0"
+      ? privatePackage
+        ? "bun publish --dry-run skipped (private package; tarball pre-flight not required)"
+        : authOnly
+          ? "bun publish --dry-run packed tarball (registry auth deferred to release)"
+          : "bun publish --dry-run exited 0"
       : `bun publish --dry-run failed (exit ${result.exitCode ?? "?"})${result.stderr ? `: ${result.stderr.trim().slice(0, 200)}` : ""}`,
   };
 }

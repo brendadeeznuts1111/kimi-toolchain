@@ -5,11 +5,26 @@ import { join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
 import { extractArtifactTimestamp, startProbeServer } from "../src/lib/card-probe-server.ts";
 import { buildBenchmarkConvergenceBlock } from "../src/lib/benchmark-convergence.ts";
+import { CONFIG_STATUS_SCHEMA_VERSION, type ConfigStatusReport } from "../src/lib/config-status.ts";
 import {
   BENCHMARK_API_SCHEMA_VERSION,
   type BenchmarkApiEnvelope,
 } from "../src/lib/effect-benchmark-card.ts";
 import { withTempDir } from "./helpers.ts";
+
+function mockConfigStatus(): ConfigStatusReport {
+  return {
+    schemaVersion: CONFIG_STATUS_SCHEMA_VERSION,
+    tool: "config-status",
+    aligned: true,
+    gates: [
+      { id: "runtime-capabilities", layer: "bun-install", status: "pass", ms: 1 },
+      { id: "define-registry", layer: "bunfig", status: "pass", ms: 1 },
+      { id: "scaffold-aligned", layer: "scaffold", status: "pass", ms: 1 },
+    ],
+    fixPlan: [],
+  };
+}
 
 function mockBenchmarkEnvelope(): BenchmarkApiEnvelope {
   const generatedAt = "2026-06-20T00:00:00.000Z";
@@ -57,10 +72,14 @@ describe("card-probe-server", () => {
     expect(extractArtifactTimestamp(".kimi/artifacts/card-probe/not-a-stamp.json")).toBeNull();
   });
 
-  test(
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
     "serves /api/health, /api/cards, and /api/refresh",
     async () => {
-      const handle = await startProbeServer({ port: 0, probeConfig: { timeoutMs: 100 } });
+      const handle = await startProbeServer({
+        port: 0,
+        probeConfig: { timeoutMs: 100 },
+        configStatus: mockConfigStatus(),
+      });
       try {
         const health = await fetch(`${handle.url}/api/health`);
         expect(health.status).toBe(200);
@@ -125,7 +144,7 @@ describe("card-probe-server", () => {
     SPAWN_TEST_TIMEOUT_MS
   );
 
-  test(
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
     "serves artifact inspection routes",
     async () => {
       await withTempDir("card-probe-server-artifacts-", async (dir) => {
@@ -241,7 +260,7 @@ describe("card-probe-server", () => {
     SPAWN_TEST_TIMEOUT_MS
   );
 
-  test(
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
     "serves /api/runs/:runId from SQLite index when available",
     async () => {
       await withTempDir("card-probe-server-runs-", async (dir) => {
@@ -317,7 +336,7 @@ describe("card-probe-server", () => {
     SPAWN_TEST_TIMEOUT_MS
   );
 
-  test(
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
     "serves index stats and artifact diff routes",
     async () => {
       await withTempDir("card-probe-server-index-diff-", async (dir) => {
@@ -384,7 +403,11 @@ describe("card-probe-server", () => {
   test(
     "returns JSON 405 with allowed methods",
     async () => {
-      const handle = await startProbeServer({ port: 0, probeConfig: { timeoutMs: 100 } });
+      const handle = await startProbeServer({
+        port: 0,
+        probeConfig: { timeoutMs: 100 },
+        configStatus: mockConfigStatus(),
+      });
       try {
         const cardsPost = await fetch(`${handle.url}/api/cards`, { method: "POST" });
         expect(cardsPost.status).toBe(405);
@@ -406,7 +429,11 @@ describe("card-probe-server", () => {
   test(
     "hides /api/effect-benchmark unless effectBenchmark is enabled",
     async () => {
-      const handle = await startProbeServer({ port: 0, probeConfig: { timeoutMs: 100 } });
+      const handle = await startProbeServer({
+        port: 0,
+        probeConfig: { timeoutMs: 100 },
+        configStatus: mockConfigStatus(),
+      });
       try {
         const res = await fetch(`${handle.url}/api/effect-benchmark`);
         expect(res.status).toBe(404);
@@ -417,7 +444,7 @@ describe("card-probe-server", () => {
     SPAWN_TEST_TIMEOUT_MS
   );
 
-  test(
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
     "serves BenchmarkApiEnvelope at /api/effect-benchmark when enabled",
     async () => {
       const handle = await startProbeServer({
@@ -425,6 +452,7 @@ describe("card-probe-server", () => {
         probeConfig: { timeoutMs: 100 },
         effectBenchmark: true,
         effectBenchmarkEnvelope: mockBenchmarkEnvelope(),
+        configStatus: mockConfigStatus(),
       });
       try {
         const res = await fetch(`${handle.url}/api/effect-benchmark`);

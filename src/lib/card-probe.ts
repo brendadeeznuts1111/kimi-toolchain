@@ -5,6 +5,7 @@
 
 import type { DashboardCardStatus, DashboardCardsPayload } from "./dashboard-card-registry.ts";
 import { auditConfigLayersStatus } from "./config-status.ts";
+import { formatTable } from "./inspect.ts";
 
 export interface CardProbeConfig {
   examplesDashboardUrl?: string;
@@ -388,7 +389,7 @@ export function formatCardProbeTable(statuses: CardStatus[]): string {
   const columns: (keyof CardStatus)[] = hasReasons
     ? ["cardId", "source", "status", "reason", "lastUpdated"]
     : ["cardId", "source", "status", "lastUpdated"];
-  return Bun.inspect.table(statuses, columns, {
+  return formatTable(statuses as unknown as Record<string, unknown>[], columns as string[], {
     colors: true,
   });
 }
