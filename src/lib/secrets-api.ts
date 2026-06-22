@@ -1,0 +1,66 @@
+/**
+ * secrets-api.ts — Dashboard-safe secrets storage payload (no secret values).
+ */
+
+import { Effect } from "effect";
+import { SecretsManager } from "./secrets-manager.ts";
+import { effectiveStorageTier, isStrictStorageEnabled } from "./secrets-storage.ts";
+import { secretsPolicyPath } from "./paths.ts";
+import type { StorageStatus } from "./secrets-storage.ts";
+
+export interface SecretsApiSecretRow {
+  service: string;
+  name: string;
+  present: boolean;
+  storageTier: string;
+  resolvedVia?: string;
+}
+
+export interface SecretsApiResponse {
+  available: boolean;
+  methods: { get: boolean; set: boolean; delete: boolean };
+  platform: NodeJS.Platform;
+  storage: StorageStatus;
+  strictStorage: boolean;
+  secrets: SecretsApiSecretRow[];
+  note: string;
+}
+
+export async function buildSecretsApiResponse(projectRoot: string): Promise<SecretsApiResponse> {
+  const available = typeof Bun.secrets === "object" && Bun.secrets !== null;
+  const manager = new SecretsManager({
+    projectRoot,
+    policyPath: secretsPolicyPath(projectRoot),
+    onWarn: () => {},
+  });
+
+  const [storage, listed] = await Promise.all([
+    manager.storageStatus(),
+    Effect.runPromise(manager.list()),
+  ]);
+
+  return {
+    available,
+    methods: {
+      get: typeof Bun.secrets?.get === "function",
+      set: typeof Bun.secrets?.set === "function",
+      delete: typeof Bun.secrets?.delete === "function",
+    },
+    platform: process.platform,
+    storage,
+    strictStorage: isStrictStorageEnabled(),
+    secrets: listed.map((row) => ({
+      service: row.key.service,
+      name: row.key.name,
+      present: row.present,
+      storageTier: row.policy ? effectiveStorageTier(row.policy) : "unregistered",
+      resolvedVia: row.resolvedVia,
+    })),
+    note:
+      storage.securityLevel === "high"
+        ? "Per-user OS credential store (no plaintext fallback)"
+        : "Linux env-fallback — only storageTier: env-fallback secrets read from env",
+  };
+}
+
+export { isStrictStorageEnabled } from "./secrets-storage.ts";
