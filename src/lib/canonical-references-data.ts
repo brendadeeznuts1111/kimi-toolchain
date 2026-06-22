@@ -4,7 +4,7 @@ import type {
   EcosystemReference,
   LocalDocReference,
   RepoReference,
-} from "./canonical-references.ts";
+} from "./canonical-references-types.ts";
 
 export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
   {

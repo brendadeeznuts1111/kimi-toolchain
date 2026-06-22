@@ -11,8 +11,8 @@ import type {
   RepoLanguage,
   RepoReference,
   RepoRole,
-} from "./canonical-references.ts";
-import { CANONICAL_REFERENCES_SCHEMA_VERSION } from "./canonical-references.ts";
+} from "./canonical-references-types.ts";
+import { CANONICAL_REFERENCES_SCHEMA_VERSION } from "./canonical-references-types.ts";
 
 const VALID_REFERENCE_KINDS = new Set<ReferenceKind>([
   "runtime",
