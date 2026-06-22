@@ -25,8 +25,10 @@ import {
   JwtNotYetValid,
   JwtMissingSecret,
   SessionNotFound,
+  CsrfTokenInvalid,
   type JwtError,
   type SessionError,
+  type CsrfError,
 } from "./errors.ts";
 import type {
   JwtPayload,
@@ -80,7 +82,7 @@ export interface IdentityService {
   readonly verifyCsrf: (
     token: string,
     sessionId: string
-  ) => Effect.Effect<boolean, JwtMissingSecret>;
+  ) => Effect.Effect<void, JwtMissingSecret | CsrfTokenInvalid>;
 
   // ── Password ──
   readonly hashPassword: (plain: string) => Effect.Effect<string>;
@@ -213,7 +215,8 @@ export const IdentityLive = Layer.effect(
       verifyCsrf: (token, sessionId) =>
         Effect.gen(function* () {
           const mgr = yield* getCsrfManager();
-          return mgr.verify(token, sessionId);
+          const ok = mgr.verify(token, sessionId);
+          if (!ok) yield* Effect.fail(new CsrfTokenInvalid({ token }));
         }),
 
       // ── Password ──
@@ -272,7 +275,10 @@ export function IdentityTest(options: {
 
     generateCsrf: (sessionId) => Effect.sync(() => csrfManager.generate(sessionId)),
 
-    verifyCsrf: (token, sessionId) => Effect.sync(() => csrfManager.verify(token, sessionId)),
+    verifyCsrf: (token, sessionId) => {
+      const ok = csrfManager.verify(token, sessionId);
+      return ok ? Effect.void : Effect.fail(new CsrfTokenInvalid({ token }));
+    },
 
     hashPassword: (plain) => Effect.promise(() => hashPassword(plain)),
 

@@ -72,8 +72,11 @@ export function SecretsLiveWithOptions(opts: SecretsManagerOptions): Layer.Layer
   );
 }
 
-export function SecretsTest(backend: SecretsBackend): Layer.Layer<Secrets> {
-  const manager = new SecretsManager({ secrets: backend });
+export function SecretsTest(
+  backend: SecretsBackend,
+  opts?: Omit<SecretsManagerOptions, "secrets">
+): Layer.Layer<Secrets> {
+  const manager = new SecretsManager({ ...opts, secrets: backend });
   return Layer.succeed(Secrets, {
     get: (key, consumer) => manager.get(key, consumer),
     set: (key, value) => manager.set(key, value),

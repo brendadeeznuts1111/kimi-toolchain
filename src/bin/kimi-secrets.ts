@@ -379,6 +379,12 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  if (Bun.argv.includes("--version") || Bun.argv.includes("-v")) {
+    const pkg = await Bun.file(new URL("../../package.json", import.meta.url)).json() as { version: string };
+    writeStdoutLine(`kimi-secrets v${pkg.version} (Bun ${Bun.version})`);
+    return 0;
+  }
+
   const args = parseArgs(Bun.argv);
 
   switch (args.command) {

@@ -8,7 +8,7 @@
  * Run tests:       bun test test/identity-usage-example.unit.test.ts
  */
 
-import { Effect, Either } from "effect";
+import { Effect, Either, Exit } from "effect";
 import { Identity, IdentityTest } from "./effect/identity-service.ts";
 import type { IdentityService } from "./effect/identity-service.ts";
 
@@ -47,8 +47,8 @@ export async function requireAuth(
 }
 
 /**
- * Require CSRF token for state-changing requests.
- * Token must be in `X-CSRF-Token` header and match the session.
+ * Check if the CSRF token in `X-CSRF-Token` header is valid for the session.
+ * Returns true on success, false on any failure (missing token, invalid, expired).
  */
 export async function verifyCsrf(
   req: Request,
@@ -57,7 +57,34 @@ export async function verifyCsrf(
 ): Promise<boolean> {
   const token = req.headers.get("X-CSRF-Token");
   if (!token) return false;
-  return Effect.runPromise(identity.verifyCsrf(token, sessionId));
+  const exit = await Effect.runPromiseExit(identity.verifyCsrf(token, sessionId));
+  return Exit.isSuccess(exit);
+}
+
+/**
+ * CSRF guard for state-changing requests.
+ * Returns a 403 `Response` when the token is missing or invalid, `null` when it passes.
+ * Use before any handler that mutates state:
+ *
+ * ```ts
+ * const guard = await requireCsrf(req, identity, sessionId);
+ * if (guard) return guard;
+ * ```
+ */
+export async function requireCsrf(
+  req: Request,
+  identity: IdentityService,
+  sessionId: string
+): Promise<Response | null> {
+  const token = req.headers.get("X-CSRF-Token");
+  if (!token) {
+    return Response.json({ error: "CSRF token missing" }, { status: 403 });
+  }
+  const exit = await Effect.runPromiseExit(identity.verifyCsrf(token, sessionId));
+  if (Exit.isFailure(exit)) {
+    return Response.json({ error: "CSRF token invalid" }, { status: 403 });
+  }
+  return null;
 }
 
 // ── Route Handlers ───────────────────────────────────────────────────
@@ -127,10 +154,8 @@ export async function handlePostData(req: Request, identity: IdentityService): P
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const csrfOk = await verifyCsrf(req, identity, ctx.sessionId);
-  if (!csrfOk) {
-    return Response.json({ error: "CSRF validation failed" }, { status: 403 });
-  }
+  const csrfGuard = await requireCsrf(req, identity, ctx.sessionId);
+  if (csrfGuard) return csrfGuard;
 
   const body = (await (req as any).json()) as { value: string };
   return Response.json({ ok: true, userId: ctx.userId, value: body.value });

@@ -1,12 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, Either } from "effect";
-import { Identity, IdentityTest } from "../src/lib/effect/identity-service.ts";
+import { Effect, Either, Layer } from "effect";
+import { Identity, IdentityTest, IdentityLive } from "../src/lib/effect/identity-service.ts";
 import {
   JwtExpired,
   JwtInvalidSignature,
   JwtInvalidFormat,
+  JwtMissingSecret,
+  CsrfTokenInvalid,
   SessionNotFound,
 } from "../src/lib/effect/errors.ts";
+import { Secrets, SecretsTest } from "../src/lib/effect/secrets-service.ts";
+import type { SecretsBackend } from "../src/lib/secrets-types.ts";
 
 const TEST_JWT_SECRET = "test-jwt-secret";
 const TEST_CSRF_SECRET = "test-csrf-secret";
@@ -269,35 +273,36 @@ describe("identity-service > Session Cookies", () => {
 
 describe("identity-service > CSRF", () => {
   test("generateCsrf + verifyCsrf round-trip", async () => {
-    const result = await run(
+    await run(
       Effect.gen(function* () {
         const id = yield* Identity;
         const token = yield* id.generateCsrf("session-1");
-        return yield* id.verifyCsrf(token, "session-1");
+        yield* id.verifyCsrf(token, "session-1");
       })
     );
-    expect(result).toBe(true);
   });
 
   test("verifyCsrf fails with wrong sessionId", async () => {
-    const result = await run(
+    const result = await runEither(
       Effect.gen(function* () {
         const id = yield* Identity;
         const token = yield* id.generateCsrf("session-1");
-        return yield* id.verifyCsrf(token, "session-2");
+        yield* id.verifyCsrf(token, "session-2");
       })
     );
-    expect(result).toBe(false);
+    expect(Either.isLeft(result)).toBe(true);
+    expect((result as Either.Left<CsrfTokenInvalid, unknown>).left).toBeInstanceOf(CsrfTokenInvalid);
   });
 
   test("verifyCsrf fails with garbage token", async () => {
-    const result = await run(
+    const result = await runEither(
       Effect.gen(function* () {
         const id = yield* Identity;
-        return yield* id.verifyCsrf("garbage", "session-1");
+        yield* id.verifyCsrf("garbage", "session-1");
       })
     );
-    expect(result).toBe(false);
+    expect(Either.isLeft(result)).toBe(true);
+    expect((result as Either.Left<CsrfTokenInvalid, unknown>).left).toBeInstanceOf(CsrfTokenInvalid);
   });
 });
 
@@ -322,5 +327,147 @@ describe("identity-service > Password", () => {
       })
     );
     expect(result).toBe(false);
+  });
+});
+
+// ── IdentityLive integration tests ───────────────────────────────────
+
+const POLICY_PATH = new URL("../secrets-policy.json5", import.meta.url).pathname;
+
+function makeBackend(store: Map<string, string>): SecretsBackend {
+  return {
+    get: async ({ service, name }) => store.get(`${service}:${name}`) ?? null,
+    set: async ({ service, name, value }) => { store.set(`${service}:${name}`, value); },
+    delete: async ({ service, name }) => store.delete(`${service}:${name}`),
+  };
+}
+
+function runLive<A, E>(
+  effect: Effect.Effect<A, E, Identity>,
+  backend: SecretsBackend
+): Promise<A> {
+  const secretsLayer = SecretsTest(backend, { policyPath: POLICY_PATH });
+  const identityLayer = Layer.provide(IdentityLive, secretsLayer);
+  return Effect.runPromise(Effect.provide(identityLayer)(effect));
+}
+
+function runLiveEither<A, E>(
+  effect: Effect.Effect<A, E, Identity>,
+  backend: SecretsBackend
+): Promise<Either.Either<A, E>> {
+  const secretsLayer = SecretsTest(backend, { policyPath: POLICY_PATH });
+  const identityLayer = Layer.provide(IdentityLive, secretsLayer);
+  return Effect.runPromise(Effect.provide(identityLayer)(Effect.either(effect)));
+}
+
+describe("identity-service > IdentityLive integration", () => {
+  test("signToken resolves jwt-secret from SecretsManager", async () => {
+    const store = new Map([
+      ["com.herdr.dashboard:jwt-secret", "live-jwt-secret"],
+      ["com.herdr.dashboard:csrf-secret", "live-csrf-secret"],
+    ]);
+    const token = await runLive(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        return yield* id.signToken({ sub: "user-1" });
+      }),
+      makeBackend(store)
+    );
+    expect(token.split(".")).toHaveLength(3);
+  });
+
+  test("signToken fails with JwtMissingSecret when jwt-secret is absent", async () => {
+    const store = new Map([
+      ["com.herdr.dashboard:csrf-secret", "live-csrf-secret"],
+    ]);
+    const result = await runLiveEither(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        return yield* id.signToken({ sub: "user-1" });
+      }),
+      makeBackend(store)
+    );
+    expect(Either.isLeft(result)).toBe(true);
+    expect((result as Either.Left<JwtMissingSecret, unknown>).left).toBeInstanceOf(JwtMissingSecret);
+  });
+
+  test("verifyToken round-trip through SecretsManager", async () => {
+    const store = new Map([
+      ["com.herdr.dashboard:jwt-secret", "live-jwt-secret"],
+      ["com.herdr.dashboard:csrf-secret", "live-csrf-secret"],
+    ]);
+    const claims = await runLive(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        const token = yield* id.signToken({ sub: "user-42" });
+        const verified = yield* id.verifyToken(token);
+        return verified.claims;
+      }),
+      makeBackend(store)
+    );
+    expect(claims.sub).toBe("user-42");
+  });
+
+  test("generateCsrf resolves csrf-secret from SecretsManager", async () => {
+    const store = new Map([
+      ["com.herdr.dashboard:jwt-secret", "live-jwt-secret"],
+      ["com.herdr.dashboard:csrf-secret", "live-csrf-secret"],
+    ]);
+    const token = await runLive(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        return yield* id.generateCsrf("session-live-1");
+      }),
+      makeBackend(store)
+    );
+    expect(typeof token).toBe("string");
+    expect(token.length).toBeGreaterThan(0);
+  });
+
+  test("generateCsrf fails with JwtMissingSecret when csrf-secret is absent", async () => {
+    const store = new Map([
+      ["com.herdr.dashboard:jwt-secret", "live-jwt-secret"],
+    ]);
+    const result = await runLiveEither(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        return yield* id.generateCsrf("session-live-1");
+      }),
+      makeBackend(store)
+    );
+    expect(Either.isLeft(result)).toBe(true);
+    expect((result as Either.Left<JwtMissingSecret, unknown>).left).toBeInstanceOf(JwtMissingSecret);
+  });
+
+  test("verifyCsrf round-trip through SecretsManager", async () => {
+    const store = new Map([
+      ["com.herdr.dashboard:jwt-secret", "live-jwt-secret"],
+      ["com.herdr.dashboard:csrf-secret", "live-csrf-secret"],
+    ]);
+    await runLive(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        const token = yield* id.generateCsrf("session-live-2");
+        yield* id.verifyCsrf(token, "session-live-2");
+      }),
+      makeBackend(store)
+    );
+  });
+
+  test("verifyCsrf fails with CsrfTokenInvalid for wrong sessionId through SecretsManager", async () => {
+    const store = new Map([
+      ["com.herdr.dashboard:jwt-secret", "live-jwt-secret"],
+      ["com.herdr.dashboard:csrf-secret", "live-csrf-secret"],
+    ]);
+    const result = await runLiveEither(
+      Effect.gen(function* () {
+        const id = yield* Identity;
+        const token = yield* id.generateCsrf("session-live-3");
+        yield* id.verifyCsrf(token, "session-live-WRONG");
+      }),
+      makeBackend(store)
+    );
+    expect(Either.isLeft(result)).toBe(true);
+    expect((result as Either.Left<CsrfTokenInvalid, unknown>).left).toBeInstanceOf(CsrfTokenInvalid);
   });
 });
