@@ -17,6 +17,7 @@ import { Effect } from "effect";
 import { SecretsManager, type SecretsManagerOptions } from "./secrets-manager.ts";
 import { SecretPolicyViolation, SecretNotFound } from "./effect/errors.ts";
 import type { SecretCheckResult, AnySecretKey } from "./secrets-types.ts";
+import { Consumers } from "./secrets-constants.ts";
 import {
   runScannerPipeline,
   type ScannerPipelineOptions,
@@ -63,7 +64,7 @@ export interface PreflightResult {
 // ── Constants ────────────────────────────────────────────────────────
 
 const DEFAULT_BUN_BIN = "bun";
-const SCANNER_CONSUMER = "bun-install";
+const SCANNER_CONSUMER = Consumers.SCANNER_PIPELINE;
 
 // ── Preflight ────────────────────────────────────────────────────────
 
