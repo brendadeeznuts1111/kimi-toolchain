@@ -1,5 +1,11 @@
 #!/usr/bin/env bun
-import { bunRevision, bunVersion, isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
+import {
+  bunRevision,
+  bunVersion,
+  inspectBunRuntime,
+  isDirectRun,
+  readableStreamToText,
+} from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { spawnBun, withBunNoOrphans } from "../lib/tool-runner.ts";
 import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
@@ -2450,9 +2456,15 @@ async function main(): Promise<number> {
 
   logger.section("Node Ecosystem");
 
-  const bunPath = Bun.which("bun");
+  const bunRuntime = inspectBunRuntime();
+  const bunPath = bunRuntime.executable;
   results.push(
-    bunPath ? ok("bun", `${bunVersion()} (${bunRevision()})`) : error("bun", "not found")
+    bunPath
+      ? ok(
+          "bun",
+          `${bunRuntime.version} (${bunRuntime.revision.slice(0, 12)}) [${bunRuntime.channel}] ${bunPath}`
+        )
+      : error("bun", "not found")
   );
 
   for (const cmd of ["node", "npm", "pnpm", "yarn"]) {

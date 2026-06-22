@@ -7,7 +7,17 @@
  */
 
 import { peek, password } from "bun";
-import { hostname as osHostname } from "os";
+import { deserialize, estimateShallowMemoryUsageOf, serialize } from "bun:jsc";
+import {
+  cpus,
+  freemem,
+  hostname as osHostname,
+  release as osRelease,
+  totalmem,
+  type as osType,
+  uptime as osUptime,
+  userInfo,
+} from "os";
 
 /** Monotonic UUID v7 — prefer for session/db ids (see Bun.randomUUIDv7). */
 export { randomUUIDv7 } from "bun";
@@ -203,6 +213,47 @@ export async function readableStreamToText(
   return Bun.readableStreamToText(stream);
 }
 
+/** Read a ReadableStream into an ArrayBuffer (Bun.readableStreamToArrayBuffer). */
+export async function readableStreamToArrayBuffer(
+  stream: ReadableStream<Uint8Array> | null | undefined
+): Promise<ArrayBuffer> {
+  if (!stream) return new ArrayBuffer(0);
+  return Bun.readableStreamToArrayBuffer(stream);
+}
+
+/** Read a ReadableStream into a Uint8Array (Bun.readableStreamToBytes). */
+export async function readableStreamToBytes(
+  stream: ReadableStream<Uint8Array> | null | undefined
+): Promise<Uint8Array> {
+  if (!stream) return new Uint8Array(0);
+  const result = await Bun.readableStreamToBytes(stream);
+  return result instanceof Uint8Array ? result : new Uint8Array(result);
+}
+
+/** Read a ReadableStream into a Blob (Bun.readableStreamToBlob). */
+export async function readableStreamToBlob(
+  stream: ReadableStream<Uint8Array> | null | undefined
+): Promise<Blob> {
+  if (!stream) return new Blob([]);
+  return Bun.readableStreamToBlob(stream);
+}
+
+/** Read a ReadableStream and parse it as JSON (Bun.readableStreamToJSON). */
+export async function readableStreamToJSON<T>(
+  stream: ReadableStream<Uint8Array> | null | undefined
+): Promise<T> {
+  if (!stream) return undefined as unknown as T;
+  return Bun.readableStreamToJSON(stream) as T;
+}
+
+/** Read a ReadableStream into an array of chunks (Bun.readableStreamToArray). */
+export async function readableStreamToArray<T>(
+  stream: ReadableStream<T> | null | undefined
+): Promise<T[]> {
+  if (!stream) return [];
+  return Bun.readableStreamToArray(stream);
+}
+
 /** Minimal fetch response shape when Bun fetch typings omit body/status helpers. */
 export interface HttpFetchBody {
   readonly ok: boolean;
@@ -296,7 +347,12 @@ export function resolveExecutable(name: string, cwd?: string): string | null {
   return Bun.which(name, cwd ? { cwd } : undefined);
 }
 
-/** Blocking sleep — prefer await Bun.sleep() in async code. */
+/** Async sleep — resolves after `ms` milliseconds or at the given Date. */
+export function sleep(ms: number | Date): Promise<void> {
+  return Bun.sleep(ms);
+}
+
+/** Blocking sleep — prefer await {@link sleep} in async code. */
 export function sleepSync(ms: number): void {
   Bun.sleepSync(Math.max(0, ms));
 }
@@ -315,6 +371,26 @@ export function entryScriptPath(): string {
  */
 export function isDirectRun(modulePath: string): boolean {
   return modulePath === Bun.main;
+}
+
+/** @see https://bun.com/docs/runtime/utils#bun-openineditor */
+export const BUN_OPEN_IN_EDITOR_DOC_URL = "https://bun.com/docs/runtime/utils#bun-openineditor";
+
+export interface OpenInEditorOptions {
+  /** Editor identifier, e.g. "vscode", "subl", "code". */
+  editor?: string;
+  /** 1-based line number. */
+  line?: number;
+  /** 1-based column number. */
+  column?: number;
+}
+
+/**
+ * Open a file or URL in the user's default editor (`Bun.openInEditor`).
+ * Useful for CLI commands that jump to a config, contract, or failure source.
+ */
+export function openFileInEditor(file: string | URL, options?: OpenInEditorOptions): void {
+  Bun.openInEditor(file as string, options as Parameters<typeof Bun.openInEditor>[1]);
 }
 
 /** Read a settled promise synchronously; pending promises pass through. */
@@ -379,6 +455,224 @@ export interface BunRuntimeDetection {
   revision: string;
 }
 
+export type BunRuntimeChannel = "stable" | "canary" | "unknown";
+
+/** Host OS metadata for provenance and doctor output. */
+export interface OsRuntimeSnapshot {
+  /** Node platform id — `darwin`, `linux`, `win32`. */
+  platform: string;
+  /** CPU architecture — `arm64`, `x64`, etc. */
+  arch: string;
+  /** OS proper name from `os.type()` — e.g. `Darwin`, `Linux`. */
+  type: string;
+  /** OS/kernel release from `os.release()`. */
+  release: string;
+  /** Local hostname (`os.hostname()`). */
+  hostname: string;
+}
+
+/** Collect host OS fields without subprocess calls. */
+export function inspectOsRuntime(): OsRuntimeSnapshot {
+  return {
+    platform: process.platform,
+    arch: process.arch,
+    type: osType(),
+    release: osRelease(),
+    hostname: osHostname(),
+  };
+}
+
+/** Host CPU metadata from `os.cpus()` and Bun parallelism helpers. */
+export interface CpuRuntimeSnapshot {
+  /** CPU architecture — `arm64`, `x64`, etc. */
+  arch: string;
+  /** Logical CPU count (`os.cpus().length`). */
+  cores: number;
+  /** Scheduler parallelism (`Bun.availableParallelism()` or hardware concurrency). */
+  parallelism: number;
+  /** Model string from the first CPU entry. */
+  model: string;
+  /** Reported max clock speed (MHz) for the first core, when available. */
+  speedMhz?: number;
+}
+
+/** Collect CPU fields without subprocess calls. */
+export function inspectCpuRuntime(): CpuRuntimeSnapshot {
+  const list = cpus();
+  const first = list[0];
+  const bun = Bun as typeof Bun & { availableParallelism?: () => number };
+  let parallelism = 0;
+  if (typeof bun.availableParallelism === "function") {
+    parallelism = bun.availableParallelism();
+  }
+  if (parallelism <= 0) {
+    parallelism =
+      typeof navigator !== "undefined" && navigator.hardwareConcurrency > 0
+        ? navigator.hardwareConcurrency
+        : list.length || 1;
+  }
+  return {
+    arch: process.arch,
+    cores: list.length || 1,
+    parallelism,
+    model: first?.model?.trim() || "unknown",
+    speedMhz: first?.speed,
+  };
+}
+
+/** System memory snapshot from `os.totalmem()` / `os.freemem()`. */
+export interface MemoryRuntimeSnapshot {
+  totalBytes: number;
+  freeBytes: number;
+  usedBytes: number;
+  /** Used memory percentage (0–100, one decimal). */
+  usedPercent: number;
+}
+
+/** Process + session host metadata. */
+export interface HostRuntimeSnapshot {
+  pid: number;
+  /** This process uptime in seconds. */
+  uptimeSeconds: number;
+  /** OS uptime in seconds. */
+  osUptimeSeconds: number;
+  user: string;
+  timezone: string;
+  /** Node-compat version string embedded in Bun (`process.version`). */
+  nodeVersion: string;
+}
+
+export function formatMemoryBytes(bytes: number): string {
+  const gb = bytes / 1024 ** 3;
+  if (gb >= 1) return `${gb.toFixed(1)} GB`;
+  const mb = bytes / 1024 ** 2;
+  return `${mb.toFixed(0)} MB`;
+}
+
+/** Collect memory usage without subprocess calls. */
+export function inspectMemoryRuntime(): MemoryRuntimeSnapshot {
+  const totalBytes = totalmem();
+  const freeBytes = freemem();
+  const usedBytes = totalBytes - freeBytes;
+  return {
+    totalBytes,
+    freeBytes,
+    usedBytes,
+    usedPercent: totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 1000) / 10 : 0,
+  };
+}
+
+/** Process memory usage snapshot (`process.memoryUsage()`). */
+export interface ProcessMemorySnapshot {
+  rss: number;
+  heapTotal: number;
+  heapUsed: number;
+  external: number;
+  arrayBuffers: number;
+}
+
+/** Read current process memory usage (`process.memoryUsage`). */
+export function processMemoryUsage(): ProcessMemorySnapshot {
+  return process.memoryUsage();
+}
+
+/** Format process memory fields as human-readable strings. */
+export function formatProcessMemoryUsage(
+  mem: ProcessMemorySnapshot = processMemoryUsage()
+): Record<keyof ProcessMemorySnapshot, string> {
+  return {
+    rss: formatMemoryBytes(mem.rss),
+    heapTotal: formatMemoryBytes(mem.heapTotal),
+    heapUsed: formatMemoryBytes(mem.heapUsed),
+    external: formatMemoryBytes(mem.external),
+    arrayBuffers: formatMemoryBytes(mem.arrayBuffers),
+  };
+}
+
+/** Collect process/host session metadata. */
+export function inspectHostRuntime(): HostRuntimeSnapshot {
+  let user = "unknown";
+  try {
+    user = userInfo().username;
+  } catch {
+    // userInfo can fail in hardened/sandbox environments
+  }
+  return {
+    pid: process.pid,
+    uptimeSeconds: Math.round(process.uptime()),
+    osUptimeSeconds: Math.round(osUptime()),
+    user,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    nodeVersion: process.version,
+  };
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
+/** Extended runtime snapshot — version, revision, entry, PATH, channel. */
+export interface BunRuntimeSnapshot extends BunRuntimeDetection {
+  /** Entry script path (`Bun.main`). */
+  main: string;
+  /** Node-compat detect string (`process.versions.bun`). */
+  processVersion?: string;
+  /** Resolved `bun` binary on PATH, if any. */
+  executable: string | null;
+  /** Inferred from semver string (e.g. `1.4.0-canary.1`). */
+  channel: BunRuntimeChannel;
+  /** Host OS metadata (`os.type`, `os.release`, hostname, platform, arch). */
+  os: OsRuntimeSnapshot;
+  /** Host CPU metadata (model, cores, parallelism). */
+  cpu: CpuRuntimeSnapshot;
+  /** System memory (total/free/used). */
+  memory: MemoryRuntimeSnapshot;
+  /** Process pid, user, uptime, timezone, Node compat version. */
+  host: HostRuntimeSnapshot;
+  /** Current working directory. */
+  cwd: string;
+  /** Short git revision prefix for display. */
+  revisionShort: string;
+  /** True when `Bun.main` is `[eval]` (inline `bun -e`, not a file). */
+  evalMode: boolean;
+}
+
+/** Infer stable vs canary from `Bun.version`. */
+export function inferBunRuntimeChannel(version: string): BunRuntimeChannel {
+  if (!version || version === "unknown") return "unknown";
+  if (/canary/i.test(version)) return "canary";
+  return "stable";
+}
+
+/** True when the process was started with `bun -e` / eval rather than a script file. */
+export function isBunEvalMain(main: string): boolean {
+  return main === "[eval]" || main.endsWith("/[eval]") || main.endsWith("\\[eval]");
+}
+
+function revisionShortLabel(revision: string): string {
+  if (!revision || revision === "unknown") return "unknown";
+  return revision.length <= 12 ? revision : revision.slice(0, 12);
+}
+
+function emptyRuntimeSnapshot(base: BunRuntimeDetection): BunRuntimeSnapshot {
+  return {
+    ...base,
+    main: "unknown",
+    executable: null,
+    channel: "unknown",
+    os: inspectOsRuntime(),
+    cpu: inspectCpuRuntime(),
+    memory: inspectMemoryRuntime(),
+    host: inspectHostRuntime(),
+    cwd: process.cwd(),
+    revisionShort: revisionShortLabel(base.revision),
+    evalMode: false,
+  };
+}
+
 /**
  * Auto-detect the running Bun runtime (version + revision).
  * Refreshed on every call — use for doctor output, not cached policy rows.
@@ -398,6 +692,113 @@ export function detectBunRuntime(): BunRuntimeDetection {
   };
 }
 
+/**
+ * Full Bun runtime snapshot for doctor, CLI one-liners, and provenance JSON.
+ *
+ * @example
+ * bun run runtime:info
+ * bun -e 'import { formatFullBunRuntimeSnapshot } from "./src/lib/bun-utils.ts"; console.log(formatFullBunRuntimeSnapshot())'
+ * bun -e 'import { bunRuntimeSnapshotJson } from "./src/lib/bun-utils.ts"; console.log(bunRuntimeSnapshotJson())'
+ */
+export function inspectBunRuntime(): BunRuntimeSnapshot {
+  const base = detectBunRuntime();
+  if (!base.detected) {
+    return emptyRuntimeSnapshot(base);
+  }
+  const main = Bun.main;
+  return {
+    ...base,
+    main,
+    processVersion: process.versions.bun,
+    executable: Bun.which("bun"),
+    channel: inferBunRuntimeChannel(base.version),
+    os: inspectOsRuntime(),
+    cpu: inspectCpuRuntime(),
+    memory: inspectMemoryRuntime(),
+    host: inspectHostRuntime(),
+    cwd: process.cwd(),
+    revisionShort: revisionShortLabel(base.revision),
+    evalMode: isBunEvalMain(main),
+  };
+}
+
+/** Human-readable multi-line runtime summary for CLI one-liners. */
+export function formatBunRuntimeSnapshot(
+  snap: BunRuntimeSnapshot,
+  extras?: { engineRange?: string; engineSatisfied?: boolean; packageManager?: string }
+): string {
+  const { os, cpu, memory, host } = snap;
+  const speed = cpu.speedMhz ? ` @ ${cpu.speedMhz} MHz` : "";
+  const lines = [
+    `Bun ${snap.version} (${snap.channel}) · ${os.type} ${os.release} (${os.platform}/${os.arch})`,
+    `  os:         ${os.type} ${os.release} · ${os.platform}/${os.arch}`,
+    `  hostname:   ${os.hostname}`,
+    `  cpu:        ${cpu.model} · ${cpu.cores} core(s) · parallelism ${cpu.parallelism}${speed}`,
+    `  memory:     ${formatMemoryBytes(memory.usedBytes)} used / ${formatMemoryBytes(memory.totalBytes)} (${memory.usedPercent}%)`,
+    `  host:       pid ${host.pid} · ${host.user} · tz ${host.timezone}`,
+    `  uptime:     process ${formatDuration(host.uptimeSeconds)} · os ${formatDuration(host.osUptimeSeconds)}`,
+    `  node:       ${host.nodeVersion} (compat)`,
+    `  revision:   ${snap.revision}`,
+    `  revision↯:  ${snap.revisionShort}`,
+    `  main:       ${snap.main}${snap.evalMode ? "  ← eval (use bun run <file> for script entry)" : ""}`,
+    `  cwd:        ${snap.cwd}`,
+    `  executable: ${snap.executable ?? "not on PATH"}`,
+    `  process:    process.versions.bun = ${snap.processVersion ?? "n/a"}`,
+  ];
+  if (extras?.packageManager) {
+    lines.push(`  pm:         ${extras.packageManager}`);
+  }
+  if (extras?.engineRange !== undefined) {
+    lines.push(
+      `  engine:     ${extras.engineRange} → ${extras.engineSatisfied ? "satisfied" : "NOT satisfied"}`
+    );
+  }
+  return lines.join("\n");
+}
+
+/** Pretty-print full runtime snapshot (Bun + OS + CPU + optional engine check). */
+export function formatFullBunRuntimeSnapshot(
+  engineRange = ">=1.4.0",
+  extras?: { packageManager?: string; projectName?: string; projectVersion?: string }
+): string {
+  const report = bunRuntimeReport(engineRange);
+  const lines = [
+    formatBunRuntimeSnapshot(report, {
+      engineRange: report.engineRange,
+      engineSatisfied: report.engineSatisfied,
+      packageManager: extras?.packageManager,
+    }),
+  ];
+  if (extras?.projectName) {
+    lines.push(
+      `  project:    ${extras.projectName}${extras.projectVersion ? `@${extras.projectVersion}` : ""}`
+    );
+  }
+  return lines.join("\n");
+}
+
+/** Full runtime JSON (Bun + OS + CPU + engine check). */
+export function bunRuntimeSnapshotJson(engineRange = ">=1.4.0"): BunRuntimeSnapshot & {
+  engineRange?: string;
+  engineSatisfied?: boolean;
+} {
+  return bunRuntimeReport(engineRange);
+}
+
+/** JSON-friendly runtime row with optional engine range check. */
+export function bunRuntimeReport(engineRange?: string): BunRuntimeSnapshot & {
+  engineRange?: string;
+  engineSatisfied?: boolean;
+} {
+  const snapshot = inspectBunRuntime();
+  if (!engineRange) return snapshot;
+  return {
+    ...snapshot,
+    engineRange,
+    engineSatisfied: snapshot.detected ? semverSatisfies(snapshot.version, engineRange) : false,
+  };
+}
+
 /** Bun CLI semver string. */
 export function bunVersion(): string {
   return detectBunRuntime().version;
@@ -406,6 +807,40 @@ export function bunVersion(): string {
 /** Bun build git revision. */
 export function bunRevision(): string {
   return detectBunRuntime().revision;
+}
+
+/** @see https://bun.com/docs/runtime/utils#serialize-deserialize-in-bun-jsc */
+export const BUN_JSC_SERIALIZE_DOC_URL =
+  "https://bun.com/docs/runtime/utils#serialize-deserialize-in-bun-jsc";
+
+/**
+ * Serialize a value to an ArrayBuffer-like buffer using the structured clone algorithm
+ * (`bun:jsc` `serialize`). Same format used by `structuredClone` and `postMessage`.
+ */
+export function structuredCloneSerialize<T>(value: T): ArrayBufferLike {
+  return serialize(value) as ArrayBufferLike;
+}
+
+/**
+ * Deserialize a structured-clone buffer back to a value (`bun:jsc` `deserialize`).
+ */
+export function structuredCloneDeserialize<T>(buffer: ArrayBufferLike): T {
+  return deserialize(buffer) as T;
+}
+
+/** @see https://bun.com/docs/runtime/utils#estimateshallowmemoryusageof-in-bun-jsc */
+export const BUN_JSC_MEMORY_USAGE_DOC_URL =
+  "https://bun.com/docs/runtime/utils#estimateshallowmemoryusageof-in-bun-jsc";
+
+/**
+ * Best-effort shallow memory usage estimate for an object, in bytes (`bun:jsc`
+ * `estimateShallowMemoryUsageOf`). Excludes referenced objects; use heap snapshots
+ * for accurate per-object accounting.
+ */
+export function estimateShallowMemoryUsage(
+  value: string | bigint | symbol | object | CallableFunction
+): number {
+  return estimateShallowMemoryUsageOf(value);
 }
 
 /**

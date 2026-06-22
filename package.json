@@ -185,6 +185,7 @@
     "push": "bash scripts/push.sh",
     "unify": "bash scripts/unify.sh",
     "verify-workspace": "bash scripts/verify-workspace.sh",
+    "runtime:info": "bun run scripts/runtime-info.ts",
     "cleanup-legacy": "bash scripts/cleanup-legacy-workspace.sh",
     "cleanup:artifacts": "bun run scripts/cleanup-artifacts.ts",
     "install-wrappers": "bash scripts/install-bin-wrappers.sh",
