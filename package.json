@@ -123,7 +123,7 @@
     "format:check": "oxfmt --check -c .oxfmtrc.json .",
     "format:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json .",
     "lint": "bun run scripts/lint.ts",
-    "quality:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json . && oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts && bun run scripts/lint-discovery.ts && bun run references:lint && bun run check:secrets-registry",
+    "quality:check:ci": "oxfmt --check --threads=4 -c .oxfmtrc.json . && oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts && bun run scripts/lint-discovery.ts && bun run references:lint && bun run check:secrets-registry && bun run check:secret-resolution",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
     "lint:links": "bun run scripts/lint-markdown-links.ts",
     "lint:links:full": "bun run scripts/lint-markdown-links.ts --full",
@@ -178,7 +178,9 @@
     "docs:fix": "bun run scripts/check-docs.ts --fix",
     "docs:index": "bun run src/bin/kimi-doctor.ts --index-docs",
     "check:secrets-registry": "bun run scripts/check-secrets-registry.ts",
-    "check:secrets-registry:json": "bun run scripts/check-secrets-registry.ts --json"
+    "check:secrets-registry:json": "bun run scripts/check-secrets-registry.ts --json",
+    "check:secret-resolution": "bun run scripts/check-secret-resolution.ts",
+    "check:secret-resolution:json": "bun run scripts/check-secret-resolution.ts --json"
   },
   "dependencies": {
     "effect": "^3.21.3",

@@ -500,9 +500,66 @@ export async function resolveNpmEnv(): Promise<{
 }
 
 /**
+ * Resolve Cloudflare R2 credentials from `Bun.secrets` into `process.env`.
+ * Sets `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`.
+ */
+export async function resolveR2Env(): Promise<{
+  accessKeyId: string | null;
+  secretAccessKey: string | null;
+}> {
+  const accessKeyId =
+    process.env.R2_ACCESS_KEY_ID ??
+    (await Bun.secrets.get(SecretKeys.R2_ACCESS_KEY_ID)) ??
+    null;
+  const secretAccessKey =
+    process.env.R2_SECRET_ACCESS_KEY ??
+    (await Bun.secrets.get(SecretKeys.R2_SECRET_ACCESS_KEY)) ??
+    null;
+
+  if (accessKeyId && !process.env.R2_ACCESS_KEY_ID) process.env.R2_ACCESS_KEY_ID = accessKeyId;
+  if (secretAccessKey && !process.env.R2_SECRET_ACCESS_KEY) process.env.R2_SECRET_ACCESS_KEY = secretAccessKey;
+
+  return { accessKeyId, secretAccessKey };
+}
+
+/**
+ * Resolve Discord webhook URL from `Bun.secrets` into `process.env`.
+ */
+export async function resolveDiscordEnv(): Promise<{ webhookUrl: string | null }> {
+  const webhookUrl =
+    process.env.DISCORD_WEBHOOK_URL ??
+    (await Bun.secrets.get(SecretKeys.DISCORD_WEBHOOK_URL)) ??
+    null;
+
+  if (webhookUrl && !process.env.DISCORD_WEBHOOK_URL) process.env.DISCORD_WEBHOOK_URL = webhookUrl;
+
+  return { webhookUrl };
+}
+
+/**
+ * Resolve Telegram bot token from `Bun.secrets` into `process.env`.
+ */
+export async function resolveTelegramEnv(): Promise<{ botToken: string | null }> {
+  const botToken =
+    process.env.TELEGRAM_BOT_TOKEN ??
+    (await Bun.secrets.get(SecretKeys.TELEGRAM_BOT_TOKEN)) ??
+    null;
+
+  if (botToken && !process.env.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = botToken;
+
+  return { botToken };
+}
+
+/**
  * Resolve all known development tool secrets from `Bun.secrets` into
- * `process.env`. Convenience wrapper for `kimi-new` and `kimi-fix`.
+ * `process.env`. Convenience wrapper — call before spawning child processes.
  */
 export async function resolveDevSecrets(): Promise<void> {
-  await Promise.all([resolveGithubEnv(), resolveNpmEnv()]);
+  await Promise.all([
+    resolveGithubEnv(),
+    resolveNpmEnv(),
+    resolveR2Env(),
+    resolveDiscordEnv(),
+    resolveTelegramEnv(),
+  ]);
 }

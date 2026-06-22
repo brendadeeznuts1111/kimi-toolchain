@@ -59,6 +59,9 @@ jobs:
       - name: Secrets registry check
         run: bun run check:secrets-registry
 
+      - name: Secret resolution coverage
+        run: bun run check:secret-resolution
+
   effect-pipeline:
     name: Effect fail-fast pipeline
     runs-on: ubuntu-latest

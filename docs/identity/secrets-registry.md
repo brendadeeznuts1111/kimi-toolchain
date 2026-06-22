@@ -49,21 +49,31 @@ each tool reimplementing keychain lookups.
 |---|---|---|
 | `resolveGithubEnv()` | `GITHUB_TOKEN`, `GITHUB_API_DOMAIN` | `process.env.GITHUB_TOKEN`, `GITHUB_API_DOMAIN` |
 | `resolveNpmEnv()` | `NPM_TOKEN` | `process.env.NPM_TOKEN`, `NPM_CONFIG_TOKEN` |
-| `resolveDevSecrets()` | Both GitHub + NPM (parallel) | All of the above |
+| `resolveR2Env()` | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | `process.env.R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` |
+| `resolveDiscordEnv()` | `DISCORD_WEBHOOK_URL` | `process.env.DISCORD_WEBHOOK_URL` |
+| `resolveTelegramEnv()` | `TELEGRAM_BOT_TOKEN` | `process.env.TELEGRAM_BOT_TOKEN` |
+| `resolveDevSecrets()` | All of the above (parallel) | All of the above |
 
 ### Rules
 
 1. **Env wins over keychain** — existing `process.env` values are never overwritten.
 2. **Call early** — resolve before any `Bun.spawn` or `$` template call.
 3. **`--no-secrets` flag** — `kimi-new` supports `--no-secrets` to skip resolution when CI already sets env vars.
-4. **Never log resolved values** — the helpers return the resolved values for convenience, but they should not be printed.
+4. **`--secrets-dry-run` flag** — `kimi-new --secrets-dry-run` resolves all secrets and prints status (✅/❌) without scaffolding.
+5. **Never log resolved values** — the helpers return the resolved values for convenience, but they should not be printed.
 
 ### CLIs that call `resolveDevSecrets()`
 
-- `kimi-new` — before `bun init` + `kimi-fix` (skippable with `--no-secrets`)
+- `kimi-new` — before `bun init` + `kimi-fix` (skippable with `--no-secrets`, debuggable with `--secrets-dry-run`)
+- `kimi-fix` — before `git init` and tool delegation
+- `kimi-release` — before delegating to `kimi-governance` (which spawns `bun install`)
 - `kimi-doctor` — before `bun run sync` and other spawned tools
 - `kimi-governance` — before `bun install --ignore-scripts`
 - `kimi-guardian` — before `bun outdated`
+
+### CI Enforcement
+
+`scripts/check-secret-resolution.ts` scans all `src/bin/*.ts` files and flags any that spawn child processes without calling a resolver. Exempt list is maintained in the script for bins that only do local file I/O. Run via `bun run check:secret-resolution`.
 
 ---
 
@@ -72,7 +82,7 @@ each tool reimplementing keychain lookups.
 | Service Name | Constant | Purpose | Primary Consumers | Secret Names |
 |---|---|---|---|---|
 | `kimi-toolchain` | `Services.KIMI_TOOLCHAIN` | Cloudflare/infra credentials (legacy, pre-reverse-domain) | `kimi-cloudflare-access`, `kimi-doctor` | `cloudflare-account-id`, `cloudflare-api-token` |
-| `com.herdr.cli` | `Services.CLI` | CLI tools (`kimi-fix`, `kimi-doctor`, `kimi-guardian`, `kimi-secrets`) | `kimi-fix`, `kimi-doctor` | `github-token`, `github-api-domain`, `npm-token`, `bet365-api-key` |
+| `com.herdr.cli` | `Services.CLI` | CLI tools (`kimi-fix`, `kimi-doctor`, `kimi-guardian`, `kimi-secrets`) | `kimi-fix`, `kimi-doctor` | `github-token`, `github-api-domain`, `npm-token`, `bet365-api-key`, `r2-access-key-id`, `r2-secret-access-key`, `discord-webhook-url`, `telegram-bot-token` |
 | `com.herdr.dashboard` | `Services.DASHBOARD` | Main web dashboard, HTTP server, auth layer | `herdr-server`, `webhook:named`, `identity-service` | `csrf-secret`, `jwt-secret`, `master-key` |
 | `com.herdr.security` | `Services.SECURITY` | Security scanner and vulnerability pipeline | `bun-install` | `scanner-api-key` |
 

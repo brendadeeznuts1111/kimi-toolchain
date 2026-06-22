@@ -7,7 +7,7 @@
  *   kimi-fix doctor [project-path]
  */
 
-import { isDirectRun } from "../lib/bun-utils.ts";
+import { isDirectRun, resolveDevSecrets } from "../lib/bun-utils.ts";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { join, basename, resolve } from "path";
 import { $ } from "bun";
@@ -363,6 +363,9 @@ function printHelp() {
 
 async function main(): Promise<number> {
   scrubProcessGitEnv();
+
+  // Resolve dev secrets before any git or bun operations
+  await resolveDevSecrets();
 
   const rawArgs = Bun.argv.slice(2);
   const profile = resolveScaffoldProfile(rawArgs);
