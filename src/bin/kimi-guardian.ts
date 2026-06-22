@@ -27,6 +27,9 @@ import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { severityLabel } from "../lib/cli-format.ts";
+import { printHelp } from "../lib/cli-help-generator.ts";
+import { parseSeverity } from "../lib/scanner-pipeline.ts";
 
 const logger = createLogger(Bun.argv, "kimi-guardian");
 
@@ -530,6 +533,11 @@ async function doctor(
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(): Promise<number> {
+  if (Bun.argv.includes("--help") || Bun.argv.includes("-h")) {
+    printHelp("kimi-guardian");
+    return 0;
+  }
+
   const args = Bun.argv.slice(2);
   const command = args[0] || "check";
   const projectDir = await resolveProjectRoot(Bun.cwd);
@@ -626,9 +634,13 @@ async function main(): Promise<number> {
     if (cves.length === 0) {
       logger.info("No CVEs found");
     } else {
-      for (const cve of cves) {
-        logger.error(`${cve.name}: ${cve.cveId} (${cve.severity})`);
-      }
+      logger.table(
+        cves.map((cve) => ({
+          Package: cve.name,
+          CVE: cve.cveId,
+          Severity: severityLabel(parseSeverity(cve.severity)),
+        }))
+      );
     }
   }
 
@@ -686,9 +698,7 @@ async function main(): Promise<number> {
     logger.info("Baselined lockfile hash");
   }
 
-  logger.info(
-    "Commands: check (default) | fix (baseline hash + trusted deps) | sign (v2 manifest) | verify (v2 manifest) | report (full P1) | doctor (health check)"
-  );
+  logger.info("Run `kimi-guardian --help` for full usage");
   return 0;
 }
 
