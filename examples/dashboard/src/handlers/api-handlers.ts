@@ -8,6 +8,7 @@ import {
   isDirectRun,
   readableStreamToText,
 } from "../../../../src/lib/bun-utils.ts";
+import { buildInfo, buildSummary } from "../../../../src/lib/build-info.ts";
 import { resolveBin, USER_TOOLCHAIN_BIN } from "../lib/toolchain-paths.ts";
 import { jsonResponse, runDoctorJson } from "./shared.ts";
 
@@ -180,36 +181,16 @@ export async function apiBuildInfo(): Promise<Response> {
     /* no bunfig.toml */
   }
 
-  // Compile-time: platform + git-derived metadata
+  // Build-time metadata resolved via Bun macros (zero runtime overhead)
   const compileTime: Record<string, string> = {
-    PLATFORM: process.platform,
+    PLATFORM: buildInfo.platform,
     ARCH: process.arch,
-    BUN_VERSION: Bun.version,
+    BUN_VERSION: buildInfo.bunVersion,
     BUN_REVISION: Bun.revision,
+    BUILD_VERSION: buildSummary,
+    GIT_COMMIT: buildInfo.gitHash,
+    BUILD_TIME: buildInfo.buildTime,
   };
-
-  try {
-    const gitDesc = Bun.spawn(["git", "describe", "--tags", "--always"], {
-      cwd: process.cwd(),
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    compileTime.BUILD_VERSION = (await readableStreamToText(gitDesc.stdout)).trim() || "unknown";
-    await gitDesc.exited;
-
-    const gitRev = Bun.spawn(["git", "rev-parse", "HEAD"], {
-      cwd: process.cwd(),
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    compileTime.GIT_COMMIT =
-      (await readableStreamToText(gitRev.stdout)).trim().slice(0, 8) || "unknown";
-    await gitRev.exited;
-  } catch {
-    compileTime.BUILD_VERSION = "unknown";
-    compileTime.GIT_COMMIT = "unknown";
-  }
-  compileTime.BUILD_TIME = new Date().toISOString();
 
   // Active defines read from bunfig.toml [define]
   const hasDefines = Object.keys(bunfigDefines).length > 0;

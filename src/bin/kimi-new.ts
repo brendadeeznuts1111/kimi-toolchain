@@ -15,6 +15,7 @@ import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { writeStdoutLine } from "../lib/cli-contract.ts";
+import { buildBanner } from "../lib/build-info.ts";
 
 const logger = createLogger(Bun.argv, "kimi-new");
 const NAME_RE = /^[a-z0-9][a-z0-9._-]*$/i;
@@ -212,6 +213,11 @@ async function runScaffold(args: string[]): Promise<number> {
 async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
   const filtered = args.filter((a) => a !== "--dry-run");
+
+  if (filtered.includes("--version") || filtered.includes("-v")) {
+    writeStdoutLine(buildBanner);
+    return 0;
+  }
 
   if (filtered.length === 0 || filtered[0] === "--help" || filtered[0] === "-h") {
     printHelp();

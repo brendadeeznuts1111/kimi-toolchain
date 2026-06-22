@@ -36,6 +36,7 @@ import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { writeStdoutLine } from "../lib/cli-contract.ts";
+import { buildBanner } from "../lib/build-info.ts";
 import { SecretsManager } from "../lib/secrets-manager.ts";
 import { quickCheck } from "../lib/install-secure.ts";
 import type { AnySecretKey } from "../lib/secrets-types.ts";
@@ -459,8 +460,7 @@ async function main(): Promise<number> {
   }
 
   if (Bun.argv.includes("--version") || Bun.argv.includes("-v")) {
-    const pkg = await Bun.file(new URL("../../package.json", import.meta.url)).json() as { version: string };
-    writeStdoutLine(`kimi-secrets v${pkg.version} (Bun ${Bun.version})`);
+    writeStdoutLine(buildBanner);
     return 0;
   }
 

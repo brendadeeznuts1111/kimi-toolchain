@@ -63,6 +63,7 @@ import { auditSuccessMetrics } from "../lib/success-metrics.ts";
 import { generateAgentDiagnosisReport } from "../lib/agent-diagnosis.ts";
 import { aggregateChecks, type HealthCheck } from "../lib/health-check.ts";
 import { createCli, writeStdout, writeStdoutLine } from "../lib/cli-contract.ts";
+import { buildBanner } from "../lib/build-info.ts";
 import {
   appendEffectGatesSnapshot,
   buildEffectGatesReport,
@@ -1509,6 +1510,11 @@ function emitGateDryRun(
 async function main(): Promise<number> {
   // Resolve dev secrets before spawning any child processes (sync, etc.)
   await resolveDevSecrets();
+
+  if (Bun.argv.includes("--version") || Bun.argv.includes("-v")) {
+    writeStdoutLine(buildBanner);
+    return 0;
+  }
 
   if (SUBCOMMAND === "check") {
     const result = await spawnBun(["run", "scripts/check.ts", ...Bun.argv.slice(3)], {

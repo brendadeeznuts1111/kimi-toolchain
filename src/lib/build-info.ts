@@ -28,6 +28,7 @@ import {
 // ── Build Metadata (all resolved at build time) ──────────────────────
 
 export const buildInfo = {
+  macroVersion: 1 as const,
   gitHash: getGitHash(),
   gitBranch: getGitBranch(),
   buildTime: getBuildTime(),

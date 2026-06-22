@@ -29,6 +29,7 @@ import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { severityLabel } from "../lib/cli-format.ts";
 import { printHelp } from "../lib/cli-help-generator.ts";
+import { buildBanner } from "../lib/build-info.ts";
 import { parseSeverity } from "../lib/scanner-pipeline.ts";
 
 const logger = createLogger(Bun.argv, "kimi-guardian");
@@ -535,6 +536,11 @@ async function doctor(
 async function main(): Promise<number> {
   if (Bun.argv.includes("--help") || Bun.argv.includes("-h")) {
     printHelp("kimi-guardian");
+    return 0;
+  }
+
+  if (Bun.argv.includes("--version") || Bun.argv.includes("-v")) {
+    console.log(buildBanner);
     return 0;
   }
 

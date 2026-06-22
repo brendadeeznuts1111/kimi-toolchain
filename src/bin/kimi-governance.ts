@@ -18,6 +18,7 @@ import { aggregateChecks } from "../lib/health-check.ts";
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
+import { buildBanner } from "../lib/build-info.ts";
 import { recordDoctorRun, getPersistentWarnings, type DoctorWarning } from "../lib/doctor-runs.ts";
 import { createLogger } from "../lib/logger.ts";
 import { ARTIFACTS_COVERAGE_DIR } from "../lib/artifacts.ts";
@@ -399,6 +400,12 @@ async function computeRScore(
 
 async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
+
+  if (args[0] === "--version" || args[0] === "-v") {
+    console.log(buildBanner);
+    return 0;
+  }
+
   const command = args[0] || "score";
   const projectDir = await resolveProjectRoot(Bun.cwd);
   const project = await getProjectName(projectDir);

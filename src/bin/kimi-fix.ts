@@ -35,6 +35,8 @@ import { runTool, scrubProcessGitEnv } from "../lib/tool-runner.ts";
 import { ensureQualityTooling } from "../lib/scaffold-quality.ts";
 import { aggregateChecks } from "../lib/health-check.ts";
 import { createLogger } from "../lib/logger.ts";
+import { buildBanner } from "../lib/build-info.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import {
@@ -376,6 +378,11 @@ async function main(): Promise<number> {
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     printHelp();
     return args.length === 0 ? 1 : 0;
+  }
+
+  if (args[0] === "--version" || args[0] === "-v") {
+    writeStdoutLine(buildBanner);
+    return 0;
   }
 
   const command = args[0];
