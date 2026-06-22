@@ -23,6 +23,7 @@
     "kimi-dashboard-mcp": "src/bin/kimi-dashboard-mcp.ts",
     "kimi-debug": "src/bin/kimi-debug.ts",
     "kimi-decision": "src/bin/kimi-decision.ts",
+    "kimi-deep-audit": "src/bin/kimi-deep-audit.ts",
     "kimi-doctor": "src/bin/kimi-doctor.ts",
     "kimi-error": "src/bin/kimi-error.ts",
     "kimi-fix": "src/bin/kimi-fix.ts",
