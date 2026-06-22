@@ -84,11 +84,15 @@ export function startDashboardCron(hub: DashboardCronHub): DashboardCronHandle {
 
   if (hub.ssePollMs < DASHBOARD_CRON_MIN_MS) {
     const timer = setInterval(() => {
-      void hub.refresh().catch((err: unknown) => {
-        hub.logger.debug(
-          `cron refresh failed: ${err instanceof Error ? err.message : String(err)}`
-        );
-      });
+      void (async () => {
+        try {
+          await hub.refresh();
+        } catch (err: unknown) {
+          hub.logger.debug(
+            `cron refresh failed: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
+      })();
     }, hub.ssePollMs);
     stopTimer = () => clearInterval(timer);
     refTimer = () => timer.ref();

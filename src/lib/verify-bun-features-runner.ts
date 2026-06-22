@@ -209,9 +209,11 @@ async function checkBunFileRoundTrip(): Promise<void> {
       ms
     );
   } finally {
-    await Bun.file(tmp)
-      .delete()
-      .catch(() => {});
+    try {
+      await Bun.file(tmp).delete();
+    } catch {
+      // ignore cleanup errors
+    }
   }
 }
 
@@ -360,9 +362,11 @@ async function checkMimallocStats(): Promise<void> {
       ms
     );
   } finally {
-    await Bun.file(tmp)
-      .delete()
-      .catch(() => {});
+    try {
+      await Bun.file(tmp).delete();
+    } catch {
+      // ignore cleanup errors
+    }
   }
 }
 
@@ -646,9 +650,11 @@ async function checkCpuProfCapture(): Promise<void> {
     const oldPath = join(profDir, latest);
     const newPath = join(archiveDir, latest);
     await Bun.write(newPath, await Bun.file(oldPath).arrayBuffer());
-    await Bun.file(oldPath)
-      .delete()
-      .catch(() => {});
+    try {
+      await Bun.file(oldPath).delete();
+    } catch {
+      // ignore cleanup errors
+    }
   }
   record(
     "cpu-prof.capture",

@@ -73,7 +73,11 @@ async function main() {
   console.log(`   Docs:  ${join(desktopRoot())}/{AGENTS,UNIFIED,TEMPLATES}.md`);
 }
 
-main().catch((err) => {
-  console.error("❌ Setup failed:", err.message);
-  process.exit(1);
-});
+(async () => {
+  try {
+    await main();
+  } catch (err) {
+    console.error("❌ Setup failed:", (err as Error).message);
+    process.exit(1);
+  }
+})();

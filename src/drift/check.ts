@@ -69,7 +69,11 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error("Drift check failed:", err.message);
-  if (EXIT_ON_FAIL) process.exit(1);
-});
+(async () => {
+  try {
+    await main();
+  } catch (err) {
+    console.error("Drift check failed:", (err as Error).message);
+    if (EXIT_ON_FAIL) process.exit(1);
+  }
+})();

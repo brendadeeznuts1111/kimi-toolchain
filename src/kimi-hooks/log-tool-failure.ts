@@ -111,10 +111,16 @@ async function main() {
   }
 }
 
-main().catch(async (err: unknown) => {
-  await appendHookError(err).catch(() => {
-    // Last-resort fallback: if even the error ledger fails, silently exit so
-    // the Kimi Code runtime is not blocked by a misbehaving hook.
-  });
-  process.exit(0);
-});
+(async () => {
+  try {
+    await main();
+  } catch (err) {
+    try {
+      await appendHookError(err);
+    } catch {
+      // Last-resort fallback: if even the error ledger fails, silently exit so
+      // the Kimi Code runtime is not blocked by a misbehaving hook.
+    }
+    process.exit(0);
+  }
+})();
