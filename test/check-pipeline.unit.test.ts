@@ -32,6 +32,12 @@ describe("check-pipeline", () => {
     expect(referencesLint?.cmd).toEqual(["bun", "run", "references:lint"]);
   });
 
+  test("fast toolchain checks include env-drift step", async () => {
+    const steps = await buildSteps(REPO_ROOT, baseOptions, null);
+    const envDrift = steps.find((step) => step.name === "check:env-drift");
+    expect(envDrift?.cmd).toEqual(["bun", "run", "scripts/check-env-drift.ts"]);
+  });
+
   test("check --dry-run does not create a test gate lock", async () => {
     const root = testTempDir("check-dry-run-lock-");
     const lockDir = join(root, "locks");

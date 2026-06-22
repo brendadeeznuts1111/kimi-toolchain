@@ -11,6 +11,9 @@ import { installBuildConstantGlobals, warnIfNodeEnvNotTest } from "../src/lib/te
 import { REPO_ROOT } from "./helpers.ts";
 
 warnIfNodeEnvNotTest("test/setup.ts");
+
+// Bun.env is an alias of process.env. This repo prefers Bun.env for reads and
+// writes; see https://bun.com/docs/runtime/environment-variables.
 Bun.env.NODE_ENV = "test";
 if (!Bun.env.TZ) Bun.env.TZ = "Etc/UTC";
 

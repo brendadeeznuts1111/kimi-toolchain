@@ -3,7 +3,7 @@
  *
  * GET /api/audit/hardcoded → JSON summary of credential-like literals.
  */
-import { auditHardcodedSecrets } from "../../../../src/doctor/hardcoded-secret-audit.ts";
+import { auditHardcodedSecrets } from "../../../../src/lib/hardcoded-secret-audit.ts";
 import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
 import { jsonResponse } from "./shared.ts";
 

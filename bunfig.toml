@@ -1,6 +1,60 @@
+# bunfig.toml — kimi-toolchain canonical Bun config
+# Local overrides global; CLI flags override bunfig.
+# @see https://bun.com/docs/runtime/bunfig
+# @see https://bun.com/docs/runtime/environment-variables
+
+# Bun automatically loads .env, then .env.$NODE_ENV, then .env.local.
+# Set `env = false` to disable automatic .env loading (useful in CI where env
+# vars are injected by the runner). Explicit `--env-file=...` flags still work.
+# env = false
+
+# ── Runtime ──────────────────────────────────────────────────────────────
+# @see https://bun.com/docs/runtime/bunfig#loglevel
+logLevel = "warn"
+smol = false
+
 [console]
+# Deep inspect for doctor gates (default 2)
 depth = 6
 
+# ── Run ──────────────────────────────────────────────────────────────────
+[run]
+# @see https://bun.com/docs/runtime/bunfig#run-shell-use-the-system-shell-or-buns-shell
+shell = "bun"
+# @see https://bun.com/docs/runtime/bunfig#run-silent-suppress-reporting-the-command-being-run
+silent = true
+# @see https://bun.com/docs/runtime/bunfig#run-bun-auto-alias-node-to-bun
+bun = true
+# Parent-death detection — nested Bun processes exit when parent dies (CI / Herdr panes).
+noOrphans = true
+
+# ── Test ─────────────────────────────────────────────────────────────────
+# Shared test defaults — see src/lib/test-gates.ts and package.json test scripts
+[test]
+preload = ["./test/setup.ts"]
+# Default per-test timeout (overridden by tier runners in test-runtime.ts)
+timeout = 15000
+# Retries handled by tier runners / CI scripts (--retry), not bunfig default
+retry = 0
+# onlyFailures: use `bun test --only-failures` in audit/CI — not bunfig (hurts local TDD)
+# Exclude temp fixtures, vendored trees, and fixture dirs from discovery
+pathIgnorePatterns = [".tmp*/**", "test/.tmp*/**", "**/.tmp-*/**", "vendor/**", "fixtures/**"]
+# *.db.test.ts excluded — DB tests mutate shared state and must run sequentially
+concurrentTestGlob = ["test/*.unit.test.ts", "src/doctor/*.test.ts"]
+coverageSkipTestFiles = true
+coveragePathIgnorePatterns = [
+  "scripts/**",
+  "src/bin/**",
+  "src/lib/version.ts",
+  "src/lib/memory-budget.ts",
+]
+coverageReporter = ["text", "lcov"]
+coverageDir = "./.kimi-artifacts/coverage"
+# Enforced when --coverage is passed (CI uses test:coverage:ci)
+coverageThreshold = { lines = 0.70, functions = 0.85 }
+smol = false
+
+# ── Install ──────────────────────────────────────────────────────────────
 [install]
 optional = true
 dev = true
@@ -19,38 +73,19 @@ globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+# @see https://bun.com/docs/runtime/bunfig#installloglevel
+logLevel = "error"
 
 [install.cache]
 dir = "~/.bun/install/cache"
+disable = false
+disableManifest = false
 
-[run]
-# Parent-death detection — nested Bun processes exit when parent dies (CI / Herdr panes).
-noOrphans = true
+# ── Serve ────────────────────────────────────────────────────────────────
+[serve]
+port = 3000
 
-# Shared test defaults — see src/lib/test-gates.ts and package.json test scripts
-[test]
-preload = ["./test/setup.ts"]
-# Default per-test timeout (overridden by tier runners in test-runtime.ts)
-timeout = 15000
-# Retries handled by tier runners, not bunfig default
-retry = 0
-# Exclude temporary test fixture directories from discovery
-pathIgnorePatterns = [".tmp*/**", "test/.tmp*/**", "**/.tmp-*/**"]
-# *.db.test.ts excluded — DB tests mutate shared state and must run sequentially
-concurrentTestGlob = ["test/*.unit.test.ts", "src/doctor/*.test.ts"]
-coverageSkipTestFiles = true
-coveragePathIgnorePatterns = [
-  "scripts/**",
-  "src/bin/**",
-  "src/lib/version.ts",
-  "src/lib/memory-budget.ts",
-]
-coverageReporter = ["text", "lcov"]
-coverageDir = "./.kimi-artifacts/coverage"
-# Enforced when --coverage is passed (CI uses test:coverage:ci)
-coverageThreshold = { lines = 0.70, functions = 0.85 }
-smol = false
-
+# ── Define (compile-time tuning) ─────────────────────────────────────────
 [define]
 # define-domain:contract-inference
 KIMI_CONTRACT_OBSERVATIONS_PATH = '".kimi/var/contract-observations.ndjson"'

@@ -8,7 +8,7 @@
  *   bun run audit:hardcoded
  */
 
-import { auditHardcodedSecrets } from "../src/doctor/hardcoded-secret-audit.ts";
+import { auditHardcodedSecrets } from "../src/lib/hardcoded-secret-audit.ts";
 
 const args = process.argv.slice(2);
 const JSON_MODE = args.includes("--json");

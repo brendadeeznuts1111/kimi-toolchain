@@ -62,6 +62,7 @@ export const UNIT_TEST_FILES = [
   "test/bun-utils-password.unit.test.ts",
   "test/bun-utils-base64.unit.test.ts",
   "test/bun-utils-gzip.unit.test.ts",
+  "test/compression.unit.test.ts",
   "test/gzip-performance.unit.test.ts",
   "test/bun-utils-hostname.unit.test.ts",
   "test/bun-utils-hex.unit.test.ts",
@@ -282,6 +283,7 @@ export const UNIT_TEST_FILES = [
   "test/artifact-index.unit.test.ts",
   "test/capabilities.unit.test.ts",
   "test/check-changed.unit.test.ts",
+  "test/check-env-drift.unit.test.ts",
   "test/check-lint-scoped.unit.test.ts",
   "test/check-pipeline.unit.test.ts",
   "test/check-result-cache.unit.test.ts",
@@ -415,6 +417,7 @@ export const INTEGRATION_TEST_FILES = [
 /** Smoke tests — full CLI invocations, 15-30s each */
 export const SMOKE_TEST_FILES = [
   "test/smoke/bun-create.smoke.test.ts",
+  "test/smoke/check-env-drift.smoke.test.ts",
   "test/smoke/config-status.smoke.test.ts",
   "test/smoke/dx-table.smoke.test.ts",
   "test/smoke/finish-work-status.smoke.test.ts",

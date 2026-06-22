@@ -160,6 +160,7 @@
     "deep-audit:webview": "bun run src/bin/kimi-deep-audit.ts --webview",
     "check:secrets-registry": "bun run scripts/check-secrets-registry.ts",
     "check:secrets-storage-gate": "bun run scripts/secrets-storage-gate.ts",
+    "check:env-drift": "bun run scripts/check-env-drift.ts",
     "quality:check:ci": "bun run check:lockfile && bun run check:template-policy && bun run check:secret-resolution && bun run check:secrets-registry && bun run check:secrets-storage-gate && oxfmt --check --threads=4 -c .oxfmtrc.json . && oxlint src test scripts && bun run scripts/lint-banned-terms.ts && bun run scripts/lint-patterns.ts && bun run scripts/lint-discovery.ts && bun run references:lint",
     "lint:terms": "bun run scripts/lint-banned-terms.ts",
     "lint:links": "bun run scripts/lint-markdown-links.ts",

@@ -11,7 +11,7 @@
 import { join } from "path";
 import { auditSecretLeaks } from "../src/doctor/secret-audit.ts";
 import { checkSecretIsolation } from "../src/doctor/secret-isolation.ts";
-import { auditHardcodedSecrets } from "../src/doctor/hardcoded-secret-audit.ts";
+import { auditHardcodedSecrets } from "../src/lib/hardcoded-secret-audit.ts";
 import { auditImageAssets } from "../src/lib/image-audit.ts";
 import { auditKimiConfig, type ConfigAuditCheck } from "../src/lib/kimi-config-audit.ts";
 import { homeDir } from "../src/lib/paths.ts";

@@ -124,6 +124,13 @@ export async function buildSteps(
       cmd: ["bun", "run", "scripts/secrets-storage-gate.ts"],
       silentOnSuccess: quiet,
     });
+    if (pathExists(join(projectRoot, "scripts", "check-env-drift.ts"))) {
+      steps.push({
+        name: "check:env-drift",
+        cmd: ["bun", "run", "scripts/check-env-drift.ts"],
+        silentOnSuccess: quiet,
+      });
+    }
   }
 
   if (options.fast && (await isKimiToolchainRepo(projectRoot))) {
