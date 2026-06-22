@@ -213,13 +213,21 @@ export interface InspectTableOptions {
 
 /**
  * Wrapper around Bun.inspect.table with TTY-aware colors.
- * Uses the official API: properties (column selection) as 2nd arg, options as 3rd.
+ * Supports two calling conventions:
+ *   inspectTable(data, { columns, colors })  — options object
+ *   inspectTable(data, ["col1"], { colors }) — columns + options
  */
-export function inspectTable(data: Record<string, unknown>[], options: InspectTableOptions = {}): string {
+export function inspectTable(
+  data: Record<string, unknown>[],
+  columnsOrOptions?: string[] | InspectTableOptions,
+  options?: InspectTableOptions
+): string {
   if (data.length === 0) return "";
-  const colors = options.colors ?? useColor();
-  if (options.columns) {
-    return Bun.inspect.table(data, options.columns, { colors });
+  const columns = Array.isArray(columnsOrOptions) ? columnsOrOptions : undefined;
+  const opts = Array.isArray(columnsOrOptions) ? (options ?? {}) : (columnsOrOptions ?? {});
+  const colors = opts.colors ?? useColor();
+  if (columns) {
+    return Bun.inspect.table(data, columns, { colors });
   }
   return Bun.inspect.table(data, { colors });
 }

@@ -45,6 +45,7 @@ export interface InspectPresetOptions {
   sorted?: boolean;
   maxArrayLength?: number;
   showHidden?: boolean;
+  breakLength?: number;
 }
 
 export interface ConfigureInspectOptions extends InspectPresetOptions {
@@ -129,6 +130,7 @@ function inspectPresetConfig(
       sorted: true,
       maxArrayLength: Infinity,
       showHidden: true,
+      breakLength: Infinity,
     };
   }
   if (preset === "production" || (preset === "auto" && production)) {
@@ -139,6 +141,7 @@ function inspectPresetConfig(
       sorted: false,
       maxArrayLength: 30,
       showHidden: false,
+      breakLength: 80,
     };
   }
   if (preset === "compact") {
@@ -149,6 +152,7 @@ function inspectPresetConfig(
       sorted: false,
       maxArrayLength: 50,
       showHidden: false,
+      breakLength: 60,
     };
   }
   if (preset === "development" || isTTY) {
@@ -159,6 +163,7 @@ function inspectPresetConfig(
       sorted: true,
       maxArrayLength: Infinity,
       showHidden: false,
+      breakLength: 120,
     };
   }
   return {
@@ -168,6 +173,7 @@ function inspectPresetConfig(
     sorted: true,
     maxArrayLength: 100,
     showHidden: false,
+    breakLength: 80,
   };
 }
 
@@ -201,6 +207,7 @@ export function configureInspect(
     sorted: config.sorted,
     maxArrayLength: config.maxArrayLength,
     showHidden: config.showHidden,
+    breakLength: config.breakLength,
   });
 
   return { preset: effectivePreset, forcedDebug, ...config };

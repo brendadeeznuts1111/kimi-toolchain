@@ -23,6 +23,7 @@
  */
 
 import { Glob } from "bun";
+import { inspectTable } from "../src/lib/cli-format.ts";
 
 // ─── CLI arg parsing ──────────────────────────────────────────────────────────
 
@@ -433,7 +434,7 @@ async function main() {
       Fixed: types.join(", "),
     }));
 
-    console.log(Bun.inspect.table(fixTableData, { colors: useColor() }));
+    console.log(inspectTable(fixTableData, { colors: useColor() }));
     console.log();
   }
 
@@ -489,7 +490,7 @@ async function main() {
     };
   });
 
-  console.log(Bun.inspect.table(issueTypeData, { colors: useColor() }));
+  console.log(inspectTable(issueTypeData, { colors: useColor() }));
   console.log();
 
   // ─── Per-category summary table ─────────────────────────────────────────────
@@ -509,7 +510,7 @@ async function main() {
     };
   });
 
-  console.log(Bun.inspect.table(catTableData, { colors: useColor() }));
+  console.log(inspectTable(catTableData, { colors: useColor() }));
   console.log();
 
   // ─── Overall summary table ──────────────────────────────────────────────────
@@ -525,7 +526,7 @@ async function main() {
     ...(totalFixed > 0 ? [{ Metric: "Auto-fixed", Value: totalFixed }] : []),
   ];
 
-  console.log(Bun.inspect.table(summaryData, { colors: useColor() }));
+  console.log(inspectTable(summaryData, { colors: useColor() }));
   console.log();
 
   // ─── Files needing attention table ──────────────────────────────────────────
@@ -556,7 +557,7 @@ async function main() {
         Warnings: f.warnings,
       }));
 
-    console.log(Bun.inspect.table(attentionData, { colors: useColor() }));
+    console.log(inspectTable(attentionData, { colors: useColor() }));
 
     const remaining = Object.keys(filesWithErrors).length - 20;
     if (remaining > 0) {
