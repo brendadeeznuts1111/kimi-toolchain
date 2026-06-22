@@ -38,6 +38,27 @@ jobs:
       - name: references:lint-online
         run: bun run references:lint-online --json
 
+  quality-gate:
+    name: Format, lint, docs, secrets registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - name: Format check
+        run: bun run format:check:ci
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Docs check
+        run: bun run docs:check
+
+      - name: Secrets registry check
+        run: bun run check:secrets-registry
+
   effect-pipeline:
     name: Effect fail-fast pipeline
     runs-on: ubuntu-latest
