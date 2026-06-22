@@ -13,15 +13,16 @@ import { homeDir } from "./paths.ts";
 import { parsePolicyConfig } from "./cloudflare-access-policy.ts";
 import { Effect, Exit } from "effect";
 import { SecretsManager, type SecretsManagerOptions } from "./secrets-manager.ts";
+import { SecretKeys } from "./secrets-constants.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
 const API_BASE = "https://api.cloudflare.com/client/v4";
 const DEFAULT_WARN_DAYS = 30;
 
-export const CREDENTIAL_SERVICE = "kimi-toolchain";
-const ACCOUNT_SECRET = "cloudflare-account-id";
-const TOKEN_SECRET = "cloudflare-api-token";
+export const CREDENTIAL_SERVICE = SecretKeys.CLOUDFLARE_ACCOUNT_ID.service;
+const ACCOUNT_SECRET = SecretKeys.CLOUDFLARE_ACCOUNT_ID.name;
+const TOKEN_SECRET = SecretKeys.CLOUDFLARE_API_TOKEN.name;
 
 // ── Types ────────────────────────────────────────────────────────────
 

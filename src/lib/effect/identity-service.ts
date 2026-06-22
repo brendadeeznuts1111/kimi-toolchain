@@ -40,11 +40,13 @@ import type {
   SessionConfig,
 } from "../identity-types.ts";
 
+import { SecretKeys, Consumers } from "../secrets-constants.ts";
+
 // ── JWT Secret Key ───────────────────────────────────────────────────
 
-const JWT_SECRET_KEY = { service: "com.herdr.dashboard", name: "jwt-secret" } as const;
-const CSRF_SECRET_KEY = { service: "com.herdr.dashboard", name: "csrf-secret" } as const;
-const IDENTITY_SERVICE_CONSUMER = "identity-service" as const;
+const JWT_SECRET_KEY = SecretKeys.JWT_SECRET;
+const CSRF_SECRET_KEY = SecretKeys.CSRF_SECRET;
+const IDENTITY_SERVICE_CONSUMER = Consumers.IDENTITY_SERVICE;
 
 // ── Service Interface ────────────────────────────────────────────────
 

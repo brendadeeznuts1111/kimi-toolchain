@@ -171,7 +171,9 @@ async function runScaffold(args: string[]): Promise<number> {
 
   const desktopFix = join(toolsDir(), "kimi-fix.ts");
   const fixScript = pathExists(desktopFix) ? desktopFix : join(import.meta.dir, "kimi-fix.ts");
-  const proc = Bun.spawn(["bun", "run", fixScript, projectDir], {
+  const fixArgs = [fixScript, projectDir];
+  if (noInstall) fixArgs.push("--no-install");
+  const proc = Bun.spawn(["bun", "run", ...fixArgs], {
     cwd: parent,
     stdout: "pipe",
     stderr: "pipe",
@@ -186,6 +188,10 @@ async function runScaffold(args: string[]): Promise<number> {
 
   if (exitCode !== 0) {
     logger.warn(`kimi-fix exited ${exitCode} — review output above`);
+  }
+
+  if (open) {
+    Bun.openInEditor(projectDir);
   }
 
   logger.section("Next Steps");

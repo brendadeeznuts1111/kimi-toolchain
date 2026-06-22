@@ -8,6 +8,7 @@
 
 import { peek, password } from "bun";
 import { hostname as osHostname } from "os";
+import { SecretKeys } from "./secrets-constants.ts";
 
 /** Monotonic UUID v7 — prefer for session/db ids (see Bun.randomUUIDv7). */
 export { randomUUIDv7 } from "bun";
@@ -453,12 +454,12 @@ export async function resolveGithubEnv(): Promise<{
   const token =
     process.env.GITHUB_TOKEN ??
     process.env.GITHUB_ACCESS_TOKEN ??
-    (await Bun.secrets.get({ service: "com.herdr.cli", name: "github-token" })) ??
+    (await Bun.secrets.get(SecretKeys.GITHUB_TOKEN)) ??
     null;
 
   const apiDomain =
     process.env.GITHUB_API_DOMAIN ??
-    (await Bun.secrets.get({ service: "com.herdr.cli", name: "github-api-domain" })) ??
+    (await Bun.secrets.get(SecretKeys.GITHUB_API_DOMAIN)) ??
     null;
 
   if (token && !process.env.GITHUB_TOKEN) {

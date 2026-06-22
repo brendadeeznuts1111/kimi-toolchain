@@ -141,7 +141,7 @@ async function runDoctor(projectDir: string): Promise<number> {
   return 0;
 }
 
-async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile): Promise<void> {
+async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile, noInstall = false): Promise<void> {
   logger.section(`Fixing ${basename(project)}`);
   logger.info(`Path: ${project}`);
   logger.info(`Profile: ${profile}`);
@@ -164,12 +164,15 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
     stepLog("git", "repo already exists");
   }
 
-  await Promise.all([
+  const delegates: Promise<void>[] = [
     delegateTool("kimi-governance", ["fix"], project, dryRun),
     delegateTool("kimi-context-gen", ["update"], project, dryRun),
     delegateTool("kimi-guardian", ["fix"], project, dryRun),
-    delegateTool("kimi-githooks", ["install"], project, dryRun),
-  ]);
+  ];
+  if (!noInstall) {
+    delegates.push(delegateTool("kimi-githooks", ["install"], project, dryRun));
+  }
+  await Promise.all(delegates);
 
   const readmePath = join(project, "README.md");
   if (!pathExists(readmePath)) {
@@ -345,8 +348,8 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
 
 function printHelp() {
   logger.line("Usage:");
-  logger.line("  kimi-fix <project-path> [--dry-run] [--profile app|toolchain]");
-  logger.line("  kimi-fix fix <project-path> [--dry-run] [--profile app|toolchain]");
+  logger.line("  kimi-fix <project-path> [--dry-run] [--no-install] [--profile app|toolchain]");
+  logger.line("  kimi-fix fix <project-path> [--dry-run] [--no-install] [--profile app|toolchain]");
   logger.line("  kimi-fix doctor [project-path]");
   logger.line("");
   logger.line("Fixes missing project scaffolding:");
@@ -363,8 +366,9 @@ async function main(): Promise<number> {
 
   const rawArgs = Bun.argv.slice(2);
   const profile = resolveScaffoldProfile(rawArgs);
-  const args = filterScaffoldArgv(rawArgs.filter((a) => a !== "--dry-run"));
+  const args = filterScaffoldArgv(rawArgs.filter((a) => a !== "--dry-run" && a !== "--no-install"));
   const dryRun = rawArgs.includes("--dry-run");
+  const noInstall = rawArgs.includes("--no-install");
 
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     printHelp();
@@ -394,7 +398,7 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  await runFix(project, dryRun, profile);
+  await runFix(project, dryRun, profile, noInstall);
   return 0;
 }
 
