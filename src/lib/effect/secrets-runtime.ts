@@ -7,11 +7,7 @@
 
 import { Effect, Either } from "effect";
 import { SecretsManager } from "../secrets-manager.ts";
-import type {
-  AnySecretKey,
-  SecretCheckResult,
-  SecretListResult,
-} from "../secrets-types.ts";
+import type { AnySecretKey, SecretCheckResult, SecretListResult } from "../secrets-types.ts";
 import type { SecretNotFound, SecretPolicyViolation, SecretRotationRequired } from "./errors.ts";
 
 export function runSecretsList(manager: SecretsManager): Promise<SecretListResult[]> {
@@ -28,6 +24,8 @@ export function runSecretsRotate(
   manager: SecretsManager,
   key: AnySecretKey,
   newValue?: string
-): Promise<Either.Either<{ version: number; lastRotated: string }, SecretNotFound | SecretPolicyViolation>> {
+): Promise<
+  Either.Either<{ version: number; lastRotated: string }, SecretNotFound | SecretPolicyViolation>
+> {
   return Effect.runPromise(Effect.either(manager.rotate(key, newValue)));
 }

@@ -209,7 +209,7 @@ const sessionProgram = Effect.gen(function* () {
 Run the standalone example:
 
 ```bash
-bun run src/lib/identity-usage-example.ts
+bun run examples/identity-usage-example.ts
 # Identity example server running on http://localhost:3000
 ```
 

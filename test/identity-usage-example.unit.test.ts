@@ -2,7 +2,7 @@ import { describe, expect, test, beforeAll, afterAll } from "bun:test";
 import { Effect } from "effect";
 import { Identity, IdentityTest } from "../src/lib/effect/identity-service.ts";
 import type { IdentityService } from "../src/lib/effect/identity-service.ts";
-import { createIdentityServer } from "../src/lib/identity-usage-example.ts";
+import { createIdentityServer } from "../examples/identity-usage-example.ts";
 
 const TEST_JWT_SECRET = "test-jwt-secret";
 const TEST_CSRF_SECRET = "test-csrf-secret";

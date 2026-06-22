@@ -41,7 +41,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "secrets-metadata": "src/lib/secrets-constants.ts",
   "secrets-audit": "src/lib/secrets-audit.ts",
   "secrets-policy": "src/lib/secrets-policy.ts",
-  "identity-usage-example": "src/lib/identity-usage-example.ts",
+  "identity-usage-example": "examples/identity-usage-example.ts",
   "kimi-identity": "src/bin/kimi-identity.ts",
   "kimi-mcp": "src/bin/kimi-mcp.ts",
   "kimi-docs-aligned": "src/lib/kimi-docs-aligned.ts",

@@ -9,8 +9,8 @@
  */
 
 import { Effect, Either, Exit } from "effect";
-import { Identity, IdentityTest } from "./effect/identity-service.ts";
-import type { IdentityService } from "./effect/identity-service.ts";
+import { Identity, IdentityTest } from "../src/lib/effect/identity-service.ts";
+import type { IdentityService } from "../src/lib/effect/identity-service.ts";
 
 // ── Types ────────────────────────────────────────────────────────────
 

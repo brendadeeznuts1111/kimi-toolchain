@@ -34,10 +34,7 @@ export async function buildSecretsApiResponse(projectRoot: string): Promise<Secr
     onWarn: () => {},
   });
 
-  const [storage, listed] = await Promise.all([
-    manager.storageStatus(),
-    runSecretsList(manager),
-  ]);
+  const [storage, listed] = await Promise.all([manager.storageStatus(), runSecretsList(manager)]);
 
   return {
     available,

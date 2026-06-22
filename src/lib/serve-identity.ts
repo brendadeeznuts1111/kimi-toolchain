@@ -56,7 +56,9 @@ export function createDashboardSecretsBackend(): SecretsBackend {
   };
 }
 
-export function dashboardIdentityLayer(projectRoot: string): Layer.Layer<import("./effect/identity-service.ts").Identity> {
+export function dashboardIdentityLayer(
+  projectRoot: string
+): Layer.Layer<import("./effect/identity-service.ts").Identity> {
   const secretsLayer = SecretsTest(createDashboardSecretsBackend(), { projectRoot });
   return Layer.provide(IdentityLive, secretsLayer);
 }
