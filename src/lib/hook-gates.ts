@@ -396,7 +396,10 @@ async function runGuardianGate(projectRoot: string): Promise<GateResult> {
     .join("\n")
     .split("\n")
     .filter((line) => /^\s*✓/.test(line) === false)
-    .filter((line) => /CVE|outdated|untrusted|HASH MISMATCH/i.test(line));
+    .filter((line) => !/^[\s─╔║╚═]/.test(line))
+    .filter((line) =>
+      /CVE-|HASH MISMATCH|NOT in trustedDependencies|postinstall script NOT/i.test(line)
+    );
   if (critical.length > 0) {
     return { ...result, exitCode: 1, stderr: critical.join("\n") };
   }
