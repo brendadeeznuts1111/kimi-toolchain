@@ -436,6 +436,37 @@ export function runtimeHostname(): string {
 
 // ── GitHub env resolution from Bun.secrets ───────────────────────────
 
+/** Log secret resolution source when KIMI_DEBUG_SECRETS=1. Never logs values. */
+function debugSecretSource(envVar: string, source: "env" | "keychain" | "missing"): void {
+  if (process.env.KIMI_DEBUG_SECRETS === "1" || process.env.KIMI_DEBUG_SECRETS === "true") {
+    const icon = source === "env" ? "📋" : source === "keychain" ? "🔑" : "❌";
+    console.error(`  ${icon} ${envVar} ← ${source}`);
+  }
+}
+
+/** Resolve a single secret: env first, then Bun.secrets, returning value and source. */
+async function resolveSecret(
+  envVar: string,
+  secretKey: { service: string; name: string },
+  altEnvVar?: string,
+): Promise<{ value: string | null; source: "env" | "keychain" | "missing" }> {
+  if (process.env[envVar]) {
+    debugSecretSource(envVar, "env");
+    return { value: process.env[envVar]!, source: "env" };
+  }
+  if (altEnvVar && process.env[altEnvVar]) {
+    debugSecretSource(envVar, "env");
+    return { value: process.env[altEnvVar]!, source: "env" };
+  }
+  const fromKeychain = await Bun.secrets.get(secretKey);
+  if (fromKeychain) {
+    debugSecretSource(envVar, "keychain");
+    return { value: fromKeychain, source: "keychain" };
+  }
+  debugSecretSource(envVar, "missing");
+  return { value: null, source: "missing" };
+}
+
 /**
  * Resolve `GITHUB_TOKEN` (and optional `GITHUB_API_DOMAIN`) from `Bun.secrets`
  * and populate `process.env` so that `bun create` and other GitHub API calls
@@ -451,25 +482,17 @@ export async function resolveGithubEnv(): Promise<{
   token: string | null;
   apiDomain: string | null;
 }> {
-  const token =
-    process.env.GITHUB_TOKEN ??
-    process.env.GITHUB_ACCESS_TOKEN ??
-    (await Bun.secrets.get(SecretKeys.GITHUB_TOKEN)) ??
-    null;
+  const tokenResult = await resolveSecret("GITHUB_TOKEN", SecretKeys.GITHUB_TOKEN, "GITHUB_ACCESS_TOKEN");
+  const apiDomainResult = await resolveSecret("GITHUB_API_DOMAIN", SecretKeys.GITHUB_API_DOMAIN);
 
-  const apiDomain =
-    process.env.GITHUB_API_DOMAIN ??
-    (await Bun.secrets.get(SecretKeys.GITHUB_API_DOMAIN)) ??
-    null;
-
-  if (token && !process.env.GITHUB_TOKEN) {
-    process.env.GITHUB_TOKEN = token;
+  if (tokenResult.value && !process.env.GITHUB_TOKEN) {
+    process.env.GITHUB_TOKEN = tokenResult.value;
   }
-  if (apiDomain && !process.env.GITHUB_API_DOMAIN) {
-    process.env.GITHUB_API_DOMAIN = apiDomain;
+  if (apiDomainResult.value && !process.env.GITHUB_API_DOMAIN) {
+    process.env.GITHUB_API_DOMAIN = apiDomainResult.value;
   }
 
-  return { token, apiDomain };
+  return { token: tokenResult.value, apiDomain: apiDomainResult.value };
 }
 
 /**
@@ -485,18 +508,14 @@ export async function resolveGithubEnv(): Promise<{
 export async function resolveNpmEnv(): Promise<{
   token: string | null;
 }> {
-  const token =
-    process.env.NPM_TOKEN ??
-    process.env.NPM_CONFIG_TOKEN ??
-    (await Bun.secrets.get(SecretKeys.NPM_TOKEN)) ??
-    null;
+  const tokenResult = await resolveSecret("NPM_TOKEN", SecretKeys.NPM_TOKEN, "NPM_CONFIG_TOKEN");
 
-  if (token) {
-    if (!process.env.NPM_TOKEN) process.env.NPM_TOKEN = token;
-    if (!process.env.NPM_CONFIG_TOKEN) process.env.NPM_CONFIG_TOKEN = token;
+  if (tokenResult.value) {
+    if (!process.env.NPM_TOKEN) process.env.NPM_TOKEN = tokenResult.value;
+    if (!process.env.NPM_CONFIG_TOKEN) process.env.NPM_CONFIG_TOKEN = tokenResult.value;
   }
 
-  return { token };
+  return { token: tokenResult.value };
 }
 
 /**
@@ -507,47 +526,35 @@ export async function resolveR2Env(): Promise<{
   accessKeyId: string | null;
   secretAccessKey: string | null;
 }> {
-  const accessKeyId =
-    process.env.R2_ACCESS_KEY_ID ??
-    (await Bun.secrets.get(SecretKeys.R2_ACCESS_KEY_ID)) ??
-    null;
-  const secretAccessKey =
-    process.env.R2_SECRET_ACCESS_KEY ??
-    (await Bun.secrets.get(SecretKeys.R2_SECRET_ACCESS_KEY)) ??
-    null;
+  const accessResult = await resolveSecret("R2_ACCESS_KEY_ID", SecretKeys.R2_ACCESS_KEY_ID);
+  const secretResult = await resolveSecret("R2_SECRET_ACCESS_KEY", SecretKeys.R2_SECRET_ACCESS_KEY);
 
-  if (accessKeyId && !process.env.R2_ACCESS_KEY_ID) process.env.R2_ACCESS_KEY_ID = accessKeyId;
-  if (secretAccessKey && !process.env.R2_SECRET_ACCESS_KEY) process.env.R2_SECRET_ACCESS_KEY = secretAccessKey;
+  if (accessResult.value && !process.env.R2_ACCESS_KEY_ID) process.env.R2_ACCESS_KEY_ID = accessResult.value;
+  if (secretResult.value && !process.env.R2_SECRET_ACCESS_KEY) process.env.R2_SECRET_ACCESS_KEY = secretResult.value;
 
-  return { accessKeyId, secretAccessKey };
+  return { accessKeyId: accessResult.value, secretAccessKey: secretResult.value };
 }
 
 /**
  * Resolve Discord webhook URL from `Bun.secrets` into `process.env`.
  */
 export async function resolveDiscordEnv(): Promise<{ webhookUrl: string | null }> {
-  const webhookUrl =
-    process.env.DISCORD_WEBHOOK_URL ??
-    (await Bun.secrets.get(SecretKeys.DISCORD_WEBHOOK_URL)) ??
-    null;
+  const result = await resolveSecret("DISCORD_WEBHOOK_URL", SecretKeys.DISCORD_WEBHOOK_URL);
 
-  if (webhookUrl && !process.env.DISCORD_WEBHOOK_URL) process.env.DISCORD_WEBHOOK_URL = webhookUrl;
+  if (result.value && !process.env.DISCORD_WEBHOOK_URL) process.env.DISCORD_WEBHOOK_URL = result.value;
 
-  return { webhookUrl };
+  return { webhookUrl: result.value };
 }
 
 /**
  * Resolve Telegram bot token from `Bun.secrets` into `process.env`.
  */
 export async function resolveTelegramEnv(): Promise<{ botToken: string | null }> {
-  const botToken =
-    process.env.TELEGRAM_BOT_TOKEN ??
-    (await Bun.secrets.get(SecretKeys.TELEGRAM_BOT_TOKEN)) ??
-    null;
+  const result = await resolveSecret("TELEGRAM_BOT_TOKEN", SecretKeys.TELEGRAM_BOT_TOKEN);
 
-  if (botToken && !process.env.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = botToken;
+  if (result.value && !process.env.TELEGRAM_BOT_TOKEN) process.env.TELEGRAM_BOT_TOKEN = result.value;
 
-  return { botToken };
+  return { botToken: result.value };
 }
 
 /**

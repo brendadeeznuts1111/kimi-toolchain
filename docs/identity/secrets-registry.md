@@ -61,6 +61,8 @@ each tool reimplementing keychain lookups.
 3. **`--no-secrets` flag** — `kimi-new` supports `--no-secrets` to skip resolution when CI already sets env vars.
 4. **`--secrets-dry-run` flag** — `kimi-new --secrets-dry-run` resolves all secrets and prints status (✅/❌) without scaffolding.
 5. **Never log resolved values** — the helpers return the resolved values for convenience, but they should not be printed.
+6. **Debug logging** — set `KIMI_DEBUG_SECRETS=1` to see which env vars were resolved from env vs keychain vs missing (no values logged).
+7. **`resolveSecrets` option** — `runCliExit()` accepts `{ resolveSecrets: true }` to automatically resolve dev secrets before the CLI program runs. New CLIs that spawn should use this instead of manual `await resolveDevSecrets()`.
 
 ### CLIs that call `resolveDevSecrets()`
 

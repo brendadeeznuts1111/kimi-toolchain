@@ -15,6 +15,8 @@ export interface RunCliOptions {
   argv?: string[];
   /** Logger instance to use for errors and telemetry flush (must match module logger). */
   logger?: Logger;
+  /** Resolve dev secrets from Bun.secrets into process.env before running. Default: false. */
+  resolveSecrets?: boolean;
 }
 
 function resolveLogger(options: RunCliOptions): Logger {
@@ -85,6 +87,11 @@ export async function runCliExit(
   const logger = resolveLogger(options);
   const trace = ensureProcessTrace();
   const started = Date.now();
+
+  if (options.resolveSecrets) {
+    const { resolveDevSecrets } = await import("../bun-utils.ts");
+    await resolveDevSecrets();
+  }
 
   const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
 
