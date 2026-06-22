@@ -210,6 +210,8 @@
     "runtime:deep": "bun run scripts/runtime-info.ts -- --workspace --editor --coverage --probe-mcp",
     "cleanup-legacy": "bash scripts/cleanup-legacy-workspace.sh",
     "cleanup:artifacts": "bun run scripts/cleanup-artifacts.ts",
+    "cleanup:root": "bun run scripts/cleanup-root-bloat.ts",
+    "cleanup:root:dry-run": "bun run scripts/cleanup-root-bloat.ts --dry-run",
     "install-wrappers": "bash scripts/install-bin-wrappers.sh",
     "memory-check": "bash scripts/memory-check.sh",
     "bench": "bun run bench/core.bench.ts",

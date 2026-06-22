@@ -212,8 +212,8 @@ export const STREAM_READ_REGISTRY: TochangeRegistryEntry[] = [
     file: "scripts/cleanup-root-bloat.ts",
     tier: "tier2",
     status: "implemented",
-    summary: "cleanup-root-bloat uses bun-io listDir/pathStat/removePath",
-    probe: 'from "../src/lib/bun-io.ts"',
+    summary: "cleanup-root-bloat delegates I/O to root-hygiene (bun-io under the hood)",
+    probe: 'from "../src/lib/root-hygiene.ts"',
   },
 ];
 

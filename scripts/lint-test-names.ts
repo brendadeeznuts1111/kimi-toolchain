@@ -43,6 +43,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "secrets-policy": "src/lib/secrets-policy.ts",
   "identity-usage-example": "src/lib/identity-usage-example.ts",
   "kimi-identity": "src/bin/kimi-identity.ts",
+  "kimi-mcp": "src/bin/kimi-mcp.ts",
   "kimi-docs-aligned": "src/lib/kimi-docs-aligned.ts",
   "cloudflare-access-dashboard": "src/lib/cloudflare-access.ts",
   "scaffold-agents": "src/lib/scaffold-agents.ts",

@@ -3,6 +3,7 @@
  * kimi-toolchain — Meta-binary router for all toolchain tools.
  * Usage: kimi-toolchain <tool> [args...]
  *        kimi-toolchain workspace verify|audit|fix|cleanup
+ *        kimi-toolchain cleanup root [--dry-run] [--json]
  */
 
 import { Effect } from "effect";
@@ -74,6 +75,21 @@ async function main(): Promise<number> {
 
   const tool = args[0];
   const rest = args.slice(1);
+
+  if (tool === "cleanup") {
+    const sub = rest[0];
+    if (!sub || sub === "--help" || sub === "-h") {
+      logger.line("Usage: kimi-toolchain cleanup root [--dry-run] [--json]");
+      logger.line("       bun run cleanup:root:dry-run");
+      return sub ? 0 : 1;
+    }
+    if (sub === "root") {
+      const script = join(REPO_BIN, "..", "..", "scripts", "cleanup-root-bloat.ts");
+      return spawnTool(script, rest.slice(1));
+    }
+    logger.error(`Unknown cleanup command: ${sub}`);
+    return 1;
+  }
 
   if (tool === DIRECT_BIN) {
     const script =

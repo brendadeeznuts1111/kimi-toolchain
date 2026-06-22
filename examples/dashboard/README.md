@@ -27,10 +27,10 @@ cd examples/dashboard && bun run src/index.ts
 
 <!-- dashboard-route-inventory:AUTO -->
 
-**Endpoint count:** **139** routes on the examples dashboard (`examples/dashboard/src/index.ts` + `handlers/artifacts.ts`).
+**Endpoint count:** **140** routes on the examples dashboard (`examples/dashboard/src/index.ts` + `handlers/artifacts.ts`).
 
 - **3** page/health routes (`/`, `/health`, `/api/health`)
-- **116** static dispatch API paths (`handlers/routes.ts`, shell assets + `/dashboard-loaders/*.js` lazy lanes)
+- **117** static dispatch API paths (`handlers/routes.ts`, shell assets + `/dashboard-loaders/*.js` lazy lanes)
 - **4** index.serve routes (`index.ts` `routes` cookie mutations + `/api/ws` fetch probe)
 - **16** artifact/run routes (`handlers/artifacts.ts` + URLPattern; not duplicated in route table)
 <!-- /dashboard-route-inventory:AUTO -->

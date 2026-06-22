@@ -1,64 +1,51 @@
 #!/usr/bin/env bun
 /**
- * Purge gitignored root clutter: test temp dirs, backup files, accidental paths.
- * Safe to run anytime — only removes known artifact patterns at repo root.
+ * cleanup:root — Purge gitignored root clutter (literal ~/, profiles, cpuprofiles).
+ *
+ * Usage:
+ *   bun run cleanup:root
+ *   bun run cleanup:root:dry-run
+ *   bun run cleanup:root -- --json
+ *   kimi-toolchain cleanup root [--dry-run] [--json]
  */
 
-import { join } from "path";
-import { listDir, pathExists, pathStat, removePath } from "../src/lib/bun-io.ts";
+import { join, resolve } from "path";
+import {
+  applyRootHygieneCleanup,
+  auditRootHygiene,
+  type RootHygieneReport,
+} from "../src/lib/root-hygiene.ts";
+import { resolveEffectiveWorkspaceRoot } from "../src/lib/workspace-health.ts";
 
-const REPO_ROOT = join(import.meta.dir, "..");
-const args = Bun.argv.slice(2);
-const dryRun = args.includes("--dry-run") || args.includes("--dryrun");
-const json = args.includes("--json");
+function parseArgs(argv: string[]): {
+  dryRun: boolean;
+  json: boolean;
+  help: boolean;
+  root?: string;
+} {
+  let dryRun = false;
+  let json = false;
+  let help = false;
+  let root: string | undefined;
 
-interface CleanupItem {
-  path: string;
-  kind: "tmpdir" | "backup" | "accidental" | "empty";
-  bytes: number;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    if (arg === "--help" || arg === "-h") help = true;
+    else if (arg === "--dry-run" || arg === "--dryrun") dryRun = true;
+    else if (arg === "--json") json = true;
+    else if (arg === "--root") root = argv[++i];
+    else if (arg.startsWith("--root=")) root = arg.slice("--root=".length);
+    else throw new Error(`Unknown option: ${arg}`);
+  }
+
+  return { dryRun, json, help, root };
 }
 
-function dirSize(path: string): number {
-  let total = 0;
-  try {
-    for (const entry of listDir(path, { withFileTypes: true })) {
-      const full = join(path, entry.name);
-      if (entry.isDirectory()) total += dirSize(full);
-      else if (entry.isFile()) total += pathStat(full).size;
-    }
-  } catch {
-    /* skip unreadable subtrees */
-  }
-  return total;
-}
-
-function collectItems(): CleanupItem[] {
-  const items: CleanupItem[] = [];
-
-  for (const name of listDir(REPO_ROOT)) {
-    const full = join(REPO_ROOT, name);
-
-    if (name.startsWith(".tmp-")) {
-      items.push({ path: full, kind: "tmpdir", bytes: dirSize(full) });
-      continue;
-    }
-
-    if (name === "~") {
-      items.push({ path: full, kind: "accidental", bytes: dirSize(full) });
-      continue;
-    }
-
-    if (name.endsWith(".bak") && pathStat(full).isFile()) {
-      items.push({ path: full, kind: "backup", bytes: pathStat(full).size });
-    }
-  }
-
-  const dxDir = join(REPO_ROOT, "dx");
-  if (pathExists(dxDir) && pathStat(dxDir).isDirectory() && listDir(dxDir).length === 0) {
-    items.push({ path: dxDir, kind: "empty", bytes: 0 });
-  }
-
-  return items;
+function resolveProjectRoot(explicit?: string): string {
+  if (explicit) return resolve(explicit);
+  if (Bun.env.KIMI_PROJECT_ROOT) return resolve(Bun.env.KIMI_PROJECT_ROOT);
+  const { root } = resolveEffectiveWorkspaceRoot(join(import.meta.dir, ".."));
+  return root;
 }
 
 function formatBytes(n: number): string {
@@ -68,42 +55,99 @@ function formatBytes(n: number): string {
   return `${n} B`;
 }
 
-const items = collectItems();
-const totalBytes = items.reduce((sum, i) => sum + i.bytes, 0);
+function printHelp(): void {
+  console.log(`cleanup:root — remove gitignored artifacts at repo root
 
-if (json) {
+Usage:
+  bun run cleanup:root
+  bun run cleanup:root:dry-run
+  kimi-toolchain cleanup root [--dry-run] [--json] [--root <path>]
+
+Removes only known clutter at project root:
+  ~/              literal tilde dir (Bun cache misconfig)
+  profiles/       legacy profile output
+  *.cpuprofile    CPU profiles left in cwd
+  .tmp-*/         test temp dirs
+  *.bak           backup files at root
+  dx/             empty stub directory
+
+Does not touch src/, test/, or tracked source files.
+
+Fix recurring pollution:
+  unset BUN_INSTALL_CACHE_DIR
+  # or: export BUN_INSTALL_CACHE_DIR="$HOME/.bun/install/cache"
+  # omit [install.cache].dir from bunfig.toml (Bun default is correct)`);
+}
+
+function renderText(report: RootHygieneReport): void {
+  if (report.items.length === 0 && report.misconfig.length === 0) {
+    console.log("Root is clean — no bloat artifacts found.");
+    return;
+  }
+
+  if (report.misconfig.length > 0) {
+    console.log("Cache misconfig (fix to prevent recurrence):");
+    for (const hint of report.misconfig) {
+      console.log(`  • ${hint}`);
+    }
+    console.log("");
+  }
+
+  if (report.items.length === 0) {
+    console.log("No removable root artifacts (misconfig may still apply).");
+    return;
+  }
+
   console.log(
-    JSON.stringify(
-      {
-        schemaVersion: 1,
-        tool: "cleanup-root-bloat",
-        dryRun,
-        count: items.length,
-        totalBytes,
-        items: items.map((i) => ({ ...i, path: i.path.slice(REPO_ROOT.length + 1) })),
-      },
-      null,
-      2
-    )
+    report.dryRun
+      ? `Would remove ${report.items.length} item(s), ${report.totalFiles} file(s) (${formatBytes(report.totalBytes)}):`
+      : `Removing ${report.items.length} item(s), ${report.totalFiles} file(s) (${formatBytes(report.totalBytes)}):`
   );
-} else if (items.length === 0) {
-  console.log("Root is clean — no bloat artifacts found.");
-} else {
-  console.log(
-    dryRun
-      ? `Would remove ${items.length} item(s) (${formatBytes(totalBytes)}):`
-      : `Removing ${items.length} item(s) (${formatBytes(totalBytes)}):`
-  );
-  for (const item of items) {
-    const rel = item.path.slice(REPO_ROOT.length + 1);
-    console.log(`  ${item.kind.padEnd(10)} ${rel} (${formatBytes(item.bytes)})`);
+  for (const item of report.items) {
+    console.log(
+      `  ${item.kind.padEnd(18)} ${item.relPath} — ${item.fileCount} file(s), ${formatBytes(item.bytes)}`
+    );
+    console.log(`    ${item.cause}`);
   }
 }
 
-if (!dryRun) {
-  for (const item of items) {
-    removePath(item.path, { recursive: true, force: true });
+async function main(): Promise<number> {
+  const { dryRun, json, help, root } = parseArgs(Bun.argv.slice(2));
+  if (help) {
+    printHelp();
+    return 0;
   }
+
+  const projectRoot = resolveProjectRoot(root);
+  const report = await auditRootHygiene(projectRoot, { dryRun });
+  applyRootHygieneCleanup(report);
+
+  if (json) {
+    console.log(
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          tool: "cleanup:root",
+          projectRoot: report.projectRoot,
+          dryRun: report.dryRun,
+          count: report.items.length,
+          totalFiles: report.totalFiles,
+          totalBytes: report.totalBytes,
+          misconfig: report.misconfig,
+          items: report.items,
+        },
+        null,
+        2
+      )
+    );
+  } else {
+    renderText(report);
+  }
+
+  return 0;
 }
 
-process.exit(0);
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});

@@ -123,6 +123,7 @@ export function formatToolHelp(): string {
   const lines = [
     `Usage: ${META_BIN} <tool> [args...]`,
     `       ${META_BIN} workspace <verify|audit|fix|cleanup> [options]`,
+    `       ${META_BIN} cleanup root [--dry-run] [--json]`,
     "",
     "Tools:",
     ...TOOL_SHORT_NAMES.filter((name) => name !== "workspace").map((name) => `  ${name}`),

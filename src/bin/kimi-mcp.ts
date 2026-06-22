@@ -3,29 +3,20 @@
  * kimi-mcp — Manage MCP servers, profiles, bridges, and probes.
  *
  * Commands:
- *   list [--json]                List registered servers and their status.
- *   probe [server] [--json]      Probe configured MCP servers (or one server).
+ *   list [--json] [--quiet]
+ *   probe [server] [--json]
  *   add <name> --command <cmd> [--args ...] [--json]
- *                                Register a new stdio MCP server.
- *   profile <name> [--json]      Apply a profile to ~/.kimi-code/mcp.json.
+ *   profile <name> [--json]
  *   scaffold <name> --kind <filesystem|http|sandbox|dashboard> [--json]
- *                                Generate a bridge script in ~/.kimi-code/tools/.
- *   doctor [--profile <name>]    Run MCP health checks.
- *   bun-docs [query] [--json] [--refresh]
- *   query <text> [--json] [--refresh]
- *   fs <command> [--top N] [--json] [--refresh]
+ *   doctor [--profile <name>] [--json]
+ *   bun-docs [query] [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh]
+ *   query <text> [--tool ...] [--json] [--refresh]
+ *   fs <command> [--tool ...] [--json] [--refresh]
  *   catalog [--probe] [--json]
  */
 
 import { isDirectRun } from "../lib/bun-utils.ts";
-import {
-  buildBunDocsKnowledgeCard,
-  clearBunDocsMcpCache,
-  formatBunDocsContent,
-  queryBunDocsFilesystem,
-  searchBunDocs,
-} from "../lib/bun-docs-mcp.ts";
-import { createLogger } from "../lib/logger.ts";
+import { createCli } from "../lib/cli-contract.ts";
 import {
   applyMcpProfile,
   buildMcpCatalogReport,
@@ -42,63 +33,69 @@ import {
 } from "../lib/mcp-bridge-scaffold.ts";
 import { loadMcpRegistry, serverEnvAvailable } from "../lib/mcp-registry.ts";
 import { probeMcpServer } from "../lib/mcp-probe.ts";
+import {
+  buildBunDocsKnowledgeCard,
+  clearBunDocsMcpCache,
+  formatBunDocsContent,
+  queryBunDocsFilesystem,
+  searchBunDocs,
+} from "../lib/bun-docs-mcp.ts";
+import { BUN_DOCS_MCP_TOOLS } from "../lib/mcp-registry.ts";
 import { homeDir, toolsDir } from "../lib/paths.ts";
 import { ensureDir } from "../lib/utils.ts";
 import { join } from "path";
-import { writeStdoutLine } from "../lib/cli-contract.ts";
 
-const logger = createLogger(Bun.argv, "kimi-mcp");
+const writer = createCli(Bun.argv, "kimi-mcp");
+const logger = writer.logger;
 
-function hasFlag(flag: string): boolean {
-  return Bun.argv.includes(flag);
+const BRIDGE_KINDS = ["filesystem", "http", "sandbox", "dashboard"] as const;
+type BridgeKindLiteral = (typeof BRIDGE_KINDS)[number];
+
+type BunDocsTool = (typeof BUN_DOCS_MCP_TOOLS)[number];
+
+/** Extract the value for a `--flag value` or `--flag=value` option. */
+export function argValue(argv: string[], flag: string): string | undefined {
+  const prefix = `${flag}=`;
+  for (let i = 2; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === flag && i + 1 < argv.length) {
+      return argv[i + 1];
+    }
+    if (arg?.startsWith(prefix)) {
+      return arg.slice(prefix.length);
+    }
+  }
+  return undefined;
 }
 
-function argValue(flag: string): string | undefined {
-  const index = Bun.argv.indexOf(flag);
-  if (index < 0) return undefined;
-  return Bun.argv[index + 1];
-}
-
-function argValues(flag: string): string[] {
+/** Collect all values for a repeatable flag. */
+export function argValues(argv: string[], flag: string): string[] {
   const values: string[] = [];
-  for (let i = 0; i < Bun.argv.length; i++) {
-    if (Bun.argv[i] === flag && i + 1 < Bun.argv.length) {
-      values.push(Bun.argv[i + 1]!);
+  for (let i = 2; i < argv.length; i++) {
+    if (argv[i] === flag && i + 1 < argv.length) {
+      values.push(argv[i + 1]!);
     }
   }
   return values;
 }
 
-async function writeJson(value: unknown): Promise<void> {
-  await writeStdoutLine(`${JSON.stringify(value, null, 2)}`);
+/** True when a boolean flag is present. */
+export function hasFlag(argv: string[], flag: string): boolean {
+  return argv.includes(flag);
 }
 
-function printHelp(): void {
-  logger.section("kimi-mcp commands");
-  logger.line("  list [--json]");
-  logger.line("  probe [server] [--json]");
-  logger.line("  add <name> --command <cmd> [--args <arg>]... [--json]");
-  logger.line("  profile <name> [--json]");
-  logger.line("  scaffold <name> --kind <filesystem|http|sandbox|dashboard> [--json]");
-  logger.line("  doctor [--profile <name>] [--json]");
-  logger.line("  bun-docs [query] [--json] [--refresh]");
-  logger.line("  query <text> [--json] [--refresh]");
-  logger.line("  fs <command> [--top N] [--json] [--refresh]");
-  logger.line("  catalog [--probe] [--json]");
-}
-
-function trimOutput(text: string, top?: number): string {
-  if (!top || top <= 0) return text;
-  return text.split("\n").slice(0, top).join("\n");
-}
-
-function positionalArgs(fromIndex: number): string {
+/**
+ * Join positional arguments after the subcommand, excluding flags and their values.
+ * `fromIndex` points to the first positional after the subcommand name.
+ */
+export function positionalArgs(argv: string[], fromIndex: number): string {
   const out: string[] = [];
-  for (let i = fromIndex; i < Bun.argv.length; i++) {
-    const arg = Bun.argv[i];
+  for (let i = fromIndex; i < argv.length; i++) {
+    const arg = argv[i];
     if (!arg) continue;
     if (arg.startsWith("-")) {
-      const next = Bun.argv[i + 1];
+      // Skip the value if the next token is not another flag.
+      const next = argv[i + 1];
       if (next && !next.startsWith("-")) i++;
       continue;
     }
@@ -107,30 +104,24 @@ function positionalArgs(fromIndex: number): string {
   return out.join(" ").trim();
 }
 
-async function runBunDocsSearch(
-  query: string,
-  tool: "search_bun" | "query_docs_filesystem_bun" = "search_bun"
-): Promise<number> {
-  if (hasFlag("--refresh")) clearBunDocsMcpCache();
-  const timeoutMs = Number(argValue("--timeout") ?? 30000);
-  const topRaw = argValue("--top") ?? (hasFlag("--top") ? "20" : "");
-  const top = Number(topRaw);
-  const result =
-    tool === "search_bun"
-      ? await searchBunDocs(query, timeoutMs, { refresh: hasFlag("--refresh") })
-      : await queryBunDocsFilesystem(query, timeoutMs, { refresh: hasFlag("--refresh") });
-  const text = trimOutput(
-    formatBunDocsContent(result.content),
-    Number.isFinite(top) ? top : undefined
-  );
-  if (hasFlag("--json")) {
-    await writeJson({ ok: result.ok, tool, query, text, error: result.error });
-  } else if (result.ok) {
-    logger.line(text);
-  } else {
-    logger.error(result.error ?? "search failed");
+interface Subcommand {
+  name: string;
+  description: string;
+  usage: string;
+  run: () => Promise<number>;
+}
+
+function printGlobalHelp(): void {
+  logger.section("kimi-mcp commands");
+  for (const cmd of COMMAND_LIST) {
+    logger.line(`  ${cmd.usage}`);
   }
-  return result.ok ? 0 : 1;
+}
+
+function printSubcommandHelp(cmd: Subcommand): void {
+  logger.section(cmd.name);
+  logger.line(cmd.description);
+  logger.line(`Usage: kimi-mcp ${cmd.usage}`);
 }
 
 async function listCommand(): Promise<number> {
@@ -164,8 +155,8 @@ async function listCommand(): Promise<number> {
       description: "custom",
     }));
 
-  if (hasFlag("--json")) {
-    await writeJson({ servers: [...servers, ...extra] });
+  if (writer.flags.json) {
+    writer.writeJson({ servers: [...servers, ...extra] });
   } else {
     logger.section("MCP Servers");
     for (const server of [...servers, ...extra]) {
@@ -203,11 +194,11 @@ async function probeCommand(): Promise<number> {
       continue;
     }
     const merged = { ...(def ?? { name }), ...entry };
-    results[name] = await probeMcpServer(merged);
+    results[name] = await probeMcpServer(merged, writer.flags.timeout);
   }
 
-  if (hasFlag("--json")) {
-    await writeJson(results);
+  if (writer.flags.json) {
+    writer.writeJson(results);
   } else {
     logger.section("MCP Probes");
     for (const [name, result] of Object.entries(results)) {
@@ -224,14 +215,15 @@ async function probeCommand(): Promise<number> {
 async function addCommand(): Promise<number> {
   const name = Bun.argv[3];
   if (!name || name.startsWith("-")) {
-    logger.error("Usage: add <name> --command <cmd> [--args <arg>]... [--json]");
+    printSubcommandHelp(COMMANDS.add);
     return 1;
   }
-  const command = argValue("--command");
-  const args = argValues("--args");
-  const url = argValue("--url");
+  const command = argValue(Bun.argv, "--command");
+  const args = argValues(Bun.argv, "--args");
+  const url = argValue(Bun.argv, "--url");
   if (!command && !url) {
-    logger.error("Either --command or --url is required");
+    writer.error("Either --command or --url is required");
+    printSubcommandHelp(COMMANDS.add);
     return 1;
   }
 
@@ -244,12 +236,12 @@ async function addCommand(): Promise<number> {
   config.mcpServers[name] = {
     ...(command ? { command, args: args.length > 0 ? args : undefined } : {}),
     ...(url ? { url } : {}),
-    description: argValue("--description"),
+    description: argValue(Bun.argv, "--description"),
   };
   await writeMcpJson(path, config);
 
-  if (hasFlag("--json")) {
-    await writeJson({ added: name, path });
+  if (writer.flags.json) {
+    writer.writeJson({ added: name, path });
   } else {
     logger.info(`Added ${name} to ${path}`);
   }
@@ -259,26 +251,26 @@ async function addCommand(): Promise<number> {
 async function profileCommand(): Promise<number> {
   const name = Bun.argv[3];
   if (!name || name.startsWith("-")) {
-    logger.error("Usage: profile <name> [--json]");
+    printSubcommandHelp(COMMANDS.profile);
     return 1;
   }
 
   const path = userMcpPath();
   const { data: existing } = await readMcpJson(path);
   if (!existing) {
-    logger.error(`No MCP config at ${path}`);
+    writer.error(`No MCP config at ${path}`);
     return 1;
   }
   if (!existing.profiles?.[name]) {
-    logger.error(`Profile ${name} not found`);
+    writer.error(`Profile ${name} not found`);
     return 1;
   }
 
   const applied = applyMcpProfile(existing, name);
   await writeMcpJson(path, applied);
 
-  if (hasFlag("--json")) {
-    await writeJson({ profile: name, servers: applied.mcpServers });
+  if (writer.flags.json) {
+    writer.writeJson({ profile: name, servers: applied.mcpServers });
   } else {
     logger.info(`Applied profile ${name}`);
     for (const [server, entry] of Object.entries(applied.mcpServers)) {
@@ -290,14 +282,14 @@ async function profileCommand(): Promise<number> {
 
 async function scaffoldCommand(): Promise<number> {
   const name = Bun.argv[3];
-  const kind = argValue("--kind") as BridgeKind | undefined;
-  if (
-    !name ||
-    name.startsWith("-") ||
-    !kind ||
-    !["filesystem", "http", "sandbox", "dashboard"].includes(kind)
-  ) {
-    logger.error("Usage: scaffold <name> --kind <filesystem|http|sandbox|dashboard> [--json]");
+  const kind = argValue(Bun.argv, "--kind") as BridgeKind | undefined;
+  if (!name || name.startsWith("-") || !kind || !BRIDGE_KINDS.includes(kind as BridgeKindLiteral)) {
+    writer.error(
+      kind && !BRIDGE_KINDS.includes(kind as BridgeKindLiteral)
+        ? `Invalid --kind: ${kind}. Valid: ${BRIDGE_KINDS.join(", ")}`
+        : "Missing required arguments"
+    );
+    printSubcommandHelp(COMMANDS.scaffold);
     return 1;
   }
 
@@ -312,13 +304,13 @@ async function scaffoldCommand(): Promise<number> {
       kind,
       name,
       projectRoot: process.cwd(),
-      targetUrl: argValue("--url"),
-      allowedPaths: argValues("--allow"),
+      targetUrl: argValue(Bun.argv, "--url"),
+      allowedPaths: argValues(Bun.argv, "--allow"),
     })
   );
 
-  if (hasFlag("--json")) {
-    await writeJson({ scaffolded: path, kind });
+  if (writer.flags.json) {
+    writer.writeJson({ scaffolded: path, kind });
   } else {
     logger.info(`Scaffolded ${kind} bridge at ${path}`);
     logger.line(
@@ -329,13 +321,16 @@ async function scaffoldCommand(): Promise<number> {
 }
 
 async function doctorCommand(): Promise<number> {
-  const profile = argValue("--profile");
-  const report = await validateMcpConfig(homeDir(), process.cwd(), { probe: true, profile });
+  const profile = argValue(Bun.argv, "--profile");
+  const report = await validateMcpConfig(homeDir(), process.cwd(), {
+    probe: true,
+    profile,
+  });
   const errors = report.checks.filter((c) => c.status === "error").length;
   const warnings = report.checks.filter((c) => c.status === "warn").length;
 
-  if (hasFlag("--json")) {
-    await writeJson(report);
+  if (writer.flags.json) {
+    writer.writeJson(report);
   } else {
     logger.section("MCP Doctor");
     for (const check of report.checks) {
@@ -347,55 +342,178 @@ async function doctorCommand(): Promise<number> {
   return errors > 0 ? 1 : 0;
 }
 
+function resolveBunDocsTool(): BunDocsTool | undefined {
+  const tool = argValue(Bun.argv, "--tool") ?? "search_bun";
+  if ((BUN_DOCS_MCP_TOOLS as readonly string[]).includes(tool)) {
+    return tool as BunDocsTool;
+  }
+  writer.error(`Invalid --tool: ${tool}. Valid: ${BUN_DOCS_MCP_TOOLS.join(", ")}`);
+  return undefined;
+}
+
+async function runBunDocsSearch(query: string, toolOverride?: BunDocsTool): Promise<number> {
+  const tool = toolOverride ?? resolveBunDocsTool();
+  if (!tool) return 1;
+  const refresh = hasFlag(Bun.argv, "--refresh");
+  const timeoutMs = writer.flags.timeout ?? 30000;
+  if (refresh) clearBunDocsMcpCache();
+  const result =
+    tool === "search_bun"
+      ? await searchBunDocs(query, timeoutMs, { refresh })
+      : await queryBunDocsFilesystem(query, timeoutMs, { refresh });
+  if (writer.flags.json) {
+    writer.writeJson({
+      ok: result.ok,
+      tool,
+      query,
+      text: formatBunDocsContent(result.content),
+      error: result.error,
+    });
+  } else if (result.ok) {
+    logger.line(formatBunDocsContent(result.content));
+  } else {
+    writer.error(result.error ?? "search failed");
+  }
+  return result.ok ? 0 : 1;
+}
+
+async function bunDocsCommand(): Promise<number> {
+  if (hasFlag(Bun.argv, "--help")) {
+    printSubcommandHelp(COMMANDS["bun-docs"]);
+    return 0;
+  }
+  const query = positionalArgs(Bun.argv, 3);
+  if (query) return runBunDocsSearch(query);
+  const timeoutMs = writer.flags.timeout ?? 15000;
+  const card = await buildBunDocsKnowledgeCard(timeoutMs);
+  if (writer.flags.json) {
+    writer.writeJson(card);
+  } else {
+    logger.info(`${card.server}: ${card.toolCount} tools`);
+  }
+  return card.ok ? 0 : 1;
+}
+
+async function queryCommand(): Promise<number> {
+  if (hasFlag(Bun.argv, "--help")) {
+    printSubcommandHelp(COMMANDS.query);
+    return 0;
+  }
+  const query = positionalArgs(Bun.argv, 3);
+  if (!query) {
+    printSubcommandHelp(COMMANDS.query);
+    return 1;
+  }
+  return runBunDocsSearch(query);
+}
+
+async function fsCommand(): Promise<number> {
+  if (hasFlag(Bun.argv, "--help")) {
+    printSubcommandHelp(COMMANDS.fs);
+    return 0;
+  }
+  const command = positionalArgs(Bun.argv, 3);
+  if (!command) {
+    printSubcommandHelp(COMMANDS.fs);
+    return 1;
+  }
+  return runBunDocsSearch(command, "query_docs_filesystem_bun");
+}
+
+async function catalogCommand(): Promise<number> {
+  const report = await buildMcpCatalogReport(homeDir(), { probe: hasFlag(Bun.argv, "--probe") });
+  if (writer.flags.json) {
+    writer.writeJson(report);
+  } else {
+    for (const meta of report.catalog) logger.line(`  ${meta.serverName} [${meta.layer}]`);
+  }
+  return 0;
+}
+
+const COMMANDS: Record<string, Subcommand> = {
+  list: {
+    name: "list",
+    description: "List registered MCP servers and their configuration status.",
+    usage: "list [--json]",
+    run: listCommand,
+  },
+  probe: {
+    name: "probe",
+    description: "Probe configured MCP servers (or one server) and report tool availability.",
+    usage: "probe [server] [--json] [--timeout <ms>]",
+    run: probeCommand,
+  },
+  add: {
+    name: "add",
+    description: "Register a new stdio or HTTP MCP server in ~/.kimi-code/mcp.json.",
+    usage: "add <name> --command <cmd> [--args <arg>]... [--json]",
+    run: addCommand,
+  },
+  profile: {
+    name: "profile",
+    description: "Apply a server profile to the user MCP config.",
+    usage: "profile <name> [--json]",
+    run: profileCommand,
+  },
+  scaffold: {
+    name: "scaffold",
+    description: "Generate a bridge script in ~/.kimi-code/tools/.",
+    usage: "scaffold <name> --kind <filesystem|http|sandbox|dashboard> [--json]",
+    run: scaffoldCommand,
+  },
+  doctor: {
+    name: "doctor",
+    description: "Run MCP health checks against user and project config.",
+    usage: "doctor [--profile <name>] [--json]",
+    run: doctorCommand,
+  },
+  "bun-docs": {
+    name: "bun-docs",
+    description: "Search the Bun documentation MCP, or show the Bun docs knowledge card.",
+    usage:
+      "bun-docs [query] [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh] [--timeout <ms>]",
+    run: bunDocsCommand,
+  },
+  query: {
+    name: "query",
+    description: "Search the Bun documentation MCP (alias for 'bun-docs search').",
+    usage:
+      "query <text> [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh] [--timeout <ms>]",
+    run: queryCommand,
+  },
+  fs: {
+    name: "fs",
+    description: "Run a filesystem command against the Bun docs MCP filesystem.",
+    usage: "fs <command> [--json] [--refresh] [--timeout <ms>]",
+    run: fsCommand,
+  },
+  catalog: {
+    name: "catalog",
+    description: "List built-in MCP server metadata and optional probe results.",
+    usage: "catalog [--probe] [--json]",
+    run: catalogCommand,
+  },
+};
+
+const COMMAND_LIST = Object.values(COMMANDS);
+
 async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
-  const command = args[0] ?? "help";
+  const command = args[0];
 
-  if (command === "help" || hasFlag("--help") || hasFlag("-h")) {
-    printHelp();
+  if (!command || command === "help" || command === "--help" || command === "-h") {
+    printGlobalHelp();
     return 0;
   }
 
-  if (command === "list") return await listCommand();
-  if (command === "probe") return await probeCommand();
-  if (command === "add") return await addCommand();
-  if (command === "profile") return await profileCommand();
-  if (command === "scaffold") return await scaffoldCommand();
-  if (command === "doctor") return await doctorCommand();
-  if (command === "bun-docs") {
-    const query = positionalArgs(3);
-    if (query) return runBunDocsSearch(query);
-    const card = await buildBunDocsKnowledgeCard(15000);
-    if (hasFlag("--json")) await writeJson(card);
-    else logger.info(`${card.server}: ${card.toolCount} tools`);
-    return card.ok ? 0 : 1;
-  }
-  if (command === "query") {
-    const query = positionalArgs(3);
-    if (!query) {
-      logger.error("Usage: query <text> [--json] [--refresh]");
-      return 1;
-    }
-    return runBunDocsSearch(query);
-  }
-  if (command === "fs") {
-    const cmd = positionalArgs(3);
-    if (!cmd) {
-      logger.error("Usage: fs <command> [--json] [--refresh]");
-      return 1;
-    }
-    return runBunDocsSearch(cmd, "query_docs_filesystem_bun");
-  }
-  if (command === "catalog") {
-    const report = await buildMcpCatalogReport(homeDir(), { probe: hasFlag("--probe") });
-    if (hasFlag("--json")) await writeJson(report);
-    else for (const meta of report.catalog) logger.line(`  ${meta.serverName} [${meta.layer}]`);
-    return 0;
+  const subcommand = COMMANDS[command];
+  if (!subcommand) {
+    writer.error(`Unknown command: ${command}`);
+    printGlobalHelp();
+    return 1;
   }
 
-  logger.error(`Unknown command: ${command}`);
-  printHelp();
-  return 1;
+  return subcommand.run();
 }
 
 if (isDirectRun(import.meta.path)) {

@@ -172,7 +172,7 @@ bun test test/dashboard-route-patterns.unit.test.ts
 
 ## Static showcase & card routes
 
-Examples dashboard (`handlers/routes.ts` + `handlers/artifacts.ts`) — **139** routes total (see [dashboard/README.md](dashboard/README.md)).
+Examples dashboard (`handlers/routes.ts` + `handlers/artifacts.ts`) — **140** routes total (see [dashboard/README.md](dashboard/README.md)).
 
 ### Contract, showcase & cards
 
@@ -250,14 +250,14 @@ Identity query params (artifacts + runs): `sessionId`, `workspaceId`, `paneId`, 
 | `/api/node-http` | `/api/os` | `/api/password` | `/api/peek` |
 | `/api/perf-auto-discover` | `/api/perf-harness` | `/api/perf-registry` | `/api/perf-report` |
 | `/api/perf-threaded` | `/api/perf-train` | `/api/random-bytes` | `/api/runtime-info` |
-| `/api/scaffold` | `/api/secrets` | `/api/semver` | `/api/serve-metrics` |
-| `/api/set-headers` | `/api/shadow-realm` | `/api/shell` | `/api/sleep` |
-| `/api/spawn-sync` | `/api/sqlite` | `/api/stream-hash` | `/api/string-utils` |
-| `/api/strip-ansi` | `/api/symbols` | `/api/terminal` | `/api/threshold-overrides` |
-| `/api/tokens` | `/api/toolchain/heal` | `/api/toolchain/health` | `/api/trace-ledger` |
-| `/api/trace-ledger/graph` | `/api/trace-verify` | `/api/transpiler` | `/api/transpiler-scan` |
-| `/api/tty` | `/api/url` | `/api/url-node` | `/api/util-types` |
-| `/api/uuid` | `/api/vm-context` | `/api/write-smart` |  |
+| `/api/runtime-utils-coverage` | `/api/scaffold` | `/api/secrets` | `/api/semver` |
+| `/api/serve-metrics` | `/api/set-headers` | `/api/shadow-realm` | `/api/shell` |
+| `/api/sleep` | `/api/spawn-sync` | `/api/sqlite` | `/api/stream-hash` |
+| `/api/string-utils` | `/api/strip-ansi` | `/api/symbols` | `/api/terminal` |
+| `/api/threshold-overrides` | `/api/tokens` | `/api/toolchain/heal` | `/api/toolchain/health` |
+| `/api/trace-ledger` | `/api/trace-ledger/graph` | `/api/trace-verify` | `/api/transpiler` |
+| `/api/transpiler-scan` | `/api/tty` | `/api/url` | `/api/url-node` |
+| `/api/util-types` | `/api/uuid` | `/api/vm-context` | `/api/write-smart` |
 <!-- /dashboard-static-routes:AUTO -->
 
 <!-- dashboard-serve-routes:AUTO -->
@@ -309,7 +309,7 @@ url_pathname = /
 
 ## Decomposed endpoint inventory (examples stack)
 
-**139** examples-dashboard routes. Representative rows (full table in [dashboard/README.md](dashboard/README.md)):
+**140** examples-dashboard routes. Representative rows (full table in [dashboard/README.md](dashboard/README.md)):
 
 | name                      | url                                                       | url_protocol | url_hostname | url_port | url_pathname                         | url_search                    |
 | ------------------------- | --------------------------------------------------------- | ------------ | ------------ | -------- | ------------------------------------ | ----------------------------- |

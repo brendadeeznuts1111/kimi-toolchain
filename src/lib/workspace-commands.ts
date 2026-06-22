@@ -23,6 +23,7 @@ import {
 import { createLogger, type Logger } from "./logger.ts";
 import { writeStdoutLine } from "./cli-contract.ts";
 import { homeDir } from "./paths.ts";
+import { collectRootHygieneItems, collectRootHygieneMisconfig } from "./root-hygiene.ts";
 
 export interface WorkspaceCommandFlags {
   json: boolean;
@@ -67,6 +68,8 @@ export function printWorkspaceHelp(logger?: Logger): void {
   log.line("  --remove-legacy-path       Remove ~/kimicode-cli symlink if present");
   log.line("  --archive-legacy-sessions  Move wd_kimicode-cli_* to sessions/archive/");
   log.line("  --deep                     All fixes: cursor slugs + sessions + index prune");
+  log.line("");
+  log.line("Root bloat (separate): bun run cleanup:root:dry-run | kimi-toolchain cleanup root");
 }
 
 async function runVerify(projectRoot: string, strict: boolean, logger: Logger): Promise<number> {
@@ -255,6 +258,22 @@ async function runCleanup(
       logger.line(
         `  → Restart Cursor and open ~/${CANONICAL_REPO_NAME}/kimi-toolchain.code-workspace`
       );
+    }
+  }
+
+  for (const hint of collectRootHygieneMisconfig(projectRoot)) {
+    logger.warn(hint);
+  }
+  const rootItems = collectRootHygieneItems(projectRoot);
+  if (rootItems.length === 0) {
+    logger.info("No root hygiene artifacts");
+  } else {
+    const files = rootItems.reduce((sum, item) => sum + item.fileCount, 0);
+    logger.warn(
+      `${rootItems.length} root artifact(s), ${files} file(s) — run: bun run cleanup:root:dry-run`
+    );
+    for (const item of rootItems) {
+      logger.line(`      ${item.kind}: ${item.relPath} (${item.fileCount} file(s))`);
     }
   }
 
