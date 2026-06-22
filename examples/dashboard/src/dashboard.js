@@ -3,19 +3,6 @@
 // Lazy lanes: perf, governance, toolchain, runtime — see dashboard-loader-lanes.js
 
 // DASHBOARD_CARD_LOADERS:AUTO
-// bun-docs (generated stub)
-(async () => {
-  try {
-    const d = await fetchJson("/api/bun-docs");
-    const body =
-      typeof d === "object" && d !== null
-        ? `<pre style="font-size:10px;max-height:240px;overflow:auto">${JSON.stringify(d, null, 2).slice(0, 4000)}</pre>`
-        : `<p class="status ok">${String(d)}</p>`;
-    card("card-bun-docs", body);
-  } catch (e) {
-    card("card-bun-docs", `<p class="status err">${e.message}</p>`);
-  }
-})();
 // /DASHBOARD_CARD_LOADERS:AUTO
 
 // Canvas ↔ card filter (v5.4) — ?canvas=<manifestId|canvasId>

@@ -204,6 +204,9 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run check:env-drift` | (synced from package.json) |
 
+| `bun run runtime:info` | (synced from package.json) |
+| `bun run runtime:deep` | (synced from package.json) |
+
 ### Core
 
 | Command                        | Description                                    |

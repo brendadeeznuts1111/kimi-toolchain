@@ -207,6 +207,7 @@
     "unify": "bash scripts/unify.sh",
     "verify-workspace": "bash scripts/verify-workspace.sh",
     "runtime:info": "bun run scripts/runtime-info.ts",
+    "runtime:deep": "bun run scripts/runtime-info.ts -- --workspace --editor --coverage --probe-mcp",
     "cleanup-legacy": "bash scripts/cleanup-legacy-workspace.sh",
     "cleanup:artifacts": "bun run scripts/cleanup-artifacts.ts",
     "install-wrappers": "bash scripts/install-bin-wrappers.sh",

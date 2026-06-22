@@ -17,6 +17,12 @@ smol = false
 # Deep inspect for doctor gates (default 2)
 depth = 6
 
+# Pin editor in bunfig (matches Bun.openInEditor SSOT — bunfig > $VISUAL > $EDITOR).
+# Uncomment to override env; leave commented when $EDITOR/$VISUAL already resolve (e.g. cursor).
+# @see https://bun.com/docs/runtime/utils#bun-openineditor
+# [debug]
+# editor = "cursor"
+
 # ── Run ──────────────────────────────────────────────────────────────────
 [run]
 # @see https://bun.com/docs/runtime/bunfig#run-shell-use-the-system-shell-or-buns-shell
