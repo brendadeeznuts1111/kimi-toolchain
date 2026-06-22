@@ -173,7 +173,9 @@
     "discover": "bun run scripts/discover.ts",
     "discover:constants": "bun run scripts/discover.ts --constants",
     "discover:dx": "bun run scripts/discover.ts --dx",
-    "scope:run": "bun run scripts/scope-run.ts"
+    "scope:run": "bun run scripts/scope-run.ts",
+    "docs:check": "bun run scripts/check-docs.ts",
+    "docs:fix": "bun run scripts/check-docs.ts --fix"
   },
   "dependencies": {
     "effect": "^3.21.3",

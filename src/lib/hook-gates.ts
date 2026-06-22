@@ -43,6 +43,7 @@ const PRE_COMMIT_CACHE_GATES = [
   "lint",
   "typecheck",
   "canonical-references",
+  "docs:check",
   "test:fast",
 ] as const;
 const PRE_PUSH_CACHE_GATES = [
@@ -317,6 +318,20 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
         "run",
         "scripts/generate-canonical-references.ts",
         "--check",
+      ]);
+    },
+    async () => {
+      const script = join(projectRoot, "scripts/check-docs.ts");
+      if (!pathExists(script)) return null;
+      const stagedMd = staged.filter((p) => p.endsWith(".md"));
+      if (stagedMd.length === 0) return skippedGateResult("docs:check");
+      if (!summary) printVerboseBanner("Docs quality");
+      if (await shouldSkipGate(projectRoot, "docs:check")) return skippedGateResult("docs:check");
+      return runGateVisible(projectRoot, "docs:check", [
+        "bun",
+        "run",
+        "scripts/check-docs.ts",
+        "--json",
       ]);
     },
     async () => runPreCommitTestsGate(projectRoot, staged, summary),
@@ -1090,6 +1105,13 @@ export async function planPreCommitGates(projectRoot: string): Promise<PlannedGa
       name: "typecheck",
       cmd: ["bun", "run", "typecheck"],
       skipped: await shouldSkipGate(projectRoot, "typecheck"),
+    });
+  }
+  if (pathExists(join(projectRoot, "scripts/check-docs.ts"))) {
+    planned.push({
+      name: "docs:check",
+      cmd: ["bun", "run", "scripts/check-docs.ts", "--json"],
+      skipped: await shouldSkipGate(projectRoot, "docs:check"),
     });
   }
   if (await packageHasScript(projectRoot, "test:changed")) {

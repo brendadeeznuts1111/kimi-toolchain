@@ -150,7 +150,7 @@ async function installHooks(projectDir: string): Promise<number> {
   }
 
   logger.info("Hooks active. They will run on next commit/push.");
-  logger.info("  pre-commit: policy checks + run-gates (format, lint, typecheck, test:changed)");
+  logger.info("  pre-commit: policy checks + run-gates (format, lint, typecheck, docs:check, test:changed)");
   logger.info(
     "  pre-push:   no-op skip, run-gates (guardian, portal:gate, R-Score, check:fast:skip-tests, test:changed:push, sync)"
   );
