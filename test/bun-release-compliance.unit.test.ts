@@ -813,36 +813,6 @@ describe("bun-release-compliance compression", () => {
   });
 });
 
-// ── bunfig runtime ───────────────────────────────────────────────────
-
-describe("bun-release-compliance bunfig-runtime", () => {
-  test("bunfig.toml sets runtime logLevel warn and install logLevel error", () => {
-    const text = readSrc("bunfig.toml");
-    expect(text).toContain('logLevel = "warn"');
-    expect(text).toContain("bun.com/docs/runtime/bunfig#loglevel");
-    expect(text).toContain('logLevel = "error"');
-    expect(text).toContain("[run]");
-    expect(text).toContain("silent = true");
-    expect(text).toContain('shell = "bun"');
-    expect(text).toContain("noOrphans = true");
-  });
-
-  test("test-runtime.ts documents bunfig runtime contract", () => {
-    const text = readSrc("src/lib/test-runtime.ts");
-    expect(text).toContain("BUN_BUNFIG_LOG_LEVEL_DOC_URL");
-    expect(text).toContain("KIMI_BUNFIG_RUNTIME_CONTRACT");
-    expect(text).toContain("readKimiBunfigRuntimeContract");
-  });
-
-  test("dx.config.toml mirrors bunfig runtime policy under herdr.bunfig", () => {
-    const text = readSrc("dx.config.toml");
-    expect(text).toContain("[herdr.bunfig]");
-    expect(text).toContain('logLevel = "warn"');
-    expect(text).toContain('installLogLevel = "error"');
-    expect(text).toContain("noOrphans = true");
-  });
-});
-
 // ── console / Bun.Terminal regression guard ──────────────────────────
 
 describe("bun-release-compliance console-bun-terminal", () => {

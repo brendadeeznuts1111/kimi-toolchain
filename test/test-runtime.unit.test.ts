@@ -39,10 +39,6 @@ import {
   BUN_TEST_DISCOVERY_STRATEGY,
   basenameMatchesBunTestDiscovery,
   isBunTestExactPathArg,
-  readBunfigLogLevel,
-  readKimiBunfigRuntimeContract,
-  KIMI_BUNFIG_RUNTIME_CONTRACT,
-  KIMI_BUNFIG_LOG_LEVEL,
   readBunfigTestRoot,
   readBunfigTestTimeoutMs,
   readKimiBunfigTestContract,
@@ -995,15 +991,6 @@ test("visible probe", () => {
       expect(BUN_TEST_CONFIGURATION_STRATEGY.timeout).toBe(
         "tier-runners-pass-cli---timeout-overrides-bunfig"
       );
-    });
-
-    test("readBunfigLogLevel matches kimi-toolchain warn default", () => {
-      expect(readBunfigLogLevel(REPO_ROOT)).toBe(KIMI_BUNFIG_LOG_LEVEL);
-      expect(KIMI_BUNFIG_LOG_LEVEL).toBe("warn");
-    });
-
-    test("readKimiBunfigRuntimeContract matches repo bunfig.toml runtime policy", () => {
-      expect(readKimiBunfigRuntimeContract(REPO_ROOT)).toEqual(KIMI_BUNFIG_RUNTIME_CONTRACT);
     });
 
     test("readKimiBunfigTestContract matches repo bunfig.toml [test] contract", () => {

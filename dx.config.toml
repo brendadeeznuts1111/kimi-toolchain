@@ -131,24 +131,6 @@ secondaryAgents = ["codex"]
 shellPane = true
 shellSplit = "right"
 
-# Mirror of bunfig.toml runtime policy — SSOT remains bunfig.toml
-[herdr.bunfig]
-logLevel = "warn"
-consoleDepth = 6
-installLogLevel = "error"
-installFrozenLockfile = true
-installGlobalStore = true
-noOrphans = true
-runSilent = true
-runShell = "bun"
-
-[herdr.quality]
-coverageLine = 0.70
-coverageFunction = 0.85
-# Use `bun test --only-failures` in audit runs; not enabled in bunfig (local TDD)
-onlyFailures = false
-testRetry = 0
-
 [herdr.orchestrator]
 enabled = true
 contextOnIdle = true
