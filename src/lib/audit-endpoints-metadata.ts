@@ -161,7 +161,8 @@ export const AUDIT_CLI_ENDPOINTS: readonly AuditEndpointMeta[] = [
     dryRun: true,
     strictBlocks: true,
     verifyCheckId: "audit.check:template-policy",
-    description: "Template bunfig.toml [install] policy parity with root",
+    description:
+      "Template install/registry/scaffold/module policy — bunfig, tsconfig, oxlint, secrets, typecheck, tests",
   },
   {
     id: "check-templates",

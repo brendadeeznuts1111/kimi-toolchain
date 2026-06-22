@@ -17,7 +17,11 @@ const BANNED: Array<{ pattern: RegExp; label: string }> = [
 const SCAN_GLOB = new Bun.Glob("**/*.{md,ts,json,toml}");
 const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".bun", ".kimi-artifacts"]);
 /** Files that define or embed the ban rule itself */
-const SKIP_FILES = new Set(["scripts/lint-banned-terms.ts", "src/bin/kimi-fix.ts"]);
+const SKIP_FILES = new Set([
+  "scripts/lint-banned-terms.ts",
+  "src/bin/kimi-fix.ts",
+  "src/lib/template-policy-audit.ts",
+]);
 
 function shouldScan(rel: string): boolean {
   if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) return false;

@@ -29,15 +29,19 @@ async function main(): Promise<number> {
         "install",
         "registry",
         "registry-schema",
+        "readme-registry",
         "bunfig-runtime",
         "tsconfig",
         "scaffold-files",
+        "scaffold-toolchain",
         "scaffold-markers",
+        "module-slice",
         "shebang",
         "env-hygiene",
         "env-example",
         "banned-terms",
         "hardcoded-secrets",
+        "oxlint",
         "bun-native",
         "test-conventions",
         "typecheck",
@@ -51,9 +55,9 @@ async function main(): Promise<number> {
       console.log(
         `check:template-policy dry-run — would verify ${summary.bunfigFiles} bunfig, ` +
           `${summary.templatePackages} packages, ${summary.registryEntries} registry entries, ` +
-          `${summary.scaffoldFiles} scaffold files, ${summary.envExampleFiles} .env.example, ` +
-          `${summary.tsconfigProjects} tsconfig + modules, ${summary.testProjects} test project(s), ` +
-          `scaffold markers + secrets + bun-native + tsc + bun test`
+          `${summary.scaffoldFiles} scaffold + toolchain, ${summary.moduleSlices} module slices, ` +
+          `${summary.envExampleFiles} env.example, ${summary.tsconfigProjects} tsconfig + modules, ` +
+          `${summary.testProjects} test project(s), readme + oxlint + secrets + bun-native + tsc + bun test`
       );
     }
     return 0;
@@ -78,8 +82,8 @@ async function main(): Promise<number> {
   const s = result.summary;
   console.log(
     `✅ Template policy OK — ${s.bunfigFiles} bunfig, ${s.registryEntries} registry, ` +
-      `${s.scaffoldFiles} scaffold, ${s.envExampleFiles} env.example, ` +
-      `${s.tsconfigProjects} tsconfig + modules (${s.moduleTsFiles} module TS), ` +
+      `${s.scaffoldFiles} scaffold + toolchain, ${s.moduleSlices} module slices, ` +
+      `${s.envExampleFiles} env.example, ${s.tsconfigProjects} tsconfig + modules (${s.moduleTsFiles} module TS), ` +
       `${s.testProjects} test project(s), ${s.templateTsFiles} TS bun-native clean`
   );
   return 0;

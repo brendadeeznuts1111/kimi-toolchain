@@ -1,5 +1,5 @@
 {
-  "name": "@bun-examples/herdr-service",
+  "name": "{{name}}",
   "version": "1.0.0",
   "description": "Herdr service with per-service secret isolation",
   "type": "module",

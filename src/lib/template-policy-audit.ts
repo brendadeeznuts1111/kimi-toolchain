@@ -28,6 +28,7 @@ export interface TemplatePolicySummary {
   registryEntries: number;
   testProjects: number;
   moduleTsFiles: number;
+  moduleSlices: number;
   scaffoldFiles: number;
   envExampleFiles: number;
 }
@@ -84,6 +85,31 @@ const SCAFFOLD_MARKER_FILES: Record<keyof typeof TEMPLATE_MARKERS, string> = {
 };
 
 const REGISTRY_REQUIRED_ENTRY_FIELDS = ["name", "type", "purpose"] as const;
+
+const BUN_CREATE_README = "templates/bun-create/README.md";
+const TEMPLATES_FAMILY_README = "templates/README.md";
+const MODULES_DIR = "templates/modules";
+
+const REQUIRED_SCAFFOLD_TOOLCHAIN_FILES = [
+  "dx.config.app.toml",
+  "dx.config.toolchain.toml",
+  "scripts/finish-work.ts",
+  "scripts/finish-work-config.ts",
+  "scripts/finish-work-herdr.ts",
+  "scripts/reviewer-pane.ts",
+  "scripts/lib/bun-io.ts",
+  "scripts/lib/bun-utils.ts",
+] as const;
+
+const MODULE_PROCESSOR_SLICES = [
+  "clock",
+  "db",
+  "http",
+  "image",
+  "terminal",
+  "transpiler",
+  "uuid",
+] as const;
 
 const TEMPLATE_TS_GLOBS = ["templates/**/*.ts", "templates/**/*.tsx"] as const;
 
@@ -248,6 +274,13 @@ export async function auditTemplateInstallPolicy(root: string): Promise<Template
         });
       }
     }
+    if (!/\[install\.cache\][\s\S]*?dir\s*=\s*"~\/\.bun\/install\/cache"/.test(text)) {
+      violations.push({
+        file: relPath,
+        field: "[install.cache]",
+        message: 'Missing [install.cache] dir = "~/.bun/install/cache"',
+      });
+    }
   }
 
   return violations;
@@ -363,6 +396,7 @@ export async function auditTemplateRegistry(root: string): Promise<TemplatePolic
   for (const path of packages) {
     const relPath = rel(root, path);
     const pkg = (await Bun.file(path).json()) as {
+      name?: string;
       type?: string;
       dependencies?: Record<string, unknown>;
       devDependencies?: Record<string, unknown>;
@@ -375,6 +409,14 @@ export async function auditTemplateRegistry(root: string): Promise<TemplatePolic
         file: relPath,
         field: "type",
         message: 'package.json must declare "type": "module"',
+      });
+    }
+
+    if (pkg.name !== "{{name}}") {
+      violations.push({
+        file: relPath,
+        field: "name",
+        message: 'package.json name must be "{{name}}" for bun-create placeholder substitution',
       });
     }
 
@@ -457,6 +499,13 @@ export async function auditTemplateBunfigRuntime(root: string): Promise<Template
         file: relPath,
         field: "[test]",
         message: "Template has tests but bunfig.toml missing [test] section",
+      });
+    }
+    if (/\[test\]/.test(text) && !/concurrentTestGlob\s*=\s*\[/.test(text)) {
+      violations.push({
+        file: relPath,
+        field: "[test].concurrentTestGlob",
+        message: "bunfig [test] must declare concurrentTestGlob for unit tier parity",
       });
     }
   }
@@ -756,6 +805,135 @@ function collectEnvExampleFiles(root: string): string[] {
   return paths.sort();
 }
 
+export async function auditTemplateScaffoldToolchain(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  const scaffoldRoot = join(root, SCAFFOLD_DIR);
+  for (const name of REQUIRED_SCAFFOLD_TOOLCHAIN_FILES) {
+    const path = join(scaffoldRoot, name);
+    if (!(await Bun.file(path).exists())) {
+      violations.push({
+        file: `${SCAFFOLD_DIR}/${name}`,
+        field: "scaffold-toolchain",
+        message: "Missing toolchain-profile scaffold file",
+      });
+    }
+  }
+  return violations;
+}
+
+export async function auditTemplateReadmeRegistry(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  let registry: TemplateRegistry;
+  try {
+    registry = await readTemplateRegistry(root);
+  } catch {
+    return [];
+  }
+  const readmePaths = [BUN_CREATE_README, TEMPLATES_FAMILY_README];
+  const readmeTexts: string[] = [];
+  for (const rel of readmePaths) {
+    const path = join(root, rel);
+    if (await Bun.file(path).exists()) {
+      readmeTexts.push(await Bun.file(path).text());
+    } else {
+      violations.push({
+        file: rel,
+        field: "readme-registry",
+        message: "Missing templates README for registry parity",
+      });
+    }
+  }
+  if (readmeTexts.length === 0) return violations;
+  const combined = readmeTexts.join("\n");
+  for (const entry of registry.templates) {
+    const needle = `\`${entry.name}\``;
+    if (!combined.includes(needle)) {
+      violations.push({
+        file: BUN_CREATE_README,
+        field: "readme-registry",
+        message: `Registry template "${entry.name}" not documented in templates README tables`,
+      });
+    }
+  }
+  return violations;
+}
+
+export async function auditTemplateModuleSlice(root: string): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  const registerEffect = join(root, MODULES_DIR, "register-effect.ts");
+  if (!(await Bun.file(registerEffect).exists())) {
+    violations.push({
+      file: `${MODULES_DIR}/register-effect.ts`,
+      field: "module-slice",
+      message: "Missing register-effect.ts helper for KIMI_MODULES",
+    });
+  } else {
+    const text = await Bun.file(registerEffect).text();
+    if (!text.includes("kimi.effect.") || !text.includes("registerEffect")) {
+      violations.push({
+        file: `${MODULES_DIR}/register-effect.ts`,
+        field: "module-slice",
+        message: "register-effect.ts must expose registerEffect() with kimi.effect.* symbols",
+      });
+    }
+  }
+
+  for (const slice of MODULE_PROCESSOR_SLICES) {
+    const processor = join(root, MODULES_DIR, slice, "src", "processor.ts");
+    if (!(await Bun.file(processor).exists())) {
+      violations.push({
+        file: `${MODULES_DIR}/${slice}/src/processor.ts`,
+        field: "module-slice",
+        message: `Missing processor.ts for module slice "${slice}"`,
+      });
+    }
+  }
+
+  const tradingRegistry = join(
+    root,
+    MODULES_DIR,
+    "trading",
+    "src",
+    "trading",
+    "gates",
+    "registry.ts"
+  );
+  if (!(await Bun.file(tradingRegistry).exists())) {
+    violations.push({
+      file: `${MODULES_DIR}/trading/src/trading/gates/registry.ts`,
+      field: "module-slice",
+      message: "Missing trading gate registry for trading module slice",
+    });
+  }
+
+  return violations;
+}
+
+export async function auditTemplateOxlint(root: string): Promise<TemplatePolicyViolation[]> {
+  const proc = Bun.spawn({
+    cmd: ["bunx", "oxlint", "templates"],
+    cwd: root,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const exit = await proc.exited;
+  if (exit === 0) return [];
+  const out = await readableStreamToText(proc.stdout);
+  const err = await readableStreamToText(proc.stderr);
+  const detail = (err || out).trim().split("\n").slice(0, 6).join(" · ");
+  return [
+    {
+      file: "templates/",
+      field: "oxlint",
+      message: detail || `oxlint templates failed (exit ${exit})`,
+    },
+  ];
+}
+
 export async function auditTemplateEnvExamples(root: string): Promise<TemplatePolicyViolation[]> {
   const violations: TemplatePolicyViolation[] = [];
   const templatePkgGlob = new Bun.Glob("templates/bun-create/*/package.json");
@@ -841,15 +1019,19 @@ export async function auditTemplatePolicy(root: string): Promise<TemplatePolicyA
     ...(await auditTemplateInstallPolicy(root)),
     ...(await auditTemplateRegistry(root)),
     ...(await auditTemplateRegistrySchema(root)),
+    ...(await auditTemplateReadmeRegistry(root)),
     ...(await auditTemplateBunfigRuntime(root)),
     ...(await auditTemplateTsconfigs(root)),
     ...(await auditTemplateScaffoldFiles(root)),
+    ...(await auditTemplateScaffoldToolchain(root)),
     ...(await auditTemplateScaffoldMarkers(root)),
+    ...(await auditTemplateModuleSlice(root)),
     ...(await auditTemplateEntryShebangs(root)),
     ...(await auditTemplateEnvHygiene(root)),
     ...(await auditTemplateEnvExamples(root)),
     ...(await auditTemplateBannedTerms(root)),
     ...(await auditTemplateHardcodedSecrets(root)),
+    ...(await auditTemplateOxlint(root)),
     ...(await auditTemplateBunNative(root)),
     ...(await auditTemplateTestConventions(root)),
     ...(await auditTemplateTypecheck(root)),
@@ -867,6 +1049,7 @@ export async function auditTemplatePolicy(root: string): Promise<TemplatePolicyA
       registryEntries: await registryEntryCount(root),
       testProjects: collectTemplateTestProjects(root).length,
       moduleTsFiles: await countModuleTsFiles(root),
+      moduleSlices: MODULE_PROCESSOR_SLICES.length + 1,
       scaffoldFiles: REQUIRED_SCAFFOLD_FILES.length,
       envExampleFiles: collectEnvExampleFiles(root).length,
     },
@@ -882,6 +1065,7 @@ export async function templatePolicyDryRunSummary(root: string): Promise<Templat
     registryEntries: await registryEntryCount(root),
     testProjects: collectTemplateTestProjects(root).length,
     moduleTsFiles: await countModuleTsFiles(root),
+    moduleSlices: MODULE_PROCESSOR_SLICES.length + 1,
     scaffoldFiles: REQUIRED_SCAFFOLD_FILES.length,
     envExampleFiles: collectEnvExampleFiles(root).length,
   };

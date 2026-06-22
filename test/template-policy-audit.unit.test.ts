@@ -4,9 +4,13 @@ import {
   auditTemplateBunNative,
   auditTemplateEnvHygiene,
   auditTemplateInstallPolicy,
+  auditTemplateModuleSlice,
+  auditTemplateOxlint,
   auditTemplatePolicy,
+  auditTemplateReadmeRegistry,
   auditTemplateScaffoldFiles,
   auditTemplateScaffoldMarkers,
+  auditTemplateScaffoldToolchain,
   auditTemplateTestConventions,
   auditTemplateTsconfigs,
   templateBunNativeConfig,
@@ -51,6 +55,26 @@ describe("template-policy-audit", () => {
 
   test("auditTemplateTestConventions passes on repo templates", async () => {
     const violations = await auditTemplateTestConventions(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateScaffoldToolchain passes on repo templates", async () => {
+    const violations = await auditTemplateScaffoldToolchain(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateReadmeRegistry passes on repo templates", async () => {
+    const violations = await auditTemplateReadmeRegistry(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateModuleSlice passes on repo templates", async () => {
+    const violations = await auditTemplateModuleSlice(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateOxlint passes on repo templates", async () => {
+    const violations = await auditTemplateOxlint(REPO_ROOT);
     expect(violations).toEqual([]);
   });
 
