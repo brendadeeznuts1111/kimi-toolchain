@@ -32,7 +32,7 @@ SSOT: `src/lib/template-policy-audit.ts`. Key policy groups:
 | Bootstrap          | no `bun init` in postinstall; `kimi-new` uses `bun init -m -y`; `template-bootstrap` headers on spawn postinstalls |
 | Quality            | oxlint, `oxfmt --check templates/`, bun-native, `tsc --noEmit`, `bun test` in template projects                    |
 
-Authoring runbook: [`skills/create-template/SKILL.md`](skills/create-template/SKILL.md).
+Authoring runbook: [`skills/create-template/SKILL.md`](skills/create-template/SKILL.md). Runnable examples: [`examples/template-policy-and-scaffold.md`](examples/template-policy-and-scaffold.md).
 
 ## CONTEXT.md Template
 

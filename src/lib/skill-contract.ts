@@ -690,6 +690,11 @@ export function auditCreateTemplateSkillContract(
       message: "must reference docs/references/template-matrix.md",
     },
     {
+      re: /examples\/template-policy-and-scaffold\.md/,
+      rule: "create-template-examples-guide",
+      message: "must reference examples/template-policy-and-scaffold.md",
+    },
+    {
       re: /TEMPLATE_POLICY_CHECK_IDS|29 audit layers|30 audit layers|\d+ audit layers/i,
       rule: "create-template-policy-layer-count",
       message: "must reference template policy layer count or TEMPLATE_POLICY_CHECK_IDS",

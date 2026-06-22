@@ -11,9 +11,25 @@ priority: high
 
 ## Description
 
-This document shows how to use the secrets management system, identity layer (JWT, CSRF, sessions), and the secure install scanner pipeline.
+This document shows how to use secrets in kimi-toolchain projects: **Bun.secrets** (preferred in templates), the **kimi-secrets** CLI, identity layer (JWT, CSRF, sessions), and the secure install scanner pipeline.
+
+Template policy requires `Bun.secrets`-first docs in every `.env.example`, herdr `src/lib/secrets/` stubs, and `bun run check:template-policy` after template edits. See [template-policy-and-scaffold.md](template-policy-and-scaffold.md).
 
 <!-- #find:secrets-management -->
+
+## Bun.secrets (preferred in scaffolds)
+
+```typescript
+// Resolve at runtime — OS keychain on macOS/Linux, Credential Manager on Windows
+const token = await Bun.secrets.get({ service: "my-app", name: "API_TOKEN" });
+await Bun.secrets.set({ service: "my-app", name: "API_TOKEN", value: "..." });
+```
+
+Greenfield templates use `resolveDevSecrets()` (`src/lib/secrets/legacy.ts` in herdr-service-template) so postinstall can spawn before the registry exists. Never commit `.env` — ship `.env.example` only.
+
+Runtime regression: `bun test test/bun-secrets-runtime.unit.test.ts` (skipped in CI on non-Windows when keychain is unavailable).
+
+## kimi-secrets CLI
 
 ## Secrets Management
 

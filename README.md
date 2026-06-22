@@ -165,7 +165,7 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 | `bun run check:lockfile` | (synced from package.json) |
 
 | `bun run check:template-policy` | Template install/registry/scaffold/secrets gate (`templates/**`) |
-| `bun run skills:table` | Repo skill catalog (layer, contract, lib/test coverage) |
+| `bun run skills:table` | Repo skill catalog (layer, contract, lib/test coverage); `--verbose` / `--json` for module paths |
 | `bun run check:secret-resolution` | (synced from package.json) |
 | `bun run check:secret-leaks` | (synced from package.json) |
 | `bun run doctor:audit` | (synced from package.json) |

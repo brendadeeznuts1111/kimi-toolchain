@@ -380,6 +380,54 @@ export const SHOWCASE_ENTRIES: readonly ShowcaseEntry[] = [
     commands: ["kimi-guardian check", "kimi-guardian fix"],
     controlPlaneLevel: 3,
   },
+  {
+    id: "template-policy-and-scaffold",
+    kind: "guide",
+    lane: "agent-workflows",
+    order: 4,
+    title: "Template Policy & Scaffold",
+    tagline:
+      "bun create vs kimi-new bridge, 29-layer template gate, Bun.secrets slices, skills:table catalog",
+    path: "examples/template-policy-and-scaffold.md",
+    accent: "#58a6ff",
+    cardIds: ["card-scaffold", "card-gates", "card-kimi-doctor"],
+    relatedDocs: [
+      "TEMPLATES.md",
+      "skills/create-template/SKILL.md",
+      "docs/references/template-matrix.md",
+      "templates/scaffold/skills-readme.md",
+      "src/lib/template-policy-audit.ts",
+    ],
+    commands: [
+      "bun create kimi-toolchain my-app",
+      "kimi-new my-app",
+      "bun run check:template-policy",
+      "bun run skills:table --verbose",
+    ],
+    controlPlaneLevel: 1,
+  },
+  {
+    id: "secrets-and-identity",
+    kind: "guide",
+    lane: "agent-workflows",
+    order: 5,
+    title: "Secrets & Identity",
+    tagline: "Bun.secrets-first templates, kimi-secrets CLI, JWT/CSRF/session identity layer",
+    path: "examples/secrets-and-identity.md",
+    accent: "#f0883e",
+    cardIds: ["card-identity-flow", "card-token-jwt", "card-token-csrf", "card-scaffold"],
+    relatedDocs: [
+      "docs/identity/secrets-registry.md",
+      "examples/template-policy-and-scaffold.md",
+      "templates/bun-create/herdr-service-template/src/lib/secrets/",
+    ],
+    commands: [
+      "kimi-secrets check --json",
+      "bun test test/bun-secrets-runtime.unit.test.ts",
+      "bun run check:template-policy",
+    ],
+    controlPlaneLevel: 2,
+  },
 ] as const;
 
 export interface ShowcaseEntryStatus {

@@ -254,6 +254,7 @@ Policy implementation: `src/lib/template-policy-audit.ts` (`TEMPLATE_POLICY_CHEC
 ## Related
 
 - **Template policy gate:** `src/lib/template-policy-audit.ts` — `TEMPLATE_POLICY_CHECK_IDS` (29 layers incl. oxfmt; see `TEMPLATES.md` § Template policy gate)
+- **Examples guide:** [`examples/template-policy-and-scaffold.md`](../examples/template-policy-and-scaffold.md) — bootstrap paths, policy gate, skills catalog
 - **Template matrix:** `docs/references/template-matrix.md` — full breakdown of all 28 template files
 - **Template directory index:** `templates/README.md` — all template families and sync targets
 - **bun-create index:** `templates/bun-create/README.md` — current bun-create templates and examples mapping

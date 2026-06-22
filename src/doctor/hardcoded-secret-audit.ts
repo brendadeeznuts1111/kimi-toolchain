@@ -19,6 +19,7 @@ export interface HardcodedSecretFinding {
     | "dev-secret-literal"
     | "jwt-literal"
     | "private-key"
+    | "private-key-block"
     | "known-secret-prefix"
     | "url-credentials"
     | "bearer-token"
@@ -37,7 +38,8 @@ const NAMED_SECRET_RE =
 
 const JWT_RE = /["'](eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*)["']/g;
 
-const PRIVATE_KEY_RE = /-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/g;
+const PRIVATE_KEY_BEGIN_RE = /-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/;
+const PRIVATE_KEY_END_RE = /-----END (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/;
 
 const DEV_SECRET_RE = /["']([^"']*?(?:dev-secret|dev-token|dev-key)[^"']*?)["']/gi;
 
@@ -49,7 +51,16 @@ const URL_WITH_CREDENTIALS_RE = /["'](https?:\/\/[^"':\s]+:[^"'@\s]+@[^"'\s]+)["
 const BEARER_HEADER_RE =
   /(?:Authorization\s*:\s*Bearer|Bearer\s+)["']?([A-Za-z0-9_\-.+/]{16,})["']?/gi;
 
-const HIGH_ENTROPY_CANDIDATE_RE = /["']([A-Za-z0-9+/=_\-]{32,})["']/g;
+const HIGH_ENTROPY_CANDIDATE_RE = /["']([A-Za-z0-9+/=_-]{32,})["']/g;
+
+const BASE64_IMAGE_PREFIXES = new Set([
+  "iVBORw0KGgo", // png
+  "/9j/", // jpeg
+  "R0lGOD", // gif
+  "UklGR", // webp
+  "PHN2Zy", // svg
+  "PD94bW", // xml
+]);
 
 const SAFE_LITERAL_RE =
   /^(https?:\/\/|file:\/\/|\/|\.*\.|.*\.(ts|js|md|json|toml|yaml|yml|html|css|svg|png|jpg|jpeg|webp|ico))$/i;
@@ -79,9 +90,12 @@ function shannonEntropy(bytes: Uint8Array): number {
 
 function isHighEntropyToken(value: string): boolean {
   if (value.length < 32) return false;
+  for (const prefix of BASE64_IMAGE_PREFIXES) {
+    if (value.startsWith(prefix)) return false;
+  }
   if (!/[A-Z]/.test(value) || !/[a-z]/.test(value) || !/[0-9]/.test(value)) return false;
   // Avoid hex-only hashes / ids
-  if (!/[+/=_\-]/.test(value)) return false;
+  if (!/[+/=_-]/.test(value)) return false;
   const bytes = new TextEncoder().encode(value);
   return shannonEntropy(bytes) > 4.5;
 }
@@ -117,10 +131,32 @@ function scanText(path: string, text: string): HardcodedSecretFinding[] {
     findings.push({ file: path, line: lineNum, type, snippet: snippet.slice(0, 120) });
   }
 
+  let inPemBlock = false;
+  let pemBlockStart = -1;
+  const pemBlockLines = new Set<number>();
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    if (isCommentLine(line) || isIgnoredLine(line)) continue;
     const lineNum = i + 1;
+
+    if (inPemBlock) {
+      pemBlockLines.add(lineNum);
+      if (PRIVATE_KEY_END_RE.test(line)) {
+        add(pemBlockStart + 1, "private-key-block", lines[pemBlockStart]!.trim().slice(0, 120));
+        inPemBlock = false;
+        pemBlockStart = -1;
+      }
+      continue;
+    }
+
+    if (PRIVATE_KEY_BEGIN_RE.test(line)) {
+      inPemBlock = true;
+      pemBlockStart = i;
+      pemBlockLines.add(lineNum);
+      continue;
+    }
+
+    if (isCommentLine(line) || isIgnoredLine(line) || pemBlockLines.has(lineNum)) continue;
     const specificLines = new Set<number>();
 
     for (const match of line.matchAll(DEV_SECRET_RE)) {
@@ -133,11 +169,6 @@ function scanText(path: string, text: string): HardcodedSecretFinding[] {
     for (const _match of line.matchAll(JWT_RE)) {
       specificLines.add(lineNum);
       add(lineNum, "jwt-literal", line.trim());
-    }
-
-    for (const _match of line.matchAll(PRIVATE_KEY_RE)) {
-      specificLines.add(lineNum);
-      add(lineNum, "private-key", line.trim());
     }
 
     for (const _match of line.matchAll(URL_WITH_CREDENTIALS_RE)) {
@@ -177,6 +208,11 @@ function scanText(path: string, text: string): HardcodedSecretFinding[] {
       if (value.length <= 25) continue;
       add(lineNum, "named-secret-literal", line.trim());
     }
+  }
+
+  // Unterminated PEM block — still report the header.
+  if (inPemBlock && pemBlockStart >= 0) {
+    add(pemBlockStart + 1, "private-key-block", lines[pemBlockStart]!.trim().slice(0, 120));
   }
 
   return findings;

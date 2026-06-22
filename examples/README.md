@@ -64,11 +64,13 @@ The trading workspace is a self-contained L1+L2 gate tree — data freshness and
 
 ### Agent Workflows
 
-| Guide                                              | Focus                              |
-| -------------------------------------------------- | ---------------------------------- |
-| [project-health-check.md](project-health-check.md) | Polite first-pass health triage    |
-| [what-broke.md](what-broke.md)                     | Failure recovery ladder            |
-| [guardian-failure.md](guardian-failure.md)         | Lockfile hash mismatch before push |
+| Guide                                                              | Focus                                                        |
+| ------------------------------------------------------------------ | ------------------------------------------------------------ |
+| [project-health-check.md](project-health-check.md)                 | Polite first-pass health triage                              |
+| [what-broke.md](what-broke.md)                                     | Failure recovery ladder                                      |
+| [guardian-failure.md](guardian-failure.md)                         | Lockfile hash mismatch before push                           |
+| [template-policy-and-scaffold.md](template-policy-and-scaffold.md) | bun create / kimi-new, `check:template-policy`, skills index |
+| [secrets-and-identity.md](secrets-and-identity.md)                 | Bun.secrets, kimi-secrets CLI, JWT/CSRF/session              |
 
 ## Card mapping
 
@@ -105,10 +107,18 @@ Herdr dashboard embeds the examples surface via `HERDR_EXAMPLES_DASHBOARD_URL` (
 
 ## Scaffold from examples
 
+| Bootstrap         | Command                            | Notes                                   |
+| ----------------- | ---------------------------------- | --------------------------------------- |
+| **bun create**    | `bun create kimi-toolchain my-app` | Postinstall → `kimi-fix`; no `bun init` |
+| **kimi-new**      | `kimi-new my-app`                  | `bun init -m -y` bridge + `kimi-fix`    |
+| **Manual bridge** | `bun init -m -y && kimi-fix .`     | Same as kimi-new without wrapper        |
+
 | Module             | Source                           | Command                                |
 | ------------------ | -------------------------------- | -------------------------------------- |
 | `doctor` (default) | `examples/dashboard/src/harness` | `kimi-fix <path>`                      |
 | `trading`          | `templates/modules/trading`      | `KIMI_MODULES=trading kimi-fix <path>` |
 | `image`            | `templates/modules/image`        | `KIMI_MODULES=image kimi-fix <path>`   |
 
-See [docs/references/template-matrix.md](../docs/references/template-matrix.md) and [dashboard/v53/README.md](dashboard/v53/README.md).
+After editing `templates/**`: `bun run check:template-policy` · skill catalog: `bun run skills:table --verbose`.
+
+See [template-policy-and-scaffold.md](template-policy-and-scaffold.md), [docs/references/template-matrix.md](../docs/references/template-matrix.md), and [dashboard/v53/README.md](dashboard/v53/README.md).

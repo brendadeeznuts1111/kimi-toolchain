@@ -32,6 +32,10 @@ kimi-toolchain doctor --ecosystem --quick
   ✓ UNIFIED.md: present
   ✓ TEMPLATES.md: present
 
+── Templates (when editing templates/**) ─────────────────────
+  bun run check:template-policy
+  bun run skills:table --verbose
+
 ── Summary ──────────────────────────────────────────────────
   ⚠ 1 warning(s) found
 

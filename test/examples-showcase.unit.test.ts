@@ -14,11 +14,11 @@ import {
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("examples-showcase", () => {
-  test("registry has four runnable projects and eleven guides", () => {
+  test("registry has four runnable projects and thirteen guides", () => {
     const projects = SHOWCASE_ENTRIES.filter((e) => e.kind === "project");
     const guides = SHOWCASE_ENTRIES.filter((e) => e.kind === "guide");
     expect(projects.length).toBe(4);
-    expect(guides.length).toBe(11);
+    expect(guides.length).toBe(13);
     expect(projects.map((p) => p.id).sort()).toEqual([
       "dashboard",
       "gates",
@@ -32,7 +32,7 @@ describe("examples-showcase", () => {
     expect(payload.ok).toBe(true);
     expect(payload.schemaVersion).toBe(1);
     expect(payload.totals.projects).toBe(4);
-    expect(payload.totals.guides).toBe(11);
+    expect(payload.totals.guides).toBe(13);
     expect(payload.totals.cardsMapped).toBeGreaterThan(10);
 
     const dashboard = payload.entries.find((e) => e.id === "dashboard");
@@ -51,6 +51,12 @@ describe("examples-showcase", () => {
 
   test("lintShowcaseCardIds resolves every mapped card in dashboard.html", () => {
     expect(lintShowcaseCardIds(REPO_ROOT)).toEqual([]);
+  });
+
+  test("template-policy-and-scaffold entry maps to card-scaffold", () => {
+    const linked = entriesForCard("card-scaffold").map((e) => e.id);
+    expect(linked).toContain("template-policy-and-scaffold");
+    expect(linked).toContain("project-health-check");
   });
 
   test("entriesForCard links card-artifacts to runtime and control-plane entries", () => {

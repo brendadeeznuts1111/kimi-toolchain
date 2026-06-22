@@ -230,7 +230,7 @@ Use `--files <paths...>` for scoped lint (oxlint + banned-terms + patterns + tes
 | pre-push   | `check:fast` + guardian + effect-gates + constant-drift + R-Score (preflight auto-fix via `--hook`) + mandatory runtime sync                                 |
 | Local CI   | `bun run ci:local` — format:check, lint, typecheck, test, coverage, effect-gates, governance                                                                 |
 | Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)                                                                                             |
-| Templates  | `bun run check:template-policy` (SSOT: `src/lib/template-policy-audit.ts`); also in `quality:check:ci` and `verify:bun-features:strict` (`templates.policy`) |
+| Templates  | `bun run check:template-policy` (`TEMPLATE_POLICY_CHECK_IDS`, 29 layers incl. oxfmt); also in `quality:check:ci` and `verify:bun-features:strict` (`templates.policy`) |
 
 **Escape hatches:** `KIMI_SKIP_EFFECT_GATES=1` bypasses the Effect-discipline gate; `KIMI_SKIP_GOVERNANCE_PREFLIGHT=1` skips lock/README/guardian auto-fix before R-Score. Use only in emergencies and document the bypass in the commit message.
 
