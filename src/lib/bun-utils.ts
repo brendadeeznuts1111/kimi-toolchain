@@ -725,7 +725,12 @@ export function inspectBunRuntime(): BunRuntimeSnapshot {
 /** Human-readable multi-line runtime summary for CLI one-liners. */
 export function formatBunRuntimeSnapshot(
   snap: BunRuntimeSnapshot,
-  extras?: { engineRange?: string; engineSatisfied?: boolean; packageManager?: string }
+  extras?: {
+    engineRange?: string;
+    engineSatisfied?: boolean;
+    packageManager?: string;
+    processMemory?: ProcessMemorySnapshot;
+  }
 ): string {
   const { os, cpu, memory, host } = snap;
   const speed = cpu.speedMhz ? ` @ ${cpu.speedMhz} MHz` : "";
@@ -735,6 +740,14 @@ export function formatBunRuntimeSnapshot(
     `  hostname:   ${os.hostname}`,
     `  cpu:        ${cpu.model} · ${cpu.cores} core(s) · parallelism ${cpu.parallelism}${speed}`,
     `  memory:     ${formatMemoryBytes(memory.usedBytes)} used / ${formatMemoryBytes(memory.totalBytes)} (${memory.usedPercent}%)`,
+  ];
+  if (extras?.processMemory) {
+    const pm = formatProcessMemoryUsage(extras.processMemory);
+    lines.push(
+      `  processMem: rss ${pm.rss} · heap ${pm.heapUsed}/${pm.heapTotal} · external ${pm.external}`
+    );
+  }
+  lines.push(
     `  host:       pid ${host.pid} · ${host.user} · tz ${host.timezone}`,
     `  uptime:     process ${formatDuration(host.uptimeSeconds)} · os ${formatDuration(host.osUptimeSeconds)}`,
     `  node:       ${host.nodeVersion} (compat)`,
@@ -743,8 +756,8 @@ export function formatBunRuntimeSnapshot(
     `  main:       ${snap.main}${snap.evalMode ? "  ← eval (use bun run <file> for script entry)" : ""}`,
     `  cwd:        ${snap.cwd}`,
     `  executable: ${snap.executable ?? "not on PATH"}`,
-    `  process:    process.versions.bun = ${snap.processVersion ?? "n/a"}`,
-  ];
+    `  process:    process.versions.bun = ${snap.processVersion ?? "n/a"}`
+  );
   if (extras?.packageManager) {
     lines.push(`  pm:         ${extras.packageManager}`);
   }
@@ -759,7 +772,12 @@ export function formatBunRuntimeSnapshot(
 /** Pretty-print full runtime snapshot (Bun + OS + CPU + optional engine check). */
 export function formatFullBunRuntimeSnapshot(
   engineRange = ">=1.4.0",
-  extras?: { packageManager?: string; projectName?: string; projectVersion?: string }
+  extras?: {
+    packageManager?: string;
+    projectName?: string;
+    projectVersion?: string;
+    processMemory?: ProcessMemorySnapshot;
+  }
 ): string {
   const report = bunRuntimeReport(engineRange);
   const lines = [
@@ -767,6 +785,7 @@ export function formatFullBunRuntimeSnapshot(
       engineRange: report.engineRange,
       engineSatisfied: report.engineSatisfied,
       packageManager: extras?.packageManager,
+      processMemory: extras?.processMemory,
     }),
   ];
   if (extras?.projectName) {

@@ -76,6 +76,8 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-utils-jsc": "src/lib/bun-utils.ts",
   "bun-utils-editor": "src/lib/bun-utils.ts",
   "bun-utils-streams": "src/lib/bun-utils.ts",
+  "bun-utils-memory": "src/lib/bun-utils.ts",
+  "memory-governor": "src/lib/memory/governor.ts",
   "autophagy-scan": "src/lib/autophagy-scan.ts",
   "bun-color-formats": "src/lib/bun-color-formats.ts",
   "verify-bun-features-runner": "src/lib/verify-bun-features-runner.ts",

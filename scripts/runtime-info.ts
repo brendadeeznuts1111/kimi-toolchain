@@ -5,6 +5,7 @@ import {
   bunRuntimeReport,
   formatFullBunRuntimeSnapshot,
   inspectBunRuntime,
+  processMemoryUsage,
 } from "../src/lib/bun-utils.ts";
 
 const json = Bun.argv.includes("--json");
@@ -40,9 +41,11 @@ async function readPackageMeta(): Promise<PackageMeta> {
 const meta = await readPackageMeta();
 const engineRange = meta.engineRange ?? ">=1.4.0";
 const report = bunRuntimeReport(engineRange);
+const processMemory = processMemoryUsage();
 
 const payload = {
   ...report,
+  processMemory,
   project: meta.name
     ? {
         name: meta.name,
@@ -62,6 +65,7 @@ if (json) {
       packageManager: meta.packageManager,
       projectName: meta.name,
       projectVersion: meta.version,
+      processMemory,
     })
   );
 } else {
