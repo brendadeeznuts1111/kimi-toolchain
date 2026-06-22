@@ -4,6 +4,10 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "allowImportingTsExtensions": true,
     "strict": true,
     "noEmit": true,

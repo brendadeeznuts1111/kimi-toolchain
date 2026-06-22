@@ -16,6 +16,8 @@
     "coverage/",
     "*.log",
     "canonical-references.json",
-    "scripts/.fmt-*"
+    "examples/dashboard-urls.md",
+    "scripts/.fmt-*",
+    ".kimi-test-execve-child.ts"
   ]
 }

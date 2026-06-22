@@ -13,6 +13,8 @@ exact = false
 ignoreScripts = false
 concurrentScripts = 8
 linker = "isolated"
+# Bun ≥1.3.14 — shared virtual store; warm installs ~7× faster with linker=isolated
+globalStore = true
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200
@@ -20,6 +22,10 @@ minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
 dir = "~/.bun/install/cache"
+
+[run]
+# Parent-death detection — nested Bun processes exit when parent dies (CI / Herdr panes).
+noOrphans = true
 
 # Shared test defaults — see src/lib/test-gates.ts and package.json test scripts
 [test]
@@ -31,7 +37,7 @@ retry = 0
 # Exclude temporary test fixture directories from discovery
 pathIgnorePatterns = [".tmp*/**", "test/.tmp*/**", "**/.tmp-*/**"]
 # *.db.test.ts excluded — DB tests mutate shared state and must run sequentially
-concurrentTestGlob = ["test/*.unit.test.ts"]
+concurrentTestGlob = ["test/*.unit.test.ts", "src/doctor/*.test.ts"]
 coverageSkipTestFiles = true
 coveragePathIgnorePatterns = [
   "scripts/**",
