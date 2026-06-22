@@ -39,6 +39,7 @@ export interface SecretsService {
 export class Secrets extends Context.Tag("Secrets")<Secrets, SecretsService>() {}
 
 export const SecretsLive = Layer.effect(
+  Secrets,
   Effect.gen(function* () {
     const manager = new SecretsManager();
     return {
@@ -55,6 +56,7 @@ export const SecretsLive = Layer.effect(
 
 export function SecretsLiveWithOptions(opts: SecretsManagerOptions): Layer.Layer<Secrets> {
   return Layer.effect(
+    Secrets,
     Effect.gen(function* () {
       const manager = new SecretsManager(opts);
       return {

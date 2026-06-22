@@ -45,9 +45,7 @@ function defaultNow(): Date {
 }
 
 function generateRandomSecret(): string {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return Bun.randomUUIDv7("hex").replace(/-/g, "") + Bun.randomUUIDv7("hex").replace(/-/g, "");
 }
 
 function cacheKey(k: { service: string; name: string }): string {
@@ -91,7 +89,7 @@ export class SecretsManager {
       const trace = ensureProcessTrace();
       traceId = trace.traceId;
     } catch {
-      // trace not available
+      traceId = Bun.randomUUIDv7();
     }
     const full: SecretAuditRecord = {
       timestamp: this.now().toISOString(),
