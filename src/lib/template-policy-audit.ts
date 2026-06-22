@@ -112,8 +112,8 @@ const MODULE_PROCESSOR_SLICES = [
   "uuid",
 ] as const;
 
-const HERDR_SECRETS_TEMPLATE = "templates/bun-create/herdr-service-template";
-const HERDR_SECRETS_DIR = `${HERDR_SECRETS_TEMPLATE}/src/lib/secrets`;
+const HERDR_SERVICE_TEMPLATE = "templates/bun-create/herdr-service-template";
+const HERDR_SECRETS_DIR = `${HERDR_SERVICE_TEMPLATE}/src/lib/secrets`;
 
 const HERDR_SECRETS_FILES = [
   "_registry.ts",
@@ -1027,20 +1027,20 @@ export async function auditTemplateSecretsSlice(
     }
   }
 
-  const postinstallPath = join(root, HERDR_SECRETS_TEMPLATE, "scripts/postinstall.ts");
+  const postinstallPath = join(root, HERDR_SERVICE_TEMPLATE, "scripts/postinstall.ts");
   if (await Bun.file(postinstallPath).exists()) {
     const postinstall = await Bun.file(postinstallPath).text();
     for (const needle of ["Bun.secrets", "resolveDevSecrets", "enforceIsolation", "SECRET_NAMES"]) {
       if (postinstall.includes(needle)) continue;
       violations.push({
-        file: `${HERDR_SECRETS_TEMPLATE}/scripts/postinstall.ts`,
+        file: `${HERDR_SERVICE_TEMPLATE}/scripts/postinstall.ts`,
         field: "secrets-slice",
         message: `postinstall generator must emit ${needle}`,
       });
     }
     if (/\bbun\s+init\b/.test(postinstall)) {
       violations.push({
-        file: `${HERDR_SECRETS_TEMPLATE}/scripts/postinstall.ts`,
+        file: `${HERDR_SERVICE_TEMPLATE}/scripts/postinstall.ts`,
         field: "bun-init-guard",
         message: "herdr postinstall must not call bun init — kimi-fix owns scaffold files",
       });

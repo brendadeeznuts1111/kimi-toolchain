@@ -39,6 +39,7 @@ export const EXEMPT_BINS = new Set([
   "kimi-toolchain.ts",
   "kimi-cloudflare-access.ts",
   "kimi-heal.ts",
+  "kimi-deep-audit.ts",
   "herdr-orchestrator.ts",
   "unified-shell-bridge.ts",
 ]);

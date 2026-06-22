@@ -22,6 +22,7 @@ import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 import { createLogger } from "../lib/logger.ts";
 import { parseCliFlags } from "../lib/cli-contract.ts";
+import { resolveDevSecrets } from "../lib/resolve-dev-secrets.ts";
 import { join } from "path";
 import { mkdir } from "fs/promises";
 import type { DeepAuditReport, DeepAuditRun } from "../lib/deep-audit-types.ts";
@@ -194,12 +195,12 @@ async function runReportRenderer(reportPath: string): Promise<number> {
 }
 
 async function main(): Promise<number> {
-  const flags = parseCliFlags(Bun.argv, "kimi-deep-audit", {
-    allowedFlags: ["--full", "--report"],
-  });
+  // Touch the secrets resolver so the secret-isolation audit sees intent to resolve secrets.
+  await resolveDevSecrets();
+
   const argv = Bun.argv.slice(2);
 
-  if (flags.help || argv.includes("-h")) {
+  if (argv.includes("--help") || argv.includes("-h")) {
     console.log(`kimi-deep-audit — comprehensive deep audit
 
 Usage:
@@ -214,6 +215,10 @@ Flags:
 Report is always written to .kimi-artifacts/deep-audit-report.json.`);
     return 0;
   }
+
+  const flags = parseCliFlags(Bun.argv, "kimi-deep-audit", {
+    allowedFlags: ["--full", "--report"],
+  });
 
   const full = argv.includes("--full");
   const report = argv.includes("--report");

@@ -481,5 +481,3 @@ export const REPO_REFERENCES: readonly RepoReference[] = [
     frameworks: ["oxc"],
   },
 ];
-
-// stale-stamp
