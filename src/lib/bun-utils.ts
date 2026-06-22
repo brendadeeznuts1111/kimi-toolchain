@@ -472,6 +472,23 @@ function debugSecretSummary(resolution: SecretResolution): void {
   }
 }
 
+/** Warn (to stderr) about missing critical secrets with actionable hints. */
+const CRITICAL_SECRETS = new Set([
+  "GITHUB_TOKEN",
+  "NPM_TOKEN",
+]);
+
+function warnMissingSecrets(resolution: SecretResolution): void {
+  if (process.env.KIMI_DEBUG_SECRETS !== "1" && process.env.KIMI_DEBUG_SECRETS !== "true") return;
+  for (const entry of resolution.entries) {
+    if (entry.source === "missing" && CRITICAL_SECRETS.has(entry.envVar)) {
+      console.error(
+        `  ⚠ ${entry.envVar} is missing — set it via env var or run \`kimi-secrets init\` to store in keychain`
+      );
+    }
+  }
+}
+
 /** Resolve a single secret: env first, then Bun.secrets, returning value and source. */
 async function resolveSecret(
   envVar: string,
@@ -629,5 +646,6 @@ export async function resolveDevSecrets(): Promise<SecretResolution> {
   };
 
   debugSecretSummary(resolution);
+  warnMissingSecrets(resolution);
   return resolution;
 }

@@ -135,7 +135,74 @@ each tool reimplementing keychain lookups.
 2. Add to `secrets-policy.json5` with `allowedConsumers`, `rotationDays`, `version: 1`.
 3. Add a typed `SecretKey` variant to `src/lib/secrets-types.ts`.
 4. Add a `SecretKeys.*` entry to `src/lib/secrets-constants.ts`.
-5. Run `bun run check:secrets-registry` to verify consistency.
+5. Add the secret to the `kimi-secrets` init template in `src/bin/kimi-secrets.ts`.
+6. Add a resolver function in `src/lib/bun-utils.ts` if the secret needs env injection.
+7. Run `bun run check:secrets-registry` to verify consistency (includes init template sync check).
+
+## Usage Examples
+
+### Resolve secrets before spawning a child process
+
+```typescript
+import { resolveDevSecrets } from "../lib/bun-utils.ts";
+
+async function main() {
+  const resolution = await resolveDevSecrets();
+  // process.env now has all available secrets populated
+
+  // Spawn child process with secrets in env
+  const proc = Bun.spawn(["bun", "install"], { stdout: "pipe" });
+  await proc.exited;
+}
+```
+
+### Debug secret resolution
+
+```bash
+# See which secrets came from env vs keychain vs missing
+KIMI_DEBUG_SECRETS=1 bun run src/bin/kimi-new.ts --secrets-dry-run
+```
+
+Output:
+```
+  ❌ GITHUB_TOKEN ← missing
+  🔑 NPM_TOKEN ← keychain
+  ── resolved 3/7 (2 env, 1 keychain, 4 missing)
+  ⚠ GITHUB_TOKEN is missing — set it via env var or run `kimi-secrets init` to store in keychain
+Secret resolution status:
+  GITHUB_TOKEN           ❌ missing
+  NPM_TOKEN              🔑 keychain
+  ── resolved 3/7 (2 env, 1 keychain, 4 missing)
+```
+
+### Use resolveSecrets option with runCliExit
+
+```typescript
+import { runCliExit } from "../lib/effect/cli-runtime.ts";
+
+const exitCode = await runCliExit(
+  program,
+  { toolName: "my-tool", resolveSecrets: true }
+);
+```
+
+### Export scanner results as SARIF
+
+```typescript
+import { runScannerPipeline, scannerResultToSarif } from "../lib/scanner-pipeline.ts";
+
+const result = await runScannerPipeline({ dependencies });
+const sarif = scannerResultToSarif(result);
+await Bun.write("scan-results.sarif", JSON.stringify(sarif, null, 2));
+```
+
+### Build-time secrets metadata via macros
+
+```typescript
+import { getSecretKeysMetadata } from "../lib/secrets-metadata-macros.ts" with { type: "macro" };
+
+const metadata = getSecretKeysMetadata(); // inlined as static JSON at build time
+```
 
 ## Migrating a Service Name
 

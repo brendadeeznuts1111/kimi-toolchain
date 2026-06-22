@@ -554,3 +554,207 @@ export async function runScannerPipeline(
     manual,
   });
 }
+
+// ── SARIF Output ─────────────────────────────────────────────────────
+
+/**
+ * SARIF (Static Analysis Results Interchange Format) v2.1.0 output.
+ *
+ * @see https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html
+ */
+export interface SarifReport {
+  $schema: string;
+  version: "2.1.0";
+  runs: SarifRun[];
+}
+
+interface SarifRun {
+  tool: {
+    driver: {
+      name: string;
+      version: string;
+      informationUri: string;
+    };
+  };
+  results: SarifResult[];
+}
+
+interface SarifResult {
+  ruleId: string;
+  level: "error" | "warning" | "note" | "none";
+  message: { text: string };
+  locations: SarifLocation[];
+  partialFingerprints?: Record<string, string>;
+  properties?: Record<string, unknown>;
+}
+
+interface SarifLocation {
+  physicalLocation: {
+    artifactLocation: { uri: string };
+    region?: { startLine: number };
+  };
+}
+
+const SARIF_SCHEMA = "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cs01/schemas/sarif-schema-2.1.0.json";
+const SARIF_LEVELS: Record<Severity, SarifResult["level"]> = {
+  critical: "error",
+  high: "error",
+  medium: "warning",
+  low: "note",
+  unknown: "none",
+};
+
+/**
+ * Convert scanner findings to SARIF v2.1.0 format.
+ *
+ * @param findings - Vulnerability findings from the scanner pipeline
+ * @param toolVersion - Version string for the tool driver (default: "1.0.0")
+ * @returns SARIF report object suitable for JSON serialization
+ */
+export function findingsToSarif(
+  findings: VulnerabilityFinding[],
+  toolVersion: string = "1.0.0",
+): SarifReport {
+  const results: SarifResult[] = findings.map((f) => ({
+    ruleId: f.cveId,
+    level: SARIF_LEVELS[f.severity],
+    message: {
+      text: `${f.name} ${f.currentVersion} — ${f.severity} vulnerability (fix: ${f.fixedVersion ?? "none"}, strategy: ${f.strategy})`,
+    },
+    locations: [
+      {
+        physicalLocation: {
+          artifactLocation: { uri: "package.json" },
+        },
+      },
+    ],
+    partialFingerprints: {
+      "package:vulnerability": `${f.name}@${f.currentVersion}:${f.cveId}`,
+    },
+    properties: {
+      package: f.name,
+      currentVersion: f.currentVersion,
+      fixedVersion: f.fixedVersion,
+      severity: f.severity,
+      cvssScore: f.cvssScore,
+      strategy: f.strategy,
+      range: f.range,
+    },
+  }));
+
+  return {
+    $schema: SARIF_SCHEMA,
+    version: "2.1.0",
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: "kimi-toolchain-scanner",
+            version: toolVersion,
+            informationUri: "https://github.com/brendadeeznuts1111/kimi-toolchain",
+          },
+        },
+        results,
+      },
+    ],
+  };
+}
+
+/**
+ * Convert a full scanner pipeline result to SARIF format, including
+ * patch outcomes in the properties of each result.
+ */
+export function scannerResultToSarif(
+  result: ScannerPipelineResult,
+  toolVersion: string = "1.0.0",
+): SarifReport {
+  const patchMap = new Map(result.patches.map((p) => [p.name, p]));
+
+  const results: SarifResult[] = result.findings.map((f) => {
+    const patch = patchMap.get(f.name);
+    return {
+      ruleId: f.cveId,
+      level: SARIF_LEVELS[f.severity],
+      message: {
+        text: patch
+          ? `${f.name} ${f.currentVersion} — ${f.severity} (patched: ${patch.success ? `yes → ${patch.patchedVersion ?? "?"}` : "failed"})`
+          : `${f.name} ${f.currentVersion} — ${f.severity} (strategy: ${f.strategy})`,
+      },
+      locations: [
+        {
+          physicalLocation: {
+            artifactLocation: { uri: "package.json" },
+          },
+        },
+      ],
+      partialFingerprints: {
+        "package:vulnerability": `${f.name}@${f.currentVersion}:${f.cveId}`,
+      },
+      properties: {
+        package: f.name,
+        currentVersion: f.currentVersion,
+        fixedVersion: f.fixedVersion,
+        severity: f.severity,
+        cvssScore: f.cvssScore,
+        strategy: f.strategy,
+        range: f.range,
+        patched: patch?.success ?? false,
+        patchMessage: patch?.message,
+      },
+    };
+  });
+
+  return {
+    $schema: SARIF_SCHEMA,
+    version: "2.1.0",
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: "kimi-toolchain-scanner",
+            version: toolVersion,
+            informationUri: "https://github.com/brendadeeznuts1111/kimi-toolchain",
+          },
+        },
+        results,
+      },
+    ],
+  };
+}
+
+// ── Summary Reporting ────────────────────────────────────────────────
+
+/**
+ * Generate a human-readable summary of scanner results.
+ * Suitable for CLI output or CI annotations.
+ */
+export function summarizeScanResult(result: ScannerPipelineResult): string {
+  const lines: string[] = [];
+
+  lines.push(`Scanned ${result.scanned} dependencies`);
+  lines.push(`  Vulnerabilities: ${result.vulnerabilities}`);
+  lines.push(`  Patched: ${result.patched}`);
+  lines.push(`  Failed: ${result.failed}`);
+  lines.push(`  Manual: ${result.manual}`);
+
+  if (result.findings.length > 0) {
+    lines.push("");
+    lines.push("Findings:");
+    for (const f of result.findings) {
+      const sev = f.severity.toUpperCase().padEnd(8);
+      const fix = f.fixedVersion ? ` → ${f.fixedVersion}` : " (no fix)";
+      lines.push(`  [${sev}] ${f.name}@${f.currentVersion} ${f.cveId}${fix} (${f.strategy})`);
+    }
+  }
+
+  if (result.patches.length > 0) {
+    lines.push("");
+    lines.push("Patches:");
+    for (const p of result.patches) {
+      const status = p.success ? "✓" : "✗";
+      lines.push(`  ${status} ${p.name}: ${p.message}`);
+    }
+  }
+
+  return lines.join("\n");
+}
