@@ -354,6 +354,14 @@ Contracts are normalized before signing. Sibling signatures are preferred; embed
 
 | Command                         | Description                                 |
 | ------------------------------- | ------------------------------------------- |
+| `kimi-secrets check`            | Health check all registered secrets         |
+| `kimi-secrets list`             | List all registered secrets with status     |
+| `kimi-secrets get <svc> <name>` | Retrieve a secret value (masked by default) |
+| `kimi-secrets set <svc> <name>` | Store a secret value                        |
+| `kimi-secrets rotate <svc> <n>` | Rotate a secret to a new value              |
+| `kimi-secrets delete <svc> <n>` | Remove a secret from the store              |
+| `kimi-secrets audit`            | Query the secret access audit trail         |
+| `kimi-secrets init`             | Create a `secrets-policy.json5` template    |
 | `kimi-guardian check`           | Lockfile integrity & CVE scan               |
 | `kimi-guardian sign`            | Baseline lockfile hash                      |
 | `kimi-guardian verify`          | Verify lockfile against stored hash         |

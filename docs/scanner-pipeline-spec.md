@@ -130,6 +130,33 @@ Options:
 
 ## Integration Points
 
+### Dependency Discovery (`Bun.Glob`)
+
+The `discoverTargets()` function in `scanner-pipeline.ts` automates dependency discovery using `Bun.Glob`:
+
+```typescript
+import { discoverTargets } from "./scanner-pipeline.ts";
+
+// Default: scan root package.json
+const deps = await discoverTargets(Bun.cwd);
+
+// Include workspace packages
+const deps = await discoverTargets(Bun.cwd, { includeWorkspaces: true });
+
+// Exclude devDependencies
+const deps = await discoverTargets(Bun.cwd, { includeDev: false });
+```
+
+**How it works:**
+
+1. Always includes the root `package.json`
+2. When `includeWorkspaces` is true, uses `new Bun.Glob("**/package.json")` to find all workspace packages (excluding `node_modules`)
+3. Parses each `package.json`, collecting `dependencies` and optionally `devDependencies`
+4. Deduplicates by package name
+5. Strips range prefixes (`^`, `~`, `>=`, `<=`) from version strings
+
+**Output:** `Array<DependencyInfo>` where each entry has `{ name, current, range }`.
+
 ### Existing code reuse:
 
 - **`kimi-guardian.ts`** → `checkCVEs()` — OSV API scanning

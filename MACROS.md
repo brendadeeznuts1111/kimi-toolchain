@@ -159,6 +159,30 @@ Bun supports a `--no-macros` flag that is intended to disable macro execution. H
 
 If a future Bun version changes this behavior, update `test/macros-no-macros.unit.test.ts` to expect build failures instead of successful builds.
 
+## CLI Integration
+
+Both `kimi-secrets` and `kimi-guardian` use `printHelp()` from `cli-help-generator.ts` for their `--help` / `-h` flags:
+
+```ts
+// src/bin/kimi-secrets.ts
+import { printHelp } from "../lib/cli-help-generator.ts";
+
+async function main(): Promise<number> {
+  if (Bun.argv.includes("--help") || Bun.argv.includes("-h")) {
+    printHelp("kimi-secrets");
+    return 0;
+  }
+  // ... command handling
+}
+```
+
+The help output includes:
+- Tool name and version (from `build-info.ts` macro)
+- Available commands and options
+- Usage examples
+- For `general` help: table of contents and install guide (from `embedded-docs.ts` macro)
+- ANSI color codes (from `Bun.color` macro) for terminal readability
+
 ## Build Verification
 
 To verify all macros are working:
