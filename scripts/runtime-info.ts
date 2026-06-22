@@ -4,6 +4,8 @@ import { join } from "path";
 import {
   bunRuntimeReport,
   formatFullBunRuntimeSnapshot,
+  formatMemoryBytes,
+  formatProcessMemoryUsage,
   inspectBunRuntime,
   processMemoryUsage,
 } from "../src/lib/bun-utils.ts";
@@ -42,10 +44,32 @@ const meta = await readPackageMeta();
 const engineRange = meta.engineRange ?? ">=1.4.0";
 const report = bunRuntimeReport(engineRange);
 const processMemory = processMemoryUsage();
+const processMemoryFormatted = formatProcessMemoryUsage(processMemory);
+
+function processMemoryBreakdown(mem: typeof processMemory) {
+  const rss = mem.rss || 1; // avoid divide-by-zero
+  return {
+    heapUsedPercentOfRss: Math.round((mem.heapUsed / rss) * 1000) / 10,
+    externalPercentOfRss: Math.round((mem.external / rss) * 1000) / 10,
+    arrayBuffersPercentOfRss: Math.round((mem.arrayBuffers / rss) * 1000) / 10,
+  };
+}
 
 const payload = {
   ...report,
-  processMemory,
+  processMemory: {
+    ...processMemory,
+    formatted: processMemoryFormatted,
+    breakdown: processMemoryBreakdown(processMemory),
+  },
+  systemMemory: {
+    ...report.memory,
+    formatted: {
+      total: formatMemoryBytes(report.memory.totalBytes),
+      used: formatMemoryBytes(report.memory.usedBytes),
+      free: formatMemoryBytes(report.memory.freeBytes),
+    },
+  },
   project: meta.name
     ? {
         name: meta.name,
