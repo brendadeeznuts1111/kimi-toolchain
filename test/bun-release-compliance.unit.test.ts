@@ -773,6 +773,7 @@ describe("bun-release-compliance console-bun-terminal", () => {
     "src/lib/bun-install-config.ts",
     "src/lib/error-taxonomy.ts",
     "src/lib/secrets-manager.ts",
+    "src/lib/secrets/fast-resolver.ts",
   ]);
 
   // src/bin/ entry points: console is the primary output mechanism — not linted here
