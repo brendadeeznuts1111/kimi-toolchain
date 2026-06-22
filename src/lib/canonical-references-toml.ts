@@ -7,9 +7,9 @@ import type {
   EcosystemReference,
   LocalDocReference,
   RepoReference,
-} from "./canonical-references.ts";
+} from "./canonical-references-types.ts";
+import { CANONICAL_REFERENCES_SCHEMA_VERSION } from "./canonical-references-types.ts";
 import {
-  CANONICAL_REFERENCES_SCHEMA_VERSION,
   lintCanonicalReferencesLinkTables,
   lintManifestBunNative,
 } from "./canonical-references.ts";
@@ -222,7 +222,7 @@ export function generateCanonicalReferencesDataTs(source: CanonicalReferencesTom
   const blocks: string[] = [
     "// Auto-generated from canonical-references.toml. Do not edit.",
     "",
-    'import type { EcosystemReference, LocalDocReference, RepoReference } from "./canonical-references.ts";',
+    'import type { EcosystemReference, LocalDocReference, RepoReference } from "./canonical-references-types.ts";',
     "",
   ];
 
