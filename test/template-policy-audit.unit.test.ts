@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { REPO_ROOT } from "./helpers.ts";
 import {
+  auditTemplateBootstrapDocs,
+  auditTemplateBunInitGuard,
   auditTemplateBunNative,
   auditTemplateEnvHygiene,
   auditTemplateInstallPolicy,
@@ -11,6 +13,9 @@ import {
   auditTemplateScaffoldFiles,
   auditTemplateScaffoldMarkers,
   auditTemplateScaffoldToolchain,
+  auditTemplateSecretLeaks,
+  auditTemplateSecretsEnvDocs,
+  auditTemplateSecretsSlice,
   auditTemplateTestConventions,
   auditTemplateTsconfigs,
   templateBunNativeConfig,
@@ -75,6 +80,31 @@ describe("template-policy-audit", () => {
 
   test("auditTemplateOxlint passes on repo templates", async () => {
     const violations = await auditTemplateOxlint(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateBunInitGuard passes on repo templates", async () => {
+    const violations = await auditTemplateBunInitGuard(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateSecretsSlice passes on repo templates", async () => {
+    const violations = await auditTemplateSecretsSlice(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateSecretsEnvDocs passes on repo templates", async () => {
+    const violations = await auditTemplateSecretsEnvDocs(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateSecretLeaks passes on repo templates", async () => {
+    const violations = await auditTemplateSecretLeaks(REPO_ROOT);
+    expect(violations).toEqual([]);
+  });
+
+  test("auditTemplateBootstrapDocs passes on repo templates", async () => {
+    const violations = await auditTemplateBootstrapDocs(REPO_ROOT);
     expect(violations).toEqual([]);
   });
 

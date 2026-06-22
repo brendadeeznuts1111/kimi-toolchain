@@ -25,6 +25,8 @@ Registry SSOT: [`templates.json`](./templates.json).
 - **Zero dependencies.** If a template `package.json` includes `dependencies`/`devDependencies`, `bun create` may run an npm client other than Bun. Keep dependencies empty; let `kimi-fix` install tools.
 - **No README in the template.** `kimi-fix` generates the project README from `templates/scaffold/README.md`. A README inside the bun-create template would be skipped by `kimi-fix`'s `!pathExists()` guard.
 - **Postinstall must be idempotent.** The `kimi-toolchain` template installs the toolchain globally and runs `kimi-fix .`; both operations are safe to repeat.
+- **No `bun init` in postinstall.** `bun init` (without `-m`) creates basic `tsconfig.json`, `README.md`, `index.ts`, and `.gitignore` that block `kimi-fix`'s hardened scaffold. Postinstall hooks delegate to `kimi-fix` instead. For the bridge pattern (`kimi-new`), use `bun init -m -y` only when not using `bun create`.
+- **Secrets via Bun.secrets.** Templates resolve credentials with `Bun.secrets` first, then env fallbacks (`com.herdr.<service>/<name>` → `COM_HERDR_<SERVICE>_<NAME>`). `herdr-service-template` scaffolds `src/lib/secrets/`; `kimi-toolchain` supports `bun run scripts/postinstall.ts --with-secrets` for an optional root `secrets/` registry. Never commit `.env` — use `.env.example` with `replace_me` placeholders.
 
 ## Local development
 

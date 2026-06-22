@@ -12,6 +12,7 @@ import {
 } from "./bun-native-lint.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import { auditHardcodedSecretsInGlob } from "../doctor/hardcoded-secret-audit.ts";
+import { auditSecretLeaksInGlob } from "../doctor/secret-audit.ts";
 import { TEMPLATE_MARKERS } from "./scaffold-templates.ts";
 
 export interface TemplatePolicyViolation {
@@ -110,6 +111,23 @@ const MODULE_PROCESSOR_SLICES = [
   "transpiler",
   "uuid",
 ] as const;
+
+const HERDR_SECRETS_TEMPLATE = "templates/bun-create/herdr-service-template";
+const HERDR_SECRETS_DIR = `${HERDR_SECRETS_TEMPLATE}/src/lib/secrets`;
+
+const HERDR_SECRETS_FILES = [
+  "_registry.ts",
+  "access.ts",
+  "isolation.ts",
+  "legacy.ts",
+  "index.ts",
+] as const;
+
+const POSTINSTALL_SCRIPT_GLOB = "templates/**/scripts/postinstall.ts";
+
+const BUN_INIT_FORBIDDEN_RE = /\bbun\s+init\b(?!.*(?:-m|--minimal))/;
+
+const ENV_EXAMPLE_REQUIRED_MARKERS = ["Never commit .env"] as const;
 
 const TEMPLATE_TS_GLOBS = ["templates/**/*.ts", "templates/**/*.tsx"] as const;
 
@@ -934,6 +952,194 @@ export async function auditTemplateOxlint(root: string): Promise<TemplatePolicyV
   ];
 }
 
+export async function auditTemplateBunInitGuard(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  for (const path of new Bun.Glob(POSTINSTALL_SCRIPT_GLOB).scanSync({
+    cwd: root,
+    absolute: true,
+    onlyFiles: true,
+  })) {
+    const relPath = rel(root, path);
+    for (const [i, line] of (await Bun.file(path).text()).split("\n").entries()) {
+      if (line.trim().startsWith("//") || line.includes("@template-bootstrap-exempt")) continue;
+      if (!BUN_INIT_FORBIDDEN_RE.test(line)) continue;
+      violations.push({
+        file: relPath,
+        field: "bun-init-guard",
+        message: `postinstall must not call bun init without -m (line ${i + 1}) — use kimi-fix bridge; see create-template SKILL`,
+      });
+    }
+  }
+  return violations;
+}
+
+export async function auditTemplateSecretsSlice(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  for (const name of HERDR_SECRETS_FILES) {
+    const relPath = `${HERDR_SECRETS_DIR}/${name}`;
+    if (!(await Bun.file(join(root, relPath)).exists())) {
+      violations.push({
+        file: relPath,
+        field: "secrets-slice",
+        message: "Missing herdr-service-template secrets stub file",
+      });
+    }
+  }
+
+  const accessPath = join(root, HERDR_SECRETS_DIR, "access.ts");
+  if (await Bun.file(accessPath).exists()) {
+    const access = await Bun.file(accessPath).text();
+    for (const needle of ["Bun.secrets", "enforceIsolation", "Bun.env"]) {
+      if (access.includes(needle)) continue;
+      violations.push({
+        file: `${HERDR_SECRETS_DIR}/access.ts`,
+        field: "secrets-slice",
+        message: `access.ts must resolve via ${needle}`,
+      });
+    }
+  }
+
+  const isolationPath = join(root, HERDR_SECRETS_DIR, "isolation.ts");
+  if (await Bun.file(isolationPath).exists()) {
+    const isolation = await Bun.file(isolationPath).text();
+    if (!isolation.includes("SecretIsolationError") || !isolation.includes("enforceIsolation")) {
+      violations.push({
+        file: `${HERDR_SECRETS_DIR}/isolation.ts`,
+        field: "secrets-slice",
+        message: "isolation.ts must export SecretIsolationError and enforceIsolation",
+      });
+    }
+  }
+
+  const legacyPath = join(root, HERDR_SECRETS_DIR, "legacy.ts");
+  if (await Bun.file(legacyPath).exists()) {
+    const legacy = await Bun.file(legacyPath).text();
+    if (!legacy.includes("resolveDevSecrets")) {
+      violations.push({
+        file: `${HERDR_SECRETS_DIR}/legacy.ts`,
+        field: "secrets-slice",
+        message: "legacy.ts must export resolveDevSecrets() for spawn-before-resolve contract",
+      });
+    }
+  }
+
+  const postinstallPath = join(root, HERDR_SECRETS_TEMPLATE, "scripts/postinstall.ts");
+  if (await Bun.file(postinstallPath).exists()) {
+    const postinstall = await Bun.file(postinstallPath).text();
+    for (const needle of ["Bun.secrets", "resolveDevSecrets", "enforceIsolation", "SECRET_NAMES"]) {
+      if (postinstall.includes(needle)) continue;
+      violations.push({
+        file: `${HERDR_SECRETS_TEMPLATE}/scripts/postinstall.ts`,
+        field: "secrets-slice",
+        message: `postinstall generator must emit ${needle}`,
+      });
+    }
+    if (/\bbun\s+init\b/.test(postinstall)) {
+      violations.push({
+        file: `${HERDR_SECRETS_TEMPLATE}/scripts/postinstall.ts`,
+        field: "bun-init-guard",
+        message: "herdr postinstall must not call bun init — kimi-fix owns scaffold files",
+      });
+    }
+  }
+
+  const toolchainPostinstall = join(root, "templates/bun-create/kimi-toolchain/scripts/postinstall.ts");
+  if (await Bun.file(toolchainPostinstall).exists()) {
+    const text = await Bun.file(toolchainPostinstall).text();
+    if (!text.includes("--with-secrets")) {
+      violations.push({
+        file: "templates/bun-create/kimi-toolchain/scripts/postinstall.ts",
+        field: "secrets-slice",
+        message: "kimi-toolchain postinstall must support --with-secrets for optional secrets/ registry",
+      });
+    }
+    if (!text.includes("resolveDevSecrets")) {
+      violations.push({
+        file: "templates/bun-create/kimi-toolchain/scripts/postinstall.ts",
+        field: "secrets-slice",
+        message: "kimi-toolchain postinstall must generate resolveDevSecrets() when --with-secrets is set",
+      });
+    }
+  }
+
+  return violations;
+}
+
+export async function auditTemplateSecretsEnvDocs(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  const envExamples = [
+    ...new Bun.Glob("templates/bun-create/*/.env.example").scanSync({
+      cwd: root,
+      onlyFiles: true,
+    }),
+    "templates/scaffold/env.example",
+  ];
+  for (const relPath of envExamples) {
+    const text = await Bun.file(join(root, relPath)).text();
+    for (const marker of ENV_EXAMPLE_REQUIRED_MARKERS) {
+      if (text.includes(marker)) continue;
+      violations.push({
+        file: relPath,
+        field: "secrets-env-docs",
+        message: `Missing env.example marker: ${marker}`,
+      });
+    }
+    const needsSecretsDoc =
+      relPath.includes("herdr-service-template") ||
+      relPath.includes("kimi-toolchain") ||
+      relPath === "templates/scaffold/env.example";
+    if (needsSecretsDoc && !/Bun\.secrets|replace_me/i.test(text)) {
+      violations.push({
+        file: relPath,
+        field: "secrets-env-docs",
+        message: "Must document Bun.secrets-first resolution or use replace_me placeholders",
+      });
+    }
+  }
+  return violations;
+}
+
+export async function auditTemplateSecretLeaks(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const result = await auditSecretLeaksInGlob(root, ["templates/**/*.ts", "templates/**/*.tsx"]);
+  return result.findings.map((finding) => ({
+    file: finding.file,
+    field: "secret-leak",
+    message: `${finding.type} access to ${finding.key} (line ${finding.line})`,
+  }));
+}
+
+export async function auditTemplateBootstrapDocs(
+  root: string
+): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  const readmePath = join(root, BUN_CREATE_README);
+  if (!(await Bun.file(readmePath).exists())) return violations;
+  const text = await Bun.file(readmePath).text();
+  if (!/bun init/i.test(text) || !/-m|--minimal|does not call `bun init`/i.test(text)) {
+    violations.push({
+      file: BUN_CREATE_README,
+      field: "bootstrap-docs",
+      message: "README must document bun init collision (use -m or avoid bun init in postinstall)",
+    });
+  }
+  if (!/Bun\.secrets|secrets/i.test(text)) {
+    violations.push({
+      file: BUN_CREATE_README,
+      field: "bootstrap-docs",
+      message: "README must document secrets resolution (Bun.secrets + env fallback)",
+    });
+  }
+  return violations;
+}
+
 export async function auditTemplateEnvExamples(root: string): Promise<TemplatePolicyViolation[]> {
   const violations: TemplatePolicyViolation[] = [];
   const templatePkgGlob = new Bun.Glob("templates/bun-create/*/package.json");
@@ -1020,6 +1226,11 @@ export async function auditTemplatePolicy(root: string): Promise<TemplatePolicyA
     ...(await auditTemplateRegistry(root)),
     ...(await auditTemplateRegistrySchema(root)),
     ...(await auditTemplateReadmeRegistry(root)),
+    ...(await auditTemplateBootstrapDocs(root)),
+    ...(await auditTemplateBunInitGuard(root)),
+    ...(await auditTemplateSecretsSlice(root)),
+    ...(await auditTemplateSecretsEnvDocs(root)),
+    ...(await auditTemplateSecretLeaks(root)),
     ...(await auditTemplateBunfigRuntime(root)),
     ...(await auditTemplateTsconfigs(root)),
     ...(await auditTemplateScaffoldFiles(root)),
