@@ -176,7 +176,9 @@
     "scope:run": "bun run scripts/scope-run.ts",
     "docs:check": "bun run scripts/check-docs.ts",
     "docs:fix": "bun run scripts/check-docs.ts --fix",
-    "docs:index": "bun run src/bin/kimi-doctor.ts --index-docs"
+    "docs:index": "bun run src/bin/kimi-doctor.ts --index-docs",
+    "check:secrets-registry": "bun run scripts/check-secrets-registry.ts",
+    "check:secrets-registry:json": "bun run scripts/check-secrets-registry.ts --json"
   },
   "dependencies": {
     "effect": "^3.21.3",

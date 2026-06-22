@@ -1,21 +1,17 @@
 /**
  * secrets-types.ts — Type definitions for the Bun.secrets integration layer.
  *
- * SecretKey is a discriminated union of all known secrets, providing
- * compile-time exhaustiveness checking. DynamicSecretKey is the escape
- * hatch for unregistered or dynamically-discovered secrets.
+ * SecretKey is derived from SecretKeys in secrets-constants.ts — the two are
+ * always in sync. DynamicSecretKey is the escape hatch for unregistered or
+ * dynamically-discovered secrets.
+ *
+ * @see secrets-constants.ts for the canonical registry of service/consumer names
  */
 
-export type SecretKey =
-  | { service: "kimi-toolchain"; name: "cloudflare-account-id" }
-  | { service: "kimi-toolchain"; name: "cloudflare-api-token" }
-  | { service: "com.herdr.cli"; name: "github-token" }
-  | { service: "com.herdr.cli"; name: "npm-token" }
-  | { service: "com.herdr.cli"; name: "bet365-api-key" }
-  | { service: "com.herdr.dashboard"; name: "csrf-secret" }
-  | { service: "com.herdr.dashboard"; name: "jwt-secret" }
-  | { service: "com.herdr.dashboard"; name: "master-key" }
-  | { service: "com.herdr.security"; name: "scanner-api-key" };
+import type { SecretKeys } from "./secrets-constants.ts";
+
+/** Union of all statically-known secret keys, derived from SecretKeys constant. */
+export type SecretKey = (typeof SecretKeys)[keyof typeof SecretKeys];
 
 export type DynamicSecretKey = { service: string; name: string };
 
