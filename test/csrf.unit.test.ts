@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   generateCsrfToken,
   verifyCsrfToken,
+  verifyCsrfTokenDetailed,
   verifyCsrfTokenOrThrow,
   CsrfManager,
   constantTimeEqual,
@@ -72,6 +73,50 @@ describe("csrf > verifyCsrfToken", () => {
   });
 });
 
+describe("csrf > verifyCsrfTokenDetailed", () => {
+  test("returns valid result for correct token", () => {
+    const token = generateCsrfToken(TEST_SECRET, { sessionId: TEST_SESSION });
+    const result = verifyCsrfTokenDetailed(token, TEST_SECRET, { sessionId: TEST_SESSION });
+    expect(result.valid).toBe(true);
+    expect(result.reason).toBeUndefined();
+  });
+
+  test("returns csrf_token_invalid for garbage token", () => {
+    const result = verifyCsrfTokenDetailed("garbage", TEST_SECRET, { sessionId: TEST_SESSION });
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("csrf_token_invalid");
+  });
+
+  test("returns csrf_token_invalid for empty token", () => {
+    const result = verifyCsrfTokenDetailed("", TEST_SECRET, { sessionId: TEST_SESSION });
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("csrf_token_invalid");
+  });
+
+  test("returns csrf_token_invalid for wrong sessionId", () => {
+    const token = generateCsrfToken(TEST_SECRET, { sessionId: "session-1" });
+    const result = verifyCsrfTokenDetailed(token, TEST_SECRET, { sessionId: "session-2" });
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("csrf_token_invalid");
+  });
+
+  test("returns csrf_token_expired for expired token", () => {
+    const token = generateCsrfToken(TEST_SECRET, { sessionId: TEST_SESSION, expiresIn: 60_000 });
+    const result = verifyCsrfTokenDetailed(token, TEST_SECRET, {
+      sessionId: TEST_SESSION,
+      maxAge: 1,
+    });
+    const start = Date.now();
+    while (Date.now() - start < 5) {}
+    const result2 = verifyCsrfTokenDetailed(token, TEST_SECRET, {
+      sessionId: TEST_SESSION,
+      maxAge: 1,
+    });
+    expect(result2.valid).toBe(false);
+    expect(result2.reason).toBe("csrf_token_expired");
+  });
+});
+
 describe("csrf > verifyCsrfTokenOrThrow", () => {
   test("passes for valid token", () => {
     const token = generateCsrfToken(TEST_SECRET, { sessionId: TEST_SESSION });
@@ -86,6 +131,17 @@ describe("csrf > verifyCsrfTokenOrThrow", () => {
       expect(false).toBe(true);
     } catch (err) {
       expect(isCsrfError(err, "csrf_token_invalid")).toBe(true);
+    }
+  });
+  test("throws csrf_token_expired for expired token", () => {
+    const token = generateCsrfToken(TEST_SECRET, { sessionId: TEST_SESSION, expiresIn: 60_000 });
+    const start = Date.now();
+    while (Date.now() - start < 5) {}
+    try {
+      verifyCsrfTokenOrThrow(token, TEST_SECRET, { sessionId: TEST_SESSION, maxAge: 1 });
+      expect(false).toBe(true);
+    } catch (err) {
+      expect(isCsrfError(err, "csrf_token_expired")).toBe(true);
     }
   });
 });
@@ -120,6 +176,30 @@ describe("csrf > CsrfManager", () => {
     const start = Date.now();
     while (Date.now() - start < 1100) {}
     expect(mgr.verify(token, TEST_SESSION)).toBe(false);
+  });
+
+  test("verifyDetailed returns csrf_token_expired for expired token", () => {
+    const token = generateCsrfToken(TEST_SECRET, { sessionId: TEST_SESSION, expiresIn: 60_000 });
+    const start = Date.now();
+    while (Date.now() - start < 5) {}
+    const result = verifyCsrfTokenDetailed(token, TEST_SECRET, {
+      sessionId: TEST_SESSION,
+      maxAge: 1,
+    });
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe("csrf_token_expired");
+  });
+
+  test("verifyOrThrow throws csrf_token_expired for expired token", () => {
+    const token = generateCsrfToken(TEST_SECRET, { sessionId: TEST_SESSION, expiresIn: 60_000 });
+    const start = Date.now();
+    while (Date.now() - start < 5) {}
+    try {
+      verifyCsrfTokenOrThrow(token, TEST_SECRET, { sessionId: TEST_SESSION, maxAge: 1 });
+      expect(false).toBe(true);
+    } catch (err) {
+      expect(isCsrfError(err, "csrf_token_expired")).toBe(true);
+    }
   });
 
   test("supports custom algorithm", () => {

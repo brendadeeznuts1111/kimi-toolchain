@@ -26,6 +26,7 @@ import {
   JwtMissingSecret,
   SessionNotFound,
   CsrfTokenInvalid,
+  CsrfTokenExpired,
   type JwtError,
   type SessionError,
   type CsrfError,
@@ -38,6 +39,7 @@ import type {
   VerifiedJwt,
   SessionRecord,
   SessionConfig,
+  CsrfConfig,
 } from "../identity-types.ts";
 
 import { SecretKeys, Consumers } from "../secrets-constants.ts";
@@ -84,7 +86,7 @@ export interface IdentityService {
   readonly verifyCsrf: (
     token: string,
     sessionId: string
-  ) => Effect.Effect<void, JwtMissingSecret | CsrfTokenInvalid>;
+  ) => Effect.Effect<void, JwtMissingSecret | CsrfTokenInvalid | CsrfTokenExpired>;
 
   // ── Password ──
   readonly hashPassword: (plain: string) => Effect.Effect<string>;
@@ -217,8 +219,14 @@ export const IdentityLive = Layer.effect(
       verifyCsrf: (token, sessionId) =>
         Effect.gen(function* () {
           const mgr = yield* getCsrfManager();
-          const ok = mgr.verify(token, sessionId);
-          if (!ok) yield* Effect.fail(new CsrfTokenInvalid({ token }));
+          const result = mgr.verifyDetailed(token, sessionId);
+          if (!result.valid) {
+            yield* Effect.fail(
+              result.reason === "csrf_token_expired"
+                ? new CsrfTokenExpired({ token })
+                : new CsrfTokenInvalid({ token })
+            );
+          }
         }),
 
       // ── Password ──
@@ -235,9 +243,10 @@ export function IdentityTest(options: {
   jwtSecret: string;
   csrfSecret: string;
   sessionConfig?: SessionConfig;
+  csrfConfig?: CsrfConfig;
 }): Layer.Layer<Identity> {
   const sessionStore = new SessionStore(options.sessionConfig);
-  const csrfManager = new CsrfManager(options.csrfSecret);
+  const csrfManager = new CsrfManager(options.csrfSecret, options.csrfConfig);
 
   return Layer.succeed(Identity, {
     signToken: (claims, config = {}) =>
@@ -278,8 +287,13 @@ export function IdentityTest(options: {
     generateCsrf: (sessionId) => Effect.sync(() => csrfManager.generate(sessionId)),
 
     verifyCsrf: (token, sessionId) => {
-      const ok = csrfManager.verify(token, sessionId);
-      return ok ? Effect.void : Effect.fail(new CsrfTokenInvalid({ token }));
+      const result = csrfManager.verifyDetailed(token, sessionId);
+      if (result.valid) return Effect.void;
+      return Effect.fail(
+        result.reason === "csrf_token_expired"
+          ? new CsrfTokenExpired({ token })
+          : new CsrfTokenInvalid({ token })
+      );
     },
 
     hashPassword: (plain) => Effect.promise(() => hashPassword(plain)),

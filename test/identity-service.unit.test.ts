@@ -7,10 +7,13 @@ import {
   JwtInvalidFormat,
   JwtMissingSecret,
   CsrfTokenInvalid,
+  CsrfTokenExpired,
   SessionNotFound,
+  SecretPolicyViolation,
 } from "../src/lib/effect/errors.ts";
 import { Secrets, SecretsTest } from "../src/lib/effect/secrets-service.ts";
 import type { SecretsBackend } from "../src/lib/secrets-types.ts";
+import { removePath, testTempPath, writeText } from "./helpers.ts";
 
 const TEST_JWT_SECRET = "test-jwt-secret";
 const TEST_CSRF_SECRET = "test-csrf-secret";
@@ -303,6 +306,44 @@ describe("identity-service > CSRF", () => {
     );
     expect(Either.isLeft(result)).toBe(true);
     expect((result as Either.Left<CsrfTokenInvalid, unknown>).left).toBeInstanceOf(CsrfTokenInvalid);
+  });
+
+  test("verifyCsrf fails with CsrfTokenExpired for expired token", async () => {
+    const longTtlLayer = IdentityTest({
+      jwtSecret: TEST_JWT_SECRET,
+      csrfSecret: TEST_CSRF_SECRET,
+      csrfConfig: { ttlSeconds: 60 },
+    });
+    const shortTtlLayer = IdentityTest({
+      jwtSecret: TEST_JWT_SECRET,
+      csrfSecret: TEST_CSRF_SECRET,
+      csrfConfig: { ttlSeconds: 1 },
+    });
+
+    const token = await Effect.runPromise(
+      Effect.provide(longTtlLayer)(
+        Effect.gen(function* () {
+          const id = yield* Identity;
+          return yield* id.generateCsrf("session-1");
+        })
+      )
+    );
+
+    const start = Date.now();
+    while (Date.now() - start < 1100) {}
+
+    const result = await Effect.runPromise(
+      Effect.provide(shortTtlLayer)(
+        Effect.either(
+          Effect.gen(function* () {
+            const id = yield* Identity;
+            yield* id.verifyCsrf(token, "session-1");
+          })
+        )
+      )
+    );
+    expect(Either.isLeft(result)).toBe(true);
+    expect((result as Either.Left<CsrfTokenExpired, unknown>).left).toBeInstanceOf(CsrfTokenExpired);
   });
 });
 

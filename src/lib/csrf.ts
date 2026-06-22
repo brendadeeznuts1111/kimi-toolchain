@@ -53,6 +53,13 @@ export interface CsrfVerifyOptions {
   encoding?: CsrfEncoding;
 }
 
+export type CsrfFailureReason = "csrf_token_invalid" | "csrf_token_expired";
+
+export interface CsrfVerifyResult {
+  valid: boolean;
+  reason?: CsrfFailureReason;
+}
+
 // ── Token Generation ─────────────────────────────────────────────────
 
 /**
@@ -91,15 +98,48 @@ export function verifyCsrfToken(
   secret: string,
   options: CsrfVerifyOptions
 ): boolean {
-  const effectiveSecret = `${secret}:${options.sessionId}`;
+  return verifyCsrfTokenDetailed(token, secret, options).valid;
+}
 
-  return Bun.CSRF.verify(token, {
+/**
+ * Verify a CSRF token and return a detailed result with failure reason.
+ *
+ * Bun.CSRF.verify() returns only boolean, so we use a two-step diagnostic:
+ *   1. Normal verify with the caller's maxAge
+ *   2. If it fails, retry with unlimited maxAge — if it passes, the token
+ *      is structurally valid but expired
+ *
+ * @returns { valid: true } or { valid: false, reason: "csrf_token_expired" | "csrf_token_invalid" }
+ */
+export function verifyCsrfTokenDetailed(
+  token: string,
+  secret: string,
+  options: CsrfVerifyOptions
+): CsrfVerifyResult {
+  if (!token || token.length < 10) {
+    return { valid: false, reason: "csrf_token_invalid" };
+  }
+
+  const effectiveSecret = `${secret}:${options.sessionId}`;
+  const algorithm = options.algorithm ?? DEFAULT_ALGORITHM;
+  const encoding = options.encoding ?? DEFAULT_ENCODING;
+
+  const verifyOpts = {
     secret: effectiveSecret,
-    maxAge: options.maxAge,
-    algorithm: options.algorithm ?? DEFAULT_ALGORITHM,
-    encoding: options.encoding ?? DEFAULT_ENCODING,
+    algorithm,
+    encoding,
     sessionId: options.sessionId,
-  } as Parameters<typeof Bun.CSRF.verify>[1]);
+  } as Parameters<typeof Bun.CSRF.verify>[1];
+
+  if (Bun.CSRF.verify(token, { ...verifyOpts, maxAge: options.maxAge })) {
+    return { valid: true };
+  }
+
+  if (Bun.CSRF.verify(token, { ...verifyOpts, maxAge: Number.MAX_SAFE_INTEGER })) {
+    return { valid: false, reason: "csrf_token_expired" };
+  }
+
+  return { valid: false, reason: "csrf_token_invalid" };
 }
 
 // ── Throwing Variant ─────────────────────────────────────────────────
@@ -114,9 +154,9 @@ export function verifyCsrfTokenOrThrow(
   secret: string,
   options: CsrfVerifyOptions
 ): void {
-  const valid = verifyCsrfToken(token, secret, options);
-  if (!valid) {
-    throw { type: "csrf_token_invalid" } as { type: CsrfError };
+  const result = verifyCsrfTokenDetailed(token, secret, options);
+  if (!result.valid) {
+    throw { type: result.reason ?? "csrf_token_invalid" } as { type: CsrfError };
   }
 }
 
@@ -167,9 +207,19 @@ export class CsrfManager {
     });
   }
 
+  verifyDetailed(token: string, sessionId: string): CsrfVerifyResult {
+    return verifyCsrfTokenDetailed(token, this.secret, {
+      sessionId,
+      maxAge: this.config.ttlSeconds * 1000,
+      algorithm: this.config.algorithm,
+      encoding: this.config.encoding,
+    });
+  }
+
   verifyOrThrow(token: string, sessionId: string): void {
-    if (!this.verify(token, sessionId)) {
-      throw { type: "csrf_token_invalid" } as { type: CsrfError };
+    const result = this.verifyDetailed(token, sessionId);
+    if (!result.valid) {
+      throw { type: result.reason ?? "csrf_token_invalid" } as { type: CsrfError };
     }
   }
 }
