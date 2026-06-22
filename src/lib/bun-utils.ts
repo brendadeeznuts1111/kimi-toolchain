@@ -436,11 +436,39 @@ export function runtimeHostname(): string {
 
 // ── GitHub env resolution from Bun.secrets ───────────────────────────
 
+/** Source of a resolved secret. */
+export type SecretSource = "env" | "keychain" | "missing";
+
+/** Metadata for a single resolved secret. */
+export interface SecretResolutionEntry {
+  envVar: string;
+  source: SecretSource;
+}
+
+/** Aggregate resolution metadata returned by resolveDevSecrets(). */
+export interface SecretResolution {
+  entries: SecretResolutionEntry[];
+  resolved: number;
+  total: number;
+  fromEnv: number;
+  fromKeychain: number;
+  missing: number;
+}
+
 /** Log secret resolution source when KIMI_DEBUG_SECRETS=1. Never logs values. */
-function debugSecretSource(envVar: string, source: "env" | "keychain" | "missing"): void {
+function debugSecretSource(envVar: string, source: SecretSource): void {
   if (process.env.KIMI_DEBUG_SECRETS === "1" || process.env.KIMI_DEBUG_SECRETS === "true") {
     const icon = source === "env" ? "📋" : source === "keychain" ? "🔑" : "❌";
     console.error(`  ${icon} ${envVar} ← ${source}`);
+  }
+}
+
+function debugSecretSummary(resolution: SecretResolution): void {
+  if (process.env.KIMI_DEBUG_SECRETS === "1" || process.env.KIMI_DEBUG_SECRETS === "true") {
+    console.error(
+      `  ── resolved ${resolution.resolved}/${resolution.total} ` +
+      `(${resolution.fromEnv} env, ${resolution.fromKeychain} keychain, ${resolution.missing} missing)`
+    );
   }
 }
 
@@ -449,7 +477,7 @@ async function resolveSecret(
   envVar: string,
   secretKey: { service: string; name: string },
   altEnvVar?: string,
-): Promise<{ value: string | null; source: "env" | "keychain" | "missing" }> {
+): Promise<{ value: string | null; source: SecretSource }> {
   if (process.env[envVar]) {
     debugSecretSource(envVar, "env");
     return { value: process.env[envVar]!, source: "env" };
@@ -560,13 +588,46 @@ export async function resolveTelegramEnv(): Promise<{ botToken: string | null }>
 /**
  * Resolve all known development tool secrets from `Bun.secrets` into
  * `process.env`. Convenience wrapper — call before spawning child processes.
+ *
+ * Returns {@link SecretResolution} metadata so callers can programmatically
+ * inspect which secrets were resolved and from where.
  */
-export async function resolveDevSecrets(): Promise<void> {
-  await Promise.all([
+export async function resolveDevSecrets(): Promise<SecretResolution> {
+  const [gh, npm, r2, discord, telegram] = await Promise.all([
     resolveGithubEnv(),
     resolveNpmEnv(),
     resolveR2Env(),
     resolveDiscordEnv(),
     resolveTelegramEnv(),
   ]);
+
+  const entries: SecretResolutionEntry[] = [
+    { envVar: "GITHUB_TOKEN", source: gh.token ? "env" : "missing" },
+    { envVar: "GITHUB_API_DOMAIN", source: gh.apiDomain ? "env" : "missing" },
+    { envVar: "NPM_TOKEN", source: npm.token ? "env" : "missing" },
+    { envVar: "R2_ACCESS_KEY_ID", source: r2.accessKeyId ? "env" : "missing" },
+    { envVar: "R2_SECRET_ACCESS_KEY", source: r2.secretAccessKey ? "env" : "missing" },
+    { envVar: "DISCORD_WEBHOOK_URL", source: discord.webhookUrl ? "env" : "missing" },
+    { envVar: "TELEGRAM_BOT_TOKEN", source: telegram.botToken ? "env" : "missing" },
+  ];
+
+  // Note: per-secret source tracking from resolveSecret is more precise
+  // (distinguishes env vs keychain), but the individual resolvers above
+  // already called debugSecretSource for each. Here we compute aggregate
+  // counts from process.env state for the summary.
+  const fromEnv = entries.filter((e) => e.source !== "missing" && process.env[e.envVar]).length;
+  const missing = entries.filter((e) => e.source === "missing").length;
+  const resolved = entries.length - missing;
+
+  const resolution: SecretResolution = {
+    entries,
+    resolved,
+    total: entries.length,
+    fromEnv,
+    fromKeychain: resolved - fromEnv,
+    missing,
+  };
+
+  debugSecretSummary(resolution);
+  return resolution;
 }

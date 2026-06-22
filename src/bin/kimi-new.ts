@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { join, resolve } from "path";
 import { $ } from "bun";
-import { bunVersion, isDirectRun, readableStreamToText, resolveDevSecrets, resolveGithubEnv, resolveNpmEnv, resolveR2Env, resolveDiscordEnv, resolveTelegramEnv } from "../lib/bun-utils.ts";
+import { bunVersion, isDirectRun, readableStreamToText, resolveDevSecrets } from "../lib/bun-utils.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -224,22 +224,16 @@ async function main(): Promise<number> {
   }
 
   if (args.includes("--secrets-dry-run")) {
-    const [gh, npm, r2, discord, telegram] = await Promise.all([
-      resolveGithubEnv(),
-      resolveNpmEnv(),
-      resolveR2Env(),
-      resolveDiscordEnv(),
-      resolveTelegramEnv(),
-    ]);
-    const mask = (v: string | null) => (v ? "✅" : "❌");
+    const resolution = await resolveDevSecrets();
+    const sourceIcon = (s: string) => (s === "env" ? "📋 env" : s === "keychain" ? "🔑 keychain" : "❌ missing");
     logger.info("Secret resolution status:");
-    logger.info(`  GITHUB_TOKEN:         ${mask(gh.token)}`);
-    logger.info(`  GITHUB_API_DOMAIN:    ${mask(gh.apiDomain)}`);
-    logger.info(`  NPM_TOKEN:            ${mask(npm.token)}`);
-    logger.info(`  R2_ACCESS_KEY_ID:     ${mask(r2.accessKeyId)}`);
-    logger.info(`  R2_SECRET_ACCESS_KEY: ${mask(r2.secretAccessKey)}`);
-    logger.info(`  DISCORD_WEBHOOK_URL:  ${mask(discord.webhookUrl)}`);
-    logger.info(`  TELEGRAM_BOT_TOKEN:   ${mask(telegram.botToken)}`);
+    for (const entry of resolution.entries) {
+      logger.info(`  ${entry.envVar.padEnd(22)} ${sourceIcon(entry.source)}`);
+    }
+    logger.info(
+      `  ── resolved ${resolution.resolved}/${resolution.total} ` +
+      `(${resolution.fromEnv} env, ${resolution.fromKeychain} keychain, ${resolution.missing} missing)`
+    );
     return 0;
   }
 
