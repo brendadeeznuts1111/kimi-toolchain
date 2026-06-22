@@ -175,6 +175,36 @@ for (const [svc, secrets] of Object.entries(policy)) {
   }
 }
 
+// ─── Check 7: Init template sync ──────────────────────────────────────────────
+
+const kimiSecretsPath = new URL("../src/bin/kimi-secrets.ts", import.meta.url).pathname;
+const kimiSecretsSrc = await Bun.file(kimiSecretsPath).text();
+
+// Extract the template block between the first `const template = \`{` and the closing `\`;`
+const templateMatch = kimiSecretsSrc.match(/const template = `([\s\S]+?)`;/);
+if (templateMatch) {
+  const templateBody = templateMatch[1];
+  for (const [svc, secrets] of Object.entries(policy)) {
+    if (svc === "$schema") continue;
+    if (!templateBody.includes(`"${svc}"`)) {
+      error(
+        "init-template",
+        `Service "${svc}" missing from kimi-secrets init template`
+      );
+    }
+    for (const secretName of Object.keys(secrets)) {
+      if (!templateBody.includes(`"${secretName}"`)) {
+        error(
+          "init-template",
+          `Secret "${svc}/${secretName}" missing from kimi-secrets init template`
+        );
+      }
+    }
+  }
+} else {
+  warn("init-template", "Could not extract init template from kimi-secrets.ts — check skipped");
+}
+
 // ─── Output ───────────────────────────────────────────────────────────────────
 
 const elapsedMs = ((Bun.nanoseconds() - startNs) / 1e6).toFixed(1);

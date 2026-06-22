@@ -383,6 +383,30 @@ async function cmdInit(args: ParsedArgs): Promise<number> {
       lastRotated: null,
       version: 1,
     },
+    "r2-access-key-id": {
+      allowedConsumers: ["kimi-fix", "kimi-doctor"],
+      rotationDays: 365,
+      lastRotated: null,
+      version: 1,
+    },
+    "r2-secret-access-key": {
+      allowedConsumers: ["kimi-fix", "kimi-doctor"],
+      rotationDays: 90,
+      lastRotated: null,
+      version: 1,
+    },
+    "discord-webhook-url": {
+      allowedConsumers: ["kimi-fix", "kimi-doctor"],
+      rotationDays: 365,
+      lastRotated: null,
+      version: 1,
+    },
+    "telegram-bot-token": {
+      allowedConsumers: ["kimi-fix", "kimi-doctor"],
+      rotationDays: 90,
+      lastRotated: null,
+      version: 1,
+    },
   },
 
   // Dashboard server secrets
