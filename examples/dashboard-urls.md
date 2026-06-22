@@ -172,7 +172,7 @@ bun test test/dashboard-route-patterns.unit.test.ts
 
 ## Static showcase & card routes
 
-Examples dashboard (`handlers/routes.ts` + `handlers/artifacts.ts`) — **115** routes total (see [dashboard/README.md](dashboard/README.md)).
+Examples dashboard (`handlers/routes.ts` + `handlers/artifacts.ts`) — **136** routes total (see [dashboard/README.md](dashboard/README.md)).
 
 ### Contract, showcase & cards
 
@@ -228,6 +228,7 @@ Identity query params (artifacts + runs): `sessionId`, `workspaceId`, `paneId`, 
 | `GET`  | `/api/effect-benchmark`    | Symbol effect suite                       |
 
 <!-- dashboard-static-routes:AUTO -->
+
 ### All static card API paths (`handlers/routes.ts`)
 
 `GET` unless noted. Grouped by prefix:
@@ -237,25 +238,41 @@ Identity query params (artifacts + runs): `sessionId`, `workspaceId`, `paneId`, 
 | `/api/build-compile` | `/api/build-info` | `/api/bun-pm` | `/api/bun-runtime` |
 | `/api/bun-test` | `/api/bundle` | `/api/bunfig` | `/api/color` |
 | `/api/compile` | `/api/config-status` | `/api/console` | `/api/console-depth` |
-| `/api/cron` | `/api/crypto-hash` | `/api/deep-equals` | `/api/deep-match` |
-| `/api/deps` | `/api/dotenv` | `/api/effect-benchmark` | `/api/effect-image` |
-| `/api/env` | `/api/exec` | `/api/extract-methods` | `/api/file-io` |
-| `/api/file-split` | `/api/gates` | `/api/glob` | `/api/glob-orphan` |
-| `/api/global-store` | `/api/http2` | `/api/image` | `/api/inspect` |
-| `/api/inspect-config` | `/api/inspect-defaults` | `/api/inspect-simple` | `/api/inspect-table` |
-| `/api/ipc` | `/api/ipc-matrix` | `/api/kimi-doctor` | `/api/kimi-publish` |
-| `/api/markdown/ansi` | `/api/markdown/html` | `/api/metrics-schema` | `/api/nanoseconds` |
-| `/api/node-http` | `/api/os` | `/api/password` | `/api/peek` |
-| `/api/perf-auto-discover` | `/api/perf-harness` | `/api/perf-registry` | `/api/perf-report` |
-| `/api/perf-threaded` | `/api/perf-train` | `/api/random-bytes` | `/api/runtime-info` |
-| `/api/scaffold` | `/api/secrets` | `/api/semver` | `/api/set-headers` |
-| `/api/shadow-realm` | `/api/shell` | `/api/sleep` | `/api/spawn-sync` |
-| `/api/sqlite` | `/api/stream-hash` | `/api/string-utils` | `/api/strip-ansi` |
-| `/api/symbols` | `/api/terminal` | `/api/threshold-overrides` | `/api/toolchain/heal` |
-| `/api/toolchain/health` | `/api/trace-verify` | `/api/transpiler` | `/api/transpiler-scan` |
-| `/api/tty` | `/api/url` | `/api/url-node` | `/api/util-types` |
-| `/api/uuid` | `/api/vm-context` | `/api/write-smart` |  |
+| `/api/cookies` | `/api/cron` | `/api/crypto-hash` | `/api/deep-equals` |
+| `/api/deep-match` | `/api/deps` | `/api/dotenv` | `/api/effect-benchmark` |
+| `/api/effect-image` | `/api/env` | `/api/exec` | `/api/extract-methods` |
+| `/api/file-io` | `/api/file-split` | `/api/gates` | `/api/glob` |
+| `/api/glob-orphan` | `/api/global-store` | `/api/http2` | `/api/identity/flow` |
+| `/api/image` | `/api/inspect` | `/api/inspect-config` | `/api/inspect-defaults` |
+| `/api/inspect-simple` | `/api/inspect-table` | `/api/ipc` | `/api/ipc-matrix` |
+| `/api/kimi-doctor` | `/api/kimi-publish` | `/api/markdown/ansi` | `/api/markdown/html` |
+| `/api/metrics-schema` | `/api/nanoseconds` | `/api/node-http` | `/api/os` |
+| `/api/password` | `/api/peek` | `/api/perf-auto-discover` | `/api/perf-harness` |
+| `/api/perf-registry` | `/api/perf-report` | `/api/perf-threaded` | `/api/perf-train` |
+| `/api/random-bytes` | `/api/runtime-info` | `/api/scaffold` | `/api/secrets` |
+| `/api/semver` | `/api/serve-metrics` | `/api/set-headers` | `/api/shadow-realm` |
+| `/api/shell` | `/api/sleep` | `/api/spawn-sync` | `/api/sqlite` |
+| `/api/stream-hash` | `/api/string-utils` | `/api/strip-ansi` | `/api/symbols` |
+| `/api/terminal` | `/api/threshold-overrides` | `/api/tokens` | `/api/toolchain/heal` |
+| `/api/toolchain/health` | `/api/trace-ledger` | `/api/trace-ledger/graph` | `/api/trace-verify` |
+| `/api/transpiler` | `/api/transpiler-scan` | `/api/tty` | `/api/url` |
+| `/api/url-node` | `/api/util-types` | `/api/uuid` | `/api/vm-context` |
+| `/api/write-smart` |  |  |  |
 <!-- /dashboard-static-routes:AUTO -->
+
+<!-- dashboard-serve-routes:AUTO -->
+
+### Index.serve routes (`examples/dashboard/src/index.ts`)
+
+Cookie mutations require `Bun.serve({ routes })`; `/api/ws` is handled in `fetch`.
+
+| Path | Methods | Wired in | Note |
+| --- | --- | --- | --- |
+| `/api/cookie/login` | GET|POST | `index.ts routes` | req.cookies.set — auto Set-Cookie |
+| `/api/cookie/profile` | GET | `index.ts routes` | req.cookies.get |
+| `/api/cookie/logout` | GET|POST | `index.ts routes` | req.cookies.delete |
+| `/api/ws` | GET | `index.ts fetch` | WebSocket upgrade or JSON subscriber probe |
+<!-- /dashboard-serve-routes:AUTO -->
 
 ## Browser query properties (dashboard UI)
 
@@ -292,7 +309,7 @@ url_pathname = /
 
 ## Decomposed endpoint inventory (examples stack)
 
-**115** examples-dashboard routes. Representative rows (full table in [dashboard/README.md](dashboard/README.md)):
+**136** examples-dashboard routes. Representative rows (full table in [dashboard/README.md](dashboard/README.md)):
 
 | name                      | url                                                       | url_protocol | url_hostname | url_port | url_pathname                         | url_search                    |
 | ------------------------- | --------------------------------------------------------- | ------------ | ------------ | -------- | ------------------------------------ | ----------------------------- |

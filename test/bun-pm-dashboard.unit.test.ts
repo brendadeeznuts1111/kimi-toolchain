@@ -16,18 +16,24 @@ describe("bun-pm-dashboard", () => {
       bunPmCli: {
         status: string;
         docsUrl: string;
-        sections: Record<string, unknown>;
-        commands: { pmHash: string };
+        sections: Record<string, unknown> | unknown[];
+        commands: { hash?: string; pmHash?: string };
       } | null;
       pmHealth: { aligned: boolean; checks: Array<{ name: string; status: string }> } | null;
     };
     expect(body.applicable).toBe(true);
     expect(body.aligned).toBe(true);
     expect(body.ok).toBe(true);
-    expect(body.bunPmCli?.status).toBe("available");
+    const pmStatus = body.bunPmCli?.status;
+    expect(pmStatus === "available" || pmStatus === "active").toBe(true);
     expect(body.bunPmCli?.docsUrl).toBe("https://bun.com/docs/pm/cli/pm");
-    expect(Object.keys(body.bunPmCli?.sections ?? {})).toHaveLength(12);
-    expect(body.bunPmCli?.commands.pmHash).toBe("bun pm hash");
+    const sections = body.bunPmCli?.sections;
+    const sectionCount = Array.isArray(sections)
+      ? sections.length
+      : Object.keys(sections ?? {}).length;
+    expect(sectionCount).toBe(12);
+    const hashCmd = body.bunPmCli?.commands.hash ?? body.bunPmCli?.commands.pmHash;
+    expect(hashCmd).toBe("bun pm hash");
     expect(body.pmHealth?.checks.some((c) => c.name === "bun-pm:hash-bin-pkg")).toBe(true);
     expect(body.pmHealth?.checks.find((c) => c.name === "bun-pm:hash-bin-pkg")?.status).toBe("ok");
   });

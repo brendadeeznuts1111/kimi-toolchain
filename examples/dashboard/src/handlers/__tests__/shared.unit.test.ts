@@ -1,10 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  isAllowedMethod,
-  jsonResponse,
-  methodNotAllowedJson,
-  resolveRoot,
-} from "../shared.ts";
+import { isAllowedMethod, jsonResponse, methodNotAllowedJson, resolveRoot } from "../shared.ts";
 
 describe("dashboard-shared", () => {
   test("resolveRoot resolves kimi-toolchain repo root", () => {

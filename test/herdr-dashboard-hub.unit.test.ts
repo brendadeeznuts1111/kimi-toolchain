@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
 import { createDashboardEventBus } from "../src/lib/herdr-dashboard-bus.ts";
 import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard-discovery-cache.ts";
 import { HerdrDashboardHub, DASHBOARD_STALE_MS } from "../src/lib/herdr-dashboard-hub.ts";
-import { DashboardCronConfigError } from "../src/lib/herdr-dashboard-cron.ts";
+import { DashboardCronConfigError } from "../src/lib/herdr-dashboard/cron.ts";
 import { Logger } from "../src/lib/logger.ts";
 import type { DashboardAgentsPayload } from "../src/lib/herdr-dashboard-data.ts";
 import { REPO_ROOT } from "./helpers.ts";

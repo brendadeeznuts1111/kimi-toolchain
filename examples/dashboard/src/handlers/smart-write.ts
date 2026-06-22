@@ -26,13 +26,17 @@ export async function apiWriteSmart(): Promise<Response> {
         types.isArrayBufferView(tc.value) ||
         types.isAnyArrayBuffer(tc.value)
       ) {
-        branch =
-          typeof tc.value === "string"
-            ? "string"
-            : types.isArrayBufferView(tc.value)
-              ? "ArrayBufferView"
-              : "ArrayBuffer";
-        await Bun.write(tmpPath, tc.value);
+        if (typeof tc.value === "string") {
+          branch = "string";
+          await Bun.write(tmpPath, tc.value);
+        } else if (types.isArrayBufferView(tc.value)) {
+          branch = "ArrayBufferView";
+          const view = tc.value as ArrayBufferView;
+          await Bun.write(tmpPath, new Uint8Array(view.buffer, view.byteOffset, view.byteLength));
+        } else {
+          branch = "ArrayBuffer";
+          await Bun.write(tmpPath, tc.value as ArrayBuffer);
+        }
       } else {
         branch = "String(value)";
         await Bun.write(tmpPath, String(tc.value));

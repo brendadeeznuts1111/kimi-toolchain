@@ -1,3 +1,4 @@
+import { join } from "path";
 import {
   CANONICAL_DASHBOARD_PORT,
   resolveDashboardProjectRoot,
@@ -28,17 +29,9 @@ export async function apiGates(): Promise<Response> {
 }
 
 export async function apiSecrets(): Promise<Response> {
-  const available = typeof Bun.secrets === "object" && Bun.secrets !== null;
-  const methods = {
-    get: typeof Bun.secrets?.get === "function",
-    set: typeof Bun.secrets?.set === "function",
-    delete: typeof Bun.secrets?.delete === "function",
-  };
-  return jsonResponse({
-    available,
-    methods,
-    note: "scoped per user namespace (macOS Keychain / Windows Credential Manager)",
-  });
+  const { buildSecretsApiResponse } = await import("../../../../src/lib/secrets-api.ts");
+  const projectRoot = resolveDashboardProjectRoot(import.meta.dir);
+  return jsonResponse(await buildSecretsApiResponse(projectRoot));
 }
 
 export async function apiEnv(request?: Request): Promise<Response> {
@@ -539,7 +532,8 @@ export async function apiDeps(): Promise<Response> {
 
 export async function apiBunfig(): Promise<Response> {
   try {
-    const path = import.meta.dir + "/../bunfig.toml";
+    const projectRoot = resolveDashboardProjectRoot(import.meta.dir);
+    const path = join(projectRoot, "bunfig.toml");
     const file = Bun.file(path);
     if (!(await file.exists())) {
       return jsonResponse({ error: "No bunfig.toml found" });

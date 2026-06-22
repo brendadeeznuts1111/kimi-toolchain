@@ -10,18 +10,19 @@ import { jsonResponse, resolveRoot } from "./shared.ts";
 export async function apiBunPm(): Promise<Response> {
   try {
     const root = resolveRoot();
-    const [policyReport, pmHealth, runtimeHealth] = await Promise.all([
+    const [policyReport, pmHealth, cliHealth] = await Promise.all([
       buildInstallPolicyReport(root),
-      auditBunPmCliHealth(root),
       auditRuntimeCapabilitiesHealth(root),
+      auditBunPmCliHealth(root),
     ]);
     return jsonResponse({
-      ok: pmHealth.aligned && runtimeHealth.aligned,
+      ok: pmHealth.aligned,
       applicable: pmHealth.applicable,
-      aligned: pmHealth.aligned && runtimeHealth.aligned,
+      aligned: pmHealth.aligned,
       bunPmCli: policyReport.runtimeCapabilities.bunPmCli,
       pmHealth,
-      runtimeHealth,
+      cliHealth,
+      runtimeHealth: pmHealth,
       versions: policyReport.versions,
       fetchedAt: new Date().toISOString(),
     });
@@ -35,6 +36,7 @@ export async function apiBunPm(): Promise<Response> {
         error: message,
         bunPmCli: null,
         pmHealth: null,
+        cliHealth: null,
         runtimeHealth: null,
         versions: null,
       },

@@ -42,7 +42,6 @@ export async function apiExamples(request?: Request): Promise<Response> {
 export function apiExamplesTrading(): Response {
   const root = repoRoot();
   return jsonResponse({
-    ok: true,
     schemaVersion: 1,
     project: "trading-workspace",
     ...probeTradingWorkspace(root),
@@ -53,7 +52,6 @@ export function apiExamplesTrading(): Response {
 export function apiExamplesGates(): Response {
   const root = repoRoot();
   return jsonResponse({
-    ok: true,
     schemaVersion: 1,
     project: "gates",
     ...probeGatesExample(root),

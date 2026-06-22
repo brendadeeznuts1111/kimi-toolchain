@@ -10,6 +10,8 @@
  *   kimi-dashboard --port=8080
  *   kimi-dashboard --webview --persist
  *   kimi-dashboard --webview --persist --canvas=artifact-lineage
+ *   kimi-dashboard --probe              # Bun.WebView DOM metadata + /api/cards diff
+ *   kimi-dashboard --probe --json
  *   kimi-dashboard --daemon --port=5678   # detached; survives agent/harness exit
  *   kimi-toolchain dashboard
  *   bun run dashboard
@@ -22,6 +24,10 @@ import {
   CANONICAL_DASHBOARD_PORT,
   resolveDashboardStartupPort,
 } from "../lib/dashboard-settings.ts";
+import {
+  formatExamplesDashboardProbeReport,
+  probeExamplesDashboardWebView,
+} from "../lib/examples-dashboard-webview-probe.ts";
 import { runExamplesDashboardWebView } from "../lib/examples-dashboard-webview.ts";
 import { examplesDashboardLogPath, examplesDashboardPidPath, varDir } from "../lib/paths.ts";
 import { withBunNoOrphans } from "../lib/tool-runner.ts";
@@ -41,6 +47,8 @@ if (!isDirectRun(import.meta.path)) {
   const env = { ...Bun.env };
 
   let webview = false;
+  let probe = false;
+  let json = false;
   let daemon = false;
   let persistProfile = false;
   let profileDir: string | undefined;
@@ -55,6 +63,14 @@ if (!isDirectRun(import.meta.path)) {
     }
     if (arg === "--webview") {
       webview = true;
+      continue;
+    }
+    if (arg === "--probe") {
+      probe = true;
+      continue;
+    }
+    if (arg === "--json") {
+      json = true;
       continue;
     }
     if (arg === "--persist-profile" || arg === "--persist") {
@@ -114,6 +130,19 @@ if (!isDirectRun(import.meta.path)) {
   if (!env.PORT) {
     const { port: resolved } = await resolveDashboardStartupPort(repoRoot, { cliPort: port });
     env.PORT = String(resolved);
+  }
+
+  if (probe) {
+    const result = await probeExamplesDashboardWebView({
+      projectRoot: repoRoot,
+      port: port ?? (Number(env.PORT) || CANONICAL_DASHBOARD_PORT),
+    });
+    if (json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(formatExamplesDashboardProbeReport(result));
+    }
+    process.exit(result.ok ? 0 : 1);
   }
 
   if (webview) {

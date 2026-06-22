@@ -7,6 +7,7 @@ import {
   DASHBOARD_STATIC_ROUTES,
   type DashboardStaticRoute,
 } from "../../examples/dashboard/src/handlers/routes.ts";
+import { DASHBOARD_SERVE_ROUTES } from "./dashboard-serve-routes.ts";
 import { dashboardHtmlPath, loadDashboardCards } from "./dashboard-card-registry.ts";
 import { readText } from "./bun-io.ts";
 
@@ -56,7 +57,9 @@ export interface DashboardRouteInventory {
   pageHealth: number;
   staticDispatch: number;
   artifactRoutes: number;
+  serveRoutes: number;
   staticRoutes: readonly DashboardStaticRoute[];
+  indexServeRoutes: readonly (typeof DASHBOARD_SERVE_ROUTES)[number][];
 }
 
 export function buildDashboardRouteInventory(): DashboardRouteInventory {
@@ -67,12 +70,16 @@ export function buildDashboardRouteInventory(): DashboardRouteInventory {
   const artifactRoutes =
     DASHBOARD_ARTIFACT_EXACT_PATHS.length + DASHBOARD_ARTIFACT_PATTERN_PATHS.length;
 
+  const serveRoutes = DASHBOARD_SERVE_ROUTES.length;
+
   return {
-    total: staticRoutes.length + artifactRoutes,
+    total: staticRoutes.length + artifactRoutes + serveRoutes,
     pageHealth,
     staticDispatch: staticRoutes.length - pageHealth,
     artifactRoutes,
+    serveRoutes,
     staticRoutes,
+    indexServeRoutes: DASHBOARD_SERVE_ROUTES,
   };
 }
 
@@ -94,6 +101,7 @@ export function lintDashboardRouteParity(repoRoot: string): DashboardRouteLintIs
   const panels = panelIdsFromHtml(html);
 
   const staticPaths = new Set(inventory.staticRoutes.map((r) => r.path));
+  const servePaths = new Set(inventory.indexServeRoutes.map((r) => r.path));
   const artifactPaths = new Set<string>([
     ...DASHBOARD_ARTIFACT_EXACT_PATHS,
     ...DASHBOARD_ARTIFACT_PATTERN_PATHS,
@@ -105,10 +113,15 @@ export function lintDashboardRouteParity(repoRoot: string): DashboardRouteLintIs
         message: `${card.id} (${card.apiRoute ?? "no route"}) missing id="${card.id}" panel in dashboard.html`,
       });
     }
-    if (card.apiRoute && !staticPaths.has(card.apiRoute) && !artifactPaths.has(card.apiRoute)) {
+    if (
+      card.apiRoute &&
+      !staticPaths.has(card.apiRoute) &&
+      !servePaths.has(card.apiRoute) &&
+      !artifactPaths.has(card.apiRoute)
+    ) {
       issues.push({
         kind: "card-route-missing",
-        message: `${card.id} apiRoute ${card.apiRoute} not in routes.ts or artifact inventory`,
+        message: `${card.id} apiRoute ${card.apiRoute} not in routes.ts, index.ts serve routes, or artifact inventory`,
       });
     }
   }
@@ -121,15 +134,20 @@ const README_INVENTORY_BLOCK =
 
 export function formatDashboardRouteInventoryBlock(inventory: DashboardRouteInventory): string {
   return `<!-- dashboard-route-inventory:AUTO -->
+
 **Endpoint count:** **${inventory.total}** routes on the examples dashboard (\`examples/dashboard/src/index.ts\` + \`handlers/artifacts.ts\`).
 
 - **${inventory.pageHealth}** page/health routes (\`/\`, \`/health\`, \`/api/health\`)
-- **${inventory.staticDispatch}** static dispatch API paths (\`handlers/routes.ts\`, includes \`/dashboard.css\` + \`/dashboard-core.js\` + \`/dashboard.js\`)
+- **${inventory.staticDispatch}** static dispatch API paths (\`handlers/routes.ts\`, shell assets + \`/dashboard-loaders/*.js\` lazy lanes)
+- **${inventory.serveRoutes}** index.serve routes (\`index.ts\` \`routes\` cookie mutations + \`/api/ws\` fetch probe)
 - **${inventory.artifactRoutes}** artifact/run routes (\`handlers/artifacts.ts\` + URLPattern; not duplicated in route table)
 <!-- /dashboard-route-inventory:AUTO -->`;
 }
 
-export function syncDashboardRouteDocs(repoRoot: string, options: { check?: boolean } = {}): string[] {
+export function syncDashboardRouteDocs(
+  repoRoot: string,
+  options: { check?: boolean } = {}
+): string[] {
   const inventory = buildDashboardRouteInventory();
   const block = formatDashboardRouteInventoryBlock(inventory);
   const violations: string[] = [];
@@ -137,13 +155,14 @@ export function syncDashboardRouteDocs(repoRoot: string, options: { check?: bool
   const readmePath = join(repoRoot, "examples/dashboard/README.md");
   const urlsPath = join(repoRoot, "examples/dashboard-urls.md");
   const readme = readText(readmePath);
-  const urls = readText(urlsPath);
+  let urlsDoc = readText(urlsPath);
 
   if (!README_INVENTORY_BLOCK.test(readme)) {
     violations.push("examples/dashboard/README.md missing dashboard-route-inventory markers");
   } else if (options.check) {
     const match = readme.match(README_INVENTORY_BLOCK)?.[0];
-    if (match !== block) violations.push("examples/dashboard/README.md route inventory block is stale");
+    if (match !== block)
+      violations.push("examples/dashboard/README.md route inventory block is stale");
   } else {
     Bun.write(readmePath, readme.replace(README_INVENTORY_BLOCK, block));
   }
@@ -151,56 +170,72 @@ export function syncDashboardRouteDocs(repoRoot: string, options: { check?: bool
   const urlsLine = `Examples dashboard (\`handlers/routes.ts\` + \`handlers/artifacts.ts\`) — **${inventory.total}** routes total (see [dashboard/README.md](dashboard/README.md)).`;
   const urlsPattern =
     /Examples dashboard \(`handlers\/routes\.ts` \+ `handlers\/artifacts\.ts`\) — \*\*\d+\*\* routes total/;
-  if (!urlsPattern.test(urls)) {
+  if (!urlsPattern.test(urlsDoc)) {
     violations.push("examples/dashboard-urls.md missing route total summary line");
   } else if (options.check) {
-    if (!urls.includes(urlsLine)) violations.push("examples/dashboard-urls.md route total line is stale");
+    if (!urlsDoc.includes(urlsLine))
+      violations.push("examples/dashboard-urls.md route total line is stale");
   } else {
-    const nextUrls = urls.replace(
+    urlsDoc = urlsDoc.replace(
       /Examples dashboard \(`handlers\/routes\.ts` \+ `handlers\/artifacts\.ts`\) — \*\*\d+\*\* routes total[^\n]*/,
       urlsLine
     );
-    Bun.write(urlsPath, nextUrls);
   }
 
   const switchLine =
     "Static card routes in `examples/dashboard/src/handlers/routes.ts` use a route table; artifact, run, and session trees use URLPattern matchers shared with Herdr and serve-probe.";
-  if (urls.includes("switch (url.pathname)") && !options.check) {
-    Bun.write(
-      urlsPath,
-      urls.replace(
-        /Static card routes in `examples\/dashboard\/src\/index\.ts` use a `switch \(url\.pathname\)`;[^\n]+/,
-        switchLine
-      )
+  if (urlsDoc.includes("switch (url.pathname)") && !options.check) {
+    urlsDoc = urlsDoc.replace(
+      /Static card routes in `examples\/dashboard\/src\/index\.ts` use a `switch \(url\.pathname\)`;[^\n]+/,
+      switchLine
     );
   }
 
   const staticBlock = formatDashboardStaticRoutesBlock(inventory);
   const staticBlockRe =
     /<!-- dashboard-static-routes:AUTO -->[\s\S]*?<!-- \/dashboard-static-routes:AUTO -->/;
-  if (!staticBlockRe.test(urls)) {
+  if (!staticBlockRe.test(urlsDoc)) {
     violations.push("examples/dashboard-urls.md missing dashboard-static-routes markers");
   } else if (options.check) {
-    const match = urls.match(staticBlockRe)?.[0];
+    const match = urlsDoc.match(staticBlockRe)?.[0];
     if (match !== staticBlock) {
       violations.push("examples/dashboard-urls.md static routes table is stale");
     }
   } else {
-    const nextUrls = urls.replace(staticBlockRe, staticBlock);
-    Bun.write(urlsPath, nextUrls);
+    urlsDoc = urlsDoc.replace(staticBlockRe, staticBlock);
+  }
+
+  const serveBlock = formatDashboardServeRoutesBlock(inventory);
+  const serveBlockRe =
+    /<!-- dashboard-serve-routes:AUTO -->[\s\S]*?<!-- \/dashboard-serve-routes:AUTO -->/;
+  if (!serveBlockRe.test(urlsDoc)) {
+    violations.push("examples/dashboard-urls.md missing dashboard-serve-routes markers");
+  } else if (options.check) {
+    const match = urlsDoc.match(serveBlockRe)?.[0];
+    if (match !== serveBlock) {
+      violations.push("examples/dashboard-urls.md serve routes table is stale");
+    }
+  } else {
+    urlsDoc = urlsDoc.replace(serveBlockRe, serveBlock);
   }
 
   const decomposedLine = `**${inventory.total}** examples-dashboard routes. Representative rows (full table in [dashboard/README.md](dashboard/README.md)):`;
   const decomposedPattern = /\*\*\d+\*\* examples-dashboard routes\./;
-  if (decomposedPattern.test(urls)) {
+  if (decomposedPattern.test(urlsDoc)) {
     if (options.check) {
-      if (!urls.includes(decomposedLine)) {
+      if (!urlsDoc.includes(decomposedLine)) {
         violations.push("examples/dashboard-urls.md decomposed route count is stale");
       }
     } else {
-      const refreshed = readText(urlsPath).replace(decomposedPattern, `**${inventory.total}** examples-dashboard routes.`);
-      Bun.write(urlsPath, refreshed);
+      urlsDoc = urlsDoc.replace(
+        decomposedPattern,
+        `**${inventory.total}** examples-dashboard routes.`
+      );
     }
+  }
+
+  if (!options.check && violations.length === 0) {
+    Bun.write(urlsPath, urlsDoc);
   }
 
   return violations;
@@ -236,6 +271,7 @@ export function formatDashboardStaticRoutesBlock(
     rows.push(`| ${cells.join(" | ")} |`);
   }
   return `<!-- dashboard-static-routes:AUTO -->
+
 ### All static card API paths (\`handlers/routes.ts\`)
 
 \`GET\` unless noted. Grouped by prefix:
@@ -244,6 +280,26 @@ ${header}
 ${sep}
 ${rows.join("\n")}
 <!-- /dashboard-static-routes:AUTO -->`;
+}
+
+export function formatDashboardServeRoutesBlock(
+  inventory: DashboardRouteInventory = buildDashboardRouteInventory()
+): string {
+  const rows = inventory.indexServeRoutes.map((route) => {
+    const methods = route.methods.join("|");
+    const note = route.note ?? "";
+    return `| \`${route.path}\` | ${methods} | \`${route.wiredIn}\` | ${note} |`;
+  });
+  return `<!-- dashboard-serve-routes:AUTO -->
+
+### Index.serve routes (\`examples/dashboard/src/index.ts\`)
+
+Cookie mutations require \`Bun.serve({ routes })\`; \`/api/ws\` is handled in \`fetch\`.
+
+| Path | Methods | Wired in | Note |
+| --- | --- | --- | --- |
+${rows.join("\n")}
+<!-- /dashboard-serve-routes:AUTO -->`;
 }
 
 /** Handlers wired in DASHBOARD_STATIC_ROUTES (excludes inline arrow handlers). */
@@ -265,7 +321,10 @@ export function parseRoutesHandlerImports(routesSource: string): Map<string, str
   for (const match of routesSource.matchAll(importRe)) {
     const file = match[2]!;
     for (const chunk of match[1]!.split(",")) {
-      const symbol = chunk.trim().split(/\s+as\s+/)[0]?.trim();
+      const symbol = chunk
+        .trim()
+        .split(/\s+as\s+/)[0]
+        ?.trim();
       if (symbol) imports.set(symbol, file);
     }
   }

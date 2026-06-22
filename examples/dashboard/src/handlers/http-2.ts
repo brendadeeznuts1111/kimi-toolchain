@@ -11,9 +11,12 @@ export function startHttp2DemoServer(): void {
     h2Server = http2.createServer({
       origins: ["https://example.com", "https://example.org"],
       remoteCustomSettings: [0x1, 0x2, 0x3, 0x4, 0x5, 0x6],
-    });
+    } as http2.ServerOptions);
     h2Server.on("stream", (stream, _headers) => {
-      stream.respond({ ":status": 200, "content-type": "text/plain" });
+      (stream as http2.ServerHttp2Stream).respond({
+        ":status": 200,
+        "content-type": "text/plain",
+      });
       stream.end("ok");
     });
     h2Server.listen(0, () => {

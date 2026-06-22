@@ -85,6 +85,7 @@ import { apiSymbols } from "./symbols.ts";
 import { apiTerminal } from "./terminal.ts";
 import { apiThresholdOverrides } from "./threshold-overrides.ts";
 import { apiTraceVerify } from "./trace-verify.ts";
+import { apiTraceLedger, apiTraceGraph } from "./trace-ledger.ts";
 import { apiTranspilerScan } from "./transpiler-scan.ts";
 import { apiTranspiler } from "./transpiler.ts";
 import { apiTty } from "./tty.ts";
@@ -92,9 +93,16 @@ import { apiUrlNode } from "./url-node.ts";
 import { apiUrl } from "./url-urlsearchparams.ts";
 import { apiUtilTypes } from "./util-types.ts";
 import { apiVmContext } from "./vm-context.ts";
+import { apiCookiesInfo } from "./token-cookies.ts";
+import { apiIdentityFlow } from "./identity-flow.ts";
+import { apiTokensInfo } from "./token-discovery.ts";
+import { apiCsrfRotate, apiCsrfVerify } from "./token-csrf.ts";
+import { apiJwtSign, apiJwtVerify, apiJwtRevoke } from "./token-jwt.ts";
+import { apiServeMetrics } from "./serve-metrics.ts";
 import { readBenchmarkHealthCheck } from "../../../../src/lib/effect-benchmark-card.ts";
 import {
   dashboardAssetResponse,
+  dashboardLoaderRoutes,
   type DashboardStaticAsset,
 } from "../lib/dashboard-assets.ts";
 import { resolveRoot, type DashboardHttpMethod } from "./shared.ts";
@@ -148,10 +156,15 @@ async function apiHealth(req: Request): Promise<Response> {
 
 /** Static switch routes (URLPattern artifact routes are handled earlier in index.ts). */
 export const DASHBOARD_STATIC_ROUTES: readonly DashboardStaticRoute[] = [
-  route("/", () => new Response(Bun.file(import.meta.dir + "/../dashboard.html"), { headers: HTML_HEADERS })),
+  route(
+    "/",
+    () => new Response(Bun.file(import.meta.dir + "/../dashboard.html"), { headers: HTML_HEADERS })
+  ),
   route("/dashboard.css", () => serveDashboardAsset("dashboard.css")),
   route("/dashboard-core.js", () => serveDashboardAsset("dashboard-core.js")),
+  route("/dashboard-loader-lanes.js", () => serveDashboardAsset("dashboard-loader-lanes.js")),
   route("/dashboard.js", () => serveDashboardAsset("dashboard.js")),
+  ...dashboardLoaderRoutes().map((entry) => route0(entry.path, entry.response)),
   route0("/health", () => new Response("ok")),
   route("/api/health", apiHealth, ["GET", "HEAD"]),
   route0("/api/bundle", apiBundle),
@@ -209,6 +222,8 @@ export const DASHBOARD_STATIC_ROUTES: readonly DashboardStaticRoute[] = [
   route0("/api/bun-pm", apiBunPm),
   route0("/api/global-store", apiGlobalStore),
   route0("/api/trace-verify", apiTraceVerify),
+  route("/api/trace-ledger", apiTraceLedger),
+  route("/api/trace-ledger/graph", apiTraceGraph),
   route0("/api/deep-match", apiDeepMatch),
   route0("/api/bun-test", apiBunTest),
   route0("/api/build-compile", apiBuildCompile),
@@ -223,6 +238,10 @@ export const DASHBOARD_STATIC_ROUTES: readonly DashboardStaticRoute[] = [
   route("/api/env", apiEnv),
   route0("/api/build-info", apiBuildInfo),
   route0("/api/runtime-info", apiRuntimeInfo),
+  route0("/api/serve-metrics", apiServeMetrics),
+  route0("/api/cookies", apiCookiesInfo),
+  route0("/api/tokens", apiTokensInfo),
+  route("/api/identity/flow", apiIdentityFlow),
   route0("/api/toolchain/health", apiToolchainHealth),
   route0("/api/toolchain/heal", apiToolchainHeal),
   route0("/api/deps", apiDeps),
@@ -247,6 +266,12 @@ export const DASHBOARD_STATIC_ROUTES: readonly DashboardStaticRoute[] = [
   route0("/api/examples/trading", apiExamplesTrading),
   route0("/api/examples/gates", apiExamplesGates),
   route("/api/settings", apiDashboardSettings),
+  // ── Token endpoints (Bun.CSRF + Bun.CryptoHasher) ──────────────
+  route("/api/token/csrf/rotate", apiCsrfRotate, ["POST"]),
+  route("/api/token/csrf/verify", apiCsrfVerify, ["POST"]),
+  route("/api/token/jwt/sign", apiJwtSign, ["POST"]),
+  route("/api/token/jwt/verify", apiJwtVerify, ["POST"]),
+  route("/api/token/jwt/revoke", apiJwtRevoke, ["POST"]),
 ] as const;
 
 export const ROUTE_BY_PATH: ReadonlyMap<string, DashboardStaticRoute> = new Map(

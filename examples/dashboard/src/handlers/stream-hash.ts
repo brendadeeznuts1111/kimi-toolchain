@@ -28,7 +28,7 @@ export async function apiStreamHash(): Promise<Response> {
   const stringDigest = stringHasher.digest("hex");
 
   const bunHash = Bun.SHA256.hash(await Bun.file(tmpPath).arrayBuffer());
-  const bunHex = encodeHex(new Uint8Array(bunHash));
+  const bunHex = encodeHex(new Uint8Array(bunHash as unknown as ArrayBuffer));
 
   try {
     await Bun.file(tmpPath).delete();

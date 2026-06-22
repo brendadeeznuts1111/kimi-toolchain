@@ -81,7 +81,7 @@ export const SHOWCASE_ENTRIES: readonly ShowcaseEntry[] = [
     lane: "runtime",
     order: 1,
     title: "Bun API Dashboard",
-    tagline: "68 live cards — every Bun-native surface in one page with canvas filters and probes",
+    tagline: "77 live cards — every Bun-native surface in one page with canvas filters and probes",
     path: "examples/dashboard",
     accent: "#58a6ff",
     cardIds: [

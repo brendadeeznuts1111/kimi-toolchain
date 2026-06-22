@@ -91,8 +91,14 @@ function resolveDashboardScriptSource(repoRoot: string, html: string): string {
   const corePath = join(repoRoot, "examples/dashboard/src/dashboard-core.js");
   const jsPath = dashboardScriptPath(repoRoot);
   const parts: string[] = [];
+  const loaderDir = join(repoRoot, "examples/dashboard/src/dashboard-loaders");
   if (pathExists(corePath)) parts.push(readText(corePath));
   if (pathExists(jsPath)) parts.push(readText(jsPath));
+  if (pathExists(loaderDir)) {
+    for (const file of [...new Bun.Glob("*.js").scanSync(loaderDir)].sort()) {
+      parts.push(readText(join(loaderDir, file)));
+    }
+  }
   if (parts.length > 0) return parts.join("\n");
   const scriptStart = html.indexOf("<script>");
   return scriptStart >= 0 ? html.slice(scriptStart) : "";
@@ -136,9 +142,7 @@ export function parseDashboardCardsFromHtml(
   }
 
   const scriptStart = html.indexOf("<script>");
-  const script =
-    options.script ??
-    (scriptStart >= 0 ? html.slice(scriptStart) : "");
+  const script = options.script ?? (scriptStart >= 0 ? html.slice(scriptStart) : "");
   const apiByCard = new Map<string, string>();
 
   for (const match of script.matchAll(/card\("(card-[^"]+)"/g)) {
@@ -211,6 +215,12 @@ function inferApiRoute(cardId: string): string | null {
     "card-artifacts": "/api/artifacts",
     "card-convergence": "/api/artifact-graph",
     "card-markdown": "/api/markdown/html",
+    "card-serve-metrics": "/api/serve-metrics",
+    "card-cookies": "/api/cookies",
+    "card-serve-ws": "/api/ws",
+    "card-token-jwt": "/api/tokens",
+    "card-token-csrf": "/api/tokens",
+    "card-identity-flow": "/api/identity/flow",
   };
   if (overrides[cardId]) return overrides[cardId];
   if (!cardId.startsWith("card-")) return null;

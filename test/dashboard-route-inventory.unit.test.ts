@@ -17,7 +17,11 @@ describe("dashboard-route-inventory", () => {
     expect(inventory.pageHealth).toBe(3);
     expect(inventory.staticDispatch).toBe(inventory.staticRoutes.length - 3);
     expect(inventory.artifactRoutes).toBe(16);
-    expect(inventory.total).toBe(inventory.staticRoutes.length + inventory.artifactRoutes);
+    expect(inventory.serveRoutes).toBe(4);
+    expect(inventory.staticRoutes.some((r) => r.path === "/api/identity/flow")).toBe(true);
+    expect(inventory.total).toBe(
+      inventory.staticRoutes.length + inventory.artifactRoutes + inventory.serveRoutes
+    );
   });
 
   test("lintDashboardRouteParity passes for canonical repo", () => {
@@ -30,9 +34,7 @@ describe("dashboard-route-inventory", () => {
   });
 
   test("scanDashboardRouteHandlerRefs finds wired api handlers", () => {
-    const source = Bun.file(
-      `${REPO_ROOT}/examples/dashboard/src/handlers/routes.ts`
-    ).text();
+    const source = Bun.file(`${REPO_ROOT}/examples/dashboard/src/handlers/routes.ts`).text();
     return source.then((text) => {
       const refs = scanDashboardRouteHandlerRefs(text);
       expect(refs).toContain("apiGates");

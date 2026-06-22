@@ -2,6 +2,7 @@
 
 import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
 import { readableStreamToText } from "../../../../src/lib/bun-utils.ts";
+import { buildHttpErrorBody, type FormattedErrorInput } from "../../../../src/lib/error-format.ts";
 
 export type DashboardHttpMethod = "GET" | "POST" | "HEAD";
 
@@ -19,6 +20,15 @@ export function jsonResponse(data: unknown, status = 200): Response {
     status,
     headers: { "content-type": "application/json; charset=utf-8" },
   });
+}
+
+/** Structured reverse-domain error envelope for dashboard API handlers. */
+export function jsonErrorResponse(
+  input: FormattedErrorInput,
+  status = 400,
+  extra?: Record<string, unknown>
+): Response {
+  return jsonResponse(buildHttpErrorBody(input, extra), status);
 }
 
 /** JSON 405 for API namespaces (matches artifact handler shape). */

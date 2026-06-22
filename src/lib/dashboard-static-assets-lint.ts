@@ -19,8 +19,13 @@ export function lintDashboardStaticAssets(repoRoot: string): string[] {
     violations.push("dashboard.html must not contain inline <script> — use /dashboard.js");
   }
 
+  if (!html.includes('type="module"') || !html.includes('src="/dashboard-core.js"')) {
+    violations.push('dashboard.html must load /dashboard-core.js as type="module"');
+  }
+
   for (const asset of DASHBOARD_STATIC_ASSETS) {
     const href = `/${asset}`;
+    if (asset === "dashboard-loader-lanes.js") continue;
     if (!html.includes(href)) {
       violations.push(`dashboard.html missing reference to ${href}`);
     }

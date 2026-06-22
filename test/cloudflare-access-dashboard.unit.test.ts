@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  AccessApplication,
-  buildDashboard,
-  domainToProjectName,
-} from "../src/lib/cloudflare-access.ts";
+import { buildDashboard, domainToProjectName } from "../src/lib/cloudflare-access.ts";
+import type { AccessApplication } from "../src/lib/cloudflare-access.ts";
 
 function app(overrides: Partial<AccessApplication> = {}): AccessApplication {
   return {
@@ -54,10 +51,10 @@ describe("cloudflare-access dashboard", () => {
       ];
       const mappings = await buildDashboard(apps, []);
       expect(mappings).toHaveLength(1);
-      expect(mappings[0].appName).toBe("zzzz-nonexistent-9999");
-      expect(mappings[0].localPath).toBeUndefined();
-      expect(mappings[0].status).toBe("info");
-      expect(mappings[0].notes.some((n) => n.includes("No local project"))).toBe(true);
+      expect(mappings[0]!.appName).toBe("zzzz-nonexistent-9999");
+      expect(mappings[0]!.localPath).toBeUndefined();
+      expect(mappings[0]!.status).toBe("info");
+      expect(mappings[0]!.notes.some((n) => n.includes("No local project"))).toBe(true);
     });
 
     test("flags bypass policies as error", async () => {
@@ -80,9 +77,9 @@ describe("cloudflare-access dashboard", () => {
         }),
       ];
       const mappings = await buildDashboard(apps, []);
-      expect(mappings[0].status).toBe("error");
-      expect(mappings[0].bypassCount).toBe(1);
-      expect(mappings[0].notes.some((n) => n.includes("bypass"))).toBe(true);
+      expect(mappings[0]!.status).toBe("error");
+      expect(mappings[0]!.bypassCount).toBe(1);
+      expect(mappings[0]!.notes.some((n) => n.includes("bypass"))).toBe(true);
     });
 
     test("flags allow-everyone as warn", async () => {
@@ -105,8 +102,8 @@ describe("cloudflare-access dashboard", () => {
         }),
       ];
       const mappings = await buildDashboard(apps, []);
-      expect(mappings[0].allowEveryoneCount).toBe(1);
-      expect(mappings[0].notes.some((n) => n.includes("allow everyone"))).toBe(true);
+      expect(mappings[0]!.allowEveryoneCount).toBe(1);
+      expect(mappings[0]!.notes.some((n) => n.includes("allow everyone"))).toBe(true);
     });
 
     test("flags no IdP restriction for self_hosted apps", async () => {
@@ -130,7 +127,7 @@ describe("cloudflare-access dashboard", () => {
         }),
       ];
       const mappings = await buildDashboard(apps, []);
-      expect(mappings[0].notes.some((n) => n.includes("No IdP"))).toBe(true);
+      expect(mappings[0]!.notes.some((n) => n.includes("No IdP"))).toBe(true);
     });
 
     test("discovers local kimi-toolchain repo", async () => {
@@ -144,7 +141,7 @@ describe("cloudflare-access dashboard", () => {
         }),
       ];
       const mappings = await buildDashboard(apps, []);
-      const m = mappings[0];
+      const m = mappings[0]!;
       // Should find the local repo if it exists
       if (m.localPath) {
         expect(m.localPath).toContain("kimi-toolchain");
