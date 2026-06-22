@@ -18,13 +18,26 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
-import { readFileSync } from "fs";
 import { DASHBOARD_CRON_MIN_MS } from "../src/lib/herdr-dashboard-cron.ts";
+import {
+  autoCompress,
+  compressDeflate,
+  compressGzip,
+  compressZstd,
+  compressZstdAsync,
+  decompressDeflate,
+  decompressGzip,
+  decompressZstd,
+  decompressZstdAsync,
+  detectFormat,
+  exportAuditReport,
+  parseAuditReport,
+} from "../src/lib/compression.ts";
 
 const repoRoot = import.meta.dir + "/..";
 
 function readSrc(rel: string): string {
-  return readFileSync(join(repoRoot, rel), "utf-8");
+  return require("fs").readFileSync(join(repoRoot, rel), "utf-8");
 }
 
 // ── Bun.file async read error paths ─────────────────────────────────
@@ -762,7 +775,7 @@ describe("bun-release-compliance compression", () => {
     ["deflate", "compressDeflate", "decompressDeflate"],
     ["zstd", "compressZstd", "decompressZstd"],
   ])("%s: compress + decompress round-trips a UTF-8 payload", (_algo, compressFn, decompressFn) => {
-    const mod = require("../src/lib/compression.ts");
+    const mod = { compressGzip, compressDeflate, compressZstd, decompressGzip, decompressDeflate, decompressZstd } as Record<string, (data: Uint8Array) => Uint8Array>;
     const data = new TextEncoder().encode(`kimi-toolchain ${_algo} round-trip`);
     expect(new TextDecoder().decode(mod[decompressFn](mod[compressFn](data)))).toBe(
       `kimi-toolchain ${_algo} round-trip`
@@ -774,19 +787,17 @@ describe("bun-release-compliance compression", () => {
     ["gzip", "compressGzip"],
     ["zstd", "compressZstd"],
   ])("detectFormat returns '%s' for its magic-byte header", (expected, compressFn) => {
-    const mod = require("../src/lib/compression.ts");
-    expect(mod.detectFormat(mod[compressFn]("test"))).toBe(expected);
+    const mod = { compressGzip, compressZstd, detectFormat } as Record<string, (data: string | Uint8Array) => unknown>;
+    expect(mod.detectFormat((mod[compressFn] as (d: string) => Uint8Array)("test"))).toBe(expected);
   });
 
   test("autoCompress selects best algorithm for 100KB of repeated data", () => {
-    const { autoCompress } = require("../src/lib/compression.ts");
     const result = autoCompress("x".repeat(100_000), "balanced");
     expect(["gzip", "deflate", "zstd"]).toContain(result.algorithm);
     expect(result.ratio).toBeLessThan(1);
   });
 
   test("compressZstdAsync + decompressZstdAsync round-trips a string payload without blocking", async () => {
-    const { compressZstdAsync, decompressZstdAsync } = require("../src/lib/compression.ts");
     const data = "async zstd test";
     const compressed = await compressZstdAsync(data);
     const decompressed = await decompressZstdAsync(compressed);
@@ -794,7 +805,6 @@ describe("bun-release-compliance compression", () => {
   });
 
   test("exportAuditReport → parseAuditReport round-trips findings through zstd", () => {
-    const { exportAuditReport, parseAuditReport } = require("../src/lib/compression.ts");
     const findings = [{ ok: true, id: "test-1" }];
     const compressed = exportAuditReport(findings, "zstd");
     const parsed = parseAuditReport(compressed) as any;
