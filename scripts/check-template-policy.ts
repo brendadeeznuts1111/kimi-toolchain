@@ -35,6 +35,7 @@ async function main(): Promise<number> {
         "scaffold-markers",
         "shebang",
         "env-hygiene",
+        "env-example",
         "banned-terms",
         "hardcoded-secrets",
         "bun-native",

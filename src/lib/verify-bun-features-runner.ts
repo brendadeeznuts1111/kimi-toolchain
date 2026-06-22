@@ -456,8 +456,9 @@ async function checkCpuProfCapture(): Promise<void> {
   const start = Bun.nanoseconds();
   const profDir = join(tmpdir(), `kimi-cpu-prof-${Date.now()}`);
   await Bun.write(join(profDir, ".gitkeep"), "");
+  const scriptPath = join(reportProjectRoot, "scripts", "verify-bun-features.ts");
   const proc = Bun.spawn({
-    cmd: ["bun", "--cpu-prof", "--cpu-prof-interval=500", "run", "scripts/verify-bun-features.ts"],
+    cmd: ["bun", "--cpu-prof", "--cpu-prof-interval=500", "run", scriptPath],
     stdout: "pipe",
     stderr: "pipe",
     cwd: profDir,

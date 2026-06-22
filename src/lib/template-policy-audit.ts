@@ -742,11 +742,41 @@ export async function auditTemplateRegistrySchema(
   return violations;
 }
 
-function countEnvExampleFiles(root: string): number {
-  return [...new Bun.Glob("templates/**/.env.example").scanSync({
-    cwd: root,
-    onlyFiles: true,
-  })].length;
+function collectEnvExampleFiles(root: string): string[] {
+  const paths = [
+    ...new Bun.Glob("templates/bun-create/*/.env.example").scanSync({
+      cwd: root,
+      onlyFiles: true,
+    }),
+  ];
+  const scaffoldExample = "templates/scaffold/env.example";
+  if (Bun.file(join(root, scaffoldExample)).size > 0) paths.push(scaffoldExample);
+  return paths.sort();
+}
+
+export async function auditTemplateEnvExamples(root: string): Promise<TemplatePolicyViolation[]> {
+  const violations: TemplatePolicyViolation[] = [];
+  const templatePkgGlob = new Bun.Glob("templates/bun-create/*/package.json");
+  for (const pkgPath of templatePkgGlob.scanSync({ cwd: root, absolute: true, onlyFiles: true })) {
+    const projectDir = join(pkgPath, "..");
+    const envExample = join(projectDir, ".env.example");
+    if (!(await Bun.file(envExample).exists())) {
+      violations.push({
+        file: rel(root, projectDir),
+        field: "env-example",
+        message: "bun-create template missing .env.example",
+      });
+    }
+  }
+  const scaffoldExample = join(root, SCAFFOLD_DIR, "env.example");
+  if (!(await Bun.file(scaffoldExample).exists())) {
+    violations.push({
+      file: `${SCAFFOLD_DIR}/env.example`,
+      field: "env-example",
+      message: "scaffold missing env.example",
+    });
+  }
+  return violations;
 }
 
 export async function auditTemplateTypecheck(root: string): Promise<TemplatePolicyViolation[]> {
@@ -815,6 +845,7 @@ export async function auditTemplatePolicy(root: string): Promise<TemplatePolicyA
     ...(await auditTemplateScaffoldMarkers(root)),
     ...(await auditTemplateEntryShebangs(root)),
     ...(await auditTemplateEnvHygiene(root)),
+    ...(await auditTemplateEnvExamples(root)),
     ...(await auditTemplateBannedTerms(root)),
     ...(await auditTemplateHardcodedSecrets(root)),
     ...(await auditTemplateBunNative(root)),
@@ -835,7 +866,7 @@ export async function auditTemplatePolicy(root: string): Promise<TemplatePolicyA
       testProjects: collectTemplateTestProjects(root).length,
       moduleTsFiles: await countModuleTsFiles(root),
       scaffoldFiles: REQUIRED_SCAFFOLD_FILES.length,
-      envExampleFiles: countEnvExampleFiles(root),
+      envExampleFiles: collectEnvExampleFiles(root).length,
     },
   };
 }
@@ -850,7 +881,7 @@ export async function templatePolicyDryRunSummary(root: string): Promise<Templat
     testProjects: collectTemplateTestProjects(root).length,
     moduleTsFiles: await countModuleTsFiles(root),
     scaffoldFiles: REQUIRED_SCAFFOLD_FILES.length,
-    envExampleFiles: countEnvExampleFiles(root),
+    envExampleFiles: collectEnvExampleFiles(root).length,
   };
 }
 

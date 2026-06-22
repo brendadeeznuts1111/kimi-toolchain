@@ -68,7 +68,7 @@ async function main(): Promise<number> {
   }
 }
 
-if (isDirectRun(import.meta.url)) {
+if (isDirectRun(import.meta.path)) {
   const code = await main();
   if (code !== 0) process.exit(code);
 }
