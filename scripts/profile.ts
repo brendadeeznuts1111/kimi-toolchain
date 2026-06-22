@@ -11,6 +11,7 @@
 
 import { isAbsolute, join, resolve } from "path";
 import { $ } from "bun";
+import { DEFAULT_PROFILE_OUTPUT_DIR } from "../src/lib/root-hygiene.ts";
 
 interface ProfileOptions {
   mode: "cpu" | "heap";
@@ -25,7 +26,7 @@ function parseCli(): ProfileOptions {
   const argv = Bun.argv.slice(2);
   let mode: "cpu" | "heap" | null = null;
   let md = false;
-  let dir = "./profiles";
+  let dir = DEFAULT_PROFILE_OUTPUT_DIR;
   let name: string | undefined;
   let target: string | undefined;
   const targetArgs: string[] = [];
@@ -97,13 +98,13 @@ Usage:
   bun run profile --cpu --md --target script.js
   bun run profile --heap --md --target script.js -- --arg1
   bun run profile --heap --target script.js
-  bun run profile --cpu --dir ./profiles --name run1 --target script.js
+  bun run profile --cpu --dir .kimi-artifacts/profiles --name run1 --target script.js
 
 Options:
   --cpu        CPU profile mode
   --heap       Heap profile mode
   --md         Emit Markdown report (default for CPU is JSON unless --md)
-  --dir        Output directory (default: ./profiles)
+  --dir        Output directory (default: .kimi-artifacts/profiles)
   --name       Output filename stem (default: <mode>-<timestamp>)
   --target     Script to profile
   --           Pass remaining args to the target script`);

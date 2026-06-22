@@ -16,7 +16,6 @@ globalStore = true
 
 [install.cache]
 # Global cache directory (shared across projects)
-dir = "~/.bun/install/cache"
 
 [run]
 noOrphans = true

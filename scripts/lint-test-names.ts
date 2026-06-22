@@ -103,6 +103,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bunfig-policy-gate": "src/gates/bunfig-policy.ts",
   "gate-registry": "src/gates/registry.ts",
   "hardcoded-secrets-gate": "src/gates/hardcoded-secrets.ts",
+  "runtime-utils-coverage-gate": "src/gates/runtime-utils-coverage.ts",
   "doctor-gates-runner": "src/gates/runner.ts",
   "kimi-doctor-gate": "src/bin/kimi-doctor.ts",
   "gates-trading": "src/gates/trading-metrics.ts",

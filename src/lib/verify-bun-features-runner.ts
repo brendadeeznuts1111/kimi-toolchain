@@ -16,6 +16,7 @@ import { BUN_COLOR_STRING_FORMATS, verifyColorFormat } from "./bun-color-formats
 import { checkBunVersionPin, readableStreamToText } from "./bun-utils.ts";
 import { captureMimallocStats, parseMimallocStats } from "./memory/governor.ts";
 import { elapsedMs, nowNs } from "./timing.ts";
+import { ensureDir } from "./utils.ts";
 import type { ConfigStatusReport } from "./config-status.ts";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -612,8 +613,19 @@ async function checkBunColorStringFormats(): Promise<void> {
 async function checkCpuProfCapture(): Promise<void> {
   const start = nowNs();
   const scriptPath = join(reportProjectRoot, "scripts", "verify-bun-features.ts");
+  const profDir = join(reportProjectRoot, ".kimi-artifacts", "profiles");
+  ensureDir(profDir);
+  await Bun.write(join(profDir, ".gitkeep"), "");
   const proc = Bun.spawn({
-    cmd: [process.execPath, "--cpu-prof", "--cpu-prof-interval=500", "run", scriptPath],
+    cmd: [
+      process.execPath,
+      "--cpu-prof",
+      "--cpu-prof-interval=500",
+      "--cpu-prof-dir",
+      profDir,
+      "run",
+      scriptPath,
+    ],
     stdout: "pipe",
     stderr: "pipe",
     cwd: reportProjectRoot,
@@ -626,14 +638,13 @@ async function checkCpuProfCapture(): Promise<void> {
     return;
   }
   const glob = new Bun.Glob("*.cpuprofile");
-  const files = [...glob.scanSync(reportProjectRoot)].sort();
+  const files = [...glob.scanSync({ cwd: profDir, onlyFiles: true })].sort();
   const latest = files.at(-1);
   if (latest) {
-    // Move the captured profile out of the repo root into a temp dir.
-    const profDir = join(tmpdir(), `kimi-cpu-prof-${Date.now()}`);
-    await Bun.write(join(profDir, ".gitkeep"), "");
-    const oldPath = join(reportProjectRoot, latest);
-    const newPath = join(profDir, latest);
+    const archiveDir = join(tmpdir(), `kimi-cpu-prof-${Date.now()}`);
+    ensureDir(archiveDir);
+    const oldPath = join(profDir, latest);
+    const newPath = join(archiveDir, latest);
     await Bun.write(newPath, await Bun.file(oldPath).arrayBuffer());
     await Bun.file(oldPath)
       .delete()

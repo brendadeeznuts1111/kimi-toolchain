@@ -21,7 +21,6 @@ minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
-dir = "~/.bun/install/cache"
 
 [test]
 pathIgnorePatterns = ["vendor/**", "submodules/**", "fixtures/**", "**/test-data/**", "examples/**"]

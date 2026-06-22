@@ -139,6 +139,14 @@ export const RUNTIME_UTILS_COVERAGE: readonly RuntimeUtilsCoverageEntry[] = [
     module: "src/lib/bun-utils.ts",
     status: "wrapped",
   },
+  {
+    api: "Bun.semver",
+    anchor: "bun-semver",
+    wrapper: "compareVersions / semverSatisfies / isValidSemver",
+    module: "src/lib/version.ts",
+    docUrlConst: "BUN_SEMVER_DOC_URL",
+    status: "wrapped",
+  },
   { api: "Bun.color", anchor: "bun-color", module: "src/lib/error-format.ts", status: "partial" },
   {
     api: "Bun.wrapAnsi",

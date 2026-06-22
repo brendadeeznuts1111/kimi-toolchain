@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { argValue, argValues, hasFlag, positionalArgs } from "../src/bin/kimi-mcp.ts";
+import {
+  argValue,
+  argValues,
+  hasFlag,
+  parseTopArg,
+  positionalArgs,
+  trimBunDocsOutput,
+} from "../src/bin/kimi-mcp.ts";
 import { runBunScript } from "./helpers.ts";
 
 describe("kimi-mcp", () => {
@@ -41,6 +48,16 @@ describe("kimi-mcp", () => {
       const argv = ["bun", "kimi-mcp", "fs", "cat", "runtime/utils.mdx"];
       expect(positionalArgs(argv, 3)).toBe("cat runtime/utils.mdx");
     });
+
+    test("parseTopArg reads --top N", () => {
+      const argv = ["bun", "kimi-mcp", "fs", "rg foo", "--top", "5"];
+      expect(parseTopArg(argv)).toBe(5);
+    });
+
+    test("trimBunDocsOutput limits lines", () => {
+      expect(trimBunDocsOutput("a\nb\nc", 2)).toBe("a\nb");
+      expect(trimBunDocsOutput("a\nb", undefined)).toBe("a\nb");
+    });
   });
 
   describe("dispatch-and-help", () => {
@@ -49,6 +66,7 @@ describe("kimi-mcp", () => {
       expect(exitCode).toBe(0);
       expect(stdout).toContain("kimi-mcp commands");
       expect(stdout).toContain("bun-docs");
+      expect(stdout).toContain("--top N");
     });
 
     test("unknown command prints error and exits 1", async () => {

@@ -10,7 +10,6 @@ linker = "isolated"
 
 [install.cache]
 # Global cache directory (shared across projects)
-dir = "~/.bun/install/cache"
 
 [test]
 # Unit tests run concurrently; smoke tests stay sequential

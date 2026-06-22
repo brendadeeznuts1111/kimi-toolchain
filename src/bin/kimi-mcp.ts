@@ -11,7 +11,7 @@
  *   doctor [--profile <name>] [--json]
  *   bun-docs [query] [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh]
  *   query <text> [--tool ...] [--json] [--refresh]
- *   fs <command> [--tool ...] [--json] [--refresh]
+ *   fs <command> [--top N] [--json] [--refresh]
  *   catalog [--probe] [--json]
  */
 
@@ -52,6 +52,20 @@ const BRIDGE_KINDS = ["filesystem", "http", "sandbox", "dashboard"] as const;
 type BridgeKindLiteral = (typeof BRIDGE_KINDS)[number];
 
 type BunDocsTool = (typeof BUN_DOCS_MCP_TOOLS)[number];
+
+/** Limit CLI doc output to the first N lines (`--top`). */
+export function trimBunDocsOutput(text: string, top?: number): string {
+  if (!top || top <= 0) return text;
+  return text.split("\n").slice(0, top).join("\n");
+}
+
+/** Parse `--top N` from argv; returns undefined when absent or invalid. */
+export function parseTopArg(argv: string[]): number | undefined {
+  const raw = argValue(argv, "--top");
+  if (!raw) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
+}
 
 /** Extract the value for a `--flag value` or `--flag=value` option. */
 export function argValue(argv: string[], flag: string): string | undefined {
@@ -361,16 +375,19 @@ async function runBunDocsSearch(query: string, toolOverride?: BunDocsTool): Prom
     tool === "search_bun"
       ? await searchBunDocs(query, timeoutMs, { refresh })
       : await queryBunDocsFilesystem(query, timeoutMs, { refresh });
+  const top = parseTopArg(Bun.argv);
+  const text = trimBunDocsOutput(formatBunDocsContent(result.content), top);
   if (writer.flags.json) {
     writer.writeJson({
       ok: result.ok,
       tool,
       query,
-      text: formatBunDocsContent(result.content),
+      top,
+      text,
       error: result.error,
     });
   } else if (result.ok) {
-    logger.line(formatBunDocsContent(result.content));
+    logger.line(text);
   } else {
     writer.error(result.error ?? "search failed");
   }
@@ -484,7 +501,7 @@ const COMMANDS: Record<string, Subcommand> = {
   fs: {
     name: "fs",
     description: "Run a filesystem command against the Bun docs MCP filesystem.",
-    usage: "fs <command> [--json] [--refresh] [--timeout <ms>]",
+    usage: "fs <command> [--top N] [--json] [--refresh] [--timeout <ms>]",
     run: fsCommand,
   },
   catalog: {

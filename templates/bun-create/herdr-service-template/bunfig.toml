@@ -21,4 +21,3 @@ concurrentTestGlob = ["test/*.unit.test.ts"]
 
 [install.cache]
 # Global cache directory (shared across projects)
-dir = "~/.bun/install/cache"

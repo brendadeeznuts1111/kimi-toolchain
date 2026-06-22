@@ -13,6 +13,7 @@ import { join, resolve } from "path";
 import {
   applyRootHygieneCleanup,
   auditRootHygiene,
+  fixBunfigCacheMisconfig,
   type RootHygieneReport,
 } from "../src/lib/root-hygiene.ts";
 import { resolveEffectiveWorkspaceRoot } from "../src/lib/workspace-health.ts";
@@ -21,11 +22,13 @@ function parseArgs(argv: string[]): {
   dryRun: boolean;
   json: boolean;
   help: boolean;
+  fixBunfig: boolean;
   root?: string;
 } {
   let dryRun = false;
   let json = false;
   let help = false;
+  let fixBunfig = false;
   let root: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
@@ -33,12 +36,13 @@ function parseArgs(argv: string[]): {
     if (arg === "--help" || arg === "-h") help = true;
     else if (arg === "--dry-run" || arg === "--dryrun") dryRun = true;
     else if (arg === "--json") json = true;
+    else if (arg === "--fix-bunfig") fixBunfig = true;
     else if (arg === "--root") root = argv[++i];
     else if (arg.startsWith("--root=")) root = arg.slice("--root=".length);
     else throw new Error(`Unknown option: ${arg}`);
   }
 
-  return { dryRun, json, help, root };
+  return { dryRun, json, help, fixBunfig, root };
 }
 
 function resolveProjectRoot(explicit?: string): string {
@@ -61,12 +65,13 @@ function printHelp(): void {
 Usage:
   bun run cleanup:root
   bun run cleanup:root:dry-run
-  kimi-toolchain cleanup root [--dry-run] [--json] [--root <path>]
+  kimi-toolchain cleanup root [--dry-run] [--json] [--fix-bunfig] [--root <path>]
 
 Removes only known clutter at project root:
   ~/              literal tilde dir (Bun cache misconfig)
   profiles/       legacy profile output
   *.cpuprofile    CPU profiles left in cwd
+  *.bun-build     compile intermediates at repo root
   .tmp-*/         test temp dirs
   *.bak           backup files at root
   dx/             empty stub directory
@@ -76,7 +81,7 @@ Does not touch src/, test/, or tracked source files.
 Fix recurring pollution:
   unset BUN_INSTALL_CACHE_DIR
   # or: export BUN_INSTALL_CACHE_DIR="$HOME/.bun/install/cache"
-  # omit [install.cache].dir from bunfig.toml (Bun default is correct)`);
+  bun run cleanup:root -- --fix-bunfig   patch bunfig.toml when tilde cache dir is set`);
 }
 
 function renderText(report: RootHygieneReport): void {
@@ -112,13 +117,14 @@ function renderText(report: RootHygieneReport): void {
 }
 
 async function main(): Promise<number> {
-  const { dryRun, json, help, root } = parseArgs(Bun.argv.slice(2));
+  const { dryRun, json, help, fixBunfig, root } = parseArgs(Bun.argv.slice(2));
   if (help) {
     printHelp();
     return 0;
   }
 
   const projectRoot = resolveProjectRoot(root);
+  const bunfigFixed = fixBunfig && !dryRun ? fixBunfigCacheMisconfig(projectRoot) : false;
   const report = await auditRootHygiene(projectRoot, { dryRun });
   applyRootHygieneCleanup(report);
 
@@ -133,6 +139,7 @@ async function main(): Promise<number> {
           count: report.items.length,
           totalFiles: report.totalFiles,
           totalBytes: report.totalBytes,
+          bunfigFixed,
           misconfig: report.misconfig,
           items: report.items,
         },
@@ -141,6 +148,8 @@ async function main(): Promise<number> {
       )
     );
   } else {
+    if (bunfigFixed)
+      console.log("Patched bunfig.toml — removed literal-tilde [install.cache].dir\n");
     renderText(report);
   }
 

@@ -174,6 +174,7 @@ export const BUN_MEASURING_TIME_DOC_URL = `${BUN_BENCHMARKING_DOC_URL}#measuring
 export const BUN_BENCH_REPO_URL = "https://github.com/oven-sh/bun/tree/main/bench";
 export const BUN_RUNTIME_GLOBALS_DOC_URL = "https://bun.com/docs/runtime/globals";
 export const BUN_RUNTIME_BUN_APIS_DOC_URL = "https://bun.com/docs/runtime/bun-apis";
+export const BUN_SEMVER_DOC_URL = `${BUN_RUNTIME_BUN_APIS_DOC_URL}#semver`;
 export const BUN_RUNTIME_WEB_APIS_DOC_URL = "https://bun.com/docs/runtime/web-apis";
 /** Typed API reference index (Bun.*, bun:test, etc.). @see https://bun.com/reference/bun */
 export const BUN_API_REFERENCE_URL = "https://bun.com/reference/bun";
@@ -608,8 +609,9 @@ export const BUN_INSTALL_BUNFIG_POLICY: readonly BunInstallPolicyRowDef[] = [
     cliFlag: "--cache-dir",
     sinceBun: "1.0",
     docsAnchor: "cache",
-    notes: "Global npm tarball cache",
-    requireExplicit: true,
+    notes:
+      "Omit from bunfig — Bun default is ~/.bun/install/cache; tilde in bunfig/env is literal on Bun 1.4.0",
+    requireExplicit: false,
   },
   {
     group: "cache",
@@ -1024,6 +1026,11 @@ export const BUN_INSTALL_ENV_VARS: readonly {
   {
     name: "BUN_CONFIG_SKIP_INSTALL_PACKAGES",
     description: "don't install any packages; useful for bun-create dry bootstrap probes",
+    risky: true,
+  },
+  {
+    name: "BUN_INSTALL_CACHE_DIR",
+    description: "global install cache (overrides bunfig; tilde is literal on Bun 1.4.0)",
     risky: true,
   },
 ] as const;

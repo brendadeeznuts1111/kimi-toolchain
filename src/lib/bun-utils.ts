@@ -20,6 +20,13 @@ import {
   userInfo,
 } from "os";
 import { elapsedMs, nowNs } from "./timing.ts";
+import {
+  compareVersions,
+  isValidSemver,
+  semverOrderLabel,
+  semverSatisfies,
+  versionBelow,
+} from "./version.ts";
 import { safeToml } from "./utils.ts";
 
 /** Monotonic UUID v7 — prefer for session/db ids (see Bun.randomUUIDv7). */
@@ -277,10 +284,7 @@ export async function fetchJsonBody<T>(
   return { ok: res.ok, status: res.status, data: JSON.parse(text) as T };
 }
 
-/** Test semver satisfaction (Bun.semver.satisfies). */
-export function semverSatisfies(version: string, range: string): boolean {
-  return Bun.semver.satisfies(version, range);
-}
+export { compareVersions, isValidSemver, semverOrderLabel, semverSatisfies, versionBelow };
 
 /**
  * Gzip compression (`Bun.gzipSync` / `Bun.gunzipSync`) — `Uint8Array` ↔ `Uint8Array`.

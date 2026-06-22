@@ -328,11 +328,12 @@ export async function auditTemplateInstallPolicy(root: string): Promise<Template
         });
       }
     }
-    if (!/\[install\.cache\][\s\S]*?dir\s*=\s*"~\/\.bun\/install\/cache"/.test(text)) {
+    if (/\[install\.cache\][\s\S]*?dir\s*=\s*"~/.test(text)) {
       violations.push({
         file: relPath,
-        field: "[install.cache]",
-        message: 'Missing [install.cache] dir = "~/.bun/install/cache"',
+        field: "[install.cache].dir",
+        message:
+          "Remove [install.cache].dir tilde path — Bun 1.4.0 creates literal ./~/.bun in project root; omit dir",
       });
     }
   }

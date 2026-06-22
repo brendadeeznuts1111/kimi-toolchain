@@ -13,6 +13,7 @@ import type {
   RepoRole,
 } from "./canonical-references.ts";
 import { CANONICAL_REFERENCES_SCHEMA_VERSION } from "./canonical-references.ts";
+import { isValidSemver as semverStringValid } from "./version.ts";
 
 const VALID_REFERENCE_KINDS = new Set<ReferenceKind>([
   "runtime",
@@ -83,13 +84,11 @@ function isValidEcosystemReferenceUrl(value: string, violations: string[], path:
 }
 
 function isValidSemver(value: string, violations: string[], path: string): boolean {
-  try {
-    Bun.semver.order(value, value);
-    return true;
-  } catch {
+  if (!semverStringValid(value)) {
     violations.push(`${path}: invalid semver "${value}"`);
     return false;
   }
+  return true;
 }
 
 function isValidGithubRepoUrl(value: string, violations: string[], path: string): boolean {

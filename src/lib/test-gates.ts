@@ -89,6 +89,7 @@ export const UNIT_TEST_FILES = [
   "test/graph-to-mermaid.unit.test.ts",
   "test/bunfig-policy-gate.unit.test.ts",
   "test/hardcoded-secrets-gate.unit.test.ts",
+  "test/runtime-utils-coverage-gate.unit.test.ts",
   "test/url-i18n-gate.unit.test.ts",
   "test/email-i18n-gate.unit.test.ts",
   "test/email-i18n.unit.test.ts",

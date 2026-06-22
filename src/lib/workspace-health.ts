@@ -41,9 +41,12 @@ export const WORKSPACE_SOFT_NAMES = new Set([
   "session-cwd",
   "session-index",
   "snapshots",
+  "root-artifacts",
+  "install-cache-misconfig",
 ]);
 
 import type { HealthCheck, WorkspaceKnownContext } from "./health-check.ts";
+import { collectRootHygieneItems, collectRootHygieneMisconfig } from "./root-hygiene.ts";
 
 export type WorkspaceCheck = HealthCheck;
 export type { WorkspaceKnownContext };
@@ -557,6 +560,43 @@ export async function auditWorkspaceHealth(
         name: "session-index",
         status: strict ? "error" : "warn",
         message: `${legacyIndexLines} session_index line(s) reference legacy cwd — workspace fix --deep`,
+        fixable: true,
+      });
+    }
+  }
+
+  if (isToolchain) {
+    const rootItems = collectRootHygieneItems(projectRoot);
+    const rootFiles = rootItems.reduce((sum, item) => sum + item.fileCount, 0);
+    if (rootItems.length === 0) {
+      checks.push({
+        name: "root-artifacts",
+        status: "ok",
+        message: "no gitignored root clutter",
+        fixable: true,
+      });
+    } else {
+      checks.push({
+        name: "root-artifacts",
+        status: strict ? "error" : "warn",
+        message: `${rootItems.length} root artifact group(s), ${rootFiles} file(s) — bun run cleanup:root:dry-run`,
+        fixable: true,
+      });
+    }
+
+    const misconfig = collectRootHygieneMisconfig(projectRoot);
+    if (misconfig.length === 0) {
+      checks.push({
+        name: "install-cache-misconfig",
+        status: "ok",
+        message: "install cache path not misconfigured",
+        fixable: false,
+      });
+    } else {
+      checks.push({
+        name: "install-cache-misconfig",
+        status: "warn",
+        message: misconfig[0]!,
         fixable: true,
       });
     }

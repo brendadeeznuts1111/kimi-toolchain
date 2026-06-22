@@ -10,7 +10,10 @@
 import { dirname, join } from "path";
 import { $ } from "bun";
 import { makeDir, movePath, pathExists, readText } from "./bun-io.ts";
+import { BUN_SEMVER_DOC_URL } from "./bun-install-config.ts";
 import { manifestPath } from "./paths.ts";
+
+export { BUN_SEMVER_DOC_URL };
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -86,6 +89,13 @@ export function isVersionAtLeast(gate: string): boolean {
 /** Check if a version satisfies a semver range (e.g. ">=1.0.0 <2.0.0"). */
 export function semverSatisfies(version: string, range: string): boolean {
   return Bun.semver.satisfies(version, range);
+}
+
+/** Map Bun.semver.order result to human-readable label. */
+export function semverOrderLabel(a: string, b: string): "equal" | "a > b" | "a < b" {
+  const order = compareVersions(a, b);
+  if (order === 0) return "equal";
+  return order === 1 ? "a > b" : "a < b";
 }
 
 /** Validate that a string is a valid semver. */

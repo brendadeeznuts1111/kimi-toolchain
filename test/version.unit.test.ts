@@ -5,6 +5,7 @@ import {
   formatVersionTable,
   semverSatisfies,
   isValidSemver,
+  semverOrderLabel,
   versionBelow,
 } from "../src/lib/version.ts";
 
@@ -29,6 +30,12 @@ describe("version", () => {
     expect(isValidSemver("1.0.0")).toBe(true);
     expect(isValidSemver("0.18.0-canary.1")).toBe(true);
     expect(isValidSemver("garbage")).toBe(false);
+  });
+
+  test("semverOrderLabel maps compareVersions to labels", () => {
+    expect(semverOrderLabel("1.0.0", "1.0.0")).toBe("equal");
+    expect(semverOrderLabel("2.0.0", "1.0.0")).toBe("a > b");
+    expect(semverOrderLabel("1.0.0", "2.0.0")).toBe("a < b");
   });
 
   test("versionBelow safe for null", () => {

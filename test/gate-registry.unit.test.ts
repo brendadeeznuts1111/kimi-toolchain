@@ -14,6 +14,7 @@ describe("gate-registry", () => {
     expect(names).toContain("strategy-performance");
     expect(names).toContain("model-drift");
     expect(names).toContain("hardcoded-secrets");
+    expect(names).toContain("runtime-utils-coverage");
   });
 
   test("gateRegistry.list matches listGates", () => {

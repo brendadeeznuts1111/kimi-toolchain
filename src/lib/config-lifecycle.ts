@@ -6,6 +6,7 @@
  */
 
 import { pathExists } from "./bun-io.ts";
+import { isValidSemver } from "./version.ts";
 
 import { join } from "path";
 import { Effect } from "effect";
@@ -178,7 +179,7 @@ function validateValueAgainstType(
     }
   }
   if (typeof value === "string") {
-    if (/semver/i.test(restrictions) && !/^\d+\.\d+\.\d+/.test(value)) {
+    if (/semver/i.test(restrictions) && !isValidSemver(value)) {
       issues.push(issue(key, "error", "must be a semver string"));
     }
     if (/relative path/i.test(restrictions) && value.startsWith("/")) {

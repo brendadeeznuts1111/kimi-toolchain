@@ -6,7 +6,7 @@
  */
 
 import { join } from "path";
-import { listDir, pathExists, pathStat, readText, removePath } from "./bun-io.ts";
+import { listDir, pathExists, pathStat, readText, removePath, writeText } from "./bun-io.ts";
 import { homeDir } from "./paths.ts";
 
 /** Default CPU/heap profile output under the project (gitignored via .kimi-artifacts/). */
@@ -16,6 +16,7 @@ export type RootHygieneKind =
   | "literal-tilde-dir"
   | "cpuprofile"
   | "profiles-dir"
+  | "bun-build"
   | "tmpdir"
   | "backup"
   | "empty-dir";
@@ -26,6 +27,8 @@ export interface RootHygieneItem {
   bytes: number;
   fileCount: number;
   cause: string;
+  /** When grouped (e.g. many *.bun-build), delete these paths instead of relPath. */
+  removePaths?: string[];
 }
 
 export interface RootHygieneReport {
@@ -67,6 +70,47 @@ export function bunfigLiteralTildeCacheDir(bunfigText: string): boolean {
 export function bunfigLiteralTildeCacheMisconfig(bunfigText: string): string | null {
   if (!bunfigLiteralTildeCacheDir(bunfigText)) return null;
   return '[install.cache].dir uses "~/" — omit dir from bunfig.toml; Bun default is ~/.bun/install/cache';
+}
+
+/** Remove literal-tilde `[install.cache].dir` line from bunfig text. */
+export function stripBunfigLiteralTildeCacheDir(bunfigText: string): string {
+  if (!bunfigLiteralTildeCacheDir(bunfigText)) return bunfigText;
+  const lines = bunfigText.split("\n");
+  const out: string[] = [];
+  let inCache = false;
+  let stripped = false;
+  for (const line of lines) {
+    if (line.trim() === "[install.cache]") {
+      inCache = true;
+      out.push(line);
+      if (!stripped && !out.some((l) => l.includes("Omit `dir`"))) {
+        out.push(
+          "# Omit dir — Bun default is ~/.bun/install/cache; tilde in dir is literal on Bun 1.4.0"
+        );
+      }
+      continue;
+    }
+    if (inCache && /^\s*dir\s*=\s*"~\//.test(line)) {
+      stripped = true;
+      continue;
+    }
+    if (inCache && line.startsWith("[")) inCache = false;
+    out.push(line);
+  }
+  return out.join("\n");
+}
+
+export function fixBunfigCacheMisconfig(projectRoot: string): boolean {
+  const bunfigPath = join(projectRoot, "bunfig.toml");
+  if (!pathExists(bunfigPath)) return false;
+  const text = readText(bunfigPath);
+  if (!bunfigLiteralTildeCacheDir(text)) return false;
+  writeText(bunfigPath, stripBunfigLiteralTildeCacheDir(text));
+  return true;
+}
+
+export function suggestedInstallCacheEnvExport(home = homeDir()): string {
+  return `export BUN_INSTALL_CACHE_DIR="${join(home, ".bun/install/cache")}"`;
 }
 
 function countTree(path: string): { bytes: number; files: number } {
@@ -160,6 +204,30 @@ export function collectRootHygieneItems(projectRoot: string): RootHygieneItem[] 
     }
   }
 
+  const bunBuildPaths: string[] = [];
+  let bunBuildBytes = 0;
+  for (const name of listDir(projectRoot)) {
+    if (!name.includes(".bun-build")) continue;
+    const full = join(projectRoot, name);
+    try {
+      if (!pathStat(full).isFile()) continue;
+      bunBuildPaths.push(name);
+      bunBuildBytes += pathStat(full).size;
+    } catch {
+      /* skip */
+    }
+  }
+  if (bunBuildPaths.length > 0) {
+    items.push({
+      relPath: `*.bun-build (${bunBuildPaths.length})`,
+      kind: "bun-build",
+      bytes: bunBuildBytes,
+      fileCount: bunBuildPaths.length,
+      cause: "bun build --compile intermediates left in repo root",
+      removePaths: bunBuildPaths,
+    });
+  }
+
   const dxDir = join(projectRoot, "dx");
   if (pathExists(dxDir) && pathStat(dxDir).isDirectory() && listDir(dxDir).length === 0) {
     items.push(item("dx", "empty-dir", projectRoot, "empty dx/ stub"));
@@ -171,12 +239,18 @@ export function collectRootHygieneItems(projectRoot: string): RootHygieneItem[] 
 export function collectRootHygieneMisconfig(projectRoot: string): string[] {
   const hints: string[] = [];
   const envHint = envLiteralTildeCacheMisconfig();
-  if (envHint) hints.push(envHint);
+  if (envHint) {
+    hints.push(envHint);
+    hints.push(`fix shell: unset BUN_INSTALL_CACHE_DIR  # or ${suggestedInstallCacheEnvExport()}`);
+  }
 
   const bunfigPath = join(projectRoot, "bunfig.toml");
   if (pathExists(bunfigPath)) {
     const bunfigHint = bunfigLiteralTildeCacheMisconfig(readText(bunfigPath));
-    if (bunfigHint) hints.push(bunfigHint);
+    if (bunfigHint) {
+      hints.push(bunfigHint);
+      hints.push("fix repo: bun run cleanup:root -- --fix-bunfig");
+    }
   }
   return hints;
 }
@@ -201,6 +275,11 @@ export async function auditRootHygiene(
 export function applyRootHygieneCleanup(report: RootHygieneReport): void {
   if (report.dryRun) return;
   for (const entry of report.items) {
-    removePath(join(report.projectRoot, entry.relPath), { recursive: true, force: true });
+    const paths = entry.removePaths?.map((rel) => join(report.projectRoot, rel)) ?? [
+      join(report.projectRoot, entry.relPath),
+    ];
+    for (const path of paths) {
+      removePath(path, { recursive: true, force: true });
+    }
   }
 }
