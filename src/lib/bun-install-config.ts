@@ -1063,7 +1063,7 @@ export interface BunfigInstallSection {
   minimumReleaseAge?: number;
   minimumReleaseAgeExcludes?: string[];
   globalStore?: boolean;
-  cache?: { dir?: string };
+  cache?: { dir?: string; disable?: boolean; disableManifest?: boolean };
   registry?: string | { url?: string };
   scopes?: Record<string, string | { url?: string }>;
 }
@@ -1660,6 +1660,14 @@ function resolveBunfigCurrent(
   switch (key) {
     case "cacheDir":
       return cacheDir;
+    case "cacheDisable":
+      return install?.cache?.disable == null
+        ? null
+        : formatDisplayValue(install.cache.disable);
+    case "cacheDisableManifest":
+      return install?.cache?.disableManifest == null
+        ? null
+        : formatDisplayValue(install.cache.disableManifest);
     case "minimumReleaseAgeExcludes":
       return install?.minimumReleaseAgeExcludes
         ? JSON.stringify(install.minimumReleaseAgeExcludes)

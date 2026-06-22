@@ -29,6 +29,8 @@ import {
   BUN_CATALOG_PROTOCOL_REFERENCES,
   BUN_PM_CLI_SECTION_DOC_URLS,
   BUN_PM_CLI_SECTIONS,
+  BUN_RUNTIME_BUN_APIS_DOC_URL,
+  BUN_SEMVER_DOC_URL,
   BUN_PM_PKG_NOTATION_EXAMPLES,
   BUN_PM_PKG_OPERATIONS,
   evaluateBunInstallProbeHandoffCondition,
@@ -60,7 +62,17 @@ minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
+disable = false
+disableManifest = false
 `;
+
+/** Clear install-audit env overrides that force audit.ok=false in CI/dev shells. */
+const CLEAN_INSTALL_AUDIT_ENV = {
+  BUN_CONFIG_SKIP_SAVE_LOCKFILE: undefined,
+  BUN_CONFIG_SKIP_LOAD_LOCKFILE: undefined,
+  BUN_CONFIG_SKIP_INSTALL_PACKAGES: undefined,
+  BUN_INSTALL_CACHE_DIR: undefined,
+} as const;
 
 const SECURE_PACKAGE_JSON = {
   name: "demo",
@@ -120,6 +132,10 @@ describe("bun-install-config", () => {
     expect(BUN_INSTALL_ENV_VARS.map((row) => row.name)).toContain(
       BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV
     );
+  });
+
+  test("BUN_SEMVER_DOC_URL anchors Bun.semver on runtime bun-apis doc", () => {
+    expect(BUN_SEMVER_DOC_URL).toBe(`${BUN_RUNTIME_BUN_APIS_DOC_URL}#semver`);
   });
 
   test("BUN_INSTALL_ENV_VARS documents official higher-priority env overrides", async () => {
@@ -296,9 +312,7 @@ describe("bun-install-config", () => {
     await withEnv(
       {
         [BUN_INSTALL_STREAMING_EXTRACT_DISABLE_ENV]: "1",
-        BUN_CONFIG_SKIP_SAVE_LOCKFILE: undefined,
-        BUN_CONFIG_SKIP_LOAD_LOCKFILE: undefined,
-        BUN_CONFIG_SKIP_INSTALL_PACKAGES: undefined,
+        ...CLEAN_INSTALL_AUDIT_ENV,
       },
       async () => {
         const audit = await auditBunInstallConfig(dir);
@@ -648,6 +662,7 @@ other = "https://registry.example.test/"
         BUN_FEATURE_FLAG_DISABLE_BUN_JSX: undefined,
         BUN_RUNTIME_TRANSPILER_CACHE_PATH: undefined,
         BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT: undefined,
+        ...CLEAN_INSTALL_AUDIT_ENV,
       },
       async () => {
         const report = await buildInstallPolicyReport(dir);
@@ -746,13 +761,7 @@ other = "https://registry.example.test/"
     writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
     writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
 
-    await withEnv(
-      {
-        BUN_CONFIG_SKIP_SAVE_LOCKFILE: undefined,
-        BUN_CONFIG_SKIP_LOAD_LOCKFILE: undefined,
-        BUN_CONFIG_SKIP_INSTALL_PACKAGES: undefined,
-      },
-      async () => {
+    await withEnv(CLEAN_INSTALL_AUDIT_ENV, async () => {
         const audit = await auditBunInstallConfig(dir);
         expect(audit.ok).toBe(true);
         expect(audit.bunfigInstall?.frozenLockfile).toBe(true);
@@ -777,13 +786,7 @@ other = "https://registry.example.test/"
   });
 
   test("repo root bunfig.toml matches secure install policy", async () => {
-    await withEnv(
-      {
-        BUN_CONFIG_SKIP_SAVE_LOCKFILE: undefined,
-        BUN_CONFIG_SKIP_LOAD_LOCKFILE: undefined,
-        BUN_CONFIG_SKIP_INSTALL_PACKAGES: undefined,
-      },
-      async () => {
+    await withEnv(CLEAN_INSTALL_AUDIT_ENV, async () => {
         const audit = await auditBunInstallConfig(REPO_ROOT);
         expect(audit.ok).toBe(true);
         expect(audit.bunfigInstall?.globalDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalDir);
