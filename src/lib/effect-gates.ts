@@ -257,7 +257,7 @@ function scanRunPromiseBoundary(
   if (isRunPromiseAllowedPath(filePath)) return [];
 
   const violations: EffectGatesViolation[] = [];
-  const regex = /\bEffect\.runPromise\b/g;
+  const regex = /\bEffect\.runPromise(?:Exit)?\b/g;
 
   for (const match of sourceFile.text.matchAll(regex)) {
     const pos = match.index ?? 0;
