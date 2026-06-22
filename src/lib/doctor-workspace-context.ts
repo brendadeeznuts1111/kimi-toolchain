@@ -50,14 +50,6 @@ export interface WorkspaceContextReport {
   html?: string;
 }
 
-const EMPTY_AGENT_CONTEXT: AgentContext = {
-  firstRead: [],
-  bootstrap: [],
-  prePush: [],
-  handoff: [],
-  avoid: [],
-};
-
 async function loadAgentContext(projectRoot: string): Promise<{
   agentContext: AgentContext;
   configErrors: DxConfigErrorSummary[];
