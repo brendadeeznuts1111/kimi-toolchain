@@ -104,6 +104,14 @@ export const FEATURE_FLAG_DEFINITIONS = [
     domain: "com.kimi.toolchain.governance",
   },
   {
+    id: "skip-network-probe",
+    kind: "env-escape",
+    key: "KIMI_SKIP_NETWORK_PROBE",
+    description: "Skip live MCP/network probe assertions in unit tests (CI/offline).",
+    defaultEnabled: false,
+    domain: "com.kimi.toolchain.testing",
+  },
+  {
     id: "perf-install",
     kind: "env-opt-in",
     key: "KIMI_PERF_INSTALL",
@@ -125,6 +133,7 @@ export const ENV_ESCAPE_FLAG_KEYS = [
   "KIMI_SKIP_PERF_GATES",
   "KIMI_SKIP_PORTAL_GATE",
   "KIMI_SKIP_GOVERNANCE_PREFLIGHT",
+  "KIMI_SKIP_NETWORK_PROBE",
 ] as const;
 export type EnvEscapeFlagKey = (typeof ENV_ESCAPE_FLAG_KEYS)[number];
 
