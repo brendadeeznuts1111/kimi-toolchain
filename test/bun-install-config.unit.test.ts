@@ -762,15 +762,14 @@ other = "https://registry.example.test/"
     writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
 
     await withEnv(CLEAN_INSTALL_AUDIT_ENV, async () => {
-        const audit = await auditBunInstallConfig(dir);
-        expect(audit.ok).toBe(true);
-        expect(audit.bunfigInstall?.frozenLockfile).toBe(true);
-        expect(audit.bunfigInstall?.linker).toBe("isolated");
-        expect(audit.runtimeCapabilities.streamingExtraction.status).toBe("enabled");
-        expect(audit.runtimeCapabilities.isolatedLinkerFastPath.status).toBe("active");
-        expect(audit.bunfigInstall?.globalBinDir).toBe("~/.bun/bin");
-      }
-    );
+      const audit = await auditBunInstallConfig(dir);
+      expect(audit.ok).toBe(true);
+      expect(audit.bunfigInstall?.frozenLockfile).toBe(true);
+      expect(audit.bunfigInstall?.linker).toBe("isolated");
+      expect(audit.runtimeCapabilities.streamingExtraction.status).toBe("enabled");
+      expect(audit.runtimeCapabilities.isolatedLinkerFastPath.status).toBe("active");
+      expect(audit.bunfigInstall?.globalBinDir).toBe("~/.bun/bin");
+    });
   });
 
   test("auditBunInstallConfig warns when concurrentScripts is unset", async () => {
@@ -787,13 +786,12 @@ other = "https://registry.example.test/"
 
   test("repo root bunfig.toml matches secure install policy", async () => {
     await withEnv(CLEAN_INSTALL_AUDIT_ENV, async () => {
-        const audit = await auditBunInstallConfig(REPO_ROOT);
-        expect(audit.ok).toBe(true);
-        expect(audit.bunfigInstall?.globalDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalDir);
-        expect(audit.bunfigInstall?.globalBinDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalBinDir);
-        expect(audit.versions.packageManager).toMatch(/^bun@/);
-      }
-    );
+      const audit = await auditBunInstallConfig(REPO_ROOT);
+      expect(audit.ok).toBe(true);
+      expect(audit.bunfigInstall?.globalDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalDir);
+      expect(audit.bunfigInstall?.globalBinDir).toBe(BUN_GLOBAL_INSTALL_PATHS.globalBinDir);
+      expect(audit.versions.packageManager).toMatch(/^bun@/);
+    });
   });
 
   describe("runtimeCapabilities recent Bun additions", () => {

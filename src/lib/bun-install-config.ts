@@ -1661,9 +1661,7 @@ function resolveBunfigCurrent(
     case "cacheDir":
       return cacheDir;
     case "cacheDisable":
-      return install?.cache?.disable == null
-        ? null
-        : formatDisplayValue(install.cache.disable);
+      return install?.cache?.disable == null ? null : formatDisplayValue(install.cache.disable);
     case "cacheDisableManifest":
       return install?.cache?.disableManifest == null
         ? null

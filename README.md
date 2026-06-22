@@ -212,6 +212,18 @@ bunx github:brendadeeznuts1111/kimi-toolchain kimi-governance score
 
 | `bun run cleanup:root:fix` | (synced from package.json) |
 
+| `bun run lint:parallel` | (synced from package.json) |
+| `bun run ci:fast` | (synced from package.json) |
+| `bun run pm:ls` | (synced from package.json) |
+| `bun run pm:ls:all` | (synced from package.json) |
+| `bun run pm:cache` | (synced from package.json) |
+| `bun run pm:cache:rm` | (synced from package.json) |
+| `bun run pm:hash` | (synced from package.json) |
+| `bun run pm:hash:print` | (synced from package.json) |
+| `bun run pm:hash:string` | (synced from package.json) |
+| `bun run pm:why` | (synced from package.json) |
+| `bun run pm:outdated` | (synced from package.json) |
+| `bun run pm:outdated:json` | (synced from package.json) |
 ### Core
 
 | Command                        | Description                                    |
