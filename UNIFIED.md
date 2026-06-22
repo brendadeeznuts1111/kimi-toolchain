@@ -71,7 +71,7 @@ Three independent hook systems are used. Do not conflate naming in docs or code.
 
 | System                        | Config / location                                                         | Trigger                  | Examples                                                                                            |
 | ----------------------------- | ------------------------------------------------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
-| **Git hooks**                 | `.git/hooks/` (installed by `kimi-githooks`)                              | `git commit`, `git push` | `pre-commit` (format/lint/typecheck), `pre-push` (guardian + R-Score + sync + sync manifest verify) |
+| **Git hooks**                 | `.git/hooks/` (installed by `kimi-githooks`)                              | `git commit`, `git push` | `pre-commit` (format/lint/typecheck/docs:check), `pre-push` (guardian + R-Score + sync + sync manifest verify) |
 | **Bun package hook**          | `package.json` `scripts.postinstall` → `src/install-hooks/postinstall.ts` | `bun install`            | Set up `~/.kimi-code/` layout, sync tools, init `sessions.db`                                       |
 | **Kimi Code lifecycle hooks** | `~/.kimi-code/config.toml` `[[hooks]]` → scripts in `src/kimi-hooks/`     | Agent tool lifecycle     | `PostToolUseFailure` → classify + log to `~/.kimi-code/var/tool-failures.jsonl` with trace context  |
 

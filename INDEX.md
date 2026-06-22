@@ -152,7 +152,9 @@ rgdoc 'status: stable'
 rgdoc 'priority: high'
 
 # Run quality checks
-bun scripts/check-docs.ts
+bun scripts/check-docs.ts           # check all docs
+bun scripts/check-docs.ts --fix     # auto-fix missing frontmatter/Related/tags
+bun scripts/check-docs.ts --json    # machine-readable JSON for CI
 ```
 
 ## Related

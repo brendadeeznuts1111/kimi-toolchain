@@ -134,7 +134,7 @@ priority: medium
 
 | System                        | Location                                                                      | Purpose                                                                                    |
 | ----------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| **Git hooks**                 | `.git/hooks/` (installed by `kimi-githooks`)                                  | `pre-commit` (format/lint/typecheck), `pre-push` (guardian + R-Score + sync + sync verify) |
+| **Git hooks**                 | `.git/hooks/` (installed by `kimi-githooks`)                                  | `pre-commit` (format/lint/typecheck/docs:check), `pre-push` (guardian + R-Score + sync + sync verify) |
 | **Bun install hook**          | `src/install-hooks/postinstall.ts`                                            | Idempotent `~/.kimi-code/` setup after `bun install`                                       |
 | **Kimi Code lifecycle hooks** | `src/kimi-hooks/` scripts; declared in `~/.kimi-code/config.toml` `[[hooks]]` | Intercept `PreToolUse`, audit `PostToolUseFailure`, notifications, etc.                    |
 
@@ -214,7 +214,7 @@ Use `--files <paths...>` for scoped lint (oxlint + banned-terms + patterns + tes
 | Layer      | Command / hook                                                                                                               |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Local      | `bun run check` or `bun run unify`                                                                                           |
-| pre-commit | `format:check` + `lint` + `typecheck` (via `kimi-githooks install`)                                                          |
+| pre-commit | `format:check` + `lint` + `typecheck` + `docs:check` (via `kimi-githooks install`)                                          |
 | pre-push   | `check:fast` + guardian + effect-gates + constant-drift + R-Score (preflight auto-fix via `--hook`) + mandatory runtime sync |
 | Local CI   | `bun run ci:local` — format:check, lint, typecheck, test, coverage, effect-gates, governance                                 |
 | Doctor     | `kimi-doctor` Code Quality section (runs gates unless `--quick`)                                                             |

@@ -11,7 +11,7 @@ priority: medium
 >
 > `https://github.com/brendadeeznuts1111/kimi-toolchain`
 
-**Quality (local):** `bun run lint` (`scripts/lint.ts`) includes **testing-docs** and **markdown-links** (`--full`, offline). Standalone: `bun run lint:links`, `bun run lint:links:online`. GitHub Actions is disabled; enforcement is via pre-commit/pre-push hooks and `bun run check`.
+**Quality (local):** `bun run lint` (`scripts/lint.ts`) includes **testing-docs** and **markdown-links** (`--full`, offline). Standalone: `bun run lint:links`, `bun run lint:links:online`. **Doc style:** `bun run docs:check` (or `docs:fix` for auto-fix). GitHub Actions is disabled; enforcement is via pre-commit/pre-push hooks and `bun run check`.
 
 ## Install
 
