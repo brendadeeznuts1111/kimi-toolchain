@@ -37,6 +37,30 @@ export interface DeepRuntimeReport {
 }
 
 /** Collect the full deep runtime stack in one call. */
+async function probeBunDocsMcpReport(timeoutMs: number): Promise<DeepRuntimeReport["bunDocsMcp"]> {
+  const r = await probeBunDocsCached(timeoutMs);
+  return {
+    ok: r.ok,
+    tools: r.tools,
+    latencyMs: r.latencyMs,
+    cached: r.cached ?? false,
+    error: r.error,
+  };
+}
+
+async function probeUtilsDocsReport(
+  timeoutMs: number
+): Promise<DeepRuntimeReport["utilsDocProbe"]> {
+  const r = await queryBunDocsFilesystem(RUNTIME_UTILS_DOCS_PROBE_COMMAND, timeoutMs);
+  return {
+    ok: r.ok,
+    command: RUNTIME_UTILS_DOCS_PROBE_COMMAND,
+    latencyMs: r.latencyMs,
+    error: r.error,
+    excerpt: r.ok ? formatBunDocsContent(r.content).slice(0, 240) : undefined,
+  };
+}
+
 export async function buildDeepRuntimeReport(options?: {
   probeMcp?: boolean;
   probeUtilsDocs?: boolean;
@@ -46,24 +70,8 @@ export async function buildDeepRuntimeReport(options?: {
   const [editor, workspace, bunDocsMcp, utilsDocProbe] = await Promise.all([
     inspectEditorRuntime(),
     inspectWorkspaceRuntime(),
-    options?.probeMcp
-      ? probeBunDocsCached(timeoutMs).then((r) => ({
-          ok: r.ok,
-          tools: r.tools,
-          latencyMs: r.latencyMs,
-          cached: r.cached ?? false,
-          error: r.error,
-        }))
-      : Promise.resolve(undefined),
-    options?.probeUtilsDocs
-      ? queryBunDocsFilesystem(RUNTIME_UTILS_DOCS_PROBE_COMMAND, timeoutMs).then((r) => ({
-          ok: r.ok,
-          command: RUNTIME_UTILS_DOCS_PROBE_COMMAND,
-          latencyMs: r.latencyMs,
-          error: r.error,
-          excerpt: r.ok ? formatBunDocsContent(r.content).slice(0, 240) : undefined,
-        }))
-      : Promise.resolve(undefined),
+    options?.probeMcp ? probeBunDocsMcpReport(timeoutMs) : Promise.resolve(undefined),
+    options?.probeUtilsDocs ? probeUtilsDocsReport(timeoutMs) : Promise.resolve(undefined),
   ]);
 
   return {

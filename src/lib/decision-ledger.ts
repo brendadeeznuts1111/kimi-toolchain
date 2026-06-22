@@ -8,10 +8,7 @@ import { resolveProjectRoot, sha256String } from "./utils.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
 import { buildTraceGraph, type TraceGraph } from "./trace-ledger.ts";
 import { appendNdjsonRecord, readNdjsonFile, rewriteNdjsonFile } from "./ndjson.ts";
-import {
-  buildDecisionRationale,
-  buildDecisionRationaleEffect,
-} from "./decision-rationale.ts";
+import { buildDecisionRationale, buildDecisionRationaleEffect } from "./decision-rationale.ts";
 import {
   type AlternativeFeasibility,
   type DecisionEvidence,

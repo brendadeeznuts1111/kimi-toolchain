@@ -29,9 +29,8 @@ export async function appendSecretAudit(
 }
 
 export async function readSecretAudit(auditPath: string): Promise<SecretAuditRecord[]> {
-  return readNdjsonFile<SecretAuditRecord>(auditPath).then((records) =>
-    records.filter(isSecretAuditRecord)
-  );
+  const records = await readNdjsonFile<SecretAuditRecord>(auditPath);
+  return records.filter(isSecretAuditRecord);
 }
 
 export function filterSecretAudit(

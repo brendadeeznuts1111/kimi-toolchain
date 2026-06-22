@@ -4,7 +4,13 @@ import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { ArtifactStore } from "../src/lib/artifact-store.ts";
 import { writeText } from "../src/lib/bun-io.ts";
-import { cleanupPath, REPO_ROOT, spawnCaptured, testTempDir } from "./helpers.ts";
+import {
+  CLEAN_INSTALL_AUDIT_ENV,
+  cleanupPath,
+  REPO_ROOT,
+  spawnCaptured,
+  testTempDir,
+} from "./helpers.ts";
 
 const GATE_TEST_MS = 8_000;
 
@@ -26,7 +32,8 @@ minimumReleaseAge = 259200
 minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
-dir = "~/.bun/install/cache"
+disable = false
+disableManifest = false
 `;
 
 function writeSecureProject(dir: string): void {
@@ -65,7 +72,7 @@ describe("kimi-doctor-gate", () => {
           dir,
           "--json",
         ],
-        { cwd: REPO_ROOT }
+        { cwd: REPO_ROOT, env: CLEAN_INSTALL_AUDIT_ENV }
       );
 
       expect(result.exitCode).toBe(0);

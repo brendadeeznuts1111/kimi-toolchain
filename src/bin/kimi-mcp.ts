@@ -595,5 +595,8 @@ async function main(): Promise<number> {
 }
 
 if (isDirectRun(import.meta.path)) {
-  main().then((code) => process.exit(code));
+  (async () => {
+    const code = await main();
+    process.exit(code);
+  })();
 }

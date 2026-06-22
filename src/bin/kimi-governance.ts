@@ -328,6 +328,14 @@ async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
 
 // ── R-Score ──────────────────────────────────────────────────────────
 
+async function resolveCoverageReport(projectDir: string, fast?: boolean): Promise<CoverageReport> {
+  if (fast) {
+    const latest = await latestCoverageHistory(projectDir);
+    return latest ?? { covered: 0, total: 0, percentage: 0, files: [] };
+  }
+  return checkCoverage(projectDir);
+}
+
 async function computeRScore(
   projectDir: string,
   options: { fast?: boolean } = {}
@@ -336,11 +344,7 @@ async function computeRScore(
 
   const [gov, coverage, drift] = await Promise.all([
     checkGovernance(projectDir),
-    options.fast
-      ? latestCoverageHistory(projectDir).then(
-          (latest) => latest ?? { covered: 0, total: 0, percentage: 0, files: [] }
-        )
-      : checkCoverage(projectDir),
+    resolveCoverageReport(projectDir, options.fast),
     checkDocDrift(projectDir),
   ]);
   if (!drift) {
