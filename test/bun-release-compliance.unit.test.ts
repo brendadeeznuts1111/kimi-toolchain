@@ -754,6 +754,65 @@ describe("bun-release-compliance bun-v1.4.0", () => {
   });
 });
 
+// ── Compression round-trip compliance ────────────────────────────────
+
+describe("bun-release-compliance compression", () => {
+  test("gzip round-trip", () => {
+    const { compressGzip, decompressGzip } = require("../src/lib/compression.ts");
+    const data = new TextEncoder().encode("kimi-toolchain compression test");
+    expect(new TextDecoder().decode(decompressGzip(compressGzip(data)))).toBe(
+      "kimi-toolchain compression test"
+    );
+  });
+
+  test("deflate round-trip", () => {
+    const { compressDeflate, decompressDeflate } = require("../src/lib/compression.ts");
+    const data = new TextEncoder().encode("deflate round-trip");
+    expect(new TextDecoder().decode(decompressDeflate(compressDeflate(data)))).toBe(
+      "deflate round-trip"
+    );
+  });
+
+  test("zstd round-trip", () => {
+    const { compressZstd, decompressZstd } = require("../src/lib/compression.ts");
+    const data = new TextEncoder().encode("zstd round-trip");
+    expect(new TextDecoder().decode(decompressZstd(compressZstd(data)))).toBe("zstd round-trip");
+  });
+
+  test("detectFormat identifies gzip magic bytes", () => {
+    const { compressGzip, detectFormat } = require("../src/lib/compression.ts");
+    expect(detectFormat(compressGzip("test"))).toBe("gzip");
+  });
+
+  test("detectFormat identifies zstd magic bytes", () => {
+    const { compressZstd, detectFormat } = require("../src/lib/compression.ts");
+    expect(detectFormat(compressZstd("test"))).toBe("zstd");
+  });
+
+  test("autoCompress picks an algorithm for 100KB data", () => {
+    const { autoCompress } = require("../src/lib/compression.ts");
+    const result = autoCompress("x".repeat(100_000), "balanced");
+    expect(["gzip", "deflate", "zstd"]).toContain(result.algorithm);
+    expect(result.ratio).toBeLessThan(1);
+  });
+
+  test("zstd async round-trip", async () => {
+    const { compressZstdAsync, decompressZstdAsync } = require("../src/lib/compression.ts");
+    const data = "async zstd test";
+    const compressed = await compressZstdAsync(data);
+    const decompressed = await decompressZstdAsync(compressed);
+    expect(new TextDecoder().decode(decompressed)).toBe(data);
+  });
+
+  test("exportAuditReport round-trip via parseAuditReport", () => {
+    const { exportAuditReport, parseAuditReport } = require("../src/lib/compression.ts");
+    const findings = [{ ok: true, id: "test-1" }];
+    const compressed = exportAuditReport(findings, "zstd");
+    const parsed = parseAuditReport(compressed) as any;
+    expect(parsed.findings).toEqual(findings);
+  });
+});
+
 // ── console / Bun.Terminal regression guard ──────────────────────────
 
 describe("bun-release-compliance console-bun-terminal", () => {
@@ -774,6 +833,8 @@ describe("bun-release-compliance console-bun-terminal", () => {
     "src/lib/error-taxonomy.ts",
     "src/lib/secrets-manager.ts",
     "src/lib/secrets/fast-resolver.ts",
+    "src/lib/compression.ts",
+    "src/lib/timing.ts",
   ]);
 
   // src/bin/ entry points: console is the primary output mechanism — not linted here
