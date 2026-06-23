@@ -1284,7 +1284,12 @@ function renderSchema(container, schema) {
 (async () => {
   const root = document.getElementById("card-bun-docs");
   if (!root) return;
-  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const esc = (s) =>
+    String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   try {
     const meta = await fetchJson("/api/bun-docs");
     let h = `<div class="row"><span>Server</span><span class="badge badge-ok">${esc(meta.server)}</span></div>`;
