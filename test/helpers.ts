@@ -404,36 +404,5 @@ export async function runBunScript(
   });
 }
 
-/**
- * Acquire a cross-process lock before running a `bun build --compile` test.
- * Bun canary can panic when multiple compiles run concurrently, so we
- * serialize them across test files using an atomic `mkdir` lock directory.
- */
-export async function withCompileLock<T>(fn: () => T | Promise<T>): Promise<T> {
-  const lockDir = join(tmpdir(), "kimi-compile-test.lock");
-  const maxAttempts = 60;
-  for (let i = 0; i < maxAttempts; i++) {
-    const proc = Bun.spawn({
-      cmd: ["mkdir", lockDir],
-      stdout: "ignore",
-      stderr: "ignore",
-    });
-    const exitCode = await proc.exited;
-    if (exitCode === 0) {
-      try {
-        return await fn();
-      } finally {
-        await Bun.spawn({
-          cmd: ["rmdir", lockDir],
-          stdout: "ignore",
-          stderr: "ignore",
-        }).exited;
-      }
-    }
-    await Bun.sleep(100);
-  }
-  throw new Error(`Timed out waiting for compile test lock: ${lockDir}`);
-}
-
 // Re-export bun-io primitives used directly in tests (no redundant wrappers).
 export { makeDir, pathExists, readText, removePath, writeText };

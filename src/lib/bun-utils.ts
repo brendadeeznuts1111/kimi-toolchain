@@ -108,7 +108,11 @@ export function verifyPassword(plain: string, hash: string): Promise<boolean> {
  * Base64 string encoding (Web `btoa` / `atob`).
  * For binary payloads prefer {@link encodeBase64Bytes} / {@link decodeBase64Bytes}.
  *
+ * Encrypted JSONL pattern: `iv.toBase64()` + `ciphertext.toBase64()` per line,
+ * each independently decryptable via `crypto.subtle.decrypt` + `fromBase64`.
+ *
  * @see {@link BUN_BASE64_DOC_URL}
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
  */
 /** @see https://bun.com/docs/guides/util/base64 */
 export const BUN_BASE64_DOC_URL = "https://bun.com/docs/guides/util/base64";

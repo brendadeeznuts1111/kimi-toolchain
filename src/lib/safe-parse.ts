@@ -38,3 +38,11 @@ export function safeToml<T>(text: string, fallback: T, validate: (val: unknown) 
 export function safeToml<T>(text: string, fallback: T, validate?: (val: unknown) => val is T): T {
   return _safeParse(Bun.TOML.parse, text, fallback, validate);
 }
+
+/** Safely parse JSON5 with a fallback value on failure. */
+export function safeJson5<T>(text: string, fallback: T): T;
+/** Safely parse JSON5 with a fallback and optional validator. */
+export function safeJson5<T>(text: string, fallback: T, validate: (val: unknown) => val is T): T;
+export function safeJson5<T>(text: string, fallback: T, validate?: (val: unknown) => val is T): T {
+  return _safeParse(Bun.JSON5.parse, text, fallback, validate);
+}

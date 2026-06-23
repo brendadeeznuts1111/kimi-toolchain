@@ -6,7 +6,7 @@ import {
   runCompileGate,
 } from "../src/lib/compile-target.ts";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
-import { withCompileLock, withTempDir, writeText } from "../test/helpers.ts";
+import { withTempDir, writeText } from "../test/helpers.ts";
 
 describe("compile-target", () => {
   // ── parseVersion ──────────────────────────────────────────────────
@@ -112,41 +112,35 @@ describe("compile-target", () => {
 
   // ── define injection ──────────────────────────────────────────────
 
-  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
-    "compileBinary injects build-time defines",
-    async () => {
-      return withCompileLock(async () => {
-        await withTempDir("compile-define-", async (dir) => {
-          const entry = `${dir}/entry.ts`;
-          const out = `${dir}/entry`;
-          writeText(
-            entry,
-            "console.log(JSON.stringify({ version: KIMI_BUILD_VERSION, channel: KIMI_BUILD_CHANNEL }));\n"
-          );
+  test("compileBinary injects build-time defines", async () => {
+    await withTempDir("compile-define-", async (dir) => {
+      const entry = `${dir}/entry.ts`;
+      const out = `${dir}/entry`;
+      writeText(
+        entry,
+        "console.log(JSON.stringify({ version: KIMI_BUILD_VERSION, channel: KIMI_BUILD_CHANNEL }));\n"
+      );
 
-          const result = await compileBinary({
-            entryPoint: entry,
-            outfile: out,
-            define: {
-              KIMI_BUILD_VERSION: '"1.2.3"',
-              KIMI_BUILD_CHANNEL: '"release"',
-            },
-            cwd: dir,
-          });
-
-          expect(result.ok).toBe(true);
-
-          const proc = Bun.spawn([out], { stdout: "pipe", stderr: "pipe" });
-          const stdout = await readableStreamToText(proc.stdout);
-          await proc.exited;
-          expect(proc.exitCode).toBe(0);
-
-          const parsed = JSON.parse(stdout) as { version: string; channel: string };
-          expect(parsed.version).toBe("1.2.3");
-          expect(parsed.channel).toBe("release");
-        });
+      const result = await compileBinary({
+        entryPoint: entry,
+        outfile: out,
+        define: {
+          KIMI_BUILD_VERSION: '"1.2.3"',
+          KIMI_BUILD_CHANNEL: '"release"',
+        },
+        cwd: dir,
       });
-    },
-    30_000
-  );
+
+      expect(result.ok).toBe(true);
+
+      const proc = Bun.spawn([out], { stdout: "pipe", stderr: "pipe" });
+      const stdout = await readableStreamToText(proc.stdout);
+      await proc.exited;
+      expect(proc.exitCode).toBe(0);
+
+      const parsed = JSON.parse(stdout) as { version: string; channel: string };
+      expect(parsed.version).toBe("1.2.3");
+      expect(parsed.channel).toBe("release");
+    });
+  }, 30_000);
 });

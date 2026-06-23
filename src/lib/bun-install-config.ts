@@ -39,6 +39,9 @@ export const BUN_MARKDOWN_RUN_DOC_URL = "https://bun.com/docs/runtime/markdown.m
 export const BUN_WRAP_ANSI_DOC_URL = "https://bun.com/docs/runtime/utils#bun-wrapansi";
 export const BUN_JSON5_DOC_URL = "https://bun.com/docs/runtime/json5#conformance";
 export const BUN_BUILD_DEFINE_DOC_URL = "https://bun.com/docs/guides/runtime/build-time-constants";
+export const BUN_CONSOLE_DOC_URL = "https://bun.com/docs/runtime/console";
+export const BUN_WEB_CRYPTO_DOC_URL =
+  "https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API";
 export const BUN_JSONL_DOC_URL = "https://bun.com/docs/runtime/jsonl";
 export const BUNX_DOC_URL = "https://bun.com/docs/pm/bunx";
 export const BUN_WEBVIEW_DOC_URL = BUN_WEBVIEW_DOCS_URL;
@@ -390,6 +393,31 @@ export const BUN_INSTALL_CLI = {
     propChain: "--define 'process." + 'env.NODE_ENV="production"\'',
     propNested: "--define 'window.myApp.version=\"1.0.0\"'",
   },
+  /**
+   * Bun-native console patterns (not Node console polyfill).
+   * @see https://bun.com/docs/runtime/console
+   */
+  consoleDepthFlag: "--console-depth <number>",
+  consoleDepthBunfig: "[console].depth = 2",
+  consoleDepthEnv: "CONSOLE_DEPTH=<number>",
+  consoleAsyncIter: "for await (const line of console) { ... }",
+  consoleWrite: "console.write('text') // writes to stderr (no trailing newline)",
+  /**
+   * Bun-native Web Crypto APIs (no Node crypto module needed).
+   * @see https://bun.com/docs/guides/util/base64
+   * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
+   */
+  base64EncodeBytes: "Uint8Array.prototype.toBase64()",
+  base64DecodeBytes: "Uint8Array.fromBase64(encoded)",
+  /** Bun-native alternative to Buffer.from(iv).toString('base64') */
+  base64Note: "Prefer iv.toBase64() over Buffer.from(iv).toString('base64')",
+  cryptoRandomBytes: "crypto.getRandomValues(new Uint8Array(n))",
+  cryptoEncrypt: "crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data)",
+  cryptoDecrypt: "crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data)",
+  /** Session-bound HMAC: token = new Bun.CryptoHasher('sha256').update(secret).update(sessionId).digest('hex') */
+  hmacSessionBound: "new Bun.CryptoHasher('sha256').update(secret).update(sessionId).digest('hex')",
+  /** Stateless CSRF: Bun.CSRF.generate(secret, { sessionId }) — already session-bound via secret:sid */
+  csrfStateless: "Bun.CSRF.generate(secret, { sessionId, expiresIn, algorithm })",
 } as const;
 
 /** Link root package from an `examples/*` workspace — `workspace:*` does not resolve root names. */
@@ -647,7 +675,7 @@ export const BUN_INSTALL_BUNFIG_POLICY: readonly BunInstallPolicyRowDef[] = [
     sinceBun: "1.3.14",
     docsAnchor: "global-store",
     notes:
-      "One copy per (pkg, version, dep-set) shared across projects; ~6.6× faster warm installs (124ms vs 841ms), ~5MB symlinks per project vs 391MB. Packages with patches, trustedDeps, or workspace:/file:/link: stay project-local.",
+      "One copy per (pkg, version, dep-set) shared across projects; ~7.3× faster warm installs (115ms vs 841ms), ~5MB symlinks per project vs 391MB. Packages with patches, trustedDeps, or workspace:/file:/link: stay project-local.",
   },
   {
     group: "global",

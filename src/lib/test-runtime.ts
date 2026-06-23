@@ -1442,7 +1442,7 @@ export const TEST_TIER_SPECS: Record<TestTier, TestTierSpec> = {
     label: "unit",
     files: UNIT_TEST_FILES,
     timeoutMs: FAST_TEST_TIMEOUT_MS,
-    parallel: 4,
+    parallel: 2,
     isolate: true,
   },
   integration: {
@@ -1772,7 +1772,6 @@ export function buildBunTestArgBatches(options: BunTestRunOptions): string[][] {
     !options.smoke &&
     !options.changedRef &&
     !options.files?.length &&
-    options.parallel === undefined &&
     !options.shard;
 
   if (!shouldChunk) return [buildBunTestArgs(options)];
@@ -1835,11 +1834,12 @@ export function bunTestArgsForChanged(
 export async function runBunTest(
   repoRoot: string,
   args: string[],
-  options: { quiet?: boolean; source?: string } = {}
+  options: { quiet?: boolean; source?: string; useRunnerConfig?: boolean } = {}
 ): Promise<number> {
   const quiet = options.quiet ?? false;
-  const runnerConfigPath = await writeRunnerBunfig(repoRoot);
-  const bunArgs = bunInvocationWithTestConfig(args, runnerConfigPath);
+  const useRunnerConfig = options.useRunnerConfig ?? true;
+  const runnerConfigPath = useRunnerConfig ? await writeRunnerBunfig(repoRoot) : null;
+  const bunArgs = runnerConfigPath ? bunInvocationWithTestConfig(args, runnerConfigPath) : args;
   const proc = Bun.spawn(["bun", ...bunArgs], {
     cwd: repoRoot,
     stdout: quiet ? "pipe" : "inherit",
@@ -1917,7 +1917,7 @@ export async function runTestTier(
     ci: options.ci,
     bail: options.bail,
     shard: options.shard,
-    parallel: options.parallel,
+    parallel: options.parallel ?? spec.parallel,
     retry: options.retry,
     reporterOutfile: options.reporterOutfile,
   }).map((args) => mergeBunTestInvocationArgs(args, repoRoot, forwarded));
@@ -1929,6 +1929,7 @@ export async function runTestTier(
     const code = await runBunTest(repoRoot, batches[i]!, {
       quiet,
       source: `test:${spec.label}`,
+      useRunnerConfig: spec.tier !== "unit",
     });
     if (isTestRunFailure(code)) return code;
   }

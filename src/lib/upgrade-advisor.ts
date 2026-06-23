@@ -334,9 +334,9 @@ async function scanBunfig(
         `Add globalStore = true under [install] (Bun ≥1.3.14).
 
 Official benchmarks (1,400-pkg fixture, Apple Silicon):
-  hoisted:              824 ms
+  hoisted:              823 ms
   isolated (no store):  841 ms
-  isolated + global:    125 ms  → 6.6× faster warm installs
+  isolated + global:    115 ms  → 7.3× faster warm installs
 
 Disk: ~5 MB of symlinks per project instead of 391 MB.
 Break-even at 1 project; every extra checkout is free.

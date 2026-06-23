@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { withCompileLock } from "./helpers.ts";
+import { withTempDir } from "./helpers.ts";
 
 // ── Bun.build compile options (JavaScript API) ───────────────────────
 
@@ -111,45 +111,34 @@ describe("bun build --compile CLI flags", () => {
 // ── bun build --compile basic compilation ────────────────────────────
 
 describe("bun build --compile basic", () => {
-  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
-    "compile flag is recognized by bun build",
-    async () => {
-      return withCompileLock(async () => {
-        const tmpDir = await import("node:os").then((m) => m.tmpdir());
-        const entrypoint = `${tmpDir}/bun-compile-test-${Date.now()}.ts`;
-        const outputFile = `${tmpDir}/bun-compile-test-${Date.now()}`;
+  test("compile flag is recognized by bun build", async () => {
+    await withTempDir("bun-compile-autoload-", async (dir) => {
+      const entrypoint = `${dir}/entry.ts`;
+      const outputFile = `${dir}/entry`;
 
-        await Bun.write(entrypoint, 'console.log("hello from compiled");');
+      await Bun.write(entrypoint, 'console.log("hello from compiled");');
 
-        let lastExitCode = 1;
-        let lastStderr = "";
-        for (let attempt = 0; attempt < 2; attempt++) {
-          const proc = Bun.spawn({
-            cmd: ["bun", "build", "--compile", entrypoint, "--outfile", outputFile],
-            stdout: "pipe",
-            stderr: "pipe",
-            cwd: tmpDir,
-          });
-          await Bun.readableStreamToText(proc.stdout);
-          lastStderr = await Bun.readableStreamToText(proc.stderr);
-          lastExitCode = await proc.exited;
-          if (lastExitCode === 0) break;
-          await Bun.sleep(100);
-        }
+      let lastExitCode = 1;
+      let lastStderr = "";
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const proc = Bun.spawn({
+          cmd: ["bun", "build", "--compile", entrypoint, "--outfile", outputFile],
+          stdout: "pipe",
+          stderr: "pipe",
+          cwd: dir,
+        });
+        await Bun.readableStreamToText(proc.stdout);
+        lastStderr = await Bun.readableStreamToText(proc.stderr);
+        lastExitCode = await proc.exited;
+        if (lastExitCode === 0) break;
+        await Bun.sleep(100);
+      }
 
-        if (lastExitCode !== 0) {
-          throw new Error(`bun build --compile failed (exit ${lastExitCode}): ${lastStderr}`);
-        }
+      if (lastExitCode !== 0) {
+        throw new Error(`bun build --compile failed (exit ${lastExitCode}): ${lastStderr}`);
+      }
 
-        const file = Bun.file(outputFile);
-        expect(await file.exists()).toBe(true);
-
-        await file.delete().catch(() => {});
-        await Bun.file(entrypoint)
-          .delete()
-          .catch(() => {});
-      });
-    },
-    15_000
-  );
+      expect(await Bun.file(outputFile).exists()).toBe(true);
+    });
+  }, 15_000);
 });
