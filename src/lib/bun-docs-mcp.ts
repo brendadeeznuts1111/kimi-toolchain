@@ -169,7 +169,7 @@ export interface BunDocsKnowledgeCard {
 export async function buildBunDocsKnowledgeCard(
   timeoutMs: number = 15000
 ): Promise<BunDocsKnowledgeCard> {
-  const result = await probeBunDocs(timeoutMs);
+  const result = await probeBunDocsCached(timeoutMs);
   const stability = checkToolStability(result.tools ?? []);
   return {
     ok: result.ok,
