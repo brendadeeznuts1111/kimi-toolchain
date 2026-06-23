@@ -299,14 +299,16 @@ function createPersistentCache(dbPath: string): PersistentCacheStore {
   };
 }
 
-/** Module-level shared persistent cache. Created lazily on first use. */
-let sharedPersistentCache: PersistentCacheStore | null = null;
+/** Module-level shared persistent caches, keyed by dbPath. Created lazily on first use. */
+const sharedPersistentCaches = new Map<string, PersistentCacheStore>();
 
 function getOrCreatePersistentCache(dbPath: string): PersistentCacheStore {
-  if (!sharedPersistentCache) {
-    sharedPersistentCache = createPersistentCache(dbPath);
+  let cache = sharedPersistentCaches.get(dbPath);
+  if (!cache) {
+    cache = createPersistentCache(dbPath);
+    sharedPersistentCaches.set(dbPath, cache);
   }
-  return sharedPersistentCache;
+  return cache;
 }
 
 async function sleepBackoff(baseMs: number, attempt: number): Promise<void> {

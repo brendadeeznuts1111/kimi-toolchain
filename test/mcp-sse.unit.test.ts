@@ -123,5 +123,27 @@ describe("mcp-sse", () => {
       expect(first.attempts).toBeGreaterThanOrEqual(1);
       expect(second.cached).toBe(true);
     });
+
+    test("persistent cache is isolated per cacheDbPath", async () => {
+      if (Bun.env.KIMI_SKIP_NETWORK_PROBE === "1") return;
+      const tmpA = `${Bun.env.HOME}/.cache/kimi-toolchain/mcp-cache-test-a.db`;
+      const tmpB = `${Bun.env.HOME}/.cache/kimi-toolchain/mcp-cache-test-b.db`;
+      try {
+        Bun.spawnSync(["rm", "-f", tmpA, tmpB]);
+        const a = createHttpMcpClient({ url: BUN_DOCS_MCP_URL, cacheDbPath: tmpA });
+        const b = createHttpMcpClient({ url: BUN_DOCS_MCP_URL, cacheDbPath: tmpB });
+        a.clearCache();
+        b.clearCache();
+        // Populate A's cache; B must not see it.
+        await a.callTool("search_bun", { query: "Bun.spawn" });
+        const bHit = await b.callTool("search_bun", { query: "Bun.spawn" });
+        expect(bHit.cached).toBe(false);
+        // A's second call must hit its own cache.
+        const aHit = await a.callTool("search_bun", { query: "Bun.spawn" });
+        expect(aHit.cached).toBe(true);
+      } finally {
+        Bun.spawnSync(["rm", "-f", tmpA, tmpB]);
+      }
+    });
   });
 });
