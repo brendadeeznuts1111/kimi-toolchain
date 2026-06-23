@@ -4,7 +4,11 @@
  * @see src/lib/mcp/sse.ts
  */
 import { describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
+import { tmpdir } from "os";
+import { join } from "path";
 import {
+  clearPersistentMcpCacheForUrl,
   createHttpMcpClient,
   decodeJsonRpcMessages,
   extractMcpTools,
@@ -122,6 +126,44 @@ describe("mcp-sse", () => {
       expect(first.result).toBeDefined();
       expect(first.attempts).toBeGreaterThanOrEqual(1);
       expect(second.cached).toBe(true);
+    });
+
+    test("clearPersistentMcpCacheForUrl clears DB without prior HttpMcpClient", () => {
+      const tmpDb = join(tmpdir(), `mcp-clear-${Bun.randomUUIDv7()}.db`);
+      const serverUrl = "https://example.com/mcp";
+      try {
+        const db = new Database(tmpDb);
+        db.run("PRAGMA journal_mode=WAL");
+        db.run(
+          `CREATE TABLE mcp_cache (
+            server_url TEXT NOT NULL,
+            cache_key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            expires_at INTEGER NOT NULL,
+            PRIMARY KEY (server_url, cache_key)
+          )`
+        );
+        db.run(
+          "INSERT INTO mcp_cache (server_url, cache_key, value, expires_at) VALUES (?, ?, ?, ?)",
+          [serverUrl, "tools/list", "[]", Date.now() + 60_000]
+        );
+        db.run(
+          "INSERT INTO mcp_cache (server_url, cache_key, value, expires_at) VALUES (?, ?, ?, ?)",
+          [serverUrl, "tool:search", '{"ok":true}', Date.now() + 60_000]
+        );
+        db.close();
+
+        clearPersistentMcpCacheForUrl(serverUrl, tmpDb);
+
+        const check = new Database(tmpDb);
+        const row = check
+          .query("SELECT COUNT(*) AS count FROM mcp_cache WHERE server_url = ?")
+          .get(serverUrl) as { count: number };
+        expect(row.count).toBe(0);
+        check.close();
+      } finally {
+        Bun.spawnSync(["rm", "-f", tmpDb]);
+      }
     });
 
     test("persistent cache is isolated per cacheDbPath", async () => {

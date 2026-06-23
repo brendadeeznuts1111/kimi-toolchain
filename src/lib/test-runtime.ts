@@ -1359,6 +1359,9 @@ export const BUN_TEST_MODULE_LOADING = {
   bunfigPreloadRelPath: "./test/setup.ts",
   defaultEnvFile: TEST_ENV_FILE,
   defineRegistry: "bunfig.toml [define]",
+  /** @see https://bun.com/docs/guides/runtime/build-time-constants */
+  defineDocUrl: "https://bun.com/docs/guides/runtime/build-time-constants",
+  defineRunExample: "bun run --define 'process.env.NODE_ENV=\"production\"' src/app.ts",
 } as const;
 
 /** Canonical `bun test` argv slices from Bun module-loading docs. */

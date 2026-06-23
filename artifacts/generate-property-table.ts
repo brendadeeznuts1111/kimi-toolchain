@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * @deprecated Prefer `bun run dx-table extract` — same pipeline, Bun-native preview via `bun ./docs/table-*.md`
+ * @deprecated Prefer `bun run dx:table extract` — same pipeline, Bun-native preview via `bun ./docs/table-*.md`
  *
- *   bun run dx-table extract dx.config.toml herdr.orchestrator.remote_hosts
+ *   bun run dx:table extract dx.config.toml herdr.orchestrator.remote_hosts
  */
 
 import { Effect } from "effect";
@@ -40,7 +40,7 @@ function parseCliArgs(argv: string[]): {
     else if (arg === "--project") projectRoot = argv[++i] ?? projectRoot;
     else if (arg === "--format") i++;
     else if (arg === "--help" || arg === "-h") {
-      logger.info("Deprecated — use: bun run dx-table extract <file> <table>");
+      logger.info("Deprecated — use: bun run dx:table extract <file> <table>");
       logger.info(`TOML tables: ${listTomlPropertyTablePaths().join(", ")}`);
       process.exit(0);
     }

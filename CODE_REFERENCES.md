@@ -164,6 +164,7 @@ Three **separate naming layers** — do not reuse one vocabulary for another:
 3. Paths/versions include domain: `KIMI_CONTRACT_OBSERVATIONS_PATH`, `KIMI_CONTRACT_SCHEMA_VERSION`.
 4. Numeric tuning includes domain: `KIMI_ERROR_EMBEDDING_DIM`, `KIMI_DECISION_SCORE_WINDOW_DAYS`.
 5. Change values in `bunfig.toml` only — no duplicated literals in lib code.
+6. `[define]` values are TOML strings that Bun parses as JSON literals. Wrap string values in inner quotes (`'"1.0.0"'`); use `bun run lint:defines` to validate.
 
 ### defineDomain Rules
 

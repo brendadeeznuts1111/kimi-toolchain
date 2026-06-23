@@ -68,6 +68,9 @@ export function formatBunDocsContent(content: unknown): string {
   return Bun.inspect(content);
 }
 
+/** Alias for generic MCP tool output formatting (same implementation as formatBunDocsContent). */
+export const formatMcpToolContent = formatBunDocsContent;
+
 async function callBunDocsTool(
   toolName: string,
   args: Record<string, unknown>,

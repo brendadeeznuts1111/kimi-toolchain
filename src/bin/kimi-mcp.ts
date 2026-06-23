@@ -9,9 +9,11 @@
  *   profile <name> [--json]
  *   scaffold <name> --kind <filesystem|http|sandbox|dashboard> [--json]
  *   doctor [--profile <name>] [--json]
- *   bun-docs [query] [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh]
- *   query <text> [--tool ...] [--json] [--refresh]
- *   fs <command> [--top N] [--json] [--refresh]
+ *   bun-docs [query] [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh] [--webview]
+ *   query <text> [--tool ...] [--json] [--refresh] [--webview]
+ *   call <server> <tool> [key=value...] [--json] [--refresh] [--timeout <ms>]
+ *     (key=value args: numeric/boolean-looking strings are coerced to JSON primitives)
+ *   fs <command> [--top N] [--json] [--refresh] [--webview]
  *   catalog [--probe] [--json]
  *   version-policy [--json] [--root <path>]
  */
@@ -19,8 +21,10 @@
 import { isDirectRun } from "../lib/bun-utils.ts";
 import { createCli } from "../lib/cli-contract.ts";
 import {
+  MCP_DEFAULTS,
   applyMcpProfile,
   buildMcpCatalogReport,
+  callMcpTool,
   readMcpJson,
   userMcpPath,
   validateMcpConfig,
@@ -38,10 +42,11 @@ import {
   buildBunDocsKnowledgeCard,
   clearBunDocsMcpCache,
   formatBunDocsContent,
+  formatMcpToolContent,
   queryBunDocsFilesystem,
   searchBunDocs,
 } from "../lib/bun-docs-mcp.ts";
-import { BUN_DOCS_MCP_TOOLS } from "../lib/mcp-registry.ts";
+import { BUN_DOCS_MCP_TOOLS, BUN_DOCS_SERVER } from "../lib/mcp-registry.ts";
 import { homeDir, toolsDir } from "../lib/paths.ts";
 import { ensureDir } from "../lib/utils.ts";
 import { join, resolve } from "path";
@@ -99,6 +104,34 @@ export function argValues(argv: string[], flag: string): string[] {
 /** True when a boolean flag is present. */
 export function hasFlag(argv: string[], flag: string): boolean {
   return argv.includes(flag);
+}
+
+/** Coerce obvious CLI literal strings to JSON-friendly primitives. */
+export function coerceCliValue(raw: string): unknown {
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  if (/^-?\d+$/.test(raw)) return Number(raw);
+  if (/^-?\d+\.\d+$/.test(raw)) return Number(raw);
+  return raw;
+}
+
+/** Parse positional `key=value` tokens into a record (last key wins). */
+export function parseKeyValueArgs(argv: string[], fromIndex: number): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (let i = fromIndex; i < argv.length; i++) {
+    const arg = argv[i];
+    if (!arg || arg.startsWith("-")) {
+      // Skip the value if the next token is not another flag.
+      const next = argv[i + 1];
+      if (next && !next.startsWith("-")) i++;
+      continue;
+    }
+    const eq = arg.indexOf("=");
+    if (eq > 0) {
+      out[arg.slice(0, eq)] = coerceCliValue(arg.slice(eq + 1));
+    }
+  }
+  return out;
 }
 
 /**
@@ -368,17 +401,43 @@ function resolveBunDocsTool(): BunDocsTool | undefined {
   return undefined;
 }
 
-async function runBunDocsSearch(query: string, toolOverride?: BunDocsTool): Promise<number> {
+async function runBunDocsWebViewCommand(
+  query: string,
+  toolOverride?: BunDocsTool
+): Promise<number> {
   const tool = toolOverride ?? resolveBunDocsTool();
   if (!tool) return 1;
   const refresh = hasFlag(Bun.argv, "--refresh");
-  const timeoutMs = writer.flags.timeout ?? 30000;
+  const timeoutMs = writer.flags.timeout ?? MCP_DEFAULTS.queryTimeoutMs;
+  const { BUN_DOCS_ROOT_URL, runBunDocsWebView } = await import("../lib/bun-docs-webview.ts");
+  const result = await runBunDocsWebView({
+    query,
+    tool,
+    timeoutMs,
+    refresh,
+    url: query ? undefined : BUN_DOCS_ROOT_URL,
+  });
+  if (!result.ok) {
+    writer.error(result.error ?? "failed to open Bun docs WebView");
+    return 1;
+  }
+  return 0;
+}
+
+async function runBunDocsSearch(query: string, toolOverride?: BunDocsTool): Promise<number> {
+  if (hasFlag(Bun.argv, "--webview")) {
+    return runBunDocsWebViewCommand(query, toolOverride);
+  }
+  const tool = toolOverride ?? resolveBunDocsTool();
+  if (!tool) return 1;
+  const refresh = hasFlag(Bun.argv, "--refresh");
+  const timeoutMs = writer.flags.timeout ?? MCP_DEFAULTS.queryTimeoutMs;
   if (refresh) clearBunDocsMcpCache();
   const result =
     tool === "search_bun"
       ? await searchBunDocs(query, timeoutMs, { refresh })
       : await queryBunDocsFilesystem(query, timeoutMs, { refresh });
-  const top = parseTopArg(Bun.argv);
+  const top = parseTopArg(Bun.argv) ?? (MCP_DEFAULTS.maxTop > 0 ? MCP_DEFAULTS.maxTop : undefined);
   const text = trimBunDocsOutput(formatBunDocsContent(result.content), top);
   if (writer.flags.json) {
     writer.writeJson({
@@ -403,8 +462,11 @@ async function bunDocsCommand(): Promise<number> {
     return 0;
   }
   const query = positionalArgs(Bun.argv, 3);
+  if (hasFlag(Bun.argv, "--webview")) {
+    return runBunDocsWebViewCommand(query, undefined);
+  }
   if (query) return runBunDocsSearch(query);
-  const timeoutMs = writer.flags.timeout ?? 15000;
+  const timeoutMs = writer.flags.timeout ?? MCP_DEFAULTS.cardTimeoutMs;
   const card = await buildBunDocsKnowledgeCard(timeoutMs);
   if (writer.flags.json) {
     writer.writeJson(card);
@@ -425,6 +487,49 @@ async function queryCommand(): Promise<number> {
     return 1;
   }
   return runBunDocsSearch(query);
+}
+
+async function callCommand(): Promise<number> {
+  if (hasFlag(Bun.argv, "--help")) {
+    printSubcommandHelp(COMMANDS.call);
+    return 0;
+  }
+  const serverName = Bun.argv[3];
+  const toolName = Bun.argv[4];
+  if (!serverName || serverName.startsWith("-") || !toolName || toolName.startsWith("-")) {
+    printSubcommandHelp(COMMANDS.call);
+    return 1;
+  }
+  const args = parseKeyValueArgs(Bun.argv, 5);
+  const refresh = hasFlag(Bun.argv, "--refresh");
+  const timeoutMs = writer.flags.timeout ?? MCP_DEFAULTS.callTimeoutMs;
+  if (refresh && serverName === BUN_DOCS_SERVER) {
+    clearBunDocsMcpCache();
+  }
+  const result = await callMcpTool(serverName, toolName, args, homeDir(), {
+    timeoutMs,
+    refresh,
+  });
+  const text = formatMcpToolContent(result.content);
+  if (writer.flags.json) {
+    writer.writeJson({
+      ok: result.ok,
+      server: serverName,
+      mcpTool: toolName,
+      args,
+      text,
+      content: result.content,
+      error: result.error,
+      latencyMs: result.latencyMs,
+      cached: result.cached,
+      ...(result.attempts !== undefined ? { attempts: result.attempts } : {}),
+    });
+  } else if (result.ok) {
+    logger.line(text);
+  } else {
+    writer.error(result.error ?? "call failed");
+  }
+  return result.ok ? 0 : 1;
 }
 
 async function fsCommand(): Promise<number> {
@@ -542,20 +647,27 @@ const COMMANDS: Record<string, Subcommand> = {
     name: "bun-docs",
     description: "Search the Bun documentation MCP, or show the Bun docs knowledge card.",
     usage:
-      "bun-docs [query] [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh] [--timeout <ms>]",
+      "bun-docs [query] [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh] [--timeout <ms>] [--webview]",
     run: bunDocsCommand,
   },
   query: {
     name: "query",
     description: "Search the Bun documentation MCP (alias for 'bun-docs search').",
     usage:
-      "query <text> [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh] [--timeout <ms>]",
+      "query <text> [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh] [--timeout <ms>] [--webview]",
     run: queryCommand,
+  },
+  call: {
+    name: "call",
+    description:
+      "Call a tool on a configured MCP server by name. key=value args coerce numeric/boolean literals (e.g. limit=5 → number, enabled=true → boolean).",
+    usage: "call <server> <tool> [key=value...] [--json] [--refresh] [--timeout <ms>]",
+    run: callCommand,
   },
   fs: {
     name: "fs",
     description: "Run a filesystem command against the Bun docs MCP filesystem.",
-    usage: "fs <command> [--top N] [--json] [--refresh] [--timeout <ms>]",
+    usage: "fs <command> [--top N] [--json] [--refresh] [--timeout <ms>] [--webview]",
     run: fsCommand,
   },
   catalog: {

@@ -3,7 +3,7 @@
  * dx:property-table — JSDoc property tables (TypeScript classes).
  *
  *   bun run dx:property-table
- *   bun run dx-table extract --file src/foo.ts --class AppConfig
+ *   bun run dx:table extract --file src/foo.ts --class AppConfig
  */
 
 import { Effect } from "effect";

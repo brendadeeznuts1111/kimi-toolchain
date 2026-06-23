@@ -22,8 +22,12 @@ import {
   type McpProbeSnapshot,
   validateDiscoveredTools,
 } from "./mcp-endpoints-metadata.ts";
-import { probeMcpServerCached } from "./mcp-probe.ts";
-import { createHttpMcpClientFromServer, type HttpMcpClient } from "./mcp/sse.ts";
+import { callMcpToolHttp, probeMcpServerCached, type McpToolCallResult } from "./mcp-probe.ts";
+import {
+  clearPersistentMcpCacheForUrl,
+  createHttpMcpClientFromServer,
+  type HttpMcpClient,
+} from "./mcp/sse.ts";
 import { buildMcpVersionPolicyReport } from "./mcp-version-policy.ts";
 
 export const UNIFIED_SHELL_SERVER = "unified-shell";
@@ -36,6 +40,17 @@ export const CLOUDFLARE_MCP_URL = "https://mcp.cloudflare.com/mcp";
 const KIMI_CODE_DIR = ".kimi-code";
 const BUN_BINARY = "bun";
 const UNIFIED_SHELL_BRIDGE = "unified-shell-bridge.ts";
+
+/** MCP fallback defaults sourced from bunfig.toml `[define]`. */
+export const MCP_DEFAULTS =
+  typeof KIMI_MCP_DEFAULTS === "object" && KIMI_MCP_DEFAULTS !== null
+    ? KIMI_MCP_DEFAULTS
+    : {
+        callTimeoutMs: 60000,
+        queryTimeoutMs: 30000,
+        cardTimeoutMs: 15000,
+        maxTop: 0,
+      };
 
 /** mcp.json server row — Record key is canonical name when `name` is omitted. */
 export interface McpServerEntry extends Omit<McpServerDefinition, "name"> {
@@ -81,8 +96,8 @@ export interface ReadMcpJsonResult {
   error?: string;
 }
 
-export function userMcpPath(): string {
-  return mcpPath();
+export function userMcpPath(home?: string): string {
+  return mcpPath(home);
 }
 
 export function projectMcpPath(projectRoot: string): string {
@@ -704,11 +719,11 @@ export async function loadHttpMcpClientForServer(
   home: string = homeDir()
 ): Promise<HttpMcpClient> {
   const registry = await loadMcpRegistry(home);
-  const { data: userMcp } = await readMcpJson(userMcpPath());
+  const { data: userMcp } = await readMcpJson(userMcpPath(home));
   const registered = registry.servers[serverName];
   const configured = userMcp?.mcpServers?.[serverName];
   if (!registered && !configured?.url && !configured?.command) {
-    throw new Error(`MCP server '${serverName}' not found in registry or ${userMcpPath()}`);
+    throw new Error(`MCP server '${serverName}' not found in registry or ${userMcpPath(home)}`);
   }
   const merged: McpServerDefinition = {
     ...(registered ?? { name: serverName }),
@@ -718,5 +733,61 @@ export async function loadHttpMcpClientForServer(
   if (!merged.url) {
     throw new Error(`MCP server '${serverName}' is not an HTTP/SSE server (missing url)`);
   }
-  return createHttpMcpClientFromServer(merged);
+  return createHttpMcpClientFromServer(merged, { cacheDbPath: true });
+}
+
+export interface CallMcpToolOptions {
+  timeoutMs?: number;
+  refresh?: boolean;
+}
+
+/** Call a specific tool on a configured MCP server by name (HTTP/SSE only). */
+export async function callMcpTool(
+  serverName: string,
+  toolName: string,
+  args: Record<string, unknown>,
+  home: string = homeDir(),
+  options: CallMcpToolOptions = {}
+): Promise<McpToolCallResult> {
+  const mcpJsonPath = userMcpPath(home);
+  const registry = await loadMcpRegistry(home);
+  const { data: userMcp } = await readMcpJson(mcpJsonPath);
+  const registered = registry.servers[serverName];
+  const configured = userMcp?.mcpServers?.[serverName];
+  if (!registered && !configured?.command && !configured?.url) {
+    return {
+      ok: false,
+      error: `MCP server '${serverName}' not found in registry or ${mcpJsonPath}`,
+      latencyMs: 0,
+    };
+  }
+  const merged: McpServerDefinition = { ...(registered ?? { name: serverName }), ...configured };
+  if (merged.enabled === false) {
+    return { ok: false, error: `MCP server '${serverName}' is disabled`, latencyMs: 0 };
+  }
+  const requiredEnv = merged.requiredEnv ?? registered?.requiredEnv ?? [];
+  const missingEnv = requiredEnv.filter((name) => !Bun.env[name]);
+  if (missingEnv.length > 0) {
+    return {
+      ok: false,
+      error: `missing env: ${missingEnv.join(", ")}`,
+      latencyMs: 0,
+    };
+  }
+  if (!merged.url) {
+    return {
+      ok: false,
+      error: `MCP server '${serverName}' is not an HTTP/SSE server (missing url)`,
+      latencyMs: 0,
+    };
+  }
+  if (options.refresh) {
+    clearPersistentMcpCacheForUrl(merged.url);
+  }
+  const timeoutMs =
+    options.timeoutMs ??
+    merged.toolTimeoutMs ??
+    registered?.toolTimeoutMs ??
+    MCP_DEFAULTS.callTimeoutMs;
+  return callMcpToolHttp(merged, toolName, args, timeoutMs, { refresh: options.refresh });
 }

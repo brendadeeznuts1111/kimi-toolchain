@@ -311,6 +311,16 @@ function getOrCreatePersistentCache(dbPath: string): PersistentCacheStore {
   return cache;
 }
 
+/** Clear SQLite persistent cache entries for a server URL (default DB path). */
+export function clearPersistentMcpCacheForUrl(
+  url: string,
+  cacheDbPath: string | true = true
+): void {
+  const dbPath = resolveCacheDbPath(cacheDbPath);
+  if (!dbPath) return;
+  getOrCreatePersistentCache(dbPath).clearServer(url);
+}
+
 async function sleepBackoff(baseMs: number, attempt: number): Promise<void> {
   await Bun.sleep(baseMs * 2 ** attempt);
 }

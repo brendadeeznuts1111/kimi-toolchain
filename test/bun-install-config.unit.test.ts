@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
-import { writeText } from "../src/lib/bun-io.ts";
 import {
   auditBunInstallConfig,
   BUN_GLOBAL_INSTALL_PATHS,
@@ -23,6 +22,20 @@ import {
   parsePackageManagerPin,
   BUN_INSTALL_REQUIRED_KEYS,
   collectInstallPropertyReferences,
+  buildBunLinkVersionSpecifier,
+  collectBunLinkPropertyReferences,
+  compareBunLinkHelpToInventory,
+  BUN_LINK_CLI_CONSUME_SYNTAX,
+  BUN_LINK_CLI_FLAG_GROUPS,
+  BUN_LINK_CLI_FLAGS,
+  BUN_LINK_CLI_USAGE_DOC_URL,
+  BUN_LINK_DOC_PROBE_FLAGS,
+  BUN_LINK_HELP_SYNTAX,
+  BUN_LINK_RUNTIME_ONLY_FLAGS,
+  BUN_LINK_UNLINKING_DOC_URL,
+  evaluateBunLinkHelpOutput,
+  parseBunLinkHelpFlags,
+  parseBunLinkVersionSpecifier,
   extractBunfigScopeRegistries,
   findFrozenLockfileScopeRegistryFallbacks,
   formatInstallCliWorkflow,
@@ -46,7 +59,17 @@ import {
   SECURE_BUN_INSTALL_POLICY,
 } from "../src/lib/bun-install-config.ts";
 import { loadTaxonomy } from "../src/lib/error-taxonomy.ts";
-import { REPO_ROOT, testTempDir, withEnv, CLEAN_INSTALL_AUDIT_ENV } from "./helpers.ts";
+import { makeDir, pathExists } from "../src/lib/bun-io.ts";
+import {
+  CLEAN_INSTALL_AUDIT_ENV,
+  REPO_ROOT,
+  spawnCaptured,
+  testTempDir,
+  withEnv,
+  withIsolatedHome,
+  withTempDir,
+  writeText,
+} from "./helpers.ts";
 
 const SECURE_BUNFIG = `[install]
 optional = true
@@ -60,6 +83,7 @@ exact = false
 ignoreScripts = false
 concurrentScripts = 8
 linker = "isolated"
+globalStore = true
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200
@@ -274,6 +298,285 @@ describe("bun-install-config", () => {
     expect(BUN_INSTALL_CLI.pmHash).toBe("bun pm hash");
     expect(formatInstallCliWorkflow().some((l) => l.includes("Workspace filter"))).toBe(true);
     expect(formatInstallCliWorkflow().some((l) => l.includes("bun pm:"))).toBe(true);
+  });
+
+  describe("bun-link", () => {
+    const LINK_PROPERTY_NAMES = [
+      "cli.linkRegister",
+      "cli.linkConsume",
+      "cli.linkSave",
+      "cli.linkUnlink",
+    ] as const;
+
+    test("formatInstallCliWorkflow documents register, consume, save, unlink, and cli-usage URL", () => {
+      const workflow = formatInstallCliWorkflow();
+      expect(workflow.some((line) => line.includes(BUN_INSTALL_CLI.linkRegister))).toBe(true);
+      expect(workflow.some((line) => line.includes(BUN_INSTALL_CLI.linkConsume))).toBe(true);
+      expect(workflow.some((line) => line.includes(BUN_INSTALL_CLI.linkSave))).toBe(true);
+      expect(workflow.some((line) => line.includes(BUN_INSTALL_CLI.linkUnlink))).toBe(true);
+      expect(workflow.some((line) => line.includes(BUN_LINK_CLI_USAGE_DOC_URL))).toBe(true);
+    });
+
+    test("collectBunLinkPropertyReferences lists all link CLI properties with doc anchors", () => {
+      const refs = collectBunLinkPropertyReferences();
+      expect(refs.map((ref) => ref.property)).toEqual([...LINK_PROPERTY_NAMES]);
+      expect(refs.find((ref) => ref.property === "cli.linkConsume")?.docsUrl).toBe(
+        BUN_LINK_CLI_USAGE_DOC_URL
+      );
+      expect(refs.find((ref) => ref.property === "cli.linkUnlink")?.docsUrl).toBe(
+        BUN_LINK_UNLINKING_DOC_URL
+      );
+      expect(
+        formatInstallPropertyReferenceTable(refs).some((line) => line.includes("cli.linkSave"))
+      ).toBe(true);
+    });
+
+    test("evaluateBunLinkHelpOutput accepts synthetic help containing probe flags", () => {
+      const synthetic = [
+        "Usage: bun link [flags] []",
+        ...BUN_LINK_DOC_PROBE_FLAGS.map((flag) => `      ${flag}=<val>`),
+      ].join("\n");
+      const evaluation = evaluateBunLinkHelpOutput(synthetic);
+      expect(evaluation.helpRecognized).toBe(true);
+      expect(evaluation.missingDocFlags).toEqual([]);
+      expect(evaluation.ok).toBe(true);
+    });
+
+    test("evaluateBunLinkHelpOutput rejects empty and non-link output", () => {
+      expect(evaluateBunLinkHelpOutput("")).toMatchObject({
+        helpRecognized: false,
+        ok: false,
+        missingDocFlags: [...BUN_LINK_DOC_PROBE_FLAGS],
+      });
+      expect(evaluateBunLinkHelpOutput("Usage: bun install")).toMatchObject({
+        helpRecognized: false,
+        ok: false,
+      });
+    });
+
+    test("property: missing any single probe flag fails evaluation", () => {
+      const base = ["Usage: bun link [flags] []", ...BUN_LINK_DOC_PROBE_FLAGS].join("\n");
+      for (const flag of BUN_LINK_DOC_PROBE_FLAGS) {
+        const output = base.replace(flag, "");
+        const evaluation = evaluateBunLinkHelpOutput(output);
+        expect(evaluation.ok).toBe(false);
+        expect(evaluation.missingDocFlags).toContain(flag);
+      }
+    });
+
+    test("property: random probe-flag subsets are detected as missing", () => {
+      const baseFlags = [...BUN_LINK_DOC_PROBE_FLAGS];
+      for (let trial = 0; trial < 40; trial++) {
+        const presentCount = Math.floor(Math.random() * baseFlags.length);
+        const shuffled = [...baseFlags].sort(() => Math.random() - 0.5);
+        const present = shuffled.slice(0, presentCount);
+        const missing = shuffled.slice(presentCount);
+        const output = ["Usage: bun link", ...present].join("\n");
+        const evaluation = evaluateBunLinkHelpOutput(output);
+        expect(evaluation.ok).toBe(present.length === baseFlags.length);
+        for (const flag of missing) {
+          expect(evaluation.missingDocFlags).toContain(flag);
+        }
+        for (const flag of present) {
+          expect(evaluation.missingDocFlags).not.toContain(flag);
+        }
+      }
+    });
+
+    test("property: flat CLI flags are a superset of grouped and runtime-only flags", () => {
+      for (let trial = 0; trial < 20; trial++) {
+        const groups = [...BUN_LINK_CLI_FLAG_GROUPS].sort(() => Math.random() - 0.5);
+        for (const group of groups) {
+          for (const flag of group.flags) {
+            expect(BUN_LINK_CLI_FLAGS).toContain(flag);
+          }
+        }
+        for (const flag of BUN_LINK_RUNTIME_ONLY_FLAGS) {
+          expect(BUN_LINK_CLI_FLAGS).toContain(flag);
+        }
+      }
+    });
+
+    test("property: link property refs keep command type and bun.com docs URLs", () => {
+      const refs = collectBunLinkPropertyReferences();
+      for (let trial = 0; trial < 25; trial++) {
+        for (const ref of refs) {
+          expect(ref.type).toBe("command");
+          expect(ref.default.startsWith("bun ")).toBe(true);
+          expect(ref.docsUrl.startsWith("https://bun.com/docs/pm/cli/link")).toBe(true);
+          expect(ref.required).toBe(false);
+        }
+      }
+    });
+
+    test("property: version specifier and consume command share package slot", () => {
+      const versionSpecifier = "link:<pkg>";
+      const samples = [
+        "cool-pkg",
+        "@scope/pkg",
+        "my_tool",
+        `pkg-${Bun.randomUUIDv7().slice(0, 8)}`,
+      ];
+      for (const name of samples) {
+        expect(versionSpecifier.replace("<pkg>", name)).toBe(`link:${name}`);
+        expect(BUN_INSTALL_CLI.linkConsume.replace("<pkg>", name)).toBe(`bun link ${name}`);
+        expect(BUN_INSTALL_CLI.linkSave.replace("<pkg>", name)).toBe(`bun link ${name} --save`);
+      }
+      expect(BUN_LINK_HELP_SYNTAX).toContain("[<packages>]");
+      expect(BUN_LINK_CLI_CONSUME_SYNTAX).toContain("<packages>");
+    });
+
+    test("auditBunLinkHealth passes at repo root", async () => {
+      const link = await auditBunLinkHealth(REPO_ROOT);
+      expect(link.ok).toBe(true);
+      expect(link.missingDocFlags).toEqual([]);
+      expect(link.inventoryParity?.ok).toBe(true);
+      expect(link.inventoryParity?.missingInHelp).toEqual([]);
+      expect(evaluateBunLinkHelpOutput("bun link\n" + BUN_LINK_DOC_PROBE_FLAGS.join("\n")).ok).toBe(
+        true
+      );
+    });
+
+    test("live bun link -h satisfies inventory parity and runtime-only flags", async () => {
+      const help = await spawnCaptured(["bun", "link", "-h"], {
+        cwd: REPO_ROOT,
+        env: CLEAN_INSTALL_AUDIT_ENV,
+      });
+      expect(help.exitCode).toBe(0);
+      const parity = compareBunLinkHelpToInventory(`${help.stdout}\n${help.stderr}`);
+      expect(parity.ok).toBe(true);
+      expect(parity.missingInHelp).toEqual([]);
+      expect(parity.runtimeOnlyInHelp).toEqual([...BUN_LINK_RUNTIME_ONLY_FLAGS]);
+      expect(parseBunLinkHelpFlags(help.stdout).length).toBeGreaterThan(20);
+    });
+
+    test("property: parseBunLinkHelpFlags survives shuffled help lines", async () => {
+      const help = await spawnCaptured(["bun", "link", "-h"], { cwd: REPO_ROOT });
+      const lines = help.stdout.split("\n").filter(Boolean);
+      for (let trial = 0; trial < 15; trial++) {
+        const shuffled = [...lines].sort(() => Math.random() - 0.5).join("\n");
+        expect(parseBunLinkHelpFlags(shuffled)).toEqual(parseBunLinkHelpFlags(help.stdout));
+      }
+    });
+
+    test("property: evaluateBunLinkHelpOutput ignores noise when probe flags remain", () => {
+      const base = ["Usage: bun link [flags] []", ...BUN_LINK_DOC_PROBE_FLAGS].join("\n");
+      for (let trial = 0; trial < 30; trial++) {
+        const noise = Array.from({ length: 5 }, () => `noise-${Bun.randomUUIDv7()}`);
+        const output = [...noise, base, ...noise].join("\n");
+        expect(evaluateBunLinkHelpOutput(output).ok).toBe(true);
+      }
+    });
+
+    test("property: build/parse link version specifier round-trips package names", () => {
+      const names = [
+        "cool-pkg",
+        "@scope/pkg",
+        "my_tool",
+        `pkg-${Bun.randomUUIDv7().slice(0, 8)}`,
+        "UPPER-case",
+      ];
+      for (let trial = 0; trial < 20; trial++) {
+        const name = names[Math.floor(Math.random() * names.length)]!;
+        const spec = buildBunLinkVersionSpecifier(name);
+        expect(parseBunLinkVersionSpecifier(spec)).toBe(name);
+        expect(parseBunLinkVersionSpecifier(`workspace:${name}`)).toBeNull();
+        expect(parseBunLinkVersionSpecifier(`file:../${name}`)).toBeNull();
+      }
+    });
+
+    test("property: collectBunLinkPropertyReferences stays subset of full install refs", () => {
+      const all = collectInstallPropertyReferences();
+      const link = collectBunLinkPropertyReferences();
+      for (let trial = 0; trial < 10; trial++) {
+        for (const ref of link) {
+          expect(all.some((row) => row.property === ref.property)).toBe(true);
+        }
+      }
+    });
+
+    test("property: flag group ids are unique and non-empty", () => {
+      const ids = BUN_LINK_CLI_FLAG_GROUPS.map((group) => group.group);
+      expect(new Set(ids).size).toBe(ids.length);
+      for (const group of BUN_LINK_CLI_FLAG_GROUPS) {
+        expect(group.flags.length).toBeGreaterThan(0);
+      }
+    });
+
+    test("buildInstallPolicyReport bunLink matches SSOT constants", async () => {
+      const report = await buildInstallPolicyReport(REPO_ROOT);
+      const cap = report.runtimeCapabilities.bunLink;
+      expect(cap.flagGroups).toEqual(BUN_LINK_CLI_FLAG_GROUPS);
+      expect(cap.flags).toEqual(BUN_LINK_CLI_FLAGS);
+      expect(cap.runtimeOnlyFlags).toEqual(BUN_LINK_RUNTIME_ONLY_FLAGS);
+      expect(cap.helpSyntax).toBe(BUN_LINK_HELP_SYNTAX);
+      expect(cap.consumeSyntax).toBe(BUN_LINK_CLI_CONSUME_SYNTAX);
+    });
+
+    test("integration: register, consume, save link:<pkg>, and unlink in isolated HOME", async () => {
+      await withIsolatedHome(async () => {
+        await withTempDir("bun-link-flow-", async (root) => {
+          const pkgDir = join(root, "linked-pkg");
+          const consumerDir = join(root, "consumer");
+          const saveDir = join(root, "consumer-save");
+          const pkgName = `linked-pkg-${Bun.randomUUIDv7().slice(0, 8)}`;
+
+          for (const dir of [pkgDir, consumerDir, saveDir]) {
+            makeDir(dir, { recursive: true });
+          }
+
+          writeText(
+            join(pkgDir, "package.json"),
+            JSON.stringify({ name: pkgName, version: "1.0.0", type: "module" }, null, 2)
+          );
+          writeText(join(pkgDir, "index.js"), "export const linked = true;\n");
+
+          const consumerPkg = {
+            name: "consumer",
+            version: "1.0.0",
+            dependencies: {} as Record<string, string>,
+          };
+          writeText(join(consumerDir, "package.json"), JSON.stringify(consumerPkg, null, 2));
+          writeText(join(saveDir, "package.json"), JSON.stringify({ ...consumerPkg }, null, 2));
+
+          const env = CLEAN_INSTALL_AUDIT_ENV;
+          const register = await spawnCaptured(["bun", "link"], { cwd: pkgDir, env });
+          expect(register.exitCode).toBe(0);
+          expect(`${register.stdout}\n${register.stderr}`).toMatch(/Registered|Success/i);
+
+          const consume = await spawnCaptured(["bun", "link", pkgName], { cwd: consumerDir, env });
+          expect(consume.exitCode).toBe(0);
+          expect(pathExists(join(consumerDir, "node_modules", pkgName))).toBe(true);
+
+          const save = await spawnCaptured(["bun", "link", pkgName, "--save"], {
+            cwd: saveDir,
+            env,
+          });
+          expect(save.exitCode).toBe(0);
+          const saved = JSON.parse(await Bun.file(join(saveDir, "package.json")).text()) as {
+            dependencies: Record<string, string>;
+          };
+          expect(saved.dependencies[pkgName]).toBe(buildBunLinkVersionSpecifier(pkgName));
+
+          const unlink = await spawnCaptured(["bun", "unlink"], { cwd: pkgDir, env });
+          expect(unlink.exitCode).toBe(0);
+        });
+      });
+    }, 60_000);
+
+    test("evaluateBunInstallProbeHandoffCondition accepts bun-link probe", async () => {
+      const probe = await evaluateBunInstallProbeHandoffCondition(
+        "bun-install:bun-link",
+        REPO_ROOT
+      );
+      expect(probe.ok).toBe(true);
+    });
+
+    test("auditRuntimeCapabilitiesHealth includes bunLink capability check", async () => {
+      const health = await auditRuntimeCapabilitiesHealth(REPO_ROOT);
+      const cap = health.checks.find((check) => check.name === "capability:bunLink");
+      expect(cap?.status).toBe("ok");
+    });
   });
 
   test("error-taxonomy lockfile_issue autoFix matches BUN_INSTALL_CLI.guardianFix", async () => {
@@ -705,10 +1008,10 @@ other = "https://registry.example.test/"
           source: "src/lib/bun-spawn-env.ts",
         });
         expect(report.runtimeEnvironment.globalStore).toMatchObject({
-          status: "default",
+          status: "configured",
           env: "BUN_INSTALL_GLOBAL_STORE",
           value: null,
-          bunfigValue: null,
+          bunfigValue: true,
           documented: "docs/references/bun-runtime-scaffold.md",
         });
         expect(report.runtimeEnvironment.jsxDisable).toMatchObject({
@@ -730,10 +1033,7 @@ other = "https://registry.example.test/"
 
   test("buildInstallPolicyReport audits runtime environment overrides", async () => {
     const dir = testTempDir("bun-install-runtime-env-overrides-");
-    writeText(
-      join(dir, "bunfig.toml"),
-      SECURE_BUNFIG.replace("[install.cache]", "globalStore = true\n\n[install.cache]")
-    );
+    writeText(join(dir, "bunfig.toml"), SECURE_BUNFIG);
     writeText(join(dir, "package.json"), JSON.stringify(SECURE_PACKAGE_JSON, null, 2));
 
     await withEnv(
@@ -753,7 +1053,6 @@ other = "https://registry.example.test/"
         expect(report.runtimeEnvironment.globalStore).toMatchObject({
           status: "configured",
           value: "1",
-          bunfigValue: true,
         });
         expect(report.runtimeEnvironment.jsxDisable).toMatchObject({
           status: "disabled",
@@ -983,9 +1282,23 @@ other = "https://registry.example.test/"
         registerCommand: BUN_INSTALL_CLI.linkRegister,
         consumeCommand: BUN_INSTALL_CLI.linkConsume,
         unlinkCommand: BUN_INSTALL_CLI.linkUnlink,
+        saveCommand: BUN_INSTALL_CLI.linkSave,
         versionSpecifier: "link:<pkg>",
         docsUrl: "https://bun.com/docs/pm/cli/link",
+        cliUsageUrl: "https://bun.com/docs/pm/cli/link#cli-usage",
+        unlinkingUrl: "https://bun.com/docs/pm/cli/link#unlinking",
+        helpSyntax: "bun link [flags] [<packages>]",
+        consumeSyntax: "bun link <packages>",
       });
+      expect(report.runtimeCapabilities.bunLink.flags).toContain("--global");
+      expect(report.runtimeCapabilities.bunLink.flags).toContain("--save");
+      expect(report.runtimeCapabilities.bunLink.flags).toContain("--linker");
+      expect(report.runtimeCapabilities.bunLink.runtimeOnlyFlags).toEqual([
+        "--minimum-release-age",
+      ]);
+      expect(report.runtimeCapabilities.bunLink.flagGroups.some((g) => g.group === "help")).toBe(
+        true
+      );
       expect(RUNTIME_CAPABILITY_INVENTORY_KEYS).toContain("bunLink");
       const link = await auditBunLinkHealth(REPO_ROOT);
       expect(link.ok).toBe(true);

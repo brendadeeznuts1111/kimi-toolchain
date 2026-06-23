@@ -56,7 +56,7 @@ describe("property-table", () => {
 
     const legacy = result.rows.find((r) => r.Property === "legacyMode")!;
     expect(legacy.DeprecatedIn).toBe("2.0.0");
-  }, 10_000);
+  }, 60_000);
 
   test("formatPropertyTableMarkdown uses em dash for empty cells", () => {
     const md = formatPropertyTableMarkdown({

@@ -265,16 +265,21 @@ export async function callMcpToolHttp(
   server: McpServerDefinition,
   toolName: string,
   args: Record<string, unknown> = {},
-  timeoutMs: number = DEFAULT_PROBE_TIMEOUT_MS
+  timeoutMs: number = DEFAULT_PROBE_TIMEOUT_MS,
+  options: { refresh?: boolean } = {}
 ): Promise<McpToolCallResult> {
   const started = Date.now();
   if (!server.url) {
     return { ok: false, error: "server has no url", latencyMs: 0 };
   }
   try {
-    const client = createHttpMcpClientFromServer({ ...server, toolTimeoutMs: timeoutMs });
+    const client = createHttpMcpClientFromServer(
+      { ...server, toolTimeoutMs: timeoutMs },
+      { cacheDbPath: true }
+    );
     const { result, latencyMs, cached, attempts } = await client.callTool(toolName, args, {
       timeoutMs,
+      refresh: options.refresh,
     });
     return {
       ok: true,

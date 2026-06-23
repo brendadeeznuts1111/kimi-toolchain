@@ -32,6 +32,7 @@ exact = false
 ignoreScripts = false
 concurrentScripts = 8
 linker = "isolated"
+globalStore = true
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200

@@ -52,8 +52,8 @@ describe("tuningSetVersion", () => {
     const root = join(import.meta.dir, "..");
     const report = await checkTuningSetFreshness(root);
     expect(report.applicable).toBe(true);
-    expect(report.currentVersion).toBe("1.4.4");
-    expect(report.expectedVersion).toBe("1.4.4");
+    expect(report.currentVersion).toBe("1.4.5");
+    expect(report.expectedVersion).toBe("1.4.5");
     expect(report.aligned).toBe(true);
   });
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import {
   callMcpToolHttp,
   clearProbeCache,
@@ -9,6 +9,8 @@ import {
   probeMcpServerWithDescriptions,
 } from "../src/lib/mcp-probe.ts";
 import { BUN_DOCS_MCP_TOOLS, BUN_DOCS_MCP_URL, BUN_DOCS_SERVER } from "../src/lib/mcp-registry.ts";
+import * as sse from "../src/lib/mcp/sse.ts";
+import type { HttpMcpClient } from "../src/lib/mcp/sse.ts";
 
 describe("mcp-probe", () => {
   test("parseSseMessages extracts single data payload", () => {
@@ -95,5 +97,38 @@ describe("mcp-probe", () => {
     );
     expect(result.ok).toBe(true);
     expect(result.content).toBeDefined();
+  });
+
+  test("callMcpToolHttp enables persistent cache and forwards refresh", async () => {
+    const callTool = mock(
+      async (_name: string, _args: Record<string, unknown>, _opts?: { refresh?: boolean }) => ({
+        result: { content: [{ type: "text", text: "ok" }] },
+        latencyMs: 1,
+        cached: false,
+        attempts: 1,
+      })
+    );
+    const createSpy = spyOn(sse, "createHttpMcpClientFromServer").mockReturnValue({
+      callTool,
+      listTools: async () => ({ tools: [], latencyMs: 0, cached: false }),
+      request: async () => ({ message: {}, latencyMs: 0, attempts: 0 }),
+      clearCache: () => {},
+    } as unknown as HttpMcpClient);
+
+    try {
+      const server = { name: "test", url: "https://example.com/mcp" };
+      const result = await callMcpToolHttp(server, "tool", { limit: 5 }, 5000, { refresh: true });
+      expect(result.ok).toBe(true);
+      expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({ url: server.url }), {
+        cacheDbPath: true,
+      });
+      expect(callTool).toHaveBeenCalledWith(
+        "tool",
+        { limit: 5 },
+        { timeoutMs: 5000, refresh: true }
+      );
+    } finally {
+      createSpy.mockRestore();
+    }
   });
 });

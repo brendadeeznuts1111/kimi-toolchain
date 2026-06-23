@@ -24,6 +24,7 @@ import { createLogger } from "../lib/logger.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import { writeStdout } from "../lib/cli-contract.ts";
 import { scrubProcessBunInstallCacheEnv } from "../lib/root-hygiene.ts";
+import { BUILD_CHANNEL, BUILD_TIME, GIT_COMMIT, TOOLCHAIN_VERSION } from "../lib/version.ts";
 
 scrubProcessBunInstallCacheEnv();
 
@@ -68,12 +69,27 @@ async function dispatchTool(shortName: string, args: string[]): Promise<number> 
   return spawnTool(script, args);
 }
 
+function formatVersionLine(): string {
+  const channel = BUILD_CHANNEL ?? "source";
+  const commit = GIT_COMMIT ?? "n/a";
+  let line = `kimi-toolchain ${TOOLCHAIN_VERSION} (${commit}, ${channel})`;
+  if (BUILD_TIME) {
+    line += ` built ${BUILD_TIME}`;
+  }
+  return line;
+}
+
 async function main(): Promise<number> {
   const args = Bun.argv.slice(2);
 
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     printToolHelp();
     return args.length === 0 ? 1 : 0;
+  }
+
+  if (args[0] === "--version" || args[0] === "-v") {
+    logger.line(formatVersionLine());
+    return 0;
   }
 
   const tool = args[0];

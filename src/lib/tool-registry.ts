@@ -124,6 +124,7 @@ export function formatToolHelp(): string {
     `Usage: ${META_BIN} <tool> [args...]`,
     `       ${META_BIN} workspace <verify|audit|fix|cleanup> [options]`,
     `       ${META_BIN} cleanup root [--dry-run] [--json]`,
+    `       ${META_BIN} --version`,
     "",
     "Tools:",
     ...TOOL_SHORT_NAMES.filter((name) => name !== "workspace").map((name) => `  ${name}`),

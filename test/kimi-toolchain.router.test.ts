@@ -34,6 +34,13 @@ describe("kimi-toolchain router", () => {
     expect(stdout).toContain("workspace");
   }, 10_000);
 
+  test("--version prints toolchain version", async () => {
+    const { stdout, exitCode } = await run(META, ["--version"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toMatch(/kimi-toolchain\s+\d+\.\d+\.\d+/);
+    expect(stdout).toContain("source");
+  }, 10_000);
+
   test("workspace verify runs", async () => {
     const { stdout, exitCode } = await run(META, ["workspace", "verify"]);
     expect(stdout).toContain("Workspace verify");

@@ -57,7 +57,7 @@ import { apiInspectDefaults } from "./inspect-defaults.ts";
 import { apiInspectTable } from "./inspect-table.ts";
 import { apiIpcMatrix } from "./ipc-matrix.ts";
 import { apiIpc } from "./ipc.ts";
-import { apiBunDocs, apiBunDocsSearch } from "./bun-docs.ts";
+import { apiBunDocs, apiBunDocsSearch, apiBunDocsWebview } from "./bun-docs.ts";
 import { apiRuntimeUtilsCoverage } from "./runtime-utils-coverage.ts";
 import { apiKimiDoctor } from "./kimi-doctor.ts";
 import { apiKimiPublish } from "./kimi-publish.ts";
@@ -257,6 +257,7 @@ export const DASHBOARD_STATIC_ROUTES: readonly DashboardStaticRoute[] = [
   route0("/api/bunfig", apiBunfig),
   route0("/api/bun-docs", apiBunDocs),
   route("/api/bun-docs/search", apiBunDocsSearch, ["POST"]),
+  route("/api/bun-docs/webview", apiBunDocsWebview, ["POST"]),
   route0("/api/string-utils", apiStringUtils),
   route0("/api/uuid", apiUuid),
   route0("/api/markdown/html", apiMarkdownHtml),

@@ -7,6 +7,7 @@
  *
  * B3.6 — ESM --bytecode in --compile.
  * @see https://bun.com/docs/bundler/executables
+ * @see https://bun.com/docs/guides/runtime/build-time-constants
  */
 
 import { join } from "path";
@@ -29,6 +30,8 @@ export interface CompileOptions {
   target?: "bun" | "node";
   /** Working directory (default: process.cwd()). */
   cwd?: string;
+  /** Build-time defines passed as `--define KEY=JSON_LITERAL`. */
+  define?: Record<string, string>;
 }
 
 export interface CompileResult {
@@ -152,6 +155,12 @@ export async function compileBinary(options: CompileOptions): Promise<CompileRes
     "--format",
     format,
   ];
+
+  if (options.define) {
+    for (const [key, value] of Object.entries(options.define)) {
+      args.push("--define", `${key}=${value}`);
+    }
+  }
 
   if (bytecode) args.push("--bytecode");
 

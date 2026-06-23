@@ -44,6 +44,67 @@ const KIMI_PREFIX = /^KIMI_[A-Z0-9_]+$/;
 const DEFINE_DOMAIN = /^# define-domain:([a-z][a-z0-9-]*)$/;
 const LEGACY_TAG = /^# tag:/;
 
+function buildDefineLineMap(bunfigText: string): Map<string, number> {
+  const map = new Map<string, number>();
+  const lines = bunfigText.split("\n");
+  let inDefine = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (line.trim() === "[define]") {
+      inDefine = true;
+      continue;
+    }
+    if (inDefine && line.startsWith("[") && line.endsWith("]")) break;
+    if (!inDefine) continue;
+
+    const keyMatch = line.match(DEFINE_KEY);
+    if (keyMatch) {
+      map.set(keyMatch[1]!, i + 1);
+    }
+  }
+
+  return map;
+}
+
+function lintDefineJson(bunfigText: string): string[] {
+  const violations: string[] = [];
+  let parsed: unknown;
+
+  try {
+    parsed = Bun.TOML.parse(bunfigText);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return [`bunfig.toml — invalid TOML: ${message}`];
+  }
+
+  const defines =
+    parsed && typeof parsed === "object" && "define" in parsed
+      ? (parsed as Record<string, unknown>).define
+      : undefined;
+  if (!defines || typeof defines !== "object") return violations;
+
+  const lineMap = buildDefineLineMap(bunfigText);
+
+  for (const [key, rawValue] of Object.entries(defines)) {
+    if (typeof rawValue !== "string") {
+      const line = lineMap.get(key) ?? "?";
+      violations.push(`bunfig.toml:${line} — ${key} define value must be a JSON string literal`);
+      continue;
+    }
+
+    try {
+      JSON.parse(rawValue);
+    } catch (err) {
+      const line = lineMap.get(key) ?? "?";
+      const message = err instanceof Error ? err.message : String(err);
+      violations.push(`bunfig.toml:${line} — ${key} define value is not valid JSON: ${message}`);
+    }
+  }
+
+  return violations;
+}
+
 function lintDefineNaming(bunfigText: string): string[] {
   const violations: string[] = [];
   const lines = bunfigText.split("\n");
@@ -117,10 +178,14 @@ function lintTypesNaming(typesText: string): string[] {
   return violations;
 }
 
+export { buildDefineLineMap, lintDefineJson, lintDefineNaming };
+
 function main(): void {
   const violations: string[] = [];
 
-  violations.push(...lintDefineNaming(readText(join(ROOT, "bunfig.toml"))));
+  const bunfigText = readText(join(ROOT, "bunfig.toml"));
+  violations.push(...lintDefineNaming(bunfigText));
+  violations.push(...lintDefineJson(bunfigText));
   violations.push(...lintTypesNaming(readText(join(ROOT, "types/build-constants.d.ts"))));
 
   for (const rel of TARGETS) {
@@ -148,7 +213,9 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log(`lint:build-constants OK (${TARGETS.length} lib files, naming rules)`);
+  console.log(`lint:build-constants OK (${TARGETS.length} lib files, naming + JSON rules)`);
 }
 
-main();
+if (import.meta.main) {
+  main();
+}

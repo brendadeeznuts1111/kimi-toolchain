@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { withCompileLock } from "./helpers.ts";
 
 // ── Bun.build compile options (JavaScript API) ───────────────────────
 
@@ -110,41 +111,45 @@ describe("bun build --compile CLI flags", () => {
 // ── bun build --compile basic compilation ────────────────────────────
 
 describe("bun build --compile basic", () => {
-  test("compile flag is recognized by bun build", async () => {
-    const tmpDir = await import("node:os").then((m) => m.tmpdir());
-    const entrypoint = `${tmpDir}/bun-compile-test-${Date.now()}.ts`;
-    const outputFile = `${tmpDir}/bun-compile-test-${Date.now()}`;
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
+    "compile flag is recognized by bun build",
+    async () => {
+      return withCompileLock(async () => {
+        const tmpDir = await import("node:os").then((m) => m.tmpdir());
+        const entrypoint = `${tmpDir}/bun-compile-test-${Date.now()}.ts`;
+        const outputFile = `${tmpDir}/bun-compile-test-${Date.now()}`;
 
-    await Bun.write(entrypoint, 'console.log("hello from compiled");');
+        await Bun.write(entrypoint, 'console.log("hello from compiled");');
 
-    let lastExitCode = 1;
-    let lastStderr = "";
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const proc = Bun.spawn({
-        cmd: ["bun", "build", "--compile", entrypoint, "--outfile", outputFile],
-        stdout: "pipe",
-        stderr: "pipe",
-        cwd: tmpDir,
+        let lastExitCode = 1;
+        let lastStderr = "";
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const proc = Bun.spawn({
+            cmd: ["bun", "build", "--compile", entrypoint, "--outfile", outputFile],
+            stdout: "pipe",
+            stderr: "pipe",
+            cwd: tmpDir,
+          });
+          await Bun.readableStreamToText(proc.stdout);
+          lastStderr = await Bun.readableStreamToText(proc.stderr);
+          lastExitCode = await proc.exited;
+          if (lastExitCode === 0) break;
+          await Bun.sleep(100);
+        }
+
+        if (lastExitCode !== 0) {
+          throw new Error(`bun build --compile failed (exit ${lastExitCode}): ${lastStderr}`);
+        }
+
+        const file = Bun.file(outputFile);
+        expect(await file.exists()).toBe(true);
+
+        await file.delete().catch(() => {});
+        await Bun.file(entrypoint)
+          .delete()
+          .catch(() => {});
       });
-      await Bun.readableStreamToText(proc.stdout);
-      lastStderr = await Bun.readableStreamToText(proc.stderr);
-      lastExitCode = await proc.exited;
-      if (lastExitCode === 0) break;
-      await Bun.sleep(100);
-    }
-
-    if (lastExitCode !== 0) {
-      throw new Error(`bun build --compile failed (exit ${lastExitCode}): ${lastStderr}`);
-    }
-
-    // Verify the executable was created
-    const file = Bun.file(outputFile);
-    expect(await file.exists()).toBe(true);
-
-    // Clean up
-    await file.delete().catch(() => {});
-    await Bun.file(entrypoint)
-      .delete()
-      .catch(() => {});
-  }, 15_000);
+    },
+    15_000
+  );
 });

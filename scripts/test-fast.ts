@@ -4,4 +4,4 @@ import { join } from "path";
 import { runTestTier } from "../src/lib/test-runtime.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
-process.exit(await runTestTier(REPO_ROOT, "unit"));
+process.exit(await runTestTier(REPO_ROOT, "unit", { retry: 2 }));

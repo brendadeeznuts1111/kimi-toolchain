@@ -21,6 +21,9 @@ import { $ } from "bun";
 import { basename, join } from "path";
 import { homeDir, toolsDir } from "../lib/paths.ts";
 import {
+  BUILD_CHANNEL,
+  BUILD_TIME,
+  GIT_COMMIT,
   TOOLCHAIN_VERSION,
   getDesktopVersion,
   getRepoHead,
@@ -352,8 +355,14 @@ async function versionMatrix(): Promise<CheckResult[]> {
     results.push(error("Desktop (kimi)", "not found"));
   }
 
-  results.push(ok("Toolchain", `${TOOLCHAIN_VERSION} (${repoLabel})`));
+  const buildChannel = BUILD_CHANNEL ?? "source";
+  const buildLabel = GIT_COMMIT ?? repoLabel ?? "unknown";
+  results.push(ok("Toolchain", `${TOOLCHAIN_VERSION} (${buildLabel}, ${buildChannel})`));
   results.push(ok("MCP Bridge", TOOLCHAIN_VERSION));
+
+  if (BUILD_TIME) {
+    results.push(ok("Build time", BUILD_TIME));
+  }
 
   if (manifest) {
     const syncLabel = `${manifest.lastSyncedAt.slice(0, 19).replace("T", " ")} UTC`;
@@ -2607,6 +2616,9 @@ async function main(): Promise<number> {
   if (JSON_OUT) {
     emitJson({
       toolchainVersion: TOOLCHAIN_VERSION,
+      buildChannel: BUILD_CHANNEL ?? "source",
+      buildTime: BUILD_TIME,
+      gitCommit: GIT_COMMIT,
       traceId: doctorTraceId,
       checks: results,
       sync: syncReport,

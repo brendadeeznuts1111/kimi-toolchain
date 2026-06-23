@@ -212,6 +212,7 @@ describe("secrets-manager", () => {
       policyPath,
       auditPath,
       env: "ci",
+      now: () => new Date("2026-06-21T12:00:00Z"),
       detectBackend: async () => "env-fallback",
       onWarn: (message) => warnings.push(message),
     });

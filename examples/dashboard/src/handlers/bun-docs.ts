@@ -1,8 +1,9 @@
 /**
  * Bun Docs MCP — dashboard API for probe card and live search.
  *
- * GET  /api/bun-docs        — tool list, stability, MCP probe metadata
- * POST /api/bun-docs/search — JSON-RPC tools/call via mcp/sse client
+ * GET  /api/bun-docs          — tool list, stability, MCP probe metadata
+ * POST /api/bun-docs/search   — JSON-RPC tools/call via mcp/sse client
+ * POST /api/bun-docs/webview  — open matching docs in a Bun.WebView window
  */
 
 import {
@@ -12,10 +13,14 @@ import {
   searchBunDocs,
 } from "../../../../src/lib/bun-docs-mcp.ts";
 import { BUN_DOCS_MCP_TOOLS } from "../../../../src/lib/mcp-registry.ts";
-import { jsonErrorResponse, jsonResponse } from "./shared.ts";
+import { jsonErrorResponse, jsonResponse, resolveRoot } from "./shared.ts";
 
 const SEARCH_TOOLS = new Set<string>(BUN_DOCS_MCP_TOOLS);
 const BUN_DOCS_DOMAIN = "com.kimi.toolchain.dashboard.bun-docs";
+
+function bunDocsMcpBinPath(): string {
+  return Bun.which("kimi-mcp") || `${resolveRoot()}/src/bin/kimi-mcp.ts`;
+}
 
 interface ReadableBody {
   text(): Promise<string>;
@@ -42,6 +47,7 @@ export async function apiBunDocs(): Promise<Response> {
       "kimi-mcp bun-docs",
       'kimi-mcp bun-docs "Bun.escapeHTML"',
       "kimi-doctor --bun-docs <query> --json",
+      "POST /api/bun-docs/webview",
     ],
     fetchedAt: new Date().toISOString(),
   });
@@ -114,4 +120,70 @@ export async function apiBunDocsSearch(req: Request): Promise<Response> {
     attempts: result.attempts,
     fetchedAt: new Date().toISOString(),
   });
+}
+
+export async function apiBunDocsWebview(req: Request): Promise<Response> {
+  const body = await readJson<{ query?: string; tool?: string }>(asReadable(req));
+  if (!body) {
+    return jsonErrorResponse(
+      {
+        domain: BUN_DOCS_DOMAIN,
+        taxonomyId: "dashboard_invalid_json",
+        message: "request body must be JSON",
+      },
+      400
+    );
+  }
+
+  const query = body.query?.trim();
+  const tool = body.tool?.trim() || "search_bun";
+
+  if (!query) {
+    return jsonErrorResponse(
+      {
+        domain: BUN_DOCS_DOMAIN,
+        taxonomyId: "dashboard_missing_query",
+        message: "query is required",
+      },
+      400
+    );
+  }
+
+  if (!SEARCH_TOOLS.has(tool)) {
+    return jsonErrorResponse(
+      {
+        domain: BUN_DOCS_DOMAIN,
+        taxonomyId: "dashboard_invalid_tool",
+        message: `tool must be one of: ${[...SEARCH_TOOLS].join(", ")}`,
+      },
+      400
+    );
+  }
+
+  const root = resolveRoot();
+  const mcpBin = bunDocsMcpBinPath();
+  try {
+    const proc = Bun.spawn(["bun", "run", mcpBin, "bun-docs", query, "--tool", tool, "--webview"], {
+      cwd: root,
+      stdio: ["ignore", "ignore", "ignore"],
+      detached: true,
+    });
+    proc.unref?.();
+    return jsonResponse({
+      ok: true,
+      query,
+      tool,
+      pid: proc.pid,
+      openedAt: new Date().toISOString(),
+    });
+  } catch (cause) {
+    return jsonErrorResponse(
+      {
+        domain: BUN_DOCS_DOMAIN,
+        taxonomyId: "dashboard_webview_spawn_failed",
+        message: cause instanceof Error ? cause.message : String(cause),
+      },
+      500
+    );
+  }
 }

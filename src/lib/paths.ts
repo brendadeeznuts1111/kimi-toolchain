@@ -246,8 +246,8 @@ export function kimiHooksDir(): string {
 }
 
 /** Return ~/.kimi-code/mcp.json */
-export function mcpPath(): string {
-  return join(desktopRoot(), "mcp.json");
+export function mcpPath(home?: string): string {
+  return join(desktopRoot(home), "mcp.json");
 }
 
 /** Return ~/.kimi-code/mcp-servers/ */

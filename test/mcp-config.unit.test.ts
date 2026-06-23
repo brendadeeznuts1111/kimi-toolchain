@@ -2,11 +2,14 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { desktopRoot } from "../src/lib/paths.ts";
 import {
   buildBunDocsEntry,
   buildCloudflareApiEntry,
   buildUnifiedShellEntry,
+  callMcpTool,
   CLOUDFLARE_API_SERVER,
+  MCP_DEFAULTS,
   mergeRegistryMcpServers,
   mergeToolchainMcpServers,
   mergeUnifiedShellServer,
@@ -156,6 +159,136 @@ describe("mcp-config", () => {
       expect(
         disabledReport.checks.find((c) => c.name === "mcp-project-override")?.message
       ).toContain("disabled");
+    });
+  });
+
+  describe("callMcpTool", () => {
+    test("returns error for unknown server", async () => {
+      await withEnv({ HOME: tmpHome }, async () => {
+        const mcpJsonPath = join(desktopRoot(tmpHome), "mcp.json");
+        const result = await callMcpTool("totally-unknown-mcp-server", "some_tool", {}, tmpHome);
+        expect(result.ok).toBe(false);
+        expect(result.error).toBe(
+          `MCP server 'totally-unknown-mcp-server' not found in registry or ${mcpJsonPath}`
+        );
+        expect(result.latencyMs).toBe(0);
+      });
+    });
+
+    test("returns error for disabled server", async () => {
+      await withEnv({ HOME: tmpHome }, async () => {
+        const path = userMcpPath();
+        await writeMcpJson(path, {
+          mcpServers: {
+            [BUN_DOCS_SERVER]: { url: BUN_DOCS_MCP_URL, enabled: false },
+          },
+        });
+        const result = await callMcpTool(BUN_DOCS_SERVER, "search_bun", { query: "test" }, tmpHome);
+        expect(result.ok).toBe(false);
+        expect(result.error).toBe(`MCP server '${BUN_DOCS_SERVER}' is disabled`);
+        expect(result.latencyMs).toBe(0);
+      });
+    });
+
+    test("returns error for missing required env", async () => {
+      await withEnv({ HOME: tmpHome, CLOUDFLARE_API_TOKEN: undefined }, async () => {
+        const path = userMcpPath();
+        await writeMcpJson(path, {
+          mcpServers: {
+            [CLOUDFLARE_API_SERVER]: { url: "https://mcp.cloudflare.com/mcp" },
+          },
+        });
+        const result = await callMcpTool(
+          CLOUDFLARE_API_SERVER,
+          "mcp__cloudflare__search",
+          { query: "workers" },
+          tmpHome
+        );
+        expect(result.ok).toBe(false);
+        expect(result.error).toBe("missing env: CLOUDFLARE_API_TOKEN");
+        expect(result.latencyMs).toBe(0);
+      });
+    });
+
+    test("returns error for stdio-only server", async () => {
+      await withEnv({ HOME: tmpHome }, async () => {
+        const result = await callMcpTool(UNIFIED_SHELL_SERVER, "execute", {}, tmpHome);
+        expect(result.ok).toBe(false);
+        expect(result.error).toBe(
+          `MCP server '${UNIFIED_SHELL_SERVER}' is not an HTTP/SSE server (missing url)`
+        );
+        expect(result.latencyMs).toBe(0);
+      });
+    });
+
+    test("honors home parameter for mcp.json without matching HOME", async () => {
+      const altHome = join(tmpdir(), `kimi-alt-${Bun.randomUUIDv7()}`);
+      mkdirSync(join(altHome, ".kimi-code"), { recursive: true });
+      try {
+        await writeMcpJson(join(altHome, ".kimi-code", "mcp.json"), {
+          mcpServers: {
+            [BUN_DOCS_SERVER]: { url: BUN_DOCS_MCP_URL, enabled: false },
+          },
+        });
+        await withEnv({ HOME: tmpHome }, async () => {
+          const result = await callMcpTool(BUN_DOCS_SERVER, "search_bun", {}, altHome);
+          expect(result.ok).toBe(false);
+          expect(result.error).toBe(`MCP server '${BUN_DOCS_SERVER}' is disabled`);
+        });
+      } finally {
+        rmSync(altHome, { recursive: true, force: true });
+      }
+    });
+
+    test("resolves user-only stdio server from home mcp.json", async () => {
+      const altHome = join(tmpdir(), `kimi-custom-${Bun.randomUUIDv7()}`);
+      mkdirSync(join(altHome, ".kimi-code"), { recursive: true });
+      try {
+        await writeMcpJson(join(altHome, ".kimi-code", "mcp.json"), {
+          mcpServers: {
+            "custom-only": { command: "echo" },
+          },
+        });
+        await withEnv({ HOME: tmpHome }, async () => {
+          const result = await callMcpTool("custom-only", "tool", {}, altHome);
+          expect(result.ok).toBe(false);
+          expect(result.error).toBe(
+            "MCP server 'custom-only' is not an HTTP/SSE server (missing url)"
+          );
+        });
+      } finally {
+        rmSync(altHome, { recursive: true, force: true });
+      }
+    });
+
+    test("validates merged requiredEnv from user mcp.json", async () => {
+      const altHome = join(tmpdir(), `kimi-env-${Bun.randomUUIDv7()}`);
+      mkdirSync(join(altHome, ".kimi-code"), { recursive: true });
+      try {
+        await writeMcpJson(join(altHome, ".kimi-code", "mcp.json"), {
+          mcpServers: {
+            "needs-token": {
+              url: "https://example.com/mcp",
+              requiredEnv: ["CUSTOM_MCP_TOKEN"],
+            },
+          },
+        });
+        await withEnv({ HOME: tmpHome, CUSTOM_MCP_TOKEN: undefined }, async () => {
+          const result = await callMcpTool("needs-token", "tool", {}, altHome);
+          expect(result.ok).toBe(false);
+          expect(result.error).toBe("missing env: CUSTOM_MCP_TOKEN");
+        });
+      } finally {
+        rmSync(altHome, { recursive: true, force: true });
+      }
+    });
+
+    test("uses MCP_DEFAULTS.callTimeoutMs when no timeout is provided", () => {
+      expect(typeof MCP_DEFAULTS.callTimeoutMs).toBe("number");
+      expect(MCP_DEFAULTS.callTimeoutMs).toBeGreaterThan(0);
+      expect(typeof MCP_DEFAULTS.queryTimeoutMs).toBe("number");
+      expect(typeof MCP_DEFAULTS.cardTimeoutMs).toBe("number");
+      expect(typeof MCP_DEFAULTS.maxTop).toBe("number");
     });
   });
 });

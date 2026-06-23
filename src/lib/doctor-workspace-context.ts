@@ -1,6 +1,5 @@
 import { writeText } from "./bun-io.ts";
 
-
 import {
   gitBranch,
   gitLastCommitMessage,

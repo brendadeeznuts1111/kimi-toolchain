@@ -4,7 +4,7 @@
  * @see examples/dashboard/src/handlers/bun-docs.ts
  */
 import { describe, expect, test } from "bun:test";
-import { apiBunDocs, apiBunDocsSearch } from "../bun-docs.ts";
+import { apiBunDocs, apiBunDocsSearch, apiBunDocsWebview } from "../bun-docs.ts";
 
 describe("bun-docs", () => {
   test("GET /api/bun-docs returns probe metadata", async () => {
@@ -43,5 +43,31 @@ describe("bun-docs", () => {
     expect(body.ok).toBe(true);
     expect(typeof body.text).toBe("string");
     expect(body.text.length).toBeGreaterThan(0);
+  });
+
+  test("POST /api/bun-docs/webview requires query", async () => {
+    const res = await apiBunDocsWebview(
+      new Request("http://127.0.0.1/api/bun-docs/webview", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.taxonomyId).toBe("dashboard_missing_query");
+  });
+
+  test("POST /api/bun-docs/webview rejects invalid tool", async () => {
+    const res = await apiBunDocsWebview(
+      new Request("http://127.0.0.1/api/bun-docs/webview", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query: "Bun.spawn", tool: "invalid_tool" }),
+      })
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.taxonomyId).toBe("dashboard_invalid_tool");
   });
 });

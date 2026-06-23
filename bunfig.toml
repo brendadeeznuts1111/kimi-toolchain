@@ -91,6 +91,12 @@ disableManifest = false
 port = 3000
 
 # ── Define (compile-time tuning) ─────────────────────────────────────────
+# Bun parses every `[define]` value as a JSON literal, not as the final JS value.
+#   - JSON string:  KIMI_X = '"1.0.0"'   (TOML string containing "1.0.0")
+#   - JSON number:  KIMI_X = "5"
+#   - JSON boolean: KIMI_X = "true"
+#   - JSON object:  KIMI_X = '{"key":"val"}'
+# `bun run lint:defines` validates that every value is valid JSON.
 [define]
 # define-domain:contract-inference
 KIMI_CONTRACT_OBSERVATIONS_PATH = '".kimi/var/contract-observations.ndjson"'
@@ -137,4 +143,7 @@ KIMI_EFFECT_BENCHMARK_RUN_TIMEOUT_MS = "10000"
 KIMI_EFFECT_BENCHMARK_POST_COOLDOWN_MS = "8000"
 
 # define-domain:governance
-KIMI_TUNING_SET_VERSION = '"1.4.4"'
+KIMI_TUNING_SET_VERSION = '"1.4.5"'
+
+# define-domain:mcp-defaults
+KIMI_MCP_DEFAULTS = '{"callTimeoutMs":60000,"queryTimeoutMs":30000,"cardTimeoutMs":15000,"maxTop":0}'

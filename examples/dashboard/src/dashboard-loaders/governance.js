@@ -1298,6 +1298,7 @@ function renderSchema(container, schema) {
     h += `<input id="bun-docs-q" placeholder="Search Bun docs…" style="flex:1;min-width:120px;font-size:11px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg)">`;
     h += `<select id="bun-docs-tool" style="font-size:10px"><option value="search_bun">search</option><option value="query_docs_filesystem_bun">fs</option></select>`;
     h += `<button id="bun-docs-go" type="button" style="font-size:10px;padding:4px 8px">Go</button>`;
+    h += `<button id="bun-docs-webview" type="button" style="font-size:10px;padding:4px 8px">WebView</button>`;
     h += `</div><pre id="bun-docs-out" style="font-size:10px;max-height:200px;overflow:auto;margin-top:6px;color:var(--muted)">Enter a query…</pre>`;
     card("card-bun-docs", h);
     const go = () => {
@@ -1320,7 +1321,28 @@ function renderSchema(container, schema) {
           out.textContent = e.message;
         });
     };
+    const openWebView = () => {
+      const q = document.getElementById("bun-docs-q")?.value?.trim();
+      const tool = document.getElementById("bun-docs-tool")?.value || "search_bun";
+      const out = document.getElementById("bun-docs-out");
+      if (!q || !out) return;
+      out.textContent = "Opening WebView…";
+      const body = { query: q, tool };
+      fetch("/api/bun-docs/webview", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          out.textContent = d.ok ? `WebView opened (pid ${d.pid})` : d.error || "failed";
+        })
+        .catch((e) => {
+          out.textContent = e.message;
+        });
+    };
     document.getElementById("bun-docs-go")?.addEventListener("click", go);
+    document.getElementById("bun-docs-webview")?.addEventListener("click", openWebView);
     document.getElementById("bun-docs-q")?.addEventListener("keydown", (e) => {
       if (e.key === "Enter") go();
     });

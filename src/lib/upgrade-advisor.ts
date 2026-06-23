@@ -331,7 +331,19 @@ async function scanBunfig(
         "bunfig.toml",
         lineIdx >= 0 ? lineIdx + 1 : 1,
         'linker = "isolated" without globalStore = true',
-        "Add globalStore = true under [install] (Bun ≥1.3.14) for ~7× faster warm installs",
+        `Add globalStore = true under [install] (Bun ≥1.3.14).
+
+Official benchmarks (1,400-pkg fixture, Apple Silicon):
+  hoisted:              824 ms
+  isolated (no store):  841 ms
+  isolated + global:    125 ms  → 6.6× faster warm installs
+
+Disk: ~5 MB of symlinks per project instead of 391 MB.
+Break-even at 1 project; every extra checkout is free.
+
+Packages with patches, trustedDependencies, or workspace:/file:/link:
+stay project-local automatically (ineligibility propagates).
+Clear with: bun pm cache rm`,
         lineIdx >= 0 ? text.split("\n")[lineIdx]! : "[install]"
       ),
     ];

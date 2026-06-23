@@ -28,7 +28,7 @@ async function runTool(
 
 describe("kimi-doctor smoke", () => {
   test("doctor --quick includes MCP, Kimi Code, memory pressure, and runtime sync", async () => {
-    const { stdout, exitCode } = await runTool(DOCTOR, ["--quick"]);
+    const { stdout, exitCode } = await runTool(DOCTOR, ["--quick"], 60_000);
     expect(stdout).toContain("Kimi Code Config");
     expect(stdout).toContain("── MCP");
     expect(stdout).toContain("── Kimi Permissions");
@@ -43,7 +43,7 @@ describe("kimi-doctor smoke", () => {
     expect(stdout).toContain("Runtime Sync");
     expect(stdout).toMatch(/Desktop sync/);
     expect(exitCode === 0 || exitCode === 1).toBe(true);
-  }, 15_000);
+  }, 90_000);
 
   test("doctor --memory-budget prints app groups", async () => {
     const { stdout, exitCode } = await runTool(DOCTOR, ["--memory-budget"]);

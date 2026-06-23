@@ -41,14 +41,31 @@ if (_version === DEFAULT_VERSION && pathExists(MANIFEST_PATH)) {
   }
 }
 
-/** Toolchain version from package.json (e.g. "0.1.0") */
-export const TOOLCHAIN_VERSION = _version;
+/** Toolchain version from package.json or compile-time define (e.g. "0.1.0") */
+export const TOOLCHAIN_VERSION =
+  typeof KIMI_BUILD_VERSION === "string" && KIMI_BUILD_VERSION.length > 0
+    ? KIMI_BUILD_VERSION
+    : _version;
 
 /** Toolchain package name */
 export const TOOLCHAIN_NAME = _name;
 
 /** MCP bridge version — unified with toolchain version */
 export const MCP_BRIDGE_VERSION = TOOLCHAIN_VERSION;
+
+/** Build timestamp (ISO 8601) when compiled with build-time defines. */
+export const BUILD_TIME =
+  typeof KIMI_BUILD_TIME === "string" && KIMI_BUILD_TIME.length > 0 ? KIMI_BUILD_TIME : null;
+
+/** Git commit hash baked in at compile time. */
+export const GIT_COMMIT =
+  typeof KIMI_GIT_COMMIT === "string" && KIMI_GIT_COMMIT.length > 0 ? KIMI_GIT_COMMIT : null;
+
+/** Build channel baked in at compile time (e.g. "release"). */
+export const BUILD_CHANNEL =
+  typeof KIMI_BUILD_CHANNEL === "string" && KIMI_BUILD_CHANNEL.length > 0
+    ? KIMI_BUILD_CHANNEL
+    : null;
 
 // ── External version queries ───────────────────────────────────────────
 
@@ -84,6 +101,9 @@ export interface VersionInfo {
   gitHead: string | null;
   dirty: boolean;
   manifestPath: string;
+  buildTime: string | null;
+  gitCommit: string | null;
+  buildChannel: string | null;
 }
 
 /** Assemble canonical version matrix. */
@@ -101,6 +121,9 @@ export async function getVersionInfo(): Promise<VersionInfo> {
     gitHead,
     dirty,
     manifestPath: MANIFEST_PATH,
+    buildTime: BUILD_TIME,
+    gitCommit: GIT_COMMIT,
+    buildChannel: BUILD_CHANNEL,
   };
 }
 
@@ -114,6 +137,9 @@ export function formatVersionTable(info: VersionInfo): string {
       { Component: "Desktop", Version: info.desktop ?? "not installed" },
       { Component: "Git HEAD", Version: info.gitHead ?? "n/a" },
       { Component: "Working Tree", Version: info.dirty ? "dirty" : "clean" },
+      { Component: "Build Time", Version: info.buildTime ?? "n/a" },
+      { Component: "Build Commit", Version: info.gitCommit ?? "n/a" },
+      { Component: "Build Channel", Version: info.buildChannel ?? "source" },
     ],
     { headers: true }
   );

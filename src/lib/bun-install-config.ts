@@ -38,6 +38,7 @@ export const BUN_HTML_STATIC_CONSOLE_DOC_URL =
 export const BUN_MARKDOWN_RUN_DOC_URL = "https://bun.com/docs/runtime/markdown.md";
 export const BUN_WRAP_ANSI_DOC_URL = "https://bun.com/docs/runtime/utils#bun-wrapansi";
 export const BUN_JSON5_DOC_URL = "https://bun.com/docs/runtime/json5#conformance";
+export const BUN_BUILD_DEFINE_DOC_URL = "https://bun.com/docs/guides/runtime/build-time-constants";
 export const BUN_JSONL_DOC_URL = "https://bun.com/docs/runtime/jsonl";
 export const BUNX_DOC_URL = "https://bun.com/docs/pm/bunx";
 export const BUN_WEBVIEW_DOC_URL = BUN_WEBVIEW_DOCS_URL;
@@ -72,6 +73,70 @@ export const BUN_WORKSPACES_GUIDE_MONOREPO_DOC_URL = `${BUN_WORKSPACES_GUIDE_DOC
 export const BUN_WORKSPACES_CATALOGS_DOC_URL = `${BUN_WORKSPACES_DOC_URL}#share-versions-with-catalogs`;
 export const BUN_PM_FILTER_MATCHING_DOC_URL = `${BUN_PM_FILTER_DOC_URL}#matching`;
 export const BUN_CATALOGS_OVERVIEW_DOC_URL = `${BUN_CATALOGS_DOC_URL}#overview`;
+export const BUN_LINK_CLI_USAGE_DOC_URL = `${BUN_LINK_DOC_URL}#cli-usage`;
+export const BUN_LINK_UNLINKING_DOC_URL = `${BUN_LINK_DOC_URL}#unlinking`;
+
+/**
+ * CLI surface from bun.com/docs/pm/cli/link#cli-usage (inherits bun install flags).
+ * `helpSyntax` matches live `bun link -h`; consume/register split matches workflow sections above CLI Usage.
+ */
+export const BUN_LINK_HELP_SYNTAX = "bun link [flags] [<packages>]" as const;
+export const BUN_LINK_CLI_CONSUME_SYNTAX = "bun link <packages>" as const;
+/** Present in `bun link -h` on Bun 1.4.0 but omitted from the link docs CLI Usage section. */
+export const BUN_LINK_RUNTIME_ONLY_FLAGS = ["--minimum-release-age"] as const;
+export const BUN_LINK_CLI_FLAG_GROUPS = [
+  { group: "installation-scope", flags: ["--global", "-g"] },
+  { group: "dependency-management", flags: ["--production", "-p", "--omit"] },
+  {
+    group: "project-files-lockfiles",
+    flags: [
+      "--yarn",
+      "-y",
+      "--frozen-lockfile",
+      "--save-text-lockfile",
+      "--lockfile-only",
+      "--no-save",
+      "--save",
+      "--trust",
+    ],
+  },
+  {
+    group: "installation-control",
+    flags: [
+      "--force",
+      "-f",
+      "--no-verify",
+      "--backend",
+      "--linker",
+      "--dry-run",
+      "--ignore-scripts",
+    ],
+  },
+  { group: "network-registry", flags: ["--ca", "--cafile", "--registry", "--network-concurrency"] },
+  { group: "performance-resource", flags: ["--concurrent-scripts"] },
+  { group: "caching", flags: ["--cache-dir", "--no-cache"] },
+  {
+    group: "output-logging",
+    flags: ["--silent", "--quiet", "--verbose", "--no-progress", "--no-summary"],
+  },
+  { group: "platform-targeting", flags: ["--cpu", "--os"] },
+  { group: "global-configuration", flags: ["--config", "-c", "--cwd"] },
+  { group: "help", flags: ["--help", "-h"] },
+] as const;
+export const BUN_LINK_CLI_FLAGS = [
+  ...new Set([
+    ...BUN_LINK_CLI_FLAG_GROUPS.flatMap((entry) => entry.flags),
+    ...BUN_LINK_RUNTIME_ONLY_FLAGS,
+  ]),
+] as const;
+/** Doc-critical flags probed in `auditBunLinkHealth` against `bun link -h` output. */
+export const BUN_LINK_DOC_PROBE_FLAGS = [
+  "--global",
+  "--save",
+  "--linker",
+  "--trust",
+  "--frozen-lockfile",
+] as const;
 
 /** catalog: protocol references (bun.com/docs/pm/catalogs#overview). */
 export const BUN_CATALOG_PROTOCOL_REFERENCES = [
@@ -300,6 +365,31 @@ export const BUN_INSTALL_CLI = {
   linkConsume: "bun link <pkg>",
   linkUnlink: "bun unlink",
   linkSave: "bun link <pkg> --save",
+  info: "bun info <pkg>",
+  infoAll: "bun info --all",
+  infoDev: "bun info <pkg> --dev",
+  securityScannerAdd: "bun add -d <scanner-pkg>",
+  securityScannerConfig: '[install.security] scanner = "<pkg>"',
+  /** @see https://bun.com/docs/guides/runtime/build-time-constants */
+  buildDefine: "bun build --define KEY='\"value\"'",
+  buildDefineCompile: "bun build --compile --define BUILD_VERSION='\"1.0.0\"'",
+  buildDefinePropKey: "--define 'process." + 'env.NODE_ENV="production"\'',
+  buildDefineTarget: "bun build --compile --target=bun-linux-x64 --define PLATFORM='\"linux\"'",
+  /**
+   * Value-format rules for --define (bun build, bun build --compile, bun run --define).
+   * Strings MUST be JSON-quoted. Numbers/booleans are JSON literals.
+   * Objects: --define 'CONFIG={"host":"localhost"}'. Property chains: process . env . NODE_ENV.
+   * @see https://bun.com/docs/guides/runtime/build-time-constants
+   */
+  defineValueFormat: {
+    string: "--define KEY='\"value\"'",
+    number: "--define PORT=3000",
+    boolean: "--define DEBUG=true",
+    object: '--define \'CONFIG={"host":"localhost","port":3000}\'',
+    array: '--define \'FEATURES=["auth","billing"]\'',
+    propChain: "--define 'process." + 'env.NODE_ENV="production"\'',
+    propNested: "--define 'window.myApp.version=\"1.0.0\"'",
+  },
 } as const;
 
 /** Link root package from an `examples/*` workspace — `workspace:*` does not resolve root names. */
@@ -355,6 +445,9 @@ export function formatInstallCliWorkflow(): string[] {
     "bun link:",
     `  register:     ${BUN_INSTALL_CLI.linkRegister}`,
     `  consume:      ${BUN_INSTALL_CLI.linkConsume}`,
+    `  save:         ${BUN_INSTALL_CLI.linkSave}`,
+    `  unlink:       ${BUN_INSTALL_CLI.linkUnlink}`,
+    `  cli usage:    ${BUN_LINK_CLI_USAGE_DOC_URL}`,
   ];
 }
 
@@ -544,6 +637,19 @@ export const BUN_INSTALL_BUNFIG_POLICY: readonly BunInstallPolicyRowDef[] = [
       'Bun defaults to "isolated" for configVersion=1 workspaces, otherwise "hoisted"; hardened policy pins isolated to prevent phantom dependencies and uses Bun 1.3.13+ peer-heavy install fast paths',
   },
   {
+    group: "linker",
+    key: "globalStore",
+    type: "boolean",
+    officialDefault: "false",
+    hardenedDefault: "true",
+    bunfigKey: "[install].globalStore",
+    cliFlag: "BUN_INSTALL_GLOBAL_STORE=1",
+    sinceBun: "1.3.14",
+    docsAnchor: "global-store",
+    notes:
+      "One copy per (pkg, version, dep-set) shared across projects; ~6.6× faster warm installs (124ms vs 841ms), ~5MB symlinks per project vs 391MB. Packages with patches, trustedDeps, or workspace:/file:/link: stay project-local.",
+  },
+  {
     group: "global",
     key: "globalDir",
     type: "string",
@@ -592,6 +698,19 @@ export const BUN_INSTALL_BUNFIG_POLICY: readonly BunInstallPolicyRowDef[] = [
     sinceBun: "1.1",
     docsAnchor: "minimum-release-age",
     notes: "Packages exempt from age gate",
+  },
+  {
+    group: "supply-chain",
+    key: "securityScanner",
+    type: "string",
+    officialDefault: "unset",
+    hardenedDefault: "unset",
+    bunfigKey: "[install.security].scanner",
+    cliFlag: "bun add -d <scanner-pkg>",
+    sinceBun: "1.3",
+    docsAnchor: "security-scanner-api",
+    notes:
+      "Pre-install vulnerability scanner (CVEs, malware, license); fatal severity exits non-zero, warn prompts interactively / exits in CI. Install scanner via bun add -d. Enterprise auth via env vars.",
   },
   {
     group: "performance",
@@ -948,7 +1067,27 @@ export const BUN_INSTALL_CLI_PROPERTY_REFS: readonly BunInstallPropertyRef[] = [
     description: "Symlink registered package into consumer node_modules; --save writes link:<pkg>",
     versionAdded: "1.0",
     lastModified: BUN_INSTALL_POLICY_LAST_MODIFIED,
-    docsUrl: BUN_LINK_DOC_URL,
+    docsUrl: BUN_LINK_CLI_USAGE_DOC_URL,
+  },
+  {
+    property: "cli.linkSave",
+    type: "command",
+    default: BUN_INSTALL_CLI.linkSave,
+    required: false,
+    description: "Consume and persist link:<pkg> in package.json dependencies",
+    versionAdded: "1.0",
+    lastModified: BUN_INSTALL_POLICY_LAST_MODIFIED,
+    docsUrl: BUN_LINK_CLI_USAGE_DOC_URL,
+  },
+  {
+    property: "cli.linkUnlink",
+    type: "command",
+    default: BUN_INSTALL_CLI.linkUnlink,
+    required: false,
+    description: "Unregister a linkable package from the global link registry",
+    versionAdded: "1.0",
+    lastModified: BUN_INSTALL_POLICY_LAST_MODIFIED,
+    docsUrl: BUN_LINK_UNLINKING_DOC_URL,
   },
 ] as const;
 
@@ -1377,12 +1516,20 @@ export interface BunInstallRuntimeCapabilities {
   };
   bunLink: {
     status: "active";
+    description: string;
     registerCommand: typeof BUN_INSTALL_CLI.linkRegister;
     consumeCommand: typeof BUN_INSTALL_CLI.linkConsume;
     unlinkCommand: typeof BUN_INSTALL_CLI.linkUnlink;
     saveCommand: typeof BUN_INSTALL_CLI.linkSave;
     versionSpecifier: "link:<pkg>";
     docsUrl: typeof BUN_LINK_DOC_URL;
+    cliUsageUrl: typeof BUN_LINK_CLI_USAGE_DOC_URL;
+    unlinkingUrl: typeof BUN_LINK_UNLINKING_DOC_URL;
+    helpSyntax: typeof BUN_LINK_HELP_SYNTAX;
+    consumeSyntax: typeof BUN_LINK_CLI_CONSUME_SYNTAX;
+    flagGroups: typeof BUN_LINK_CLI_FLAG_GROUPS;
+    flags: typeof BUN_LINK_CLI_FLAGS;
+    runtimeOnlyFlags: typeof BUN_LINK_RUNTIME_ONLY_FLAGS;
     notes: string;
   };
   bunPmCli: {
@@ -2366,14 +2513,23 @@ function buildRuntimeCapabilities(
     },
     bunLink: {
       status: "active",
+      description:
+        "Link local packages for development — register, consume, unlink, and link:<pkg> specifiers",
       registerCommand: BUN_INSTALL_CLI.linkRegister,
       consumeCommand: BUN_INSTALL_CLI.linkConsume,
       unlinkCommand: BUN_INSTALL_CLI.linkUnlink,
       saveCommand: BUN_INSTALL_CLI.linkSave,
       versionSpecifier: "link:<pkg>",
       docsUrl: BUN_LINK_DOC_URL,
+      cliUsageUrl: BUN_LINK_CLI_USAGE_DOC_URL,
+      unlinkingUrl: BUN_LINK_UNLINKING_DOC_URL,
+      helpSyntax: BUN_LINK_HELP_SYNTAX,
+      consumeSyntax: BUN_LINK_CLI_CONSUME_SYNTAX,
+      flagGroups: BUN_LINK_CLI_FLAG_GROUPS,
+      flags: BUN_LINK_CLI_FLAGS,
+      runtimeOnlyFlags: BUN_LINK_RUNTIME_ONLY_FLAGS,
       notes:
-        "Register local packages (bun link) then symlink into consumers (bun link <pkg>); --save writes link:<pkg> to package.json. Distinct from workspace:* and file:../..",
+        "Register (bun link) → consume (bun link <pkg>) → optional --save for link:<pkg> in package.json; bun unlink unregisters. CLI inherits bun install flags (cliUsageUrl). helpSyntax matches bun link -h; --minimum-release-age is runtime-only vs docs. Distinct from workspace:* and file:../..",
     },
     bunPmCli: {
       status: "active",
@@ -2827,6 +2983,11 @@ export function collectInstallPropertyReferences(): BunInstallPropertyRef[] {
   return [...rows.map(policyRowToPropertyRef), ...BUN_INSTALL_CLI_PROPERTY_REFS];
 }
 
+/** `cli.link*` rows from the install property reference table. */
+export function collectBunLinkPropertyReferences(): BunInstallPropertyRef[] {
+  return BUN_INSTALL_CLI_PROPERTY_REFS.filter((ref) => ref.property.startsWith("cli.link"));
+}
+
 const INSTALL_PROPERTY_REF_HEADER =
   "| Property | Type | Default | Required | Description | VersionAdded | LastModified |";
 
@@ -3135,14 +3296,91 @@ export async function auditWorkspaceFilterHealth(
   };
 }
 
+export interface BunLinkHelpEvaluation {
+  helpRecognized: boolean;
+  missingDocFlags: readonly string[];
+  ok: boolean;
+}
+
+/** Pure evaluator for `bun link -h` output (doc-critical flags from bun.com/docs/pm/cli/link#cli-usage). */
+export function evaluateBunLinkHelpOutput(output: string): BunLinkHelpEvaluation {
+  const helpRecognized = /bun link/i.test(output);
+  const missingDocFlags = helpRecognized
+    ? BUN_LINK_DOC_PROBE_FLAGS.filter((flag) => !output.includes(flag))
+    : [...BUN_LINK_DOC_PROBE_FLAGS];
+  return {
+    helpRecognized,
+    missingDocFlags,
+    ok: helpRecognized && missingDocFlags.length === 0,
+  };
+}
+
+/** Extract long/short flags from `bun link -h` text (stable for parity tests). */
+export function parseBunLinkHelpFlags(output: string): string[] {
+  const flags = new Set<string>();
+  for (const line of output.split("\n")) {
+    for (const match of line.matchAll(/--[a-z][\w-]*/g)) {
+      flags.add(match[0]);
+    }
+    const shortLong = line.match(/^\s*-([a-zA-Z]),\s*(--[\w-]+)/);
+    if (shortLong) {
+      flags.add(`-${shortLong[1]}`);
+      flags.add(shortLong[2]);
+      continue;
+    }
+    const shortOnly = line.match(/^\s*-([a-zA-Z]),/);
+    if (shortOnly) flags.add(`-${shortOnly[1]}`);
+  }
+  return [...flags].sort();
+}
+
+export interface BunLinkInventoryParity {
+  helpFlags: string[];
+  inventoryLongFlags: string[];
+  missingInHelp: string[];
+  runtimeOnlyInHelp: string[];
+  evaluation: BunLinkHelpEvaluation;
+  ok: boolean;
+}
+
+/** Compare SSOT inventory long flags against live `bun link -h` output. */
+export function compareBunLinkHelpToInventory(output: string): BunLinkInventoryParity {
+  const helpFlags = parseBunLinkHelpFlags(output);
+  const helpSet = new Set(helpFlags);
+  const inventoryLongFlags = BUN_LINK_CLI_FLAGS.filter((flag) => flag.startsWith("--"));
+  const missingInHelp = inventoryLongFlags.filter((flag) => !helpSet.has(flag));
+  const runtimeOnlyInHelp = BUN_LINK_RUNTIME_ONLY_FLAGS.filter((flag) => helpSet.has(flag));
+  const evaluation = evaluateBunLinkHelpOutput(output);
+  return {
+    helpFlags,
+    inventoryLongFlags: [...inventoryLongFlags],
+    missingInHelp,
+    runtimeOnlyInHelp,
+    evaluation,
+    ok: evaluation.ok && missingInHelp.length === 0,
+  };
+}
+
+/** Build `link:<pkg>` version specifier for package.json dependencies. */
+export function buildBunLinkVersionSpecifier(packageName: string): string {
+  return `link:${packageName}`;
+}
+
+/** Parse `link:<pkg>` specifier; returns null when not a link protocol. */
+export function parseBunLinkVersionSpecifier(specifier: string): string | null {
+  return specifier.startsWith("link:") ? specifier.slice("link:".length) : null;
+}
+
 export interface BunLinkAudit {
   ok: boolean;
   message: string;
   exitCode: number | null;
   helpCommand: "bun link -h";
+  missingDocFlags: string[];
+  inventoryParity: BunLinkInventoryParity | null;
 }
 
-/** Verify `bun link` CLI is available (local package symlinks for dev). */
+/** Verify `bun link` CLI is available and help lists doc-critical flags. */
 export async function auditBunLinkHealth(projectRoot: string): Promise<BunLinkAudit> {
   const result = await spawnBun(["link", "-h"], {
     cwd: projectRoot,
@@ -3150,12 +3388,25 @@ export async function auditBunLinkHealth(projectRoot: string): Promise<BunLinkAu
     maxOutputBytes: 8_192,
   });
   const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
-  const ok = result.exitCode === 0 && /bun link/i.test(output);
+  const helpOk = result.exitCode === 0;
+  const inventoryParity = helpOk ? compareBunLinkHelpToInventory(output) : null;
+  const evaluation = inventoryParity?.evaluation ?? evaluateBunLinkHelpOutput(output);
+  const ok = helpOk && (inventoryParity?.ok ?? evaluation.ok);
   return {
     ok,
     helpCommand: "bun link -h",
     exitCode: result.exitCode,
-    message: ok ? "bun link CLI available" : `bun link -h failed (exit ${result.exitCode ?? "?"})`,
+    missingDocFlags: [...evaluation.missingDocFlags],
+    inventoryParity,
+    message: ok
+      ? "bun link CLI available; doc-critical flags and inventory parity OK"
+      : !helpOk
+        ? `bun link -h failed (exit ${result.exitCode ?? "?"})`
+        : !evaluation.helpRecognized
+          ? "bun link -h output missing bun link usage line"
+          : inventoryParity && inventoryParity.missingInHelp.length > 0
+            ? `bun link -h missing inventory flags: ${inventoryParity.missingInHelp.join(", ")}`
+            : `bun link -h missing flags: ${evaluation.missingDocFlags.join(", ")}`,
   };
 }
 

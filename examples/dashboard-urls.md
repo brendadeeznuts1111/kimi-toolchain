@@ -172,7 +172,7 @@ bun test test/dashboard-route-patterns.unit.test.ts
 
 ## Static showcase & card routes
 
-Examples dashboard (`handlers/routes.ts` + `handlers/artifacts.ts`) — **140** routes total (see [dashboard/README.md](dashboard/README.md)).
+Examples dashboard (`handlers/routes.ts` + `handlers/artifacts.ts`) — **141** routes total (see [dashboard/README.md](dashboard/README.md)).
 
 ### Contract, showcase & cards
 
@@ -309,7 +309,7 @@ url_pathname = /
 
 ## Decomposed endpoint inventory (examples stack)
 
-**140** examples-dashboard routes. Representative rows (full table in [dashboard/README.md](dashboard/README.md)):
+**141** examples-dashboard routes. Representative rows (full table in [dashboard/README.md](dashboard/README.md)):
 
 | name                      | url                                                       | url_protocol | url_hostname | url_port | url_pathname                         | url_search                    |
 | ------------------------- | --------------------------------------------------------- | ------------ | ------------ | -------- | ------------------------------------ | ----------------------------- |
