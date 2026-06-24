@@ -160,6 +160,13 @@ export async function buildSteps(
         silentOnSuccess: false,
       });
     }
+    if (pathExists(join(projectRoot, "scripts", "bun-hygiene-audit.ts"))) {
+      steps.push({
+        name: "bun-hygiene:audit",
+        cmd: ["bun", "run", "scripts/bun-hygiene-audit.ts"],
+        silentOnSuccess: false,
+      });
+    }
   }
 
   if (options.fast && pathExists(join(projectRoot, "scripts", "scan.ts"))) {
