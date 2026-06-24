@@ -26,7 +26,7 @@ export interface ReportMeta {
   snapshotCount?: number;
 }
 
-export function generatePerfHTML(
+export function generatePerfHtml(
   metrics: Metric[],
   title = "Performance Report",
   meta?: ReportMeta

@@ -8,12 +8,12 @@ import { describe, expect, test } from "bun:test";
 
 describe("bun-s3", () => {
   test("S3Client constructor accepts options", () => {
-    const NoopS3Client = (Bun as any).S3Client;
-    if (typeof NoopS3Client !== "function") {
+    const ClientClass = (Bun as any).S3Client;
+    if (typeof ClientClass !== "function") {
       // S3Client may not be available — skip
       return;
     }
-    const client = new NoopS3Client({
+    const client = new ClientClass({
       accessKeyId: "test",
       secretAccessKey: "test",
       bucket: "test-bucket",
@@ -23,10 +23,10 @@ describe("bun-s3", () => {
   });
 
   test("s3.file().presign accepts contentDisposition and type", () => {
-    const NoopS3Client = (Bun as any).S3Client;
-    if (typeof NoopS3Client !== "function") return;
+    const ClientClass = (Bun as any).S3Client;
+    if (typeof ClientClass !== "function") return;
 
-    const client = new NoopS3Client({
+    const client = new ClientClass({
       accessKeyId: "test",
       secretAccessKey: "test",
       bucket: "test-bucket",
@@ -45,10 +45,10 @@ describe("bun-s3", () => {
   });
 
   test("s3.file().writer accepts contentEncoding option", () => {
-    const NoopS3Client = (Bun as any).S3Client;
-    if (typeof NoopS3Client !== "function") return;
+    const ClientClass = (Bun as any).S3Client;
+    if (typeof ClientClass !== "function") return;
 
-    const client = new NoopS3Client({
+    const client = new ClientClass({
       accessKeyId: "test",
       secretAccessKey: "test",
       bucket: "test-bucket",

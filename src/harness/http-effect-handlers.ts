@@ -9,7 +9,7 @@
 import { registerEffectBenchmark } from "../lib/effect-benchmark.ts";
 import { makeHttpClient } from "../lib/http-client.ts";
 
-const client = makeHttpClient({ minTLS: "TLSv1.2" });
+const client = makeHttpClient({ minTls: "TLSv1.2" });
 
 const TLS_TEST_URLS = {
   tls13: Bun.env.KIMI_TLS_TEST_TLS13_URL ?? "https://www.cloudflare.com/",
@@ -32,7 +32,7 @@ registerEffectBenchmark({
   symbol: "kimi.effect.http",
   thresholdMs: 500,
   workload: async () => {
-    await client.fetch(TLS_TEST_URLS.tls13, { minTLS: "TLSv1.3" });
+    await client.fetch(TLS_TEST_URLS.tls13, { minTls: "TLSv1.3" });
   },
   skipIf: async () => !(await hostReachable(TLS_TEST_URLS.tls13)),
   skipReason: "TLS 1.3 test endpoint unreachable",
@@ -43,7 +43,7 @@ registerEffectBenchmark({
   symbol: "kimi.effect.http",
   thresholdMs: 500,
   workload: async () => {
-    await client.fetch(TLS_TEST_URLS.tls12, { minTLS: "TLSv1.2" });
+    await client.fetch(TLS_TEST_URLS.tls12, { minTls: "TLSv1.2" });
   },
   skipIf: async () => !(await hostReachable(TLS_TEST_URLS.tls12)),
   skipReason: "TLS 1.2 test endpoint unreachable",
@@ -55,7 +55,7 @@ registerEffectBenchmark({
   thresholdMs: 500,
   workload: async () => {
     try {
-      await client.fetch(TLS_TEST_URLS.tls11, { minTLS: "TLSv1.2" });
+      await client.fetch(TLS_TEST_URLS.tls11, { minTls: "TLSv1.2" });
     } catch {
       // Expected: TLS 1.1 handshake rejected by the policy floor.
       return;
@@ -70,7 +70,7 @@ registerEffectBenchmark({
   thresholdMs: 500,
   workload: async () => {
     try {
-      await client.fetch(TLS_TEST_URLS.tls10, { minTLS: "TLSv1.2" });
+      await client.fetch(TLS_TEST_URLS.tls10, { minTls: "TLSv1.2" });
     } catch {
       // Expected: TLS 1.0 handshake rejected by the policy floor.
       return;

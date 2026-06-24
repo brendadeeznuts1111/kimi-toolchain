@@ -17,7 +17,7 @@ const scanRoots = roots.length > 0 ? roots : ["src", "scripts"];
 /** Paths allowed to use non-native shims intentionally. */
 const ALLOWLIST = new Set([
   "scripts/deep-native-scan.ts",
-  "src/lib/bun-native-shim.ts",
+  "src/lib/bun-io.ts",
   "src/lib/bun-install-config.ts",
 ]);
 

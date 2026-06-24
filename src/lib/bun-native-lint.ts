@@ -511,7 +511,7 @@ export function defaultConfig(): BunNativeLintConfig {
     schemaVersion: 1,
     gateMode: "check",
     rules,
-    exemptFiles: ["src/lib/bun-native-shim.ts", "src/lib/bun-io.ts"],
+    exemptFiles: ["src/lib/bun-io.ts"],
   };
 }
 

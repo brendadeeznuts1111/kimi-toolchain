@@ -8,7 +8,7 @@ import { dirname, join, relative } from "path";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 const BUN_IO = join(REPO_ROOT, "src/lib/bun-io.ts");
-const SKIP = new Set(["src/lib/bun-native-shim.ts", "src/lib/bun-io.ts"]);
+const SKIP = new Set(["src/lib/bun-io.ts"]);
 const dryRun = Bun.argv.includes("--dry-run");
 
 const SYNC_NAMES = new Set([
@@ -133,7 +133,7 @@ function upsertBunIoImport(absFile: string, text: string, used: Set<string>): st
 
 function stripSyncFromShimImports(text: string): string {
   return text.replace(IMPORT_BLOCK, (full, typePrefix, raw, from) => {
-    if (!from.includes("bun-native-shim")) return full;
+    if (!from.includes("bun-io")) return full;
     const kept = parseSpecifiers(raw).filter((s) => {
       const base = s.replace(/^type\s+/, "").trim();
       return !SYNC_NAMES.has(base);

@@ -22,7 +22,7 @@ import {
 } from "./paths.ts";
 import { getProjectName, safeParse } from "./utils.ts";
 import type { Metric, ReportMeta } from "../harness/html-reporter.ts";
-import { generatePerfHTML } from "../harness/html-reporter.ts";
+import { generatePerfHtml } from "../harness/html-reporter.ts";
 
 export interface EffectBenchmarkEntry {
   /** Registry key used for thresholds and snapshots, e.g. "crypto.sha256". */
@@ -625,11 +625,11 @@ export async function readBenchmarkSnapshots(
 }
 
 /** Render an HTML dashboard artifact from metrics and optional metadata. */
-export function generateBenchmarkHTML(
+export function generateBenchmarkHtml(
   metrics: Metric[],
   options?: { title?: string; meta?: ReportMeta }
 ): string {
-  return generatePerfHTML(metrics, options?.title ?? "Effect Handler Benchmarks", options?.meta);
+  return generatePerfHtml(metrics, options?.title ?? "Effect Handler Benchmarks", options?.meta);
 }
 
 /** Convenience: run, gate, and optionally train/report/regress in one call. */
@@ -681,7 +681,7 @@ export async function runBenchmarkLoop(
       regressionCount: regressions.length,
       snapshotCount: previous.length + 1,
     };
-    const html = generateBenchmarkHTML(metrics, { title: "Effect Handler Benchmarks", meta });
+    const html = generateBenchmarkHtml(metrics, { title: "Effect Handler Benchmarks", meta });
     await Bun.write(options.reportPath, html, { createPath: true });
   }
 

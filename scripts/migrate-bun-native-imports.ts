@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Rewrite banned Node imports to src/lib/bun-native-shim.ts.
+ * Rewrite banned Node imports to src/lib/bun-io.ts.
  * Extended: soft imports, Response-stream rewrite, --rule filter.
  *
  * Usage:
@@ -12,7 +12,7 @@
 import { dirname, join, relative } from "path";
 
 const REPO_ROOT = join(import.meta.dir, "..");
-const SHIM = join(REPO_ROOT, "src/lib/bun-native-shim.ts");
+const SHIM = join(REPO_ROOT, "src/lib/bun-io.ts");
 
 const argIdx = (name: string) => Bun.argv.indexOf(name);
 const dryRun = argIdx("--dry-run") !== -1;
@@ -36,7 +36,7 @@ function parseSpecifiers(raw: string): string[] {
 }
 
 function rewriteBannedImports(absFile: string, text: string): string | null {
-  if (absFile.endsWith("bun-native-shim.ts")) return null;
+  if (absFile.endsWith("bun-io.ts")) return null;
   const specs = new Set<string>();
   let hadType = false;
   let matched = false;

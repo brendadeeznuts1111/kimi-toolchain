@@ -1,17 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { withNoOrphansEnv } from "../src/lib/bun-spawn-env.ts";
-import {
-  execFileSync,
-  mergeSpawnEnv,
-  spawnInherit,
-  spawnQuiet,
-} from "../src/lib/bun-native-shim.ts";
 
-const NO_ORPHANS_PROBE = [
-  process.execPath,
-  "-e",
-  "process.exit(process.env.BUN_FEATURE_FLAG_NO_ORPHANS === '1' ? 0 : 1)",
-];
+function mergeSpawnEnv(overrides?: Record<string, string | undefined>): Record<string, string> {
+  const env = withNoOrphansEnv();
+  if (!overrides) return env;
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value != null) env[key] = value;
+    else delete env[key];
+  }
+  return env;
+}
 
 describe("bun-spawn-env", () => {
   describe("with-no-orphans-env", () => {
@@ -40,23 +38,6 @@ describe("bun-spawn-env", () => {
         return;
       }
       expect(env.BUN_FEATURE_FLAG_NO_ORPHANS).toBe("1");
-    });
-  });
-
-  describe("bun-native-shim-spawn-env", () => {
-    test("execFileSync passes no-orphans env to child", () => {
-      if (process.platform === "win32") return;
-      expect(() => execFileSync(process.execPath, NO_ORPHANS_PROBE.slice(1))).not.toThrow();
-    });
-
-    test("spawnQuiet passes no-orphans env to child", () => {
-      if (process.platform === "win32") return;
-      expect(spawnQuiet(NO_ORPHANS_PROBE)).toBe(true);
-    });
-
-    test("spawnInherit passes no-orphans env to child", () => {
-      if (process.platform === "win32") return;
-      expect(() => spawnInherit(NO_ORPHANS_PROBE)).not.toThrow();
     });
   });
 });

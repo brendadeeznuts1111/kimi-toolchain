@@ -1,4 +1,10 @@
-import { spawnQuiet } from "./bun-native-shim.ts";
+function spawnQuiet(argv: string[]): boolean {
+  const proc = Bun.spawnSync(argv, {
+    stdio: ["ignore", "ignore", "ignore"],
+    timeout: 8_000,
+  });
+  return proc.exitCode === 0;
+}
 
 export interface PaneRequirement {
   bin: string;

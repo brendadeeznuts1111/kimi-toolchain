@@ -62,7 +62,7 @@ async function getChildPids(pid: number): Promise<number[]> {
 }
 
 /** Recursively collect all descendant PIDs (BFS) */
-async function getProcessTreePids(pid: number): Promise<number[]> {
+export async function getProcessTreePids(pid: number): Promise<number[]> {
   const all = new Set<number>();
   const queue = [pid];
   while (queue.length > 0) {
@@ -79,11 +79,11 @@ async function getProcessTreePids(pid: number): Promise<number[]> {
 }
 
 /** Kill a process tree: SIGTERM all, wait, then SIGKILL survivors */
-async function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGKILL") {
+export async function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGKILL") {
   const descendants = await getProcessTreePids(rootPid);
   for (const pid of descendants) {
     try {
-      process.kill(pid, signal === "SIGTERM" ? 15 : 9);
+      process.kill(pid, signal);
     } catch {
       // Already dead or no permission — ignore
     }
@@ -191,22 +191,45 @@ export async function governedSpawn(
       });
 
       const rootPid = proc.pid;
-      let killed = false;
-      let killReason: "timeout" | "memory" | null = null;
+      // `exited` flips to true once `proc.exited` resolves, so timeout/monitor
+      // callbacks can detect the TOCTOU window where the process died naturally
+      // between the timer firing and our cleanup running.
+      let exited = false;
+      // Tracks the actual signal used to kill the process, so callers can
+      // distinguish SIGTERM from an escalated SIGKILL fallback.
+      let killSignal: "SIGTERM" | "SIGKILL" | null = null;
       let killFallbackId: Timer | null = null;
+
+      // Escalation fallback: SIGKILL anything still alive 5s after SIGTERM.
+      // Checks the whole tree, not just the root — descendants can survive
+      // the parent's SIGTERM and leak.
+      const scheduleSigkillFallback = () => {
+        killFallbackId = setTimeout(async () => {
+          if (exited) return;
+          // Kill survivors: root (if still alive) + any lingering descendants.
+          if (!proc.killed) {
+            try {
+              proc.kill("SIGKILL");
+            } catch {
+              // Already dead — ignore
+            }
+          }
+          if (killTree) await killProcessTree(rootPid, "SIGKILL");
+          killSignal = "SIGKILL";
+        }, 5000);
+      };
 
       // Wall-clock timeout
       const timeoutId = setTimeout(() => {
-        killed = true;
-        killReason = "timeout";
-        proc.kill("SIGTERM");
-        if (killTree) killProcessTree(rootPid, "SIGTERM");
-        killFallbackId = setTimeout(() => {
-          if (!proc.killed) {
-            proc.kill("SIGKILL");
-            if (killTree) killProcessTree(rootPid, "SIGKILL");
-          }
-        }, 5000);
+        if (exited) return; // process already exited naturally — don't mark as killed
+        killSignal = "SIGTERM";
+        try {
+          proc.kill("SIGTERM");
+        } catch {
+          // Already dead — ignore
+        }
+        if (killTree) void killProcessTree(rootPid, "SIGTERM");
+        scheduleSigkillFallback();
       }, timeoutMs);
 
       // Memory monitor: checks actual subprocess tree RSS every second
@@ -224,24 +247,24 @@ export async function governedSpawn(
           updateSessionPeak(sessionId, treeMem, 0);
 
           if (limits.maxMemoryMB && treeMem > limits.maxMemoryMB) {
-            killed = true;
-            killReason = "memory";
+            if (exited) return; // process already gone — no kill to record
+            killSignal = "SIGTERM";
             monitor.abort();
             clearTimeout(timeoutId);
-            proc.kill("SIGTERM");
-            if (killTree) killProcessTree(rootPid, "SIGTERM");
-            killFallbackId = setTimeout(() => {
-              if (!proc.killed) {
-                proc.kill("SIGKILL");
-                if (killTree) killProcessTree(rootPid, "SIGKILL");
-              }
-            }, 5000);
+            try {
+              proc.kill("SIGTERM");
+            } catch {
+              // Already dead — ignore
+            }
+            if (killTree) void killProcessTree(rootPid, "SIGTERM");
+            scheduleSigkillFallback();
             return;
           }
         }
       })();
 
       const exitCode = await proc.exited;
+      exited = true; // close the TOCTOU window for any pending callbacks
       const [stdout, stderr] = await Promise.all([
         readableStreamToText(proc.stdout),
         readableStreamToText(proc.stderr),
@@ -273,9 +296,9 @@ export async function governedSpawn(
         stdout,
         stderr,
         exitCode,
-        signal: killed ? (killReason === "timeout" ? "SIGTERM" : "SIGTERM") : undefined,
+        signal: killSignal ?? undefined,
         usage,
-        killed,
+        killed: killSignal !== null,
         attempts,
       };
     } catch (err: any) {

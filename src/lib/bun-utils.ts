@@ -218,11 +218,6 @@ export function parseToml(text: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-/** Resolve a module specifier from a directory (Bun.resolveSync). */
-export function resolveModule(specifier: string, fromDir: string): string {
-  return Bun.resolveSync(specifier, fromDir);
-}
-
 /**
  * file:// URL → absolute path (`Bun.fileURLToPath`).
  * Prefer a string href; URL objects are normalized via `.href`.
@@ -334,19 +329,27 @@ export async function fetchJsonBody<T>(
 /** @see https://bun.com/guides/util/gzip */
 export const BUN_GZIP_DOC_URL = "https://bun.com/guides/util/gzip";
 
+type GzipInput = string | ArrayBuffer | Uint8Array;
+
+function toGzipInput(data: GzipInput): string | ArrayBuffer | Uint8Array<ArrayBuffer> {
+  if (typeof data === "string") return data;
+  if (data instanceof ArrayBuffer) return data;
+  return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+}
+
 /** Gzip bytes with Bun.gzipSync. Accepts UTF-8 string or Uint8Array input. */
-export function gzipBytes(data: string | Uint8Array): Uint8Array {
-  return Bun.gzipSync(typeof data === "string" ? new TextEncoder().encode(data) : data);
+export function gzipBytes(data: GzipInput): Uint8Array {
+  return Bun.gzipSync(toGzipInput(data));
 }
 
 /** Gunzip bytes with Bun.gunzipSync. */
 export function gunzipBytes(data: Uint8Array): Uint8Array {
-  return Bun.gunzipSync(data);
+  return Bun.gunzipSync(toGzipInput(data));
 }
 
 /** Gunzip to UTF-8 text. */
 export function gunzipText(data: Uint8Array): string {
-  return new TextDecoder().decode(Bun.gunzipSync(data));
+  return new TextDecoder().decode(Bun.gunzipSync(toGzipInput(data)));
 }
 
 export interface ExecArgvOptions {

@@ -106,7 +106,7 @@ Identity filters on list endpoints: `sessionId`, `workspaceId`, `paneId`, `agent
 | `GET`  | `/api/perf-harness`        | —     | `{ metrics[{ name, actualMs, thresholdMs, pass }], allPass, summary }` — legacy inline bench    |
 | `GET`  | `/api/perf-registry`       | —     | `{ metrics[{ name, symbol, actualMs, thresholdMs, pass }], allPass, registrySize, failures[] }` |
 | `GET`  | `/api/perf-train`          | —     | `{ metrics, train }` — writes `thresholds.json` when all pass                                   |
-| `GET`  | `/api/perf-report`         | —     | `text/html` — `generatePerfHTML()` report                                                       |
+| `GET`  | `/api/perf-report`         | —     | `text/html` — `generatePerfHtml()` report                                                       |
 | `GET`  | `/api/perf-auto-discover`  | —     | Auto-discovered module benchmarks                                                               |
 | `GET`  | `/api/threshold-overrides` | —     | Active threshold override layers                                                                |
 | `GET`  | `/api/perf-threaded`       | —     | Worker-thread perf comparison                                                                   |

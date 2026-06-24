@@ -4,7 +4,7 @@
 import { createHttpProcessor } from "./processor.ts";
 
 export const http = createHttpProcessor({
-  minTLS: "TLSv1.2", // production floor
+  minTls: "TLSv1.2", // production floor
 });
 
 (globalThis as typeof globalThis & Record<symbol, unknown>)[Symbol.for("kimi.effect.http")] = http;

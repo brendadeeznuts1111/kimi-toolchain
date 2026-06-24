@@ -15,21 +15,18 @@ export const EXEMPT_FILES: Record<string, string[]> = {
   "no-manual-feature-url": ["src/lib/bun-release-registry.ts"],
   // Intentional boundary shims / runtime patches
   "no-as-any": [
-    "src/lib/bun-native-shim.ts",
     "src/lib/deferred-watch.ts",
     "src/lib/bun-markdown.ts",
     "src/lib/governor-spawn.ts",
     "src/lib/secrets-policy.ts",
   ],
   "no-double-cast": [
-    "src/lib/bun-native-shim.ts",
     "src/lib/bun-io.ts",
     "src/lib/http-client.ts",
     "src/lib/inspect.ts",
     "src/lib/bun-utils.ts",
   ],
-  "node-fs-in-bun": ["src/lib/bun-native-shim.ts", "src/lib/bun-io.ts"],
-  "prefer-bun-spawn": ["src/lib/bun-native-shim.ts"],
+  "node-fs-in-bun": ["src/lib/bun-io.ts"],
 };
 
 /** Bun hygiene profile — mirrors Projects ast-grep `bun` scan profile. */

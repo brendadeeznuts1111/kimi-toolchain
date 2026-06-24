@@ -5,7 +5,7 @@ import {
   detectBenchmarkRegressions,
   discoverEffectBenchmarks,
   evaluateEffectBenchmarkGate,
-  generateBenchmarkHTML,
+  generateBenchmarkHtml,
   isHostSpecificBenchmarkKey,
   loadMergedEffectBenchmarkThresholds,
   readBenchmarkSnapshots,
@@ -376,7 +376,7 @@ describe("effect-benchmark", () => {
         registryKey: "k",
       },
     ];
-    const html = generateBenchmarkHTML(metrics, {
+    const html = generateBenchmarkHtml(metrics, {
       title: "Test Report",
       meta: { generatedAt: "2026-01-01T00:00:00Z", regressionCount: 0, snapshotCount: 3 },
     });

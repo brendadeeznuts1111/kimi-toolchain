@@ -18,7 +18,7 @@ import {
   appendBenchmarkSnapshot,
   detectBenchmarkRegressions,
   evaluateEffectBenchmarkGate,
-  generateBenchmarkHTML,
+  generateBenchmarkHtml,
   readBenchmarkSnapshots,
   trainEffectThresholds,
   type BenchmarkRegression,
@@ -166,7 +166,7 @@ export async function runPerfAutoTrain(options: { push?: boolean } = {}): Promis
   const gitHead = await resolveGitHead(REPO_ROOT);
   const snapshot = await appendBenchmarkSnapshot(REPO_ROOT, metrics, { gitHead });
   const history = await readBenchmarkSnapshots(REPO_ROOT, 10);
-  const html = generateBenchmarkHTML(metrics, {
+  const html = generateBenchmarkHtml(metrics, {
     title: "Effect Handler Benchmarks",
     meta: {
       generatedAt: snapshot.generatedAt,

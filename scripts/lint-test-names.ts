@@ -183,7 +183,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "url-i18n-gate": "src/gates/url-i18n.ts",
   "reclassify-failure-ledger": "scripts/reclassify-failure-ledger.ts",
   "gzip-performance": "src/lib/bun-utils.ts",
-  "buffer-from-performance": "src/lib/bun-native-shim.ts",
+  "buffer-from-performance": "src/lib/bun-io.ts",
   "fetch-header-casing": "src/lib/http-client.ts",
   "arm64-jsc-performance": "src/lib/utils.ts",
   "bun-cli-tooling": "src/lib/bun-install-config.ts",

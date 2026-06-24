@@ -126,7 +126,7 @@ import {
 import { Effect } from "effect";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { generateBenchmarkHTML } from "../lib/effect-benchmark.ts";
+import { generateBenchmarkHtml } from "../lib/effect-benchmark.ts";
 import { formatPerfGatesHuman, runEffectBenchmarkCardLoop } from "../lib/effect-benchmark-card.ts";
 import type { Metric } from "../harness/html-reporter.ts";
 import { toolStart, toolDone, healthResult } from "../lib/health-channel.ts";
@@ -2103,7 +2103,7 @@ async function main(): Promise<number> {
       }
 
       if (REPORT) {
-        const html = generateBenchmarkHTML(metrics, {
+        const html = generateBenchmarkHtml(metrics, {
           title: "Effect Handler Benchmarks",
           meta: {
             generatedAt: envelope.timestamp,

@@ -1,7 +1,7 @@
 // ── Perf Registry ──────────────────────────────────────────────────
 
 import {
-  generatePerfHTML,
+  generatePerfHtml,
   perfGate,
   runEffectBenchmarks,
   trainThresholds,
@@ -36,7 +36,7 @@ export async function apiPerfTrain(): Promise<Response> {
 
 export async function apiPerfReport(): Promise<Response> {
   const metrics = await runEffectBenchmarks();
-  const html = generatePerfHTML(metrics);
+  const html = generatePerfHtml(metrics);
   return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
 }
 

@@ -3,7 +3,7 @@ import {
   makeHttpClient,
   TLS_VERSIONS,
   tlsMinVersionCode,
-  type TLSVersion,
+  type TlsVersion,
 } from "../src/lib/http-client.ts";
 
 describe("http-client", () => {
@@ -11,8 +11,8 @@ describe("http-client", () => {
     expect(TLS_VERSIONS).toEqual(["TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"]);
   });
 
-  test("TLSVersion type accepts valid literals", () => {
-    const versions: TLSVersion[] = ["TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"];
+  test("TlsVersion type accepts valid literals", () => {
+    const versions: TlsVersion[] = ["TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"];
     expect(versions).toHaveLength(4);
   });
 
@@ -30,7 +30,7 @@ describe("http-client", () => {
   });
 
   test("makeHttpClient accepts a custom TLS floor", () => {
-    const client = makeHttpClient({ minTLS: "TLSv1.3" });
+    const client = makeHttpClient({ minTls: "TLSv1.3" });
     expect(client).toHaveProperty("fetch");
   });
 });

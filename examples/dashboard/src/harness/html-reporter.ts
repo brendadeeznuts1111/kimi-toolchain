@@ -29,7 +29,7 @@ function computeStats(metrics: Metric[]) {
   return { measured, skipped, passCount, failCount, avg, fastest, slowest };
 }
 
-export function generatePerfHTML(metrics: Metric[], title = "Performance Report"): string {
+export function generatePerfHtml(metrics: Metric[], title = "Performance Report"): string {
   const stats = computeStats(metrics);
   const total = metrics.length;
   const passRate =

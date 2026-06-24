@@ -24,7 +24,7 @@ export function getOrphanProcesses(): ProcessInfo[] {
 
 function killProcess(pid: number, signal: "SIGTERM" | "SIGKILL" = "SIGKILL") {
   try {
-    process.kill(pid, signal === "SIGKILL" ? 9 : 15);
+    process.kill(pid, signal);
     return true;
   } catch {
     return false;

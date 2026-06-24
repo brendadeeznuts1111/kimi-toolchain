@@ -1,6 +1,6 @@
 /**
  * Preferred I/O boundary for call sites — use these names instead of *Sync fs APIs.
- * Implementation may delegate to bun-native-shim until async Bun migration completes.
+ * Sync I/O boundary — prefer async Bun.file/Bun.write in new code.
  */
 
 import {
@@ -20,7 +20,7 @@ import {
   unlinkSync,
   watch,
   writeFileSync,
-} from "./bun-native-shim.ts";
+} from "node:fs";
 import type { Dirent, PathLike, WatchOptions } from "node:fs";
 import type { FSWatcher } from "node:fs";
 

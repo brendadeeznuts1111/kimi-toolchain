@@ -5,7 +5,6 @@
  * survives quiet/verbose runner variants and is released when the wrapper ends.
  */
 
-import { createHash } from "crypto";
 import { join, resolve } from "path";
 import { makeDir, pathExists, readText, removePath, writeText } from "./bun-io.ts";
 
@@ -39,7 +38,7 @@ export type TestGateAcquireResult =
 
 export function resolveTestGateLockPath(projectRoot: string): string {
   const normalized = resolve(projectRoot);
-  const hash = createHash("sha256").update(normalized).digest("hex").slice(0, 16);
+  const hash = new Bun.CryptoHasher("sha256").update(normalized).digest("hex").slice(0, 16);
   const base = Bun.env.KIMI_TEST_LOCK_DIR ?? join(normalized, ".kimi-test-locks");
   return join(base, `${hash}-${LOCK_DIR_NAME}`);
 }

@@ -1,7 +1,7 @@
 /** @description HTML reporter escaping and rendering. */
 
 import { describe, expect, test } from "bun:test";
-import { generatePerfHTML, type Metric } from "../src/harness/html-reporter.ts";
+import { generatePerfHtml, type Metric } from "../src/harness/html-reporter.ts";
 
 describe("html-reporter", () => {
   test("escapes XSS payloads in metric fields", () => {
@@ -25,7 +25,7 @@ describe("html-reporter", () => {
       },
     ];
 
-    const html = generatePerfHTML(metrics, "<script>title</script>");
+    const html = generatePerfHtml(metrics, "<script>title</script>");
 
     expect(html).not.toContain("<script>");
     expect(html).not.toContain("<img src=x onerror=alert(1)>");
@@ -36,7 +36,7 @@ describe("html-reporter", () => {
   });
 
   test("escapes meta fields", () => {
-    const html = generatePerfHTML(
+    const html = generatePerfHtml(
       [
         {
           symbol: "crypto.sha256",
@@ -64,7 +64,7 @@ describe("html-reporter", () => {
   });
 
   test("renders skipped metrics with escaped reason", () => {
-    const html = generatePerfHTML([
+    const html = generatePerfHtml([
       {
         symbol: "skip.me",
         operation: "op",

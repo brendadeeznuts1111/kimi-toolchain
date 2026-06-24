@@ -14,7 +14,7 @@ import { join } from "path";
 import { resolvePerfChangedFiles } from "../harness/changed-context.ts";
 import { stopFileBenchServers } from "../harness/file-bench.ts";
 import {
-  generatePerfHTML,
+  generatePerfHtml,
   perfGate,
   runEffectBenchmarks,
   setThresholdsPath,
@@ -90,7 +90,7 @@ async function processMetrics(metrics: Metric[], dir: string): Promise<number> {
   const gate = perfGate(metrics);
 
   if (REPORT) {
-    const html = generatePerfHTML(metrics);
+    const html = generatePerfHtml(metrics);
     const reportPath = join(dir, "perf-report.html");
     await Bun.write(reportPath, html);
     console.log(`📊 Report written to ${reportPath}`);

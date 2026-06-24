@@ -46,7 +46,7 @@ export async function apiMetricsSchema(): Promise<Response> {
       },
     },
     pipeline:
-      "auto-discovery → per-method benchmark → Metric[] → perfGate() | generatePerfHTML() | snapshot tests",
+      "auto-discovery → per-method benchmark → Metric[] → perfGate() | generatePerfHtml() | snapshot tests",
     exposure: {
       ephemeral: [
         "Metric[] from runEffectBenchmarks() — in-memory, lifetime of benchmark run",
@@ -54,7 +54,7 @@ export async function apiMetricsSchema(): Promise<Response> {
         "perfGate() → { pass, failures[] } — CI exit code logic",
       ],
       artifacts: [
-        "perf-report.html — generatePerfHTML(metrics) → Bun.write()",
+        "perf-report.html — generatePerfHtml(metrics) → Bun.write()",
         "__snapshots__/*.snap — expect(html).toMatchSnapshot()",
         "performance-plan.html — control-plan generator → file effect",
       ],

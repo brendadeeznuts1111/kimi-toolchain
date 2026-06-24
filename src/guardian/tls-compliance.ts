@@ -5,7 +5,7 @@
  * default production floor is TLS 1.2.
  */
 
-import { makeHttpClient, type TLSVersion } from "../lib/http-client.ts";
+import { makeHttpClient, type TlsVersion } from "../lib/http-client.ts";
 
 export interface TLSComplianceResult {
   status: "pass" | "fail";
@@ -31,7 +31,7 @@ async function fetchOutcome(
 
 /** Run the TLS minimum-version compliance gate. */
 export async function tlsComplianceGate(options?: {
-  floor?: TLSVersion;
+  floor?: TlsVersion;
   endpoints?: { tls11?: string; tls10?: string };
 }): Promise<TLSComplianceResult> {
   const floor = options?.floor ?? "TLSv1.2";
@@ -40,7 +40,7 @@ export async function tlsComplianceGate(options?: {
     tls10: options?.endpoints?.tls10 ?? DEFAULT_TEST_ENDPOINTS.tls10,
   };
 
-  const client = makeHttpClient({ minTLS: floor });
+  const client = makeHttpClient({ minTls: floor });
 
   const tls11Result = await fetchOutcome(client, endpoints.tls11);
   if (tls11Result === "ACCEPTED") {

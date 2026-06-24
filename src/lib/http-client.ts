@@ -35,9 +35,9 @@ export const BUN_HTTPS_AGENT_MIN_VERSION_DOC_URL =
   "https://bun.com/reference/node/https/AgentOptions/minVersion";
 
 export const TLS_VERSIONS = ["TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3"] as const;
-export type TLSVersion = (typeof TLS_VERSIONS)[number];
+export type TlsVersion = (typeof TLS_VERSIONS)[number];
 
-const TLS_CODE_MAP: Record<TLSVersion, number> = {
+const TLS_CODE_MAP: Record<TlsVersion, number> = {
   TLSv1: 0x0301,
   "TLSv1.1": 0x0302,
   "TLSv1.2": 0x0303,
@@ -45,13 +45,13 @@ const TLS_CODE_MAP: Record<TLSVersion, number> = {
 };
 
 /** Map TLS version label to Bun.fetch `tls.minVersion` OpenSSL code. */
-export function tlsMinVersionCode(version: TLSVersion): number {
+export function tlsMinVersionCode(version: TlsVersion): number {
   return TLS_CODE_MAP[version];
 }
 
 export interface HttpClientOptions {
   /** Production default minimum TLS version. */
-  minTLS?: TLSVersion;
+  minTls?: TlsVersion;
   /**
    * Whether to reuse pooled TCP connections (Bun default: true).
    * Set to `false` for one-shot scripts where the overhead of keeping
@@ -80,7 +80,7 @@ export interface ProxyConfig {
 
 export interface FetchOptions extends RequestInit {
   /** Override the client's default TLS floor for this request. */
-  minTLS?: TLSVersion;
+  minTls?: TlsVersion;
   /** Bun.fetch TLS options (merged with minVersion floor). */
   tls?: HttpFetchTls;
   /** Override the client's default keep-alive for this request. */
@@ -161,13 +161,13 @@ export function warmConnections(opts: WarmupOptions): void {
  * @see https://bun.com/docs/runtime/networking/fetch#request-options
  */
 export function makeHttpClient(options: HttpClientOptions = {}): HttpClient {
-  const defaultMinTLS = options.minTLS ?? "TLSv1.2";
+  const defaultMinTls = options.minTls ?? "TLSv1.2";
   const defaultKeepalive = options.keepalive ?? true;
 
   return {
     fetch: async (url: string, opts: FetchOptions = {}): Promise<Response> => {
-      const { minTLS, tls, keepalive, proxy, unix, decompress, verbose, ...rest } = opts;
-      const minVersion = minTLS ?? defaultMinTLS;
+      const { minTls, tls, keepalive, proxy, unix, decompress, verbose, ...rest } = opts;
+      const minVersion = minTls ?? defaultMinTls;
       const init = {
         ...rest,
         keepalive: keepalive ?? defaultKeepalive,
