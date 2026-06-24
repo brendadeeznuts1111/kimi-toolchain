@@ -19,7 +19,6 @@ import {
   uptime as osUptime,
   userInfo,
 } from "os";
-import { elapsedMs, nowNs } from "./timing.ts";
 import { safeToml } from "./safe-parse.ts";
 
 /**
@@ -218,21 +217,6 @@ export function parseToml(text: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-/**
- * file:// URL → absolute path (`Bun.fileURLToPath`).
- * Prefer a string href; URL objects are normalized via `.href`.
- * @see https://bun.com/docs/runtime/utils#bun-fileurltopath
- */
-/** High-resolution monotonic clock — delegates to {@link nowNs} in timing.ts. */
-export function nowNanos(): number {
-  return nowNs();
-}
-
-/** Elapsed ms since a {@link nowNanos} sample (rounded for logger/display). */
-export function elapsedMsSince(startNanos: number): number {
-  return Math.round(elapsedMs(startNanos));
-}
-
 /** Stable short key for in-flight dedup maps (JSON payload → hex prefix). */
 export function hashInflightPayload(payload: unknown): string {
   const hasher = new Bun.CryptoHasher("sha256");
@@ -246,47 +230,6 @@ export async function readableStreamToText(
 ): Promise<string> {
   if (!stream) return "";
   return stream.text();
-}
-
-/** Read a ReadableStream into an ArrayBuffer (Bun.readableStreamToArrayBuffer). */
-export async function readableStreamToArrayBuffer(
-  stream: ReadableStream<Uint8Array> | null | undefined
-): Promise<ArrayBuffer> {
-  if (!stream) return new ArrayBuffer(0);
-  return Bun.readableStreamToArrayBuffer(stream);
-}
-
-/** Read a ReadableStream into a Uint8Array (ReadableStream.bytes — replaces deprecated Bun.readableStreamToBytes). */
-export async function readableStreamToBytes(
-  stream: ReadableStream<Uint8Array> | null | undefined
-): Promise<Uint8Array> {
-  if (!stream) return new Uint8Array(0);
-  const result = await stream.bytes();
-  return result instanceof Uint8Array ? result : new Uint8Array(result);
-}
-
-/** Read a ReadableStream into a Blob (ReadableStream.blob — replaces deprecated Bun.readableStreamToBlob). */
-export async function readableStreamToBlob(
-  stream: ReadableStream<Uint8Array> | null | undefined
-): Promise<Blob> {
-  if (!stream) return new Blob([]);
-  return stream.blob();
-}
-
-/** Read a ReadableStream and parse it as JSON (ReadableStream.json — replaces deprecated Bun.readableStreamToJSON). */
-export async function readableStreamToJson<T>(
-  stream: ReadableStream<Uint8Array> | null | undefined
-): Promise<T> {
-  if (!stream) return undefined as unknown as T;
-  return stream.json() as T;
-}
-
-/** Read a ReadableStream into an array of chunks (Bun.readableStreamToArray). */
-export async function readableStreamToArray<T>(
-  stream: ReadableStream<T> | null | undefined
-): Promise<T[]> {
-  if (!stream) return [];
-  return Bun.readableStreamToArray(stream);
 }
 
 /** Minimal fetch response shape when Bun fetch typings omit body/status helpers. */
@@ -311,37 +254,6 @@ export async function fetchJsonBody<T>(
 
 // All version comparisons use Bun.semver directly.
 // @see https://bun.com/docs/runtime/semver
-/**
- * Gzip compression (`Bun.gzipSync` / `Bun.gunzipSync`) — `Uint8Array` ↔ `Uint8Array`.
- * String helpers encode/decode UTF-8 at the boundary; prefer bytes pass-through when already binary.
- *
- * @see {@link BUN_GZIP_DOC_URL}
- */
-/** @see https://bun.com/guides/util/gzip */
-export const BUN_GZIP_DOC_URL = "https://bun.com/guides/util/gzip";
-
-type GzipInput = string | ArrayBuffer | Uint8Array;
-
-function toGzipInput(data: GzipInput): string | ArrayBuffer | Uint8Array<ArrayBuffer> {
-  if (typeof data === "string") return data;
-  if (data instanceof ArrayBuffer) return data;
-  return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
-}
-
-/** Gzip bytes with Bun.gzipSync. Accepts UTF-8 string or Uint8Array input. */
-export function gzipBytes(data: GzipInput): Uint8Array {
-  return Bun.gzipSync(toGzipInput(data));
-}
-
-/** Gunzip bytes with Bun.gunzipSync. */
-export function gunzipBytes(data: Uint8Array): Uint8Array {
-  return Bun.gunzipSync(toGzipInput(data));
-}
-
-/** Gunzip to UTF-8 text. */
-export function gunzipText(data: Uint8Array): string {
-  return new TextDecoder().decode(Bun.gunzipSync(toGzipInput(data)));
-}
 
 export interface ExecArgvOptions {
   cwd?: string;
@@ -373,11 +285,6 @@ export function execArgvSync(cmd: string, args: string[], options: ExecArgvOptio
     throw err;
   }
   return stdout.trim();
-}
-
-/** Resolve executable on PATH (Bun.which). */
-export function resolveExecutable(name: string, cwd?: string): string | null {
-  return Bun.which(name, cwd ? { cwd } : undefined);
 }
 
 /** Async sleep — resolves after `ms` milliseconds or at the given Date. */

@@ -10,7 +10,7 @@ import {
 } from "./bun-io.ts";
 import { appendNdjsonRecordSync, parseNdjsonText } from "./ndjson.ts";
 
-import { gzipBytes, gunzipText } from "./bun-utils.ts";
+
 import { homeDir } from "./paths.ts";
 import { join } from "path";
 // ── Types ────────────────────────────────────────────────────────────────
@@ -91,8 +91,8 @@ function rotateIfNeeded() {
   const archiveName = `handoff-history.${date}.${time}.jsonl.gz`;
   const archivePath = join(join(logPath, ".."), archiveName);
 
-  const raw = readBytes(logPath);
-  writeBytes(archivePath, gzipBytes(raw));
+  const raw = new Uint8Array(readBytes(logPath));
+  writeBytes(archivePath, Bun.gzipSync(raw));
   writeText(logPath, "");
 }
 
@@ -160,7 +160,7 @@ export function getHandoffHistory(limit = 20): HandoffLogEntry[] {
       try {
         const archivePath = join(logDir, file);
         const compressed = readBytes(archivePath);
-        const raw = gunzipText(compressed);
+        const raw = new TextDecoder().decode(Bun.gunzipSync(new Uint8Array(compressed)));
         allEntries.push(...readLogLines(raw));
       } catch {
         // Skip unreadable archives

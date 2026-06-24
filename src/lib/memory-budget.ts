@@ -3,7 +3,6 @@
  */
 
 import { $ } from "bun";
-import { resolveExecutable } from "./bun-utils.ts";
 import { createLogger, type Logger } from "./logger.ts";
 import {
   getCachedCommandOutput,
@@ -157,7 +156,7 @@ export function isDockerDesktopRunning(): boolean {
 }
 
 export function isDockerCliInstalled(): boolean {
-  return resolveExecutable("docker") !== null;
+  return Bun.which("docker") !== null;
 }
 
 export function isSyncDaemonRunning(): boolean {
