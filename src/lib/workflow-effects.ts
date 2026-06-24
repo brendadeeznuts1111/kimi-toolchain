@@ -406,7 +406,7 @@ registerEffectBenchmark({
       process.cwd()
     );
   },
-  skipIf: () => process.env.CI === "true",
+  skipIf: () => Bun.env.CI === "true",
   skipReason: "CI: skip network-dependent fix benchmark",
 });
 
@@ -485,12 +485,8 @@ export async function reportEffect(
 
   const dir = path.substring(0, path.lastIndexOf("/"));
   if (dir) {
-    try {
-      const { mkdirSync } = await import("node:fs");
-      mkdirSync(dir, { recursive: true });
-    } catch {
-      // dir may already exist
-    }
+    const { makeDir } = await import("./bun-io.ts");
+    makeDir(dir, { recursive: true });
   }
 
   await Bun.write(path, lines.join("\n"));

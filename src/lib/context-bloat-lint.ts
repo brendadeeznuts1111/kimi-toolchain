@@ -66,6 +66,7 @@ export const SOURCE_ONLY_BIN_FILES = [
   "kimi-config.ts",
   "kimi-dashboard.ts",
   "kimi-identity.ts",
+  "machine-bun.ts",
 ] as const;
 
 export const AGENTS_MAX_LINES = 900;

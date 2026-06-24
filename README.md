@@ -84,6 +84,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run audit:network`                 | Audit script                           |
 | `bun run audit:parallel`                | Audit script                           |
 | `bun run audit:perf`                    | Audit script                           |
+| `bun run audit:release-blogs`           | Audit script                           |
 | `bun run audit:secrets`                 | Audit script                           |
 | `bun run autophagy:scan`                | scripts/autophagy-scan.ts              |
 | `bun run autophagy:scan:gate`           | scripts/autophagy-scan.ts              |
@@ -159,6 +160,8 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run format:check:ci`               | See package.json scripts               |
 | `bun run governance`                    | Run kimi-governance from repo          |
 | `bun run heal`                          | Run kimi-heal from repo                |
+| `bun run inspect:bun-upstream-refs`     | scripts/inspect-bun-upstream-refs.ts   |
+| `bun run inspect:release-registry`      | scripts/inspect-release-registry.ts    |
 | `bun run install-wrappers`              | scripts/install-bin-wrappers.ts        |
 | `bun run kimi`                          | Run kimi-toolchain from repo           |
 | `bun run lint`                          | scripts/lint.ts                        |
@@ -209,6 +212,8 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run references:lint-online`        | Canonical references script            |
 | `bun run references:lint:examples`      | Canonical references script            |
 | `bun run references:snapshot`           | Canonical references script            |
+| `bun run release:diff`                  | scripts/release-diff.ts                |
+| `bun run release:info`                  | scripts/inspect-release-registry.ts    |
 | `bun run runtime:deep`                  | scripts/runtime-info.ts                |
 | `bun run runtime:info`                  | scripts/runtime-info.ts                |
 | `bun run scan`                          | scripts/scan.ts                        |
@@ -252,6 +257,9 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run trace`                         | Run kimi-trace from repo               |
 | `bun run typecheck`                     | See package.json scripts               |
 | `bun run unify`                         | scripts/unify.ts                       |
+| `bun run upstream:refs`                 | scripts/inspect-bun-upstream-refs.ts   |
+| `bun run validate:bun-cli-alignment`    | scripts/validate-bun-cli-alignment.ts  |
+| `bun run validate:release`              | See package.json scripts               |
 | `bun run validate:release-ssot`         | scripts/validate-release-ssot.ts       |
 | `bun run verify-workspace`              | scripts/verify-workspace.ts            |
 | `bun run verify:bun-features`           | scripts/verify-bun-features.ts         |

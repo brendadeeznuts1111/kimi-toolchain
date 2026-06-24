@@ -16,6 +16,7 @@ import type {
   WorkflowSeedState,
 } from "./types.ts";
 import { startDelayedIntervalLoop, stopDelayedIntervalLoop } from "../bun-utils.ts";
+import { inspectAgent } from "../inspect.ts";
 
 const SEVERITY_RANK: Record<IssueSeverity, number> = {
   low: 1,
@@ -56,7 +57,7 @@ export class WorkflowLoop {
   outputResults(results: ScannerResult[], drift: DriftMap | null): void {
     const output = this.options.output ?? "table";
     if (output === "json") {
-      console.log(JSON.stringify({ domain: this.domain.id, results, drift }, null, 2));
+      console.log(inspectAgent({ domain: this.domain.id, results, drift }, { compact: false }));
       return;
     }
     if (output === "herdr") {

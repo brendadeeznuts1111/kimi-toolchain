@@ -6,10 +6,11 @@
  */
 
 import { join } from "path";
-import { BUN_RELEASE } from "./bun-release-registry.ts";
+import { BUN_RELEASE_BLOG_URL, BUN_RELEASE_HISTORY } from "./bun-release-registry.ts";
 import { readTextAsync } from "./bun-io.ts";
 
-const RELEASE_BLOG_PATHNAME = new URL(BUN_RELEASE.blogUrl).pathname;
+const RELEASE_BLOG_PATHNAME = new URL(BUN_RELEASE_BLOG_URL).pathname;
+const RELEASE_1_3_6_BLOG_PATHNAME = new URL(BUN_RELEASE_HISTORY["1.3.6"].blogUrl).pathname;
 
 export interface DocLinkViolation {
   file: string;
@@ -90,7 +91,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     } satisfies BunDocLinkMatchSpec,
   },
   {
-    constant: "BUN_RELEASE_1_3_6_URL",
+    constant: "BUN_RELEASE_BLOG_URL",
     definingFile: "src/lib/bun-release-registry.ts",
     match: {
       hostnames: ["bun.com"],
@@ -102,7 +103,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-release-registry.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: RELEASE_BLOG_PATHNAME,
+      pathname: RELEASE_1_3_6_BLOG_PATHNAME,
       hash: "#bun-archive-api-creates-extracts-tarballs",
     } satisfies BunDocLinkMatchSpec,
   },
@@ -111,7 +112,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-release-registry.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: RELEASE_BLOG_PATHNAME,
+      pathname: RELEASE_1_3_6_BLOG_PATHNAME,
       hash: "#bun-jsonc-api-for-parsing-json-with-comments",
     } satisfies BunDocLinkMatchSpec,
   },
@@ -120,7 +121,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-release-registry.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: RELEASE_BLOG_PATHNAME,
+      pathname: RELEASE_1_3_6_BLOG_PATHNAME,
       hash: "#http-https-proxy-support-for-websocket",
     } satisfies BunDocLinkMatchSpec,
   },
@@ -129,7 +130,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-release-registry.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: RELEASE_BLOG_PATHNAME,
+      pathname: RELEASE_1_3_6_BLOG_PATHNAME,
       hash: "#compile-executable-path-cli-flag",
     } satisfies BunDocLinkMatchSpec,
   },
@@ -138,7 +139,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/blog/bun-v1.3.7",
+      pathname: RELEASE_BLOG_PATHNAME,
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -154,7 +155,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/blog/bun-v1.3.7",
+      pathname: RELEASE_BLOG_PATHNAME,
       hash: "#faster-buffer-from-with-arrays",
     } satisfies BunDocLinkMatchSpec,
   },

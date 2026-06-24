@@ -137,7 +137,7 @@ test:shard    ──► full discovery, one CI slice
 
 ## Name filter (`--grep`)
 
-Bun >= 1.3.6 adds `--grep` as an alias for `--test-name-pattern` (same as Jest/Mocha `-t`):
+Bun >= 1.3.6 adds `--grep` as an alias for `--test-name-pattern` (same role as Jest `-t`):
 
 ```bash
 bun test --grep "archive round-trip"

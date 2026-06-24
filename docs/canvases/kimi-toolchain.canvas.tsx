@@ -217,7 +217,7 @@ const CANVAS_ROUTING_ROW_TONE = [
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "407 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "437 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -244,10 +244,10 @@ const TOOL_CATEGORIES = [
 ] as const;
 
 const BIN_COUNT = 31;
-const LIB_COUNT = 471;
-const UNIT_COUNT = 407;
+const LIB_COUNT = 483;
+const UNIT_COUNT = 437;
 const INTEGRATION_COUNT = 18;
-const SMOKE_COUNT = 9;
+const SMOKE_COUNT = 10;
 const CURSOR_CANVAS_COUNT = 13;
 
 function SyncFlowDag() {

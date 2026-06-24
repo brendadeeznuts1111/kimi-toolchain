@@ -4,7 +4,7 @@
  * Bun.cron (1.4+) uses 5 fields (minute hour day month weekday) in UTC — no seconds.
  * Sub-minute poll intervals use {@link startDelayedIntervalLoop} (`Bun.sleep`) instead.
  * Tests: bun test defaults to Etc/UTC (test/setup.ts).
- * Override TZ: `TZ=America/Los_Angeles bun test` or process.env.TZ in a test file.
+ * Override TZ: `TZ=America/Los_Angeles bun test` or Bun.env.TZ in a test file.
  */
 
 import { startDelayedIntervalLoop, stopDelayedIntervalLoop } from "../bun-utils.ts";
