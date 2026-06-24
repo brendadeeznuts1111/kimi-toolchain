@@ -79,14 +79,18 @@ async function fetchBlogAssets(
   return { md, html };
 }
 
-function countFeatureCommits(md: string): number {
-  return [...md.matchAll(/<!--\s*https:\/\/github\.com\/oven-sh\/bun\/commit\/[a-f0-9]+\s*-->/g)]
-    .length;
+/** Feature commits exclude the trailing release-hash anchor (last commit comment). */
+function countFeatureCommits(md: string): number | undefined {
+  const commits = [
+    ...md.matchAll(/<!--\s*https:\/\/github\.com\/oven-sh\/bun\/commit\/[a-f0-9]+\s*-->/g),
+  ];
+  if (commits.length <= 1) return undefined;
+  return commits.length - 1;
 }
 
 function parseBlogReleaseMetadata(
   md: string
-): { version: string; tag: string; hash?: string; featureCommitCount: number } | null {
+): { version: string; tag: string; hash?: string; featureCommitCount?: number } | null {
   const fm = md.match(/^---\n([\s\S]*?)\n---/);
   const title = fm?.[1]?.match(/^title:\s*(.+)$/m)?.[1] ?? "";
   const versionMatch = title.match(/\bv?(\d+\.\d+\.\d+)\b/);
