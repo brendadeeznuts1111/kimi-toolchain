@@ -454,6 +454,11 @@ export class Logger {
     console.log(`╚${bar}╝`);
   }
 
+  /** Bind a trace id after construction (e.g. once ensureProcessTrace() resolves). */
+  setTraceId(traceId: string): void {
+    this.traceId = traceId;
+  }
+
   /** Get all logged entries for testing/telemetry. */
   getLogs(): LogEntry[] {
     return [...this.logs];

@@ -126,11 +126,6 @@ export async function readTextAsync(path: string): Promise<string> {
   return Bun.file(path).text();
 }
 
-/** Bun-native async binary read (`Bun.file(path).bytes()`). */
-export async function readBytesAsync(path: string): Promise<Uint8Array> {
-  return Bun.file(path).bytes();
-}
-
 export type JsonValidator<T> = (value: unknown) => value is T;
 
 /** Raw Bun JSON read — returns `unknown` (no type assertion). */
