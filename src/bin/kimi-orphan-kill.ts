@@ -12,13 +12,14 @@ import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { createLogger } from "../lib/logger.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { getOrphanProcesses, runOrphanKill, clearStaleLocks } from "../lib/process-utils.ts";
+import { getOrphanCandidates } from "../lib/proc-cache.ts";
+import { runOrphanKill, clearStaleLocks } from "../lib/process-utils.ts";
 
 const logger = createLogger(Bun.argv, "kimi-orphan-kill");
 
 async function main(): Promise<number> {
   const DRY_RUN = Bun.argv.includes("--dry-run");
-  const orphans = getOrphanProcesses();
+  const orphans = getOrphanCandidates();
 
   if (orphans.length === 0) {
     logger.info("No orphan processes found");

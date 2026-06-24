@@ -3,7 +3,6 @@
  */
 
 import { basename, join } from "path";
-import { terminalWidth } from "./bun-utils.ts";
 import { customInspect, formatTable, sliceAnsi } from "./inspect.ts";
 import type { SkillCoverageRow } from "./skill-contract.ts";
 
@@ -13,7 +12,7 @@ export const LOADED_BY_MAX_COLS = 28;
 
 /** Truncate text to fit a terminal column budget (Bun.sliceAnsi-aware). */
 export function truncateDisplay(text: string, maxCols: number): string {
-  if (terminalWidth(text) <= maxCols) return text;
+  if (Bun.stringWidth(text) <= maxCols) return text;
   return sliceAnsi(text, 0, maxCols, "…");
 }
 
@@ -26,7 +25,7 @@ export function sortSkillTableRows(
   switch (mode) {
     case "width":
       return sorted.sort((a, b) => {
-        const dw = terminalWidth(a.skill) - terminalWidth(b.skill);
+        const dw = Bun.stringWidth(a.skill) - Bun.stringWidth(b.skill);
         return dw !== 0 ? dw : a.skill.localeCompare(b.skill);
       });
     case "layer":

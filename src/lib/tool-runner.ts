@@ -20,6 +20,7 @@ import {
   probeBunExecutable,
 } from "./root-hygiene.ts";
 import { elapsedMs, nowNs } from "./timing.ts";
+import { killProcessTree } from "./governor-spawn.ts";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const AGENT_TOOL_TIMEOUT_MS = 15_000;
@@ -293,9 +294,19 @@ async function invokeCommandOnce(
     timeoutMs > 0
       ? setTimeout(() => {
           timedOut = true;
-          proc.kill("SIGTERM");
+          try {
+            proc.kill("SIGTERM");
+          } catch {
+            // Already dead — ignore
+          }
+          void killProcessTree(proc.pid, "SIGTERM");
           sigkillTimer = setTimeout(() => {
-            proc.kill("SIGKILL");
+            try {
+              proc.kill("SIGKILL");
+            } catch {
+              // Already dead — ignore
+            }
+            void killProcessTree(proc.pid, "SIGKILL");
           }, gracePeriodMs);
         }, timeoutMs)
       : null;

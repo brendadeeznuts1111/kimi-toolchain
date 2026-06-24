@@ -9,7 +9,7 @@
  * a native webview window. The HTML is written to .kimi-artifacts/deep-audit-report.html.
  */
 
-import { fileUrlFromPath, isDirectRun } from "../../lib/bun-utils.ts";
+import { isDirectRun } from "../../lib/bun-utils.ts";
 import type { DeepAuditReport } from "../../lib/deep-audit-types.ts";
 import { ensureDir } from "../../lib/utils.ts";
 import { formatWebViewExperimentalNotice, webViewSupported } from "../../lib/webview-console.ts";
@@ -371,7 +371,7 @@ async function openWebviewReport(htmlPath: string): Promise<Bun.WebView> {
     height: 768,
   });
 
-  await view.navigate(fileUrlFromPath(htmlPath).href);
+  await view.navigate(Bun.pathToFileURL(htmlPath).href);
   return view;
 }
 

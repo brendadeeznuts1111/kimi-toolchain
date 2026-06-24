@@ -6,7 +6,7 @@ import { nanoseconds } from "bun";
 import { DEFAULTS } from "./governor-state.ts";
 import { getSessionId, updateSessionPeak } from "./governor-sessions.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
-import { readableStreamToText, sleepAbortable } from "./bun-utils.ts";
+import { sleepAbortable } from "./bun-utils.ts";
 import { getCachedCommandOutputAsync } from "./proc-cache.ts";
 import { nowMs } from "./timing.ts";
 
@@ -26,8 +26,8 @@ export interface ResourceUsage {
 }
 
 export function getCurrentUsage(): ResourceUsage {
-  const memUsage = (process as any).memoryUsage?.() || { rss: 0 };
-  const memoryMB = Math.round((memUsage.rss || 0) / 1024 / 1024);
+  const memUsage = process.memoryUsage();
+  const memoryMB = Math.round(memUsage.rss / 1024 / 1024);
   const cpuTimeMs = Math.round(nowMs());
   return { memoryMB, cpuTimeMs, fileSizeMB: 0, openFiles: 0 };
 }
@@ -98,7 +98,7 @@ async function getSubprocessMemory(pid: number): Promise<number> {
       stdout: "pipe",
       stderr: "pipe",
     });
-    const output = await readableStreamToText(result.stdout);
+    const output = await result.stdout.text();
     await result.exited;
     const kb = parseInt(output.trim(), 10);
     return isNaN(kb) ? 0 : Math.round(kb / 1024); // MB
@@ -265,10 +265,7 @@ export async function governedSpawn(
 
       const exitCode = await proc.exited;
       exited = true; // close the TOCTOU window for any pending callbacks
-      const [stdout, stderr] = await Promise.all([
-        readableStreamToText(proc.stdout),
-        readableStreamToText(proc.stderr),
-      ]);
+      const [stdout, stderr] = await Promise.all([proc.stdout.text(), proc.stderr.text()]);
 
       clearTimeout(timeoutId);
       monitor.abort();

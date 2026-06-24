@@ -1,4 +1,4 @@
-import { execArgvSync, sleepSync } from "./bun-utils.ts";
+import { execArgvSync } from "./bun-utils.ts";
 import { pathExists, writeText } from "./bun-io.ts";
 import { buildContextSyncFromReport, enrichHandoffMessage } from "./context-sync-from-report.ts";
 import type { HerdrAgentsTabPane, HerdrProjectConfig } from "./herdr-project-config.ts";
@@ -22,7 +22,7 @@ export function writeContextDrop(text: string): string {
 
 function pauseSync(ms: number) {
   try {
-    sleepSync(ms);
+    Bun.sleepSync(Math.max(0, ms));
   } catch {
     const deadline = Date.now() + ms;
     while (Date.now() < deadline) {}

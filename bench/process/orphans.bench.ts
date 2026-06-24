@@ -1,19 +1,19 @@
 import { benchSync } from "../lib/timing.ts";
-import { getOrphanProcesses, clearProcessCache } from "../../src/lib/process-utils.ts";
+import { getOrphanCandidates, clearProcessCache } from "../../src/lib/proc-cache.ts";
 
 export function runOrphanProcessBenchmarks() {
   return [
     {
-      label: "getOrphanProcesses (cold)",
+      label: "getOrphanCandidates (cold)",
       sample: benchSync(() => {
         clearProcessCache();
-        getOrphanProcesses();
+        getOrphanCandidates();
       }, 50),
     },
     {
-      label: "getOrphanProcesses (cached)",
+      label: "getOrphanCandidates (cached)",
       sample: benchSync(() => {
-        getOrphanProcesses();
+        getOrphanCandidates();
       }, 50),
     },
   ];

@@ -287,16 +287,6 @@ export function execArgvSync(cmd: string, args: string[], options: ExecArgvOptio
   return stdout.trim();
 }
 
-/** Async sleep — resolves after `ms` milliseconds or at the given Date. */
-export function sleep(ms: number | Date): Promise<void> {
-  return Bun.sleep(ms);
-}
-
-/** Blocking sleep — prefer await {@link sleep} in async code. */
-export function sleepSync(ms: number): void {
-  Bun.sleepSync(Math.max(0, ms));
-}
-
 /** @see https://bun.com/docs/runtime/utils */
 export const BUN_RUNTIME_UTILS_DOC_URL = "https://bun.com/docs/runtime/utils";
 
@@ -600,16 +590,6 @@ export function startCronLoop(
     return controller;
   }
   return startIntervalLoop(intervalMs, tick);
-}
-
-/** Terminal display width (Bun.stringWidth). */
-export function terminalWidth(text: string, countAnsi = false): number {
-  return Bun.stringWidth(text, countAnsi ? { countAnsiEscapeCodes: true } : undefined);
-}
-
-/** HTML escape (Bun.escapeHTML). */
-export function escapeHtml(value: string | number | boolean | object): string {
-  return Bun.escapeHTML(value);
 }
 
 /** @see https://bun.com/guides/util/version */

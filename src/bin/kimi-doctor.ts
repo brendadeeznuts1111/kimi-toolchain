@@ -69,7 +69,8 @@ import {
   mergeConfigTomlHooks,
   mergeConfigTomlPermissions,
 } from "../lib/kimi-config-audit.ts";
-import { getOrphanProcesses, runOrphanKill } from "../lib/process-utils.ts";
+import { getOrphanCandidates } from "../lib/proc-cache.ts";
+import { runOrphanKill } from "../lib/process-utils.ts";
 import { isAgentContext } from "../lib/tool-runner.ts";
 import { resolveProjectRoot, getProjectName, readPackageManifest } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
@@ -622,7 +623,7 @@ async function applyFixes(projectRoot: string): Promise<void> {
 
   await applyWorkspaceFixes(projectRoot);
 
-  const orphans = getOrphanProcesses();
+  const orphans = getOrphanCandidates();
   if (!JSON_OUT) {
     if (orphans.length > 0) {
       logger.line(`  → Killing ${orphans.length} orphan process(es)...`);

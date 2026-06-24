@@ -91,7 +91,7 @@ function rotateIfNeeded() {
   const archiveName = `handoff-history.${date}.${time}.jsonl.gz`;
   const archivePath = join(join(logPath, ".."), archiveName);
 
-  const raw = new Uint8Array(readBytes(logPath));
+  const raw = new Uint8Array(readBytes(logPath)) as Uint8Array<ArrayBuffer>;
   writeBytes(archivePath, Bun.gzipSync(raw));
   writeText(logPath, "");
 }

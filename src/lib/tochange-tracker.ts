@@ -168,14 +168,7 @@ export const STREAM_READ_REGISTRY: TochangeRegistryEntry[] = [
     summary: "readableStreamToText null-safe canonical wrapper",
     probe: "export async function readableStreamToText",
   },
-  {
-    id: "stream-read-delegate-utils",
-    file: "src/lib/utils.ts",
-    tier: "tier1",
-    status: "implemented",
-    summary: "streamToText re-exports bun-utils.readableStreamToText",
-    probe: "readableStreamToText as streamToText",
-  },
+
   {
     id: "stream-read-delegate-inspect",
     file: "src/lib/inspect.ts",

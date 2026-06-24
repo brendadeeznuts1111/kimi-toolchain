@@ -14,7 +14,6 @@
  * @see https://bun.com/docs/runtime/webview#console-capture
  */
 
-import { fileUrlFromPath } from "./bun-utils.ts";
 import { inspectAgent } from "./inspect.ts";
 import {
   FRONTMATTER_TABLE_DEPTH,
@@ -392,7 +391,7 @@ function resolveTargetUrl(target: string): string {
   if (/^https?:\/\//i.test(target) || target.startsWith("data:")) {
     return target;
   }
-  return fileUrlFromPath(target).href;
+  return Bun.pathToFileURL(target).href;
 }
 
 /** Parse `kimi-debug webview` argv. */

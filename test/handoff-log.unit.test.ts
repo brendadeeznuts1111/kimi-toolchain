@@ -2,7 +2,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "path";
 import { cleanupPath, testTempDir } from "./helpers.ts";
 import { listDir, pathExists, readText, writeText } from "../src/lib/bun-io.ts";
-import { gunzipText } from "../src/lib/bun-utils.ts";
 import {
   configureHandoffLog,
   getHandoffHistory,
@@ -85,7 +84,9 @@ describe("handoff-log", () => {
 
     // Verify archive content integrity — decompress and check pre-rotation data survived
     const archivePath = join(tempDir, archives[0]!);
-    const decompressed = gunzipText(new Uint8Array(await Bun.file(archivePath).arrayBuffer()));
+    const decompressed = new TextDecoder().decode(
+      Bun.gunzipSync(new Uint8Array(await Bun.file(archivePath).arrayBuffer()))
+    );
     expect(decompressed).toContain("x".repeat(300));
     expect(decompressed).toBe(preRotationContent);
   });

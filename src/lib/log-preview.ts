@@ -5,7 +5,6 @@
  * Uses Bun.stripANSI + Bun.stringWidth (SIMD) via inspect/bun-utils helpers.
  */
 
-import { terminalWidth } from "./bun-utils.ts";
 import { sliceAnsi, stripANSI } from "./inspect.ts";
 
 /** Default terminal column budget for log preview cards (~960px panel). */
@@ -20,7 +19,7 @@ export interface LogPreviewLine {
 /** Plain-text preview column: strip escapes, then truncate by display width. */
 export function formatLogPreviewText(text: string, maxCols = LOG_PREVIEW_MAX_COLS): string {
   const plain = stripANSI(text);
-  if (terminalWidth(plain) <= maxCols) return plain;
+  if (Bun.stringWidth(plain) <= maxCols) return plain;
   return sliceAnsi(plain, 0, maxCols, "…");
 }
 
@@ -29,7 +28,7 @@ export function buildLogPreviewLine(raw: string, maxCols = LOG_PREVIEW_MAX_COLS)
   return {
     raw,
     preview: formatLogPreviewText(raw, maxCols),
-    displayWidth: terminalWidth(raw),
+    displayWidth: Bun.stringWidth(raw),
   };
 }
 

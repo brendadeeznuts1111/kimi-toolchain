@@ -224,11 +224,6 @@ export function findExecutable(bin: string): string | null {
   return Bun.which(bin);
 }
 
-// ── Stream Helpers ───────────────────────────────────────────────────
-
-/** Convert a ReadableStream to a text string. */
-export { readableStreamToText as streamToText } from "./bun-utils.ts";
-
 // ── Fetch with Timeout ───────────────────────────────────────────────
 
 /** Fetch a URL with a configurable timeout (default 10s). */

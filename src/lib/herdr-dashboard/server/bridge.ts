@@ -7,7 +7,7 @@ import { GATE_HEALTH_MANIFEST_ID } from "../../../canvases/gate-health.manifest.
 import { ARTIFACT_LINEAGE_MANIFEST_ID } from "../../../canvases/artifact-lineage.manifest.ts";
 import { parseCanvasDeepLink } from "../../dashboard-canvas-filter.ts";
 import { DEFAULT_EXAMPLES_DASHBOARD_URL } from "../../examples-dashboard-companion.ts";
-import { escapeHtml } from "../../bun-utils.ts";
+
 
 export interface HerdrCanvasContext {
   /** Canvas manifest id (e.g. "artifact-lineage"). */
@@ -98,5 +98,5 @@ export function renderHerdrCanvasCompanion(
 ): string {
   const href = buildDashboardDeepLink(ctx, options);
   const label = options?.label ?? "Examples dashboard";
-  return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
+  return `<a href="${Bun.escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${Bun.escapeHTML(label)}</a>`;
 }

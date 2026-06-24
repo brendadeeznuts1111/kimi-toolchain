@@ -1,4 +1,4 @@
-import { readableStreamToText, terminalWidth } from "./bun-utils.ts";
+import { readableStreamToText } from "./bun-utils.ts";
 
 /**
  * inspect.ts — Bun-native inspection, equality, and ANSI helpers.
@@ -325,7 +325,7 @@ export function sliceAnsi(text: string, start?: number, end?: number, ellipsis?:
 
 /** Truncate text to a terminal column budget (ANSI- and wide-char aware). */
 export function truncateTerminal(text: string, maxCols: number, ellipsis = "…"): string {
-  if (terminalWidth(text) <= maxCols) return text;
+  if (Bun.stringWidth(text) <= maxCols) return text;
   return sliceAnsi(text, 0, maxCols, ellipsis);
 }
 

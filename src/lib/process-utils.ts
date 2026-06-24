@@ -1,48 +1,21 @@
-#!/usr/bin/env bun
 /**
- * process-utils — Orphan process detection and cleanup
+ * process-utils — Orphan process cleanup
  * Bun-native only. Zero dependencies.
  */
 
 import { guardDir } from "./paths.ts";
 import { join } from "path";
-import { clearProcessCache, countOrphanCandidates, getOrphanCandidates } from "./proc-cache.ts";
-import { removePath } from "./bun-io.ts";
-
-export interface ProcessInfo {
-  pid: number;
-  cmd: string;
-  cpu: number;
-}
-
-// Re-export for backward compat
-export { clearProcessCache, countOrphanCandidates };
-
-export function getOrphanProcesses(): ProcessInfo[] {
-  return getOrphanCandidates().map(({ pid, cmd, cpu }) => ({ pid, cmd, cpu }));
-}
-
-function killProcess(pid: number, signal: "SIGTERM" | "SIGKILL" = "SIGKILL") {
-  try {
-    process.kill(pid, signal);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { getOrphanCandidates, type OrphanProcessInfo } from "./proc-cache.ts";
 
 export async function clearStaleLocks(): Promise<string[]> {
   const cleared: string[] = [];
   const locks = [join(guardDir(), "test-runner.pid"), join(guardDir(), "kimi-test.lock")];
   for (const lock of locks) {
     try {
-      const file = Bun.file(lock);
-      if (await file.exists()) {
-        removePath(lock, { recursive: true, force: true });
-        cleared.push(lock);
-      }
+      await Bun.file(lock).delete();
+      cleared.push(lock);
     } catch {
-      /* ignore */
+      // Lock absent or unprivileged — ignore.
     }
   }
   return cleared;
@@ -50,8 +23,8 @@ export async function clearStaleLocks(): Promise<string[]> {
 
 export async function runOrphanKill(
   dryRun = false
-): Promise<{ killed: number; orphans: ProcessInfo[] }> {
-  const orphans = getOrphanProcesses();
+): Promise<{ killed: number; orphans: OrphanProcessInfo[] }> {
+  const orphans = getOrphanCandidates();
   if (orphans.length === 0) {
     await clearStaleLocks();
     return { killed: 0, orphans: [] };
@@ -63,12 +36,22 @@ export async function runOrphanKill(
 
   let killed = 0;
   for (const o of orphans) {
-    if (killProcess(o.pid, "SIGTERM")) killed++;
+    try {
+      process.kill(o.pid, "SIGTERM");
+      killed++;
+    } catch {
+      // Already dead or no permission — ignore
+    }
   }
 
   Bun.sleepSync(500);
-  for (const o of getOrphanProcesses()) {
-    if (killProcess(o.pid, "SIGKILL")) killed++;
+  for (const o of getOrphanCandidates()) {
+    try {
+      process.kill(o.pid, "SIGKILL");
+      killed++;
+    } catch {
+      // Already dead or no permission — ignore
+    }
   }
 
   await clearStaleLocks();

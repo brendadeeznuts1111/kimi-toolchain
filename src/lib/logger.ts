@@ -12,6 +12,7 @@
 
 import type { HealthCheck, HealthReport } from "./health-check.ts";
 import { statusIcon as healthStatusIcon, aggregateChecks } from "./health-check.ts";
+import { dirname } from "path";
 import { appendText, makeDir } from "./bun-io.ts";
 import { inspectAgent } from "./inspect.ts";
 import { isAgentContext } from "./tool-runner.ts";
@@ -154,8 +155,8 @@ export class Logger {
   }
 
   private emitEntry(entry: LogEntry): void {
-    if (!this.shouldEmit(entry.level)) return;
     this.pushEntry(entry);
+    if (!this.shouldEmit(entry.level)) return;
 
     if (this.json) {
       writeJsonLine(entry);
@@ -239,7 +240,6 @@ export class Logger {
       ...this.baseEntry(level, formatted.plain),
       ...(input.taxonomyId ? { taxonomyId: input.taxonomyId } : {}),
       fields: {
-        ...this.fields,
         errorDomain: formatted.structured.domain,
         errorSeverity: formatted.structured.severity,
         ...(input.code ? { errorCode: input.code } : {}),
@@ -368,8 +368,8 @@ export class Logger {
       suggestion,
       ...(autoFix ? { autoFix } : {}),
     };
-    if (!this.shouldEmit("info")) return;
     this.pushEntry(entry);
+    if (!this.shouldEmit("info")) return;
 
     if (this.json) {
       writeJsonLine(entry);
@@ -462,10 +462,10 @@ export class Logger {
   /** Append logs as JSONL for persistent telemetry (matches tool-failures.jsonl semantics). */
   async flushToFile(path: string): Promise<void> {
     if (this.logs.length === 0) return;
-    const { dirname } = await import("path");
     makeDir(dirname(path), { recursive: true });
     const lines = this.logs.map((l) => inspectAgent(l)).join("\n") + "\n";
     appendText(path, lines);
+    this.logs.length = 0;
   }
 }
 

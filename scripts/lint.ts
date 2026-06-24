@@ -24,7 +24,38 @@ import { lintTestNames } from "./lint-test-names.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
-import { NAMING_RULES } from "./naming-lint-rules.ts";
+const NAMING_RULES = `
+id: acronym-casing
+language: typescript
+message: Identifier uses uppercase acronym; use word-case (Api, Json, Url, etc.)
+severity: error
+rule:
+  kind: identifier
+  regex: (MCP|API|URL|JSON|HTTP|JWT|CSRF|SSE|DB|ID|UUID|HTML|CSS|SQL|CLI|GUI|CPU|RAM|DNS|TCP|TLS|SSL|SSH|FTP|S3|NPM|DOM|SVG|CSV|TSV|YAML|TOML)
+  not:
+    any:
+      - regex: ^[A-Z_][A-Z0-9_]*$
+      - regex: ^(URLPattern|URLSearchParams|ShadowRealm|randomUUIDv7|pathToFileURL|fileURLToPath|SQLQueryBindings|S3Client|S3Bucket|S3File)$
+      - regex: ^HTML[A-Z].*$
+      - regex: ^SVG[A-Z].*$
+      - regex: ^CSS[A-Z].*$
+      - regex: ^DOM[A-Z].*$
+---
+id: type-predicate-naming
+language: typescript
+message: Function returns a type predicate; rename to start with "is" (or "assert" for assertions)
+severity: error
+rule:
+  any:
+    - pattern: 'function $NAME($$$ARGS): $$$LEFT is $$$RIGHT { $$$BODY }'
+    - pattern: 'function $NAME($$$ARGS): asserts $$$LEFT is $$$RIGHT { $$$BODY }'
+    - pattern: 'const $NAME = ($$$ARGS): $$$LEFT is $$$RIGHT => $$$BODY'
+    - pattern: 'const $NAME = ($$$ARGS): asserts $$$LEFT is $$$RIGHT => $$$BODY'
+constraints:
+  NAME:
+    not:
+      regex: ^(is|assert)
+`;
 
 async function runNamingLint(paths?: string[]): Promise<number> {
   const cmd =

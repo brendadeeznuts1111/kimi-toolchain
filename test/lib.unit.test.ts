@@ -15,10 +15,10 @@ import {
   printToolBanner,
   buildDoctorReport,
   printDoctorReport,
-  streamToText,
   runTool,
   fetchWithTimeout,
 } from "../src/lib/utils.ts";
+import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { TOOLCHAIN_VERSION, TOOLCHAIN_NAME } from "../src/lib/version.ts";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import {
@@ -186,14 +186,14 @@ describe("lib/utils", () => {
     }
   });
 
-  test("streamToText reads stream content", async () => {
+  test("readableStreamToText reads stream content", async () => {
     const stream = new ReadableStream({
       start(controller) {
         controller.enqueue(new TextEncoder().encode("hello"));
         controller.close();
       },
     });
-    expect(await streamToText(stream)).toBe("hello");
+    expect(await readableStreamToText(stream)).toBe("hello");
   });
 
   describe("runTool", () => {
