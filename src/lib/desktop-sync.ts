@@ -210,6 +210,8 @@ export async function syncDesktop(
 
   await syncGlobDirectory(paths.binSrc, paths.binDst, LABEL_PREFIX.TOOLS, "*.ts", force, result);
   await syncGlobDirectory(paths.libSrc, paths.libDst, LABEL_PREFIX.LIB, "**/*.ts", force, result);
+  // JSON sidecars imported by synced lib modules (e.g. bun-upstream-cli-manifest.json).
+  await syncGlobDirectory(paths.libSrc, paths.libDst, LABEL_PREFIX.LIB, "**/*.json", force, result);
 
   if (pathExists(paths.canvasesSrc)) {
     await syncGlobDirectory(

@@ -38,6 +38,7 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
 
   await addGlobHashes(hashes, binDir, LABEL_PREFIX.TOOLS, "*.ts");
   await addGlobHashes(hashes, libDir, LABEL_PREFIX.LIB, "**/*.ts");
+  await addGlobHashes(hashes, libDir, LABEL_PREFIX.LIB, "**/*.json");
   await addGlobHashes(hashes, canvasesDir, LABEL_PREFIX.CANVASES, "*.ts");
   await addGlobHashes(hashes, gatesDir, LABEL_PREFIX.GATES, "**/*.ts");
   await addGlobHashes(hashes, harnessDir, LABEL_PREFIX.HARNESS, "**/*.ts");

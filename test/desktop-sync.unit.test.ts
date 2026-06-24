@@ -150,6 +150,25 @@ describe("desktop-sync", () => {
     { timeout: 15_000 }
   );
 
+  test(
+    "syncDesktop copies lib JSON sidecars imported by synced modules",
+    async () => {
+      const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-lib-json-${Date.now()}`);
+      mkdirSync(tmpHome, { recursive: true });
+      Bun.env.HOME = tmpHome;
+      try {
+        const result = await syncDesktop(REPO_ROOT, { force: true });
+        expect(result.updated).toContain("lib/bun-upstream-cli-manifest.json");
+        expect(result.updated).toContain("lib/bun-upstream-cli-cases.json");
+        expect(existsSync(join(desktopRoot(), "lib", "bun-upstream-cli-manifest.json"))).toBe(true);
+        expect(existsSync(join(desktopRoot(), "lib", "bun-upstream-cli-cases.json"))).toBe(true);
+      } finally {
+        rmSync(tmpHome, { recursive: true, force: true });
+      }
+    },
+    { timeout: 15_000 }
+  );
+
   test("syncDesktop copies scaffold templates", async () => {
     const tmpHome = artifactPath(REPO_ROOT, "tmp", `desktop-templates-${Date.now()}`);
     mkdirSync(tmpHome, { recursive: true });
