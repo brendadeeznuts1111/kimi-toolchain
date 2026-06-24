@@ -117,16 +117,6 @@ export const BUN_BASE64_DOC_URL = "https://bun.com/guides/util/base64";
 export const BUN_BINARY_DATA_CONVERSION_DOC_URL =
   "https://bun.com/docs/runtime/binary-data#conversion";
 
-/** Encode a string to base64 (`btoa`). */
-export function encodeBase64(data: string): string {
-  return btoa(data);
-}
-
-/** Decode a base64 string (`atob`). */
-export function decodeBase64(encoded: string): string {
-  return atob(encoded);
-}
-
 /** Encode bytes to base64 (`Uint8Array.prototype.toBase64`). */
 export function encodeBase64Bytes(bytes: Uint8Array): string {
   return bytes.toBase64();
@@ -184,18 +174,6 @@ export function encodeUtf8(text: string): Uint8Array {
  */
 export function decodeUtf8(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes);
-}
-
-/** Decode optional byte buffer to UTF-8 string; empty when missing. */
-export function decodeUtf8Bytes(
-  bytes: Uint8Array | ArrayBuffer | null | undefined,
-  trim = false
-): string {
-  if (bytes == null) return "";
-  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  if (view.byteLength === 0) return "";
-  const text = new TextDecoder().decode(view);
-  return trim ? text.trim() : text;
 }
 
 /** UTF-8 byte length for a string (`TextEncoder`). */
