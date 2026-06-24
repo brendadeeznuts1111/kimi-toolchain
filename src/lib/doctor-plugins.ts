@@ -15,7 +15,8 @@ import { homeDir } from "./paths.ts";
 import { invokeCommandEffect } from "./effect/tool-runner-effect.ts";
 import type { ToolInvocation } from "./tool-runner.ts";
 import { ToolTimeout, ExitNonZero, ToolNotFound } from "./effect/errors.ts";
-import { log, safeParse } from "./utils.ts";
+import { safeParse } from "./utils.ts";
+import { logger } from "./logger.ts";
 
 export const DOCTOR_PLUGIN_SCHEMA_VERSION = 1;
 export const DEFAULT_PLUGIN_TIMEOUT_MS = 30_000;
@@ -213,7 +214,7 @@ export async function discoverDoctorPlugins(options: {
           : "";
       const key = name || `__anonymous_${byName.size}`;
       if (byName.has(key) && name) {
-        log("warn", `Plugin collision: project-local "${name}" overrides user-global plugin`);
+        logger.warn(`Plugin collision: project-local "${name}" overrides user-global plugin`);
       }
       byName.set(key, plugin);
     }

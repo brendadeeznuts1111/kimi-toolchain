@@ -5,7 +5,6 @@ import {
   LOG_PREVIEW_MAX_COLS,
 } from "../src/lib/log-preview.ts";
 import { stripANSI } from "../src/lib/inspect.ts";
-import { terminalWidth } from "../src/lib/bun-utils.ts";
 
 describe("log-preview", () => {
   test("formatLogPreviewText strips ANSI before width truncation", () => {
@@ -14,14 +13,14 @@ describe("log-preview", () => {
     const preview = formatLogPreviewText(colored, 40);
     expect(preview).not.toContain("\u001b");
     expect(stripANSI(preview)).toBe(preview);
-    expect(terminalWidth(preview)).toBeLessThanOrEqual(40);
+    expect(Bun.stringWidth(preview)).toBeLessThanOrEqual(40);
   });
 
   test("formatLogPreviewText truncates by display width not code units", () => {
     const wide = "你好世界你好世界你好世界";
     const preview = formatLogPreviewText(wide, 8);
     expect(preview.endsWith("…")).toBe(true);
-    expect(terminalWidth(preview)).toBeLessThan(terminalWidth(wide));
+    expect(Bun.stringWidth(preview)).toBeLessThan(Bun.stringWidth(wide));
   });
 
   test("buildLogPreviewLine keeps raw scrollback intact", () => {
@@ -29,6 +28,6 @@ describe("log-preview", () => {
     const row = buildLogPreviewLine(raw, LOG_PREVIEW_MAX_COLS);
     expect(row.raw).toBe(raw);
     expect(row.preview.length).toBeLessThan(raw.length);
-    expect(terminalWidth(row.preview)).toBeLessThanOrEqual(LOG_PREVIEW_MAX_COLS);
+    expect(Bun.stringWidth(row.preview)).toBeLessThanOrEqual(LOG_PREVIEW_MAX_COLS);
   });
 });

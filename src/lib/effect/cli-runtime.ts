@@ -2,7 +2,7 @@
  * effect/cli-runtime.ts — Unified CLI exit handling via Effect.
  */
 
-import { Effect, Exit } from "effect";
+import { Cause, Effect, Exit } from "effect";
 import { join } from "path";
 import { createLogger, type Logger } from "../logger.ts";
 import { CliError } from "./errors.ts";
@@ -17,9 +17,11 @@ export interface RunCliOptions {
   logger?: Logger;
 }
 
-function resolveLogger(options: RunCliOptions): Logger {
+function resolveLogger(traceId: string, options: RunCliOptions): Logger {
   const argv = options.argv ?? Bun.argv;
-  return options.logger ?? createLogger(argv, options.toolName);
+  const logger = options.logger ?? createLogger(argv, options.toolName);
+  logger.setTraceId(traceId);
+  return logger;
 }
 
 function telemetryEnabled(): boolean {
@@ -43,13 +45,42 @@ function runWithTelemetry<A, E>(program: Effect.Effect<A, E>, logger: Logger): E
   return program.pipe(Effect.ensuring(flushTelemetry(logger)));
 }
 
+async function handleCliFailure(
+  logger: Logger,
+  trace: ReturnType<typeof ensureProcessTrace>,
+  started: number,
+  toolName: string,
+  cause: Cause.Cause<CliError | unknown>
+): Promise<number> {
+  let message: string;
+  let exitCode = 1;
+  if (cause._tag === "Fail") {
+    const error = cause.error;
+    if (error instanceof CliError) {
+      message = error.message;
+      exitCode = error.exitCode ?? 1;
+    } else {
+      message = error instanceof Error ? error.message : Bun.inspect(error);
+    }
+  } else if (cause._tag === "Die") {
+    message = cause.defect instanceof Error ? cause.defect.message : Bun.inspect(cause.defect);
+  } else if (cause._tag === "Interrupt") {
+    message = "CLI interrupted";
+  } else {
+    message = Cause.pretty(cause);
+  }
+  logger.error(message);
+  await recordCliTrace(toolName, trace, started, exitCode, message);
+  return exitCode;
+}
+
 /** Run an Effect program as a CLI main, mapping failures to exit codes. */
 export async function runCli<A>(
   program: Effect.Effect<A, CliError | unknown>,
   options: RunCliOptions
 ): Promise<number> {
-  const logger = resolveLogger(options);
   const trace = ensureProcessTrace();
+  const logger = resolveLogger(trace.traceId, options);
   const started = Date.now();
 
   const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
@@ -59,22 +90,7 @@ export async function runCli<A>(
     return 0;
   }
 
-  const failure = exit.cause;
-  if (failure._tag === "Fail") {
-    const error = failure.error;
-    if (error instanceof CliError) {
-      logger.error(error.message);
-      const exitCode = error.exitCode ?? 1;
-      await recordCliTrace(options.toolName, trace, started, exitCode, error.message);
-      return exitCode;
-    }
-    logger.error(error instanceof Error ? error.message : Bun.inspect(error));
-    await recordCliTrace(options.toolName, trace, started, 1, String(error));
-  } else {
-    logger.error("Unexpected CLI failure");
-    await recordCliTrace(options.toolName, trace, started, 1, "Unexpected CLI failure");
-  }
-  return 1;
+  return handleCliFailure(logger, trace, started, options.toolName, exit.cause);
 }
 
 /** Run a CLI whose success value is the process exit code (non-zero is not an error). */
@@ -82,8 +98,8 @@ export async function runCliExit(
   program: Effect.Effect<number, CliError | unknown>,
   options: RunCliOptions
 ): Promise<number> {
-  const logger = resolveLogger(options);
   const trace = ensureProcessTrace();
+  const logger = resolveLogger(trace.traceId, options);
   const started = Date.now();
 
   const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
@@ -93,22 +109,7 @@ export async function runCliExit(
     return exit.value;
   }
 
-  const failure = exit.cause;
-  if (failure._tag === "Fail") {
-    const error = failure.error;
-    if (error instanceof CliError) {
-      logger.error(error.message);
-      const exitCode = error.exitCode ?? 1;
-      await recordCliTrace(options.toolName, trace, started, exitCode, error.message);
-      return exitCode;
-    }
-    logger.error(error instanceof Error ? error.message : Bun.inspect(error));
-    await recordCliTrace(options.toolName, trace, started, 1, String(error));
-  } else {
-    logger.error("Unexpected CLI failure");
-    await recordCliTrace(options.toolName, trace, started, 1, "Unexpected CLI failure");
-  }
-  return 1;
+  return handleCliFailure(logger, trace, started, options.toolName, exit.cause);
 }
 
 async function recordCliTrace(

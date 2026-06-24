@@ -54,9 +54,7 @@ export const RUNTIME_UTILS_COVERAGE: readonly RuntimeUtilsCoverageEntry[] = [
   {
     api: "Bun.stringWidth",
     anchor: "bun-stringwidth",
-    wrapper: "terminalWidth",
-    module: "src/lib/bun-utils.ts",
-    status: "wrapped",
+    status: "native-only",
   },
   {
     api: "Bun.escapeHTML",

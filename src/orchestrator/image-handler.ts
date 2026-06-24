@@ -28,14 +28,3 @@ export async function serveThumbnail(
   const bytes = await Bun.file(filePath).bytes();
   return dashboardThumbnailResponse(bytes, { width, height, format });
 }
-
-/**
- * Generate a tiny inline placeholder data URL for blur-up image loading.
- *
- * Returns null if Bun.Image is not available or the input is unsupported.
- */
-export async function servePlaceholder(
-  input: string | Uint8Array | ArrayBuffer | Blob
-): Promise<string | null> {
-  return imagePlaceholderDataUrl(input);
-}

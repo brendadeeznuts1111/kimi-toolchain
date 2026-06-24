@@ -9,7 +9,6 @@ import {
   formatMemoryBytes,
   formatProcessMemoryUsage,
   inspectBunRuntime,
-  processMemoryUsage,
 } from "../src/lib/bun-utils.ts";
 import { captureMimallocStats, parseMimallocStats } from "../src/lib/memory/governor.ts";
 import { formatWorkspaceRuntimeSnapshot } from "../src/lib/workspace-runtime.ts";
@@ -62,7 +61,7 @@ async function readPackageMeta(): Promise<PackageMeta> {
 const meta = await readPackageMeta();
 const engineRange = meta.engineRange ?? ">=1.4.0";
 const report = bunRuntimeReport(engineRange);
-const processMemory = processMemoryUsage();
+const processMemory = process.memoryUsage();
 const processMemoryFormatted = formatProcessMemoryUsage(processMemory);
 const deepReport =
   deep || json

@@ -382,7 +382,8 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
   },
   {
     id: "response-stream-text",
-    message: "Prefer readableStreamToText from bun-utils.ts or Bun.readableStreamToArrayBuffer at boundary",
+    message:
+      "Prefer readableStreamToText from bun-utils.ts or Bun.readableStreamToArrayBuffer at boundary",
     replacement: "readableStreamToText(stream)",
     defaultMode: "off",
     detect(ctx) {

@@ -19,22 +19,21 @@ import {
   sortReleaseVersions,
 } from "../src/lib/bun-release-registry.ts";
 
-const RELEASE_LITERAL_ALLOWLIST = new Set(["src/lib/bun-release-registry.ts", "src/lib/execve-handoff.ts"]);
-const DEFAULT_CACHE_DIR = "/tmp";
+const RELEASE_LITERAL_ALLOWLIST = new Set([
+  "src/lib/bun-release-registry.ts",
+  "src/lib/execve-handoff.ts",
+]);
 
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
 }
 
-function parseCli(argv: string[]): { skipBlogAudit: boolean } {
-  return {
-    skipBlogAudit:
-      argv.includes("--skip-blog-audit") || Bun.env.KIMI_SKIP_RELEASE_BLOG_AUDIT === "1",
-  };
-}
+async function main(): Promise<void> {
+  const argv = Bun.argv.slice(2);
+  const skipBlogAudit =
+    argv.includes("--skip-blog-audit") || Bun.env.KIMI_SKIP_RELEASE_BLOG_AUDIT === "1";
 
-function validateRegistryStructure(): string {
   const sorted = sortReleaseVersions(Object.keys(BUN_RELEASE_HISTORY));
   const activeTagLiteral = BUN_RELEASE.tag;
   const latest = sorted.at(-1);
@@ -63,13 +62,8 @@ function validateRegistryStructure(): string {
     );
   }
 
-  return activeTagLiteral;
-}
-
-async function findStrayReleaseLiterals(activeTagLiteral: string): Promise<string[]> {
   const repoRoot = join(import.meta.dir, "..");
   const stray: string[] = [];
-
   for await (const rel of new Glob("src/**/*.ts").scan({ cwd: repoRoot, onlyFiles: true })) {
     if (RELEASE_LITERAL_ALLOWLIST.has(rel)) continue;
     const text = await Bun.file(join(repoRoot, rel)).text();
@@ -81,31 +75,6 @@ async function findStrayReleaseLiterals(activeTagLiteral: string): Promise<strin
     }
   }
 
-  return stray;
-}
-
-export function collectFailedBlogAudits(
-  results: ReleaseBlogAuditResult[]
-): ReleaseBlogAuditResult[] {
-  return results.filter((result) => !result.ok || result.drifts.length > 0);
-}
-
-export async function auditHistoricalReleaseBlogs(
-  cacheDir = DEFAULT_CACHE_DIR
-): Promise<ReleaseBlogAuditResult[]> {
-  const versions = sortReleaseVersions(Object.keys(BUN_RELEASE_HISTORY));
-  const results: ReleaseBlogAuditResult[] = [];
-  for (const version of versions) {
-    results.push(await auditReleaseVersion(version, cacheDir));
-  }
-  return results;
-}
-
-async function main(): Promise<void> {
-  const { skipBlogAudit } = parseCli(Bun.argv.slice(2));
-  const activeTagLiteral = validateRegistryStructure();
-
-  const stray = await findStrayReleaseLiterals(activeTagLiteral);
   if (stray.length > 0) {
     fail(
       `Stray ${activeTagLiteral} literals outside SSOT:\n${stray.map((f) => `  - ${f}`).join("\n")}`
@@ -121,8 +90,12 @@ async function main(): Promise<void> {
   }
 
   console.log("🔍 Auditing historical release blogs...");
-  const results = await auditHistoricalReleaseBlogs();
-  const failed = collectFailedBlogAudits(results);
+  const versions = sortReleaseVersions(Object.keys(BUN_RELEASE_HISTORY));
+  const results: ReleaseBlogAuditResult[] = [];
+  for (const version of versions) {
+    results.push(await auditReleaseVersion(version, "/tmp"));
+  }
+  const failed = results.filter((result) => !result.ok || result.drifts.length > 0);
 
   if (failed.length > 0) {
     console.error("❌ Historical blog drift detected:\n");

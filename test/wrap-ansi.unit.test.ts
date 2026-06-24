@@ -8,7 +8,6 @@
  */
 import { describe, expect, test } from "bun:test";
 import { stripANSI, wrapAnsi } from "../src/lib/inspect.ts";
-import { terminalWidth } from "../src/lib/bun-utils.ts";
 
 const RED = "\u001b[31m";
 const RED_OFF = "\u001b[39m";
@@ -27,7 +26,7 @@ describe("wrap-ansi", () => {
     expect(lines[0]).toBe(`${RED}This is a long red${RED_OFF}`);
     expect(lines[1]).toBe(`${RED}text that needs${RED_OFF}`);
     expect(lines[2]).toBe(`${RED}wrapping${RESET}`);
-    expect(lines.every((line) => terminalWidth(line) <= 20)).toBe(true);
+    expect(lines.every((line) => Bun.stringWidth(line) <= 20)).toBe(true);
   });
 
   test("preserves OSC 8 hyperlinks across wrapped lines", () => {
@@ -37,7 +36,7 @@ describe("wrap-ansi", () => {
     for (const line of wrapped.split("\n")) {
       expect(line.startsWith(OSC8_START)).toBe(true);
       expect(line.endsWith(OSC8_END)).toBe(true);
-      expect(terminalWidth(line)).toBeLessThanOrEqual(10);
+      expect(Bun.stringWidth(line)).toBeLessThanOrEqual(10);
     }
   });
 
@@ -53,7 +52,7 @@ describe("wrap-ansi", () => {
     const crlf = wrapAnsi("alpha\r\nbeta gamma", 8);
 
     expect(wide).toBe("你好世界\nhello");
-    expect(wide.split("\n").every((line) => terminalWidth(line) <= 8)).toBe(true);
+    expect(wide.split("\n").every((line) => Bun.stringWidth(line) <= 8)).toBe(true);
     expect(crlf).toBe("alpha\nbeta\ngamma");
     expect(crlf).not.toContain("\r");
   });

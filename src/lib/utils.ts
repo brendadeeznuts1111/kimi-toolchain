@@ -9,19 +9,14 @@
  * For paths: import { toolsDir, homeDir } from "./paths.ts"
  */
 
-import { isOptionalStringRecord, recordField } from "./boundary.ts";
 import { makeDir, pathExists, readJsonFile } from "./bun-io.ts";
 import { join } from "path";
 import { $ } from "bun";
-import { isAgentContext, runTool, invokeTool, toolsDir } from "./tool-runner.ts";
-import type { HealthReport } from "./health-check.ts";
-import { createLogger, logger as defaultLogger } from "./logger.ts";
+import { runTool, invokeTool, toolsDir } from "./tool-runner.ts";
 
 // ── Constants ────────────────────────────────────────────────────────
 
 const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
-const DEFAULT_SECTION_WIDTH = 60;
-const DEFAULT_BANNER_INNER_WIDTH = 62;
 
 // ── File System ──────────────────────────────────────────────────────
 
@@ -31,33 +26,6 @@ export function ensureDir(dir: string) {
 }
 
 // ── Logging ──────────────────────────────────────────────────────────
-
-/** @deprecated Use createLogger() and Logger.info/warn/error instead. */
-export function log(level: "info" | "warn" | "error", msg: string) {
-  defaultLogger[level](msg);
-}
-
-/** @deprecated Use Logger.section() instead. */
-export function printSection(title: string, _width = DEFAULT_SECTION_WIDTH): void {
-  if (isAgentContext()) return;
-  defaultLogger.section(title);
-}
-
-/** @deprecated Use Logger.banner() instead. */
-export function printToolBanner(
-  title: string,
-  subtitle?: string,
-  _innerWidth = DEFAULT_BANNER_INNER_WIDTH
-): void {
-  if (isAgentContext()) return;
-  defaultLogger.banner(title, subtitle);
-}
-
-/** @deprecated Use Logger.projectBanner() instead. */
-export function printProjectBanner(title: string, project?: string, subtitle?: string): void {
-  if (isAgentContext()) return;
-  defaultLogger.projectBanner(title, project, subtitle);
-}
 
 // ── Hashing ──────────────────────────────────────────────────────────
 // Canonical implementations live in hash.ts to avoid circular imports.
@@ -85,87 +53,6 @@ export interface PackageJsonManifest {
 
 export function isPackageJsonManifest(value: unknown): value is PackageJsonManifest {
   return typeof value === "object" && value !== null;
-}
-
-/** Validator for package.json reads that only need `{ name?: string }`. */
-export function isPackageJsonWithName(value: unknown): value is { name?: string } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (!("name" in value) || typeof (value as { name?: unknown }).name === "string")
-  );
-}
-
-/** Validator for package.json reads that only need `{ scripts?: Record<string, string> }`. */
-export function isPackageJsonWithScripts(
-  value: unknown
-): value is { scripts?: Record<string, string> } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    isOptionalStringRecord(recordField(value, "scripts"))
-  );
-}
-
-/** Validator for package.json reads that need scripts + devDependencies. */
-export function isPackageJsonWithScriptsAndDevDeps(
-  value: unknown
-): value is { scripts?: Record<string, string>; devDependencies?: Record<string, string> } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    isOptionalStringRecord(recordField(value, "scripts")) &&
-    isOptionalStringRecord(recordField(value, "devDependencies"))
-  );
-}
-
-/** Validator for package.json reads that need `{ trustedDependencies?: unknown[] }`. */
-export function isPackageJsonWithTrustedDeps(
-  value: unknown
-): value is { trustedDependencies?: unknown[] } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (!("trustedDependencies" in value) ||
-      Array.isArray((value as { trustedDependencies?: unknown }).trustedDependencies))
-  );
-}
-
-/** Validator for package.json reads that need `{ bin?: Record<string, string> }`. */
-export function isPackageJsonWithBin(value: unknown): value is { bin?: Record<string, string> } {
-  return (
-    typeof value === "object" && value !== null && isOptionalStringRecord(recordField(value, "bin"))
-  );
-}
-
-/** Validator for package.json reads that need `{ engines?: { bun?: string }; packageManager?: string }`. */
-export function isPackageJsonWithEnginesAndPackageManager(
-  value: unknown
-): value is { engines?: { bun?: string }; packageManager?: string } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (!("engines" in value) ||
-      (typeof (value as { engines?: unknown }).engines === "object" &&
-        (value as { engines?: unknown }).engines !== null &&
-        (!("bun" in ((value as { engines?: unknown }).engines as object)) ||
-          typeof ((value as { engines?: { bun?: unknown } }).engines as { bun?: unknown }).bun ===
-            "string"))) &&
-    (!("packageManager" in value) ||
-      typeof (value as { packageManager?: unknown }).packageManager === "string")
-  );
-}
-
-/** Validator for package.json reads that need `{ dependencies?: Record<string, string>; devDependencies?: Record<string, string> }`. */
-export function isPackageJsonWithDeps(
-  value: unknown
-): value is { dependencies?: Record<string, string>; devDependencies?: Record<string, string> } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    isOptionalStringRecord(recordField(value, "dependencies")) &&
-    isOptionalStringRecord(recordField(value, "devDependencies"))
-  );
 }
 
 /** Read and parse package.json from a project directory with type-safe fallback. */
@@ -217,13 +104,6 @@ export async function resolveProjectRoot(fallback: string = Bun.cwd): Promise<st
   }
 }
 
-// ── Executable Resolution ────────────────────────────────────────────
-
-/** Find an executable in PATH. */
-export function findExecutable(bin: string): string | null {
-  return Bun.which(bin);
-}
-
 // ── Fetch with Timeout ───────────────────────────────────────────────
 
 /** Fetch a URL with a configurable timeout (default 10s). */
@@ -244,24 +124,6 @@ export async function fetchWithTimeout(
 // ── Tool Runner (for cross-tool integration) ─────────────────────────
 
 export { runTool, invokeTool, toolsDir };
-
-// ── Doctor/Fix Integration Helpers ───────────────────────────────────
-
-export {
-  type HealthCheck,
-  type HealthReport,
-  type DoctorCheck,
-  type DoctorReport,
-  type CheckStatus,
-  aggregateChecks,
-  buildDoctorReport,
-  statusIcon as healthStatusIcon,
-} from "./health-check.ts";
-
-/** @deprecated Use Logger.printHealthReport() with createLogger() instead. */
-export function printDoctorReport(report: HealthReport) {
-  createLogger(Bun.argv, report.tool).printHealthReport(report);
-}
 
 // Re-export doctor persistence (canonical impl in doctor-runs.ts)
 export {

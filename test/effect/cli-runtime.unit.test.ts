@@ -44,6 +44,8 @@ describe("cli-runtime", () => {
     makeDir(tmpHome, { recursive: true });
     const prevHome = Bun.env.HOME;
     const prevTelemetry = Bun.env.KIMI_TOOLCHAIN_TELEMETRY;
+    const prevTraceId = Bun.env.KIMI_TRACE_ID;
+    delete Bun.env.KIMI_TRACE_ID;
     Bun.env.HOME = tmpHome;
     Bun.env.KIMI_TOOLCHAIN_TELEMETRY = "true";
 
@@ -61,9 +63,12 @@ describe("cli-runtime", () => {
       const entry = JSON.parse(lines[lines.length - 1]);
       expect(entry.message).toBe("telemetry flush test");
       expect(entry.tool).toBe("test-cli");
+      expect(entry.traceId).toBe(Bun.env.KIMI_TRACE_ID);
     } finally {
       Bun.env.HOME = prevHome;
       Bun.env.KIMI_TOOLCHAIN_TELEMETRY = prevTelemetry;
+      if (prevTraceId === undefined) delete Bun.env.KIMI_TRACE_ID;
+      else Bun.env.KIMI_TRACE_ID = prevTraceId;
       removePath(tmpHome, { recursive: true, force: true });
     }
   });

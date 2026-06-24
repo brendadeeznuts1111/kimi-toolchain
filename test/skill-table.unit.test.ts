@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
-import { terminalWidth } from "../src/lib/bun-utils.ts";
 import { REPO_ROOT } from "./helpers.ts";
 import {
   buildSkillCoverageDetails,
@@ -42,16 +41,16 @@ describe("skill-table", () => {
     expect(countFrontmatterList(head, "dependencies")).toBe(0);
   });
 
-  test("terminalWidth handles wide Unicode", () => {
-    expect(terminalWidth("你好")).toBe(4);
-    expect(terminalWidth("🇺🇸")).toBe(2);
+  test("Bun.stringWidth handles wide Unicode", () => {
+    expect(Bun.stringWidth("你好")).toBe(4);
+    expect(Bun.stringWidth("🇺🇸")).toBe(2);
   });
 
   test("truncateDisplay respects display width not char length", () => {
     const wide = "你好世界";
-    expect(terminalWidth(wide)).toBe(8);
+    expect(Bun.stringWidth(wide)).toBe(8);
     const truncated = truncateDisplay(wide, 5);
-    expect(terminalWidth(truncated)).toBeLessThanOrEqual(5);
+    expect(Bun.stringWidth(truncated)).toBeLessThanOrEqual(5);
     expect(truncated.endsWith("…")).toBe(true);
   });
 

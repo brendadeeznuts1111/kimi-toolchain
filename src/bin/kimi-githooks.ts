@@ -11,13 +11,7 @@
 import { $ } from "bun";
 import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
-import {
-  ensureDir,
-  findExecutable,
-  resolveProjectRoot,
-  sha256File,
-  readPackageJson,
-} from "../lib/utils.ts";
+import { ensureDir, resolveProjectRoot, sha256File, readPackageJson } from "../lib/utils.ts";
 
 import { detectSyncDrift } from "../lib/sync-hashes.ts";
 import { verifySyncManifest } from "../lib/sync-manifest.ts";
@@ -116,7 +110,7 @@ async function resolveGitPath(projectDir: string, path: string): Promise<string 
 }
 
 async function installHooks(projectDir: string): Promise<number> {
-  const gitPath = findExecutable("git");
+  const gitPath = Bun.which("git");
   if (!gitPath) {
     logger.error("git not found in PATH. Install git first.");
     return 1;

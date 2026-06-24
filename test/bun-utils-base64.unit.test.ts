@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
-  decodeBase64,
   decodeBase64Bytes,
   decodeBase64UrlBytes,
   decodeUtf8,
-  encodeBase64,
   encodeBase64Bytes,
   encodeBase64UrlBytes,
   encodeUtf8,
@@ -14,15 +12,14 @@ import { signJwt, verifyJwt } from "../src/lib/jwt.ts";
 describe("base64 encoding wrapper", () => {
   test("guide example: btoa/atob round-trip for hello world", () => {
     const data = "hello world";
-    const encoded = encodeBase64(data);
+    const encoded = btoa(data);
     expect(encoded).toBe("aGVsbG8gd29ybGQ=");
-    expect(decodeBase64(encoded)).toBe("hello world");
+    expect(atob(encoded)).toBe("hello world");
   });
 
-  test("encodeBase64 matches bare btoa", () => {
+  test("btoa/atob round-trip string data", () => {
     const data = "kimi-toolchain";
-    expect(encodeBase64(data)).toBe(btoa(data));
-    expect(decodeBase64(btoa(data))).toBe(data);
+    expect(atob(btoa(data))).toBe(data);
   });
 
   test("bytes helpers round-trip UTF-8 text", () => {
@@ -56,7 +53,7 @@ describe("base64 encoding wrapper", () => {
     expect(verified.claims.sub).toBe("base64url-ssot");
   });
 
-  test("decodeBase64 throws on invalid input", () => {
-    expect(() => decodeBase64("not!!!valid")).toThrow();
+  test("atob throws on invalid input", () => {
+    expect(() => atob("not!!!valid")).toThrow();
   });
 });

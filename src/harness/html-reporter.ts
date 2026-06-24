@@ -1,7 +1,5 @@
 /** Shared harness metric types — monitor, perf gate, and HTML reporter. */
 
-
-
 export interface Metric {
   symbol: string;
   operation: string;

@@ -1,13 +1,10 @@
 /**
- * governedSpawn: Drop-in Bun.spawn replacement with resource limits
+ * Process tree helpers used by tool-runner.ts for cleanup.
  */
 
-import { nanoseconds } from "bun";
-import { DEFAULTS } from "./governor-state.ts";
-import { getSessionId, updateSessionPeak } from "./governor-sessions.ts";
-import { withNoOrphansEnv } from "./bun-spawn-env.ts";
-import { sleepAbortable } from "./bun-utils.ts";
 import { getCachedCommandOutputAsync } from "./proc-cache.ts";
+import { DEFAULTS } from "./governor-state.ts";
+import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { nowMs } from "./timing.ts";
 
 export interface ResourceLimits {
@@ -26,39 +23,31 @@ export interface ResourceUsage {
 }
 
 export function getCurrentUsage(): ResourceUsage {
-  const memUsage = process.memoryUsage();
-  const memoryMB = Math.round(memUsage.rss / 1024 / 1024);
-  const cpuTimeMs = Math.round(nowMs());
-  return { memoryMB, cpuTimeMs, fileSizeMB: 0, openFiles: 0 };
+  const mem = process.memoryUsage();
+  return {
+    memoryMB: Math.round(mem.rss / 1024 / 1024),
+    cpuTimeMs: Math.round(nowMs()),
+    fileSizeMB: 0,
+    openFiles: 0,
+  };
 }
 
 export function checkLimits(usage: ResourceUsage, limits: ResourceLimits): string[] {
   const cfg = { ...DEFAULTS, ...limits };
   const violations: string[] = [];
-  if (usage.memoryMB > cfg.maxMemoryMB!)
+  if (usage.memoryMB > cfg.maxMemoryMB!) {
     violations.push(`Memory: ${usage.memoryMB}MB > ${cfg.maxMemoryMB}MB limit`);
-  if (usage.cpuTimeMs > cfg.maxCpuTimeMs!)
-    violations.push(`CPU time: ${usage.cpuTimeMs}ms > ${cfg.maxCpuTimeMs}ms limit`);
-  if (usage.fileSizeMB > cfg.maxFileSizeMB!)
-    violations.push(`File size: ${usage.fileSizeMB}MB > ${cfg.maxFileSizeMB}MB limit`);
-  if (usage.openFiles > cfg.maxOpenFiles!)
-    violations.push(`Open files: ${usage.openFiles} > ${cfg.maxOpenFiles} limit`);
-  return violations;
-}
-
-// ── Process Tree Helpers ─────────────────────────────────────────────
-
-/** Get all child PIDs of a given PID using pgrep (macOS/Linux) */
-async function getChildPids(pid: number): Promise<number[]> {
-  try {
-    const output = await getCachedCommandOutputAsync("pgrep", ["-P", String(pid)]);
-    return output
-      .split("\n")
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => !isNaN(n) && n !== pid);
-  } catch {
-    return [];
   }
+  if (usage.cpuTimeMs > cfg.maxCpuTimeMs!) {
+    violations.push(`CPU time: ${usage.cpuTimeMs}ms > ${cfg.maxCpuTimeMs}ms limit`);
+  }
+  if (usage.fileSizeMB > cfg.maxFileSizeMB!) {
+    violations.push(`File size: ${usage.fileSizeMB}MB > ${cfg.maxFileSizeMB}MB limit`);
+  }
+  if (usage.openFiles > cfg.maxOpenFiles!) {
+    violations.push(`Open files: ${usage.openFiles} > ${cfg.maxOpenFiles} limit`);
+  }
+  return violations;
 }
 
 /** Recursively collect all descendant PIDs (BFS) */
@@ -69,12 +58,18 @@ export async function getProcessTreePids(pid: number): Promise<number[]> {
     const current = queue.shift()!;
     if (all.has(current)) continue;
     all.add(current);
-    const children = await getChildPids(current);
+    const output = await getCachedCommandOutputAsync("pgrep", ["-P", String(current)]).catch(
+      () => ""
+    );
+    const children = output
+      .split("\n")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n) && n !== current);
     for (const child of children) {
       if (!all.has(child)) queue.push(child);
     }
   }
-  all.delete(pid); // Don't include the root — caller handles it
+  all.delete(pid);
   return Array.from(all);
 }
 
@@ -84,41 +79,9 @@ export async function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGK
   for (const pid of descendants) {
     try {
       process.kill(pid, signal);
-    } catch {
-      // Already dead or no permission — ignore
-    }
+    } catch {}
   }
 }
-
-/** Get actual subprocess memory via ps (macOS/Linux) */
-async function getSubprocessMemory(pid: number): Promise<number> {
-  try {
-    const result = await Bun.spawn({
-      cmd: ["ps", "-o", "rss=", "-p", String(pid)],
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const output = await result.stdout.text();
-    await result.exited;
-    const kb = parseInt(output.trim(), 10);
-    return isNaN(kb) ? 0 : Math.round(kb / 1024); // MB
-  } catch {
-    return 0;
-  }
-}
-
-/** Get total RSS of a process tree */
-async function getTreeMemory(pid: number): Promise<number> {
-  const descendants = await getProcessTreePids(pid);
-  const allPids = [pid, ...descendants];
-  let totalMB = 0;
-  for (const p of allPids) {
-    totalMB += await getSubprocessMemory(p);
-  }
-  return totalMB;
-}
-
-// ── governedSpawn: Drop-in Bun.spawn replacement ─────────────────────
 
 export interface GovernedSpawnOptions {
   cwd?: string;
@@ -127,9 +90,7 @@ export interface GovernedSpawnOptions {
   timeoutMs?: number;
   stdin?: Uint8Array | string;
   onResourceWarning?: (violations: string[]) => void;
-  /** Kill entire process tree on timeout/memory limit (default: true) */
   killTree?: boolean;
-  /** Retry config: max attempts and backoff multiplier in ms */
   retry?: { maxAttempts: number; backoffMs: number };
 }
 
@@ -140,7 +101,6 @@ export interface GovernedSpawnResult {
   signal?: string;
   usage: ResourceUsage;
   killed: boolean;
-  /** Number of retry attempts made (0 if no retry config) */
   attempts: number;
 }
 
@@ -150,164 +110,69 @@ export async function governedSpawn(
 ): Promise<GovernedSpawnResult> {
   const limits = { ...DEFAULTS, ...options.limits };
   const timeoutMs = options.timeoutMs ?? limits.wallClockMs;
-  const killTree = options.killTree !== false; // default true
   const maxAttempts = options.retry?.maxAttempts ?? 1;
   const backoffMs = options.retry?.backoffMs ?? 1000;
-
   let lastError: Error | undefined;
-  let attempts = 0;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    attempts = attempt;
-
-    // Retry backoff with jitter (skip on first attempt)
-    if (attempt > 1) {
-      const baseDelay = backoffMs * Math.pow(2, attempt - 2);
-      const jitter = Math.floor(Math.random() * 1000);
-      const delay = Math.min(baseDelay + jitter, 30000); // cap at 30s
-      await Bun.sleep(delay);
-    }
+  for (let attempts = 1; attempts <= maxAttempts; attempts++) {
+    if (attempts > 1) await Bun.sleep(Math.min(backoffMs * 2 ** (attempts - 2), 30_000));
 
     try {
-      const current = getCurrentUsage();
-      const preViolations = checkLimits(current, limits);
+      const preViolations = checkLimits(getCurrentUsage(), limits);
       if (preViolations.length > 0) {
         throw new Error(`Resource limit pre-check failed: ${preViolations.join(", ")}`);
       }
 
-      const startTime = nanoseconds();
-      const sessionId = getSessionId();
-
+      const start = Bun.nanoseconds();
+      let killed = false;
       const proc = Bun.spawn(command, {
         cwd: options.cwd,
         env: { ...withNoOrphansEnv(), ...options.env },
         stdout: "pipe",
         stderr: "pipe",
-        stdin: options.stdin
-          ? typeof options.stdin === "string"
+        stdin:
+          typeof options.stdin === "string"
             ? new TextEncoder().encode(options.stdin)
-            : options.stdin
-          : undefined,
+            : options.stdin,
       });
 
-      const rootPid = proc.pid;
-      // `exited` flips to true once `proc.exited` resolves, so timeout/monitor
-      // callbacks can detect the TOCTOU window where the process died naturally
-      // between the timer firing and our cleanup running.
-      let exited = false;
-      // Tracks the actual signal used to kill the process, so callers can
-      // distinguish SIGTERM from an escalated SIGKILL fallback.
-      let killSignal: "SIGTERM" | "SIGKILL" | null = null;
-      let killFallbackId: Timer | null = null;
-
-      // Escalation fallback: SIGKILL anything still alive 5s after SIGTERM.
-      // Checks the whole tree, not just the root — descendants can survive
-      // the parent's SIGTERM and leak.
-      const scheduleSigkillFallback = () => {
-        killFallbackId = setTimeout(async () => {
-          if (exited) return;
-          // Kill survivors: root (if still alive) + any lingering descendants.
-          if (!proc.killed) {
-            try {
-              proc.kill("SIGKILL");
-            } catch {
-              // Already dead — ignore
-            }
-          }
-          if (killTree) await killProcessTree(rootPid, "SIGKILL");
-          killSignal = "SIGKILL";
-        }, 5000);
-      };
-
-      // Wall-clock timeout
-      const timeoutId = setTimeout(() => {
-        if (exited) return; // process already exited naturally — don't mark as killed
-        killSignal = "SIGTERM";
+      const timeout = setTimeout(() => {
+        killed = true;
         try {
           proc.kill("SIGTERM");
-        } catch {
-          // Already dead — ignore
-        }
-        if (killTree) void killProcessTree(rootPid, "SIGTERM");
-        scheduleSigkillFallback();
+        } catch {}
+        if (options.killTree !== false) void killProcessTree(proc.pid, "SIGTERM");
       }, timeoutMs);
 
-      // Memory monitor: checks actual subprocess tree RSS every second
-      const monitor = new AbortController();
-      void (async () => {
-        const { signal } = monitor;
-        while (!signal.aborted) {
-          try {
-            await sleepAbortable(1000, signal);
-          } catch {
-            return;
-          }
-          if (signal.aborted) return;
-          const treeMem = await getTreeMemory(rootPid);
-          updateSessionPeak(sessionId, treeMem, 0);
-
-          if (limits.maxMemoryMB && treeMem > limits.maxMemoryMB) {
-            if (exited) return; // process already gone — no kill to record
-            killSignal = "SIGTERM";
-            monitor.abort();
-            clearTimeout(timeoutId);
-            try {
-              proc.kill("SIGTERM");
-            } catch {
-              // Already dead — ignore
-            }
-            if (killTree) void killProcessTree(rootPid, "SIGTERM");
-            scheduleSigkillFallback();
-            return;
-          }
-        }
-      })();
-
-      const exitCode = await proc.exited;
-      exited = true; // close the TOCTOU window for any pending callbacks
-      const [stdout, stderr] = await Promise.all([proc.stdout.text(), proc.stderr.text()]);
-
-      clearTimeout(timeoutId);
-      monitor.abort();
-      if (killFallbackId) clearTimeout(killFallbackId);
-
-      const endTime = nanoseconds();
-      const finalTreeMem = await getTreeMemory(rootPid);
+      const [exitCode, stdout, stderr] = await Promise.all([
+        proc.exited,
+        proc.stdout.text(),
+        proc.stderr.text(),
+      ]);
+      clearTimeout(timeout);
 
       const usage: ResourceUsage = {
-        memoryMB: finalTreeMem,
-        cpuTimeMs: Math.round((endTime - startTime) / 1_000_000),
+        memoryMB: getCurrentUsage().memoryMB,
+        cpuTimeMs: Math.round((Bun.nanoseconds() - start) / 1_000_000),
         fileSizeMB: 0,
         openFiles: 0,
       };
-
-      updateSessionPeak(sessionId, usage.memoryMB, usage.cpuTimeMs);
-
       const violations = checkLimits(usage, limits);
-      if (violations.length > 0 && options.onResourceWarning) {
-        options.onResourceWarning(violations);
-      }
-
-      // Don't retry on successful execution
+      if (violations.length > 0) options.onResourceWarning?.(violations);
       return {
         stdout,
         stderr,
         exitCode,
-        signal: killSignal ?? undefined,
+        signal: killed ? "SIGTERM" : undefined,
         usage,
-        killed: killSignal !== null,
+        killed,
         attempts,
       };
-    } catch (err: any) {
-      lastError = err;
-      // Only retry on spawn/resource errors, not on non-zero exit codes
-      // (non-zero exits are handled above in the return path)
-      if (attempt < maxAttempts) {
-        continue;
-      }
-      break;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempts === maxAttempts) break;
     }
   }
 
-  throw lastError || new Error(`governedSpawn failed after ${attempts} attempt(s)`);
+  throw lastError ?? new Error(`governedSpawn failed after ${maxAttempts} attempt(s)`);
 }

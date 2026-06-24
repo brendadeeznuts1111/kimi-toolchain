@@ -11,12 +11,8 @@ export async function clearStaleLocks(): Promise<string[]> {
   const cleared: string[] = [];
   const locks = [join(guardDir(), "test-runner.pid"), join(guardDir(), "kimi-test.lock")];
   for (const lock of locks) {
-    try {
-      await Bun.file(lock).delete();
-      cleared.push(lock);
-    } catch {
-      // Lock absent or unprivileged — ignore.
-    }
+    await Bun.file(lock).delete();
+    cleared.push(lock);
   }
   return cleared;
 }
@@ -36,22 +32,14 @@ export async function runOrphanKill(
 
   let killed = 0;
   for (const o of orphans) {
-    try {
-      process.kill(o.pid, "SIGTERM");
-      killed++;
-    } catch {
-      // Already dead or no permission — ignore
-    }
+    process.kill(o.pid, "SIGTERM");
+    killed++;
   }
 
   Bun.sleepSync(500);
   for (const o of getOrphanCandidates()) {
-    try {
-      process.kill(o.pid, "SIGKILL");
-      killed++;
-    } catch {
-      // Already dead or no permission — ignore
-    }
+    process.kill(o.pid, "SIGKILL");
+    killed++;
   }
 
   await clearStaleLocks();

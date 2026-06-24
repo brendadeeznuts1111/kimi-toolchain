@@ -95,10 +95,6 @@ export interface FetchOptions extends RequestInit {
   verbose?: boolean | "curl";
 }
 
-export interface HttpClient {
-  fetch(url: string, opts?: FetchOptions): Promise<Response>;
-}
-
 /**
  * Warm the DNS cache for a host before a burst of requests (30 s TTL).
  * No-op if already cached. Call before sequential loops against a fixed host.
@@ -160,7 +156,7 @@ export function warmConnections(opts: WarmupOptions): void {
  *
  * @see https://bun.com/docs/runtime/networking/fetch#request-options
  */
-export function makeHttpClient(options: HttpClientOptions = {}): HttpClient {
+export function makeHttpClient(options: HttpClientOptions = {}) {
   const defaultMinTls = options.minTls ?? "TLSv1.2";
   const defaultKeepalive = options.keepalive ?? true;
 

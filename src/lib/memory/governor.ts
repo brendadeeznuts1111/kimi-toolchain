@@ -8,12 +8,7 @@
  */
 
 import { heapStats } from "bun:jsc";
-import {
-  formatMemoryBytes,
-  inspectMemoryRuntime,
-  processMemoryUsage,
-  readableStreamToText,
-} from "../bun-utils.ts";
+import { formatMemoryBytes, inspectMemoryRuntime, readableStreamToText } from "../bun-utils.ts";
 
 /** Memory pressure buckets. */
 export type MemoryPressure = "none" | "fair" | "serious" | "critical";
@@ -29,7 +24,7 @@ export interface JscHeapSnapshot {
 /** Combined process + system + JSC heap memory snapshot. */
 export interface MemoryGovernorSnapshot {
   /** `process.memoryUsage()` values. */
-  process: ReturnType<typeof processMemoryUsage>;
+  process: ReturnType<typeof process.memoryUsage>;
   /** JavaScriptCore heap stats (`bun:jsc` `heapStats()`). */
   jscHeap: JscHeapSnapshot;
   /** System memory from `os.totalmem()` / `os.freemem()`. */
@@ -40,7 +35,7 @@ export interface MemoryGovernorSnapshot {
 
 /** Read a combined process + system + JSC heap memory snapshot. */
 export function snapshot(): MemoryGovernorSnapshot {
-  const processMem = processMemoryUsage();
+  const processMem = process.memoryUsage();
   const system = inspectMemoryRuntime();
   const stats = heapStats();
   return {

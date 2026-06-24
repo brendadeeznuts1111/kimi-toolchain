@@ -10,6 +10,8 @@ export const UNIT_TEST_FILES = [
   "test/lib.unit.test.ts",
   "test/r-score.unit.test.ts",
   "test/sync.unit.test.ts",
+  "test/deletion-metric.unit.test.ts",
+  "test/preservation-protocol.unit.test.ts",
   "test/desktop-sync.unit.test.ts",
   "test/test-gates.unit.test.ts",
   "test/test-runtime.unit.test.ts",

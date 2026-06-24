@@ -8,7 +8,6 @@ import { ARTIFACT_LINEAGE_MANIFEST_ID } from "../../../canvases/artifact-lineage
 import { parseCanvasDeepLink } from "../../dashboard-canvas-filter.ts";
 import { DEFAULT_EXAMPLES_DASHBOARD_URL } from "../../examples-dashboard-companion.ts";
 
-
 export interface HerdrCanvasContext {
   /** Canvas manifest id (e.g. "artifact-lineage"). */
   manifestId: string;

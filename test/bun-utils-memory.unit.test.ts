@@ -1,13 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import {
-  formatMemoryBytes,
-  formatProcessMemoryUsage,
-  processMemoryUsage,
-} from "../src/lib/bun-utils.ts";
+import { formatMemoryBytes, formatProcessMemoryUsage } from "../src/lib/bun-utils.ts";
 
 describe("bun-utils-memory", () => {
-  test("processMemoryUsage returns non-negative memory fields", () => {
-    const mem = processMemoryUsage();
+  test("process.memoryUsage returns non-negative memory fields", () => {
+    const mem = process.memoryUsage();
     expect(mem.rss).toBeGreaterThanOrEqual(0);
     expect(mem.heapTotal).toBeGreaterThanOrEqual(0);
     expect(mem.heapUsed).toBeGreaterThanOrEqual(0);

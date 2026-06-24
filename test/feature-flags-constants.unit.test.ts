@@ -6,7 +6,7 @@ import {
 } from "../src/lib/feature-flags-constants.ts";
 import {
   getFeatureFlagById,
-  isEnvEscapeEnabled,
+  isEnvFlagEnabled,
   listFeatureFlags,
 } from "../src/lib/feature-flags.ts";
 import { lintFeatureFlagsRegistry } from "../src/lib/feature-flags-registry-lint.ts";
@@ -29,11 +29,11 @@ describe("feature-flags-constants", () => {
     expect(def?.kind).toBe("env-escape");
   });
 
-  test("isEnvEscapeEnabled respects env", () => {
+  test("isEnvFlagEnabled respects env", () => {
     withClearedEnv(["KIMI_SKIP_EFFECT_GATES"], () => {
-      expect(isEnvEscapeEnabled("KIMI_SKIP_EFFECT_GATES")).toBe(false);
+      expect(isEnvFlagEnabled("KIMI_SKIP_EFFECT_GATES")).toBe(false);
       Bun.env.KIMI_SKIP_EFFECT_GATES = "1";
-      expect(isEnvEscapeEnabled("KIMI_SKIP_EFFECT_GATES")).toBe(true);
+      expect(isEnvFlagEnabled("KIMI_SKIP_EFFECT_GATES")).toBe(true);
     });
   });
 

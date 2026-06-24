@@ -863,14 +863,9 @@ export interface ProcessMemorySnapshot {
   arrayBuffers: number;
 }
 
-/** Read current process memory usage (`process.memoryUsage`). */
-export function processMemoryUsage(): ProcessMemorySnapshot {
-  return process.memoryUsage();
-}
-
 /** Format process memory fields as human-readable strings. */
 export function formatProcessMemoryUsage(
-  mem: ProcessMemorySnapshot = processMemoryUsage()
+  mem: ProcessMemorySnapshot = process.memoryUsage()
 ): Record<keyof ProcessMemorySnapshot, string> {
   return {
     rss: formatMemoryBytes(mem.rss),
