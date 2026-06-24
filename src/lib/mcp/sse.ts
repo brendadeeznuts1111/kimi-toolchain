@@ -544,7 +544,7 @@ export function createHttpMcpClientFromServer(
 }
 
 /**
- * High-level MCP server configuration used by the class-based MCPClient.
+ * High-level MCP server configuration used by the class-based McpClient.
  */
 export interface MCPServerConfig {
   name: string;
@@ -554,7 +554,7 @@ export interface MCPServerConfig {
   cacheDbPath?: string | true;
 }
 
-export class MCPError extends Error {
+export class McpError extends Error {
   constructor(
     readonly code: number,
     message: string,
@@ -568,7 +568,7 @@ export class MCPError extends Error {
  * Class-based wrapper around the functional HttpMcpClient.
  * Provides a simpler, spec-aligned MCP client API.
  */
-export class MCPClient {
+export class McpClient {
   private readonly client: HttpMcpClient;
 
   constructor(private readonly config: MCPServerConfig) {
@@ -598,7 +598,7 @@ export class MCPClient {
   async request(method: string, params?: Record<string, unknown>): Promise<unknown> {
     const { message } = await this.client.request(method, params ?? {});
     if (message.error) {
-      throw new MCPError(message.error.code, message.error.message, message.id as number);
+      throw new McpError(message.error.code, message.error.message, message.id as number);
     }
     return message.result;
   }
@@ -610,10 +610,10 @@ export class MCPClient {
 }
 
 /**
- * Load an MCPClient for a server registered in the MCP registry.
+ * Load an McpClient for a server registered in the MCP registry.
  * Resolves built-in servers first, then user-defined servers in ~/.kimi-code/mcp-servers/.
  */
-export async function loadMCPClient(name: string): Promise<MCPClient> {
+export async function loadMcpClient(name: string): Promise<McpClient> {
   const home = homeDir();
   const registry = await loadMcpRegistry(home);
   const def = registry.servers[name];
@@ -623,7 +623,7 @@ export async function loadMCPClient(name: string): Promise<MCPClient> {
   if (!def.url) {
     throw new Error(`MCP server '${name}' has no HTTP/SSE url`);
   }
-  return new MCPClient({
+  return new McpClient({
     name: def.name,
     url: def.url,
     headers: def.headers,

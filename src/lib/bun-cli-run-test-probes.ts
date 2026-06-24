@@ -5,6 +5,7 @@
 import { join } from "path";
 import { pathExists, readText } from "./bun-io.ts";
 import { cliProbe, spawnCliInDir, withCliFixture, withCliFixtureDir } from "./bun-cli-fixture.ts";
+import { gateSpawnEnv, probeBunExecutable, scrubEphemeralBunNodeDirs } from "./root-hygiene.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..", "..");
 export interface CliContractProbeResult {
@@ -125,13 +126,16 @@ export async function runIfPresentContractProbes(): Promise<CliContractProbeResu
 
 export async function runEvalContractProbes(): Promise<CliContractProbeResult[]> {
   const probes: CliContractProbeResult[] = [];
+  scrubEphemeralBunNodeDirs();
+  const gateEnv = gateSpawnEnv(Bun.env);
 
   for (const [flag, input, expected] of [
     ["-e", 'console.log("hello world")', "hello world\n"],
     ["--print", '"hello world"', "hello world\n"],
   ] as const) {
     const proc = Bun.spawnSync({
-      cmd: [process.execPath, flag, input],
+      cmd: [probeBunExecutable(), flag, input],
+      env: gateEnv,
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -145,7 +149,8 @@ export async function runEvalContractProbes(): Promise<CliContractProbeResult[]>
   }
 
   const evalProc = Bun.spawnSync({
-    cmd: [process.execPath, "-e", "console.log(process._eval)"],
+    cmd: [probeBunExecutable(), "-e", "console.log(process._eval)"],
+    env: gateEnv,
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -158,7 +163,8 @@ export async function runEvalContractProbes(): Promise<CliContractProbeResult[]>
   );
 
   const tlaProc = Bun.spawnSync({
-    cmd: [process.execPath, "-p", "1 + 1"],
+    cmd: [probeBunExecutable(), "-p", "1 + 1"],
+    env: gateEnv,
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -545,8 +551,9 @@ export async function runFilterWorkspaceContractProbes(): Promise<CliContractPro
 
   const subdirOk = await withCliFixtureDir("filter-subdir", WORKSPACE_FILTER_FILES, async (dir) => {
     const proc = Bun.spawnSync({
-      cmd: [process.execPath, "run", "--filter", "pkga", "present"],
+      cmd: [probeBunExecutable(), "run", "--filter", "pkga", "present"],
       cwd: join(dir, "packages", "pkga"),
+      env: gateSpawnEnv(Bun.env),
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -678,7 +685,7 @@ export async function runWorkspacesContractProbes(): Promise<CliContractProbeRes
 // ── filter-workspace dep-order / elide (subset) ─────────────────────
 
 export async function runFilterWorkspaceExtendedProbes(): Promise<CliContractProbeResult[]> {
-  const bun = process.execPath;
+  const bun = probeBunExecutable();
   const depOrder = await withCliFixture(
     "filter-dep-order",
     {
@@ -790,14 +797,14 @@ export async function runLogTestContractProbes(): Promise<CliContractProbeResult
 
 // ── bun init (subset) ───────────────────────────────────────────────
 
-const INIT_ENV = { ...Bun.env, BUN_AGENT_RULE_DISABLED: "1" };
+const INIT_ENV = gateSpawnEnv({ ...Bun.env, BUN_AGENT_RULE_DISABLED: "1" });
 
 export async function runInitContractProbes(): Promise<CliContractProbeResult[]> {
   const probes: CliContractProbeResult[] = [];
 
   const worksOk = await withCliFixtureDir("init-works", {}, async (dir) => {
     const proc = Bun.spawnSync({
-      cmd: [process.execPath, "init", "-y"],
+      cmd: [probeBunExecutable(), "init", "-y"],
       cwd: dir,
       env: INIT_ENV,
       stdout: "pipe",
@@ -814,7 +821,7 @@ export async function runInitContractProbes(): Promise<CliContractProbeResult[]>
 
   const minimalOk = await withCliFixtureDir("init-minimal", {}, async (dir) => {
     const proc = Bun.spawnSync({
-      cmd: [process.execPath, "init", "--minimal", "-y"],
+      cmd: [probeBunExecutable(), "init", "--minimal", "-y"],
       cwd: dir,
       env: INIT_ENV,
       stdout: "pipe",

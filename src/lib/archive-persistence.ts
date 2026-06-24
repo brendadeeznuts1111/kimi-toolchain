@@ -93,6 +93,19 @@ export function hashArchive(archiveBytes: Uint8Array | ArrayBuffer): string {
   return (Bun.hash.crc32(archiveBytes) >>> 0).toString(16).padStart(8, "0");
 }
 
+/** Incremental CRC32 hasher for streaming dist archives. */
+export function createCrc32Hasher(): { update(chunk: Uint8Array): void; digest(): string } {
+  let crc = 0;
+  return {
+    update(chunk: Uint8Array) {
+      crc = Bun.hash.crc32(chunk, crc);
+    },
+    digest() {
+      return (crc >>> 0).toString(16).padStart(8, "0");
+    },
+  };
+}
+
 /** CRC32 hex for a file on disk — fast dist drift fingerprint. */
 export async function hashFileCrc32(filePath: string): Promise<string> {
   const bytes = await Bun.file(filePath).arrayBuffer();

@@ -24,6 +24,44 @@ import { lintTestNames } from "./lint-test-names.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
+const NAMING_RULES = `
+id: acronym-casing
+language: typescript
+message: Identifier uses uppercase acronym; use word-case (Api, Json, Url, etc.)
+severity: error
+rule:
+  kind: identifier
+  regex: (MCP|API|URL|JSON|HTTP|JWT|CSRF|SSE|DB|ID)
+  not:
+    any:
+      - regex: ^[A-Z_][A-Z0-9_]*$
+      - regex: ^(URLPattern|URLSearchParams|ShadowRealm|randomUUIDv7|pathToFileURL)$
+---
+id: type-predicate-naming
+language: typescript
+message: Function returns a type predicate; rename to start with "is" (or "assert" for assertions)
+severity: error
+rule:
+  any:
+    - pattern: 'function $NAME($$$ARGS): $$$LEFT is $$$RIGHT { $$$BODY }'
+    - pattern: 'function $NAME($$$ARGS): asserts $$$LEFT is $$$RIGHT { $$$BODY }'
+    - pattern: 'const $NAME = ($$$ARGS): $$$LEFT is $$$RIGHT => $$$BODY'
+    - pattern: 'const $NAME = ($$$ARGS): asserts $$$LEFT is $$$RIGHT => $$$BODY'
+constraints:
+  NAME:
+    not:
+      regex: ^(is|assert)
+`;
+
+async function runNamingLint(paths?: string[]): Promise<number> {
+  const cmd =
+    paths && paths.length > 0
+      ? $`ast-grep scan --inline-rules ${NAMING_RULES} ${paths}`.cwd(REPO_ROOT).nothrow()
+      : $`ast-grep scan --inline-rules ${NAMING_RULES}`.cwd(REPO_ROOT).nothrow();
+  const result = await cmd;
+  return result.exitCode;
+}
+
 function parseArgs(): { files: string[]; namesOnly: boolean } {
   const args = Bun.argv.slice(2);
   const namesOnly = args.includes("--names-only");
@@ -70,6 +108,13 @@ async function runScopedLint(files: string[]): Promise<void> {
   }
   if (testPaths.length > 0) console.log("lint:test-names OK");
 
+  const tsFiles = files.filter((f) => f.endsWith(".ts"));
+  if (tsFiles.length > 0) {
+    const namingCode = await runNamingLint(tsFiles);
+    if (namingCode !== 0) process.exit(namingCode);
+    console.log("lint:naming OK");
+  }
+
   const docLinkPaths = filterDocLinkPaths(files);
   if (docLinkPaths.length > 0) {
     const docViolations = await lintDocLinks(REPO_ROOT, docLinkPaths);
@@ -106,6 +151,7 @@ async function runFullLint(namesOnly: boolean): Promise<void> {
     { cmd: ["bun", "run", "scripts/lint-skill-frontmatter.ts"], label: "skill-frontmatter" },
     { cmd: ["bun", "run", "scripts/lint-tochange.ts"], label: "tochange" },
     { cmd: testNamesCmd, label: "test-names" },
+    { cmd: ["ast-grep", "scan", "--inline-rules", NAMING_RULES], label: "naming" },
     { cmd: ["bun", "run", "scripts/lint-build-constants.ts"], label: "build-constants" },
     {
       cmd: ["bun", "run", "scripts/generate-constants-manifest.ts", "--check"],

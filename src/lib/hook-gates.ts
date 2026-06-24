@@ -1061,6 +1061,18 @@ export async function runPrePushGates(projectRoot: string): Promise<number> {
 /** Shell-hook policy checks (secrets, TODO warnings) — stays lightweight. */
 export async function auditPreCommitPolicy(projectRoot: string): Promise<PreCommitPolicyAudit> {
   const messages: string[] = [];
+
+  const identityResult = await $`bun run scripts/check-git-identity.ts`
+    .cwd(projectRoot)
+    .nothrow()
+    .quiet();
+  if (identityResult.exitCode !== 0) {
+    messages.push(
+      `✗ Commit blocked: git identity check failed\n${identityResult.stdout.toString().trim()}\n${identityResult.stderr.toString().trim()}`
+    );
+    return { ok: false, messages };
+  }
+
   const result = await $`git diff --cached --name-only`.cwd(projectRoot).nothrow().quiet();
   const files = result.stdout.toString().trim().split("\n").filter(Boolean);
 

@@ -10,6 +10,11 @@
  *   bun run verify:bun-features --profile
  */
 
+import {
+  gateSpawnEnv,
+  scrubEphemeralBunNodeDirs,
+  scrubProcessBunInstallCacheEnv,
+} from "../src/lib/root-hygiene.ts";
 import { resolveProjectRoot } from "../src/lib/utils.ts";
 import { endpointCatalogSummary } from "../src/lib/audit-endpoints-metadata.ts";
 import {
@@ -92,6 +97,10 @@ function printHumanReport(report: VerifyReport, strict: boolean): void {
 }
 
 async function main(): Promise<number> {
+  scrubEphemeralBunNodeDirs();
+  scrubProcessBunInstallCacheEnv();
+  Object.assign(Bun.env, gateSpawnEnv(Bun.env));
+
   if (flags.help) {
     console.log(USAGE);
     return 0;

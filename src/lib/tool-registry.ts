@@ -40,6 +40,7 @@ export const TOOL_SHORT_NAMES = [
   "heal",
   "why",
   "bake",
+  "workflow",
   "workspace",
 ] as const;
 
@@ -74,6 +75,7 @@ const SHORT_TO_SCRIPT: Record<string, string> = {
   heal: "kimi-heal.ts",
   why: "kimi-decision.ts",
   bake: "kimi-bake.ts",
+  workflow: "kimi-workflow.ts",
 };
 
 /** package.json bin name → short tool name for meta dispatch. */

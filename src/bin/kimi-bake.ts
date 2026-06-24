@@ -60,7 +60,7 @@ function printHelp() {
 
 // ── Manifest schema ────────────────────────────────────────────────
 
-const manifestSchema = (v: unknown): v is Manifest =>
+const isManifestSchema = (v: unknown): v is Manifest =>
   typeof v === "object" &&
   v !== null &&
   (typeof (v as Manifest).artifact === "undefined" ||
@@ -79,7 +79,7 @@ function resolveManifestPath(): string {
 
 async function loadManifest(): Promise<Manifest> {
   const path = resolveManifestPath();
-  const result = await loadTomlConfig(path, manifestSchema, {});
+  const result = await loadTomlConfig(path, isManifestSchema, {});
   if (!result.ok) {
     console.error(`manifest.toml: ${result.error} (${result.code})`);
     process.exit(1);

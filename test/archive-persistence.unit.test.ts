@@ -3,6 +3,7 @@ import { join } from "path";
 import {
   archiveSupported,
   buildDistFileHashMap,
+  createCrc32Hasher,
   createDistArchive,
   createSyncSnapshotArchive,
   diffDistArchives,
@@ -17,6 +18,20 @@ import { withTempDir } from "./helpers.ts";
 describe("archive-persistence", () => {
   test("archiveSupported is true on current Bun", () => {
     expect(archiveSupported()).toBe(true);
+  });
+
+  test("crc32 matches native Bun.hash.crc32", () => {
+    const data = new TextEncoder().encode("hello world");
+    const native = (Bun.hash.crc32(data) >>> 0).toString(16).padStart(8, "0");
+    expect(hashArchive(data)).toBe(native);
+  });
+
+  test("createCrc32Hasher matches single-shot hashArchive", () => {
+    const data = new TextEncoder().encode("hello world");
+    const hasher = createCrc32Hasher();
+    hasher.update(data.slice(0, 5));
+    hasher.update(data.slice(5));
+    expect(hasher.digest()).toBe(hashArchive(data));
   });
 
   test("extractSyncSnapshotArchive respects extract glob filter", async () => {

@@ -274,7 +274,7 @@ export class ReleaseRegistryError extends Error {
 }
 
 /** Validate a release record has all required fields with correct types. */
-export function validateReleaseRecord(
+export function assertReleaseRecord(
   record: unknown,
   label = "record"
 ): asserts record is BunReleaseRecord {
@@ -371,8 +371,8 @@ export function computeReleaseDiff(
   current: BunReleaseRecord = BUN_RELEASE,
   previous: BunReleaseRecord = BUN_RELEASE_PREVIOUS
 ): ReleaseDiff {
-  validateReleaseRecord(current, "current");
-  validateReleaseRecord(previous, "previous");
+  assertReleaseRecord(current, "current");
+  assertReleaseRecord(previous, "previous");
   validateSemver(current.version, "current.version");
   validateSemver(previous.version, "previous.version");
 

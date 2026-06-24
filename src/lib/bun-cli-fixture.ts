@@ -5,6 +5,7 @@
 import { dirname, join } from "path";
 import { makeDir, removePath, writeText } from "./bun-io.ts";
 import { readableStreamToText } from "./bun-utils.ts";
+import { gateSpawnEnv, probeBunExecutable, scrubEphemeralBunNodeDirs } from "./root-hygiene.ts";
 
 export interface CliSpawnResult {
   readonly exitCode: number;
@@ -22,10 +23,11 @@ export async function spawnCliInDir(
   args: string[],
   env?: Record<string, string | undefined>
 ): Promise<CliSpawnResult> {
+  scrubEphemeralBunNodeDirs();
   const proc = Bun.spawn({
-    cmd: [process.execPath, ...args],
+    cmd: [probeBunExecutable(), ...args],
     cwd,
-    env: env ? { ...Bun.env, ...env } : undefined,
+    env: gateSpawnEnv(env ? { ...Bun.env, ...env } : Bun.env),
     stdout: "pipe",
     stderr: "pipe",
   });

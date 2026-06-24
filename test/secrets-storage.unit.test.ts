@@ -15,7 +15,13 @@ import type { SecretPolicyEntry } from "../src/lib/secrets-types.ts";
 
 describe("secrets-storage", () => {
   test("STORAGE_TIERS lists all platform backends", () => {
-    expect(STORAGE_TIERS).toEqual(["keychain", "credential-manager", "libsecret", "env-fallback"]);
+    expect(STORAGE_TIERS).toEqual([
+      "keychain",
+      "credential-manager",
+      "libsecret",
+      "env-fallback",
+      "Bun.secrets",
+    ]);
   });
 
   test("defaultStorageTierForPlatform matches current platform", () => {

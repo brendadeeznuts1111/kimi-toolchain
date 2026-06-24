@@ -12,6 +12,7 @@ import {
   toolsDir,
   withBunNoOrphans,
 } from "../src/lib/tool-runner.ts";
+import { probeBunExecutable } from "../src/lib/root-hygiene.ts";
 
 function tmpScript(content: string): string {
   const dir = join(tmpdir(), `kimi-tool-runner-${Bun.randomUUIDv7()}`);
@@ -27,9 +28,10 @@ describe("tool-runner", () => {
   });
 
   test("withBunNoOrphans prepends flag once for bun commands", () => {
-    expect(withBunNoOrphans(["bun", "test"])).toEqual(["bun", "--no-orphans", "test"]);
+    const bun = probeBunExecutable();
+    expect(withBunNoOrphans(["bun", "test"])).toEqual([bun, "--no-orphans", "test"]);
     expect(withBunNoOrphans(["bun", "--no-orphans", "run", "x.ts"])).toEqual([
-      "bun",
+      bun,
       "--no-orphans",
       "run",
       "x.ts",

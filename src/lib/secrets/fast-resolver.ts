@@ -8,7 +8,7 @@
 import { SecretKeys } from "../secrets-constants.ts";
 import type { AnySecretKey, SecretsBackend } from "../secrets-types.ts";
 import { isExpired, nowMs } from "../timing.ts";
-import { validateSecretsAPI } from "./drift-guard.ts";
+import { validateSecretsApi } from "./drift-guard.ts";
 
 export const CACHE_TTL_MS = 30_000;
 
@@ -97,7 +97,7 @@ export async function batchResolveSecretsValidated(
   keys?: readonly AnySecretKey[],
   backend?: SecretsBackend
 ): Promise<Map<string, string>> {
-  validateSecretsAPI();
+  validateSecretsApi();
   return batchResolveSecrets(keys, backend);
 }
 

@@ -40,6 +40,7 @@ import {
   SMOKE_TEST_TIMEOUT_MS,
   UNIT_TEST_FILES,
 } from "./test-gates.ts";
+import { gateSpawnEnv, probeBunExecutable, scrubEphemeralBunNodeDirs } from "./root-hygiene.ts";
 
 export type TestTier = "unit" | "integration" | "smoke";
 
@@ -1612,7 +1613,7 @@ export function buildTestRunnerEnv(
   }
   env.NODE_ENV = "test";
   applyDefaultTestTimezone(env);
-  return env;
+  return gateSpawnEnv(env);
 }
 
 /**
@@ -1840,7 +1841,8 @@ export async function runBunTest(
   const useRunnerConfig = options.useRunnerConfig ?? true;
   const runnerConfigPath = useRunnerConfig ? await writeRunnerBunfig(repoRoot) : null;
   const bunArgs = runnerConfigPath ? bunInvocationWithTestConfig(args, runnerConfigPath) : args;
-  const proc = Bun.spawn(["bun", ...bunArgs], {
+  scrubEphemeralBunNodeDirs();
+  const proc = Bun.spawn([probeBunExecutable(), ...bunArgs], {
     cwd: repoRoot,
     stdout: quiet ? "pipe" : "inherit",
     stderr: quiet ? "pipe" : "inherit",

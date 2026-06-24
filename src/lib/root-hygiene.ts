@@ -136,6 +136,59 @@ export function scrubProcessBunInstallCacheEnv(home = homeDir()): boolean {
   return true;
 }
 
+/** True when a Bun binary path points at an ephemeral bun-node-* install. */
+export function isEphemeralBunNodeExecutable(path: string): boolean {
+  return path.includes("bun-node-");
+}
+
+/** Prefer ~/.bun/bin/bun over ephemeral bun-node-* process.execPath (avoids ELOOP spawns). */
+export function probeBunExecutable(home = homeDir()): string {
+  const stable = join(home, ".bun", "bin", "bun");
+  if (pathExists(stable)) return stable;
+  const exec = process.execPath;
+  if (!isEphemeralBunNodeExecutable(exec)) return exec;
+  return stable;
+}
+
+/** Drop ephemeral bun-node-* PATH segments that can circular-link under parallel gates. */
+export function sanitizeGatePath(pathValue: string | undefined, home = homeDir()): string {
+  const bunBin = join(home, ".bun", "bin");
+  const segments = (pathValue ?? "")
+    .split(":")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0 && !segment.includes("bun-node-"));
+  if (!segments.includes(bunBin)) segments.unshift(bunBin);
+  return segments.join(":");
+}
+
+/** Remove ephemeral bun-node-* dirs that can circular-link under parallel Bun spawns. */
+export function scrubEphemeralBunNodeDirs(base = Bun.env.TMPDIR || Bun.env.TEMP || "/tmp"): number {
+  let removed = 0;
+  try {
+    for (const name of listDir(base)) {
+      if (!name.startsWith("bun-node-")) continue;
+      removePath(join(base, name), { recursive: true, force: true });
+      removed++;
+    }
+  } catch {
+    /* tmp unreadable */
+  }
+  return removed;
+}
+
+/** Apply install-cache + PATH hygiene to a gate subprocess env. */
+export function gateSpawnEnv(
+  base: Record<string, string | undefined> = Bun.env,
+  home = homeDir()
+): Record<string, string> {
+  const env = Object.fromEntries(
+    Object.entries(base).filter((entry): entry is [string, string] => entry[1] !== undefined)
+  ) as Record<string, string>;
+  applyBunInstallCacheEnvSanitizer(env, home);
+  env.PATH = sanitizeGatePath(env.PATH, home);
+  return env;
+}
+
 function countTree(path: string): { bytes: number; files: number } {
   let bytes = 0;
   let files = 0;

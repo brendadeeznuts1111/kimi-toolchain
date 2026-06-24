@@ -2,11 +2,11 @@
  * drift-guard.ts — Bun.secrets API shape validation at boot.
  */
 
-export class SecretsAPIDriftError extends Error {
-  override readonly name = "SecretsAPIDriftError";
+export class SecretsApiDriftError extends Error {
+  override readonly name = "SecretsApiDriftError";
 }
 
-export function validateSecretsAPI(): void {
+export function validateSecretsApi(): void {
   const secrets = Bun.secrets;
   if (
     !secrets ||
@@ -14,6 +14,6 @@ export function validateSecretsAPI(): void {
     typeof secrets.set !== "function" ||
     typeof secrets.delete !== "function"
   ) {
-    throw new SecretsAPIDriftError("Bun.secrets API drift: expected get/set/delete");
+    throw new SecretsApiDriftError("Bun.secrets API drift: expected get/set/delete");
   }
 }

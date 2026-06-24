@@ -12,6 +12,7 @@ import {
 } from "./gate-runner.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
+import { gateSpawnEnv as buildGateSpawnEnv } from "./root-hygiene.ts";
 import { withBunNoOrphans } from "./tool-runner.ts";
 import {
   changedIncludesTypeScript,
@@ -108,6 +109,12 @@ export async function buildSteps(
   }
 
   steps.push({
+    name: "git-identity",
+    cmd: ["bun", "run", "scripts/check-git-identity.ts"],
+    silentOnSuccess: true,
+  });
+
+  steps.push({
     name: "success-metrics",
     cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--success-metrics", "--json"],
     silentOnSuccess: true,
@@ -156,6 +163,13 @@ export async function buildSteps(
       steps.push({
         name: "autophagy:scan",
         cmd: ["bun", "scripts/autophagy-scan.ts", "--brief"],
+        silentOnSuccess: false,
+      });
+    }
+    if (pathExists(join(projectRoot, "scripts", "bun-hygiene-audit.ts"))) {
+      steps.push({
+        name: "bun-hygiene:audit",
+        cmd: ["bun", "run", "scripts/bun-hygiene-audit.ts"],
         silentOnSuccess: false,
       });
     }
@@ -324,7 +338,7 @@ async function runStepTracked(
       cwd: projectRoot,
       stdout: "inherit",
       stderr: "inherit",
-      env: withNoOrphansEnv(),
+      env: withNoOrphansEnv(buildGateSpawnEnv(Bun.env)),
     });
     const exitCode = await proc.exited;
     if (exitCode !== 0) {
@@ -375,7 +389,7 @@ async function runStepTrackedWithActive(
       cwd: projectRoot,
       stdout: "pipe",
       stderr: "pipe",
-      env: withNoOrphansEnv(),
+      env: withNoOrphansEnv(buildGateSpawnEnv(Bun.env)),
     });
     active.push(proc);
     const [stdout, stderr, code] = await Promise.all([
