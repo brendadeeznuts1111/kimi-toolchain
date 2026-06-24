@@ -2,7 +2,7 @@
  * Bun runtime utilities — preferred call-site surface over Node polyfills.
  * Docs: https://bun.com/docs/runtime/utils · https://bun.com/docs/runtime/bun-apis
  *
- * Use these helpers in feature code; keep node:* imports confined to bun-native-shim.ts.
+ * Use these helpers in feature code; keep node:* imports confined to bun-io.ts.
  * For inspect output, equality, and ANSI helpers see src/lib/inspect.ts.
  */
 
@@ -582,15 +582,22 @@ function abortError(): DOMException {
   return new DOMException("Aborted", "AbortError");
 }
 
-/** `Bun.sleep` with early exit when `signal` aborts (types/runtime may lack native signal option). */
+/** `Bun.sleep` with early abort via `signal`. Cancels the sleep when signal fires. */
 export async function sleepAbortable(ms: number, signal: AbortSignal): Promise<void> {
   if (signal.aborted) throw abortError();
-  await Promise.race([
-    Bun.sleep(ms),
-    new Promise<never>((_, reject) => {
-      signal.addEventListener("abort", () => reject(abortError()), { once: true });
-    }),
-  ]);
+  let cleanup: (() => void) | undefined;
+  try {
+    await Promise.race([
+      Bun.sleep(ms),
+      new Promise<never>((_, reject) => {
+        const onAbort = () => reject(abortError());
+        signal.addEventListener("abort", onAbort, { once: true });
+        cleanup = () => signal.removeEventListener("abort", onAbort);
+      }),
+    ]);
+  } finally {
+    cleanup?.();
+  }
 }
 
 /**
@@ -609,10 +616,16 @@ export function startDelayedIntervalLoop(
         await sleepAbortable(intervalMs, signal);
       } catch (error) {
         if (signal.aborted || isAbortError(error)) return;
-        throw error;
+        console.error("[startDelayedIntervalLoop] sleep error:", error);
+        return;
       }
       if (signal.aborted) return;
-      await tick();
+      try {
+        await tick();
+      } catch (error) {
+        console.error("[startDelayedIntervalLoop] tick error:", error);
+        return;
+      }
     }
   })();
   return controller;
@@ -629,13 +642,19 @@ export function startIntervalLoop(
   void (async () => {
     const { signal } = controller;
     while (!signal.aborted) {
-      await tick();
+      try {
+        await tick();
+      } catch (error) {
+        console.error("[startIntervalLoop] tick error:", error);
+        return;
+      }
       if (signal.aborted) return;
       try {
         await sleepAbortable(intervalMs, signal);
       } catch (error) {
         if (signal.aborted || isAbortError(error)) return;
-        throw error;
+        console.error("[startIntervalLoop] sleep error:", error);
+        return;
       }
     }
   })();
@@ -681,6 +700,8 @@ export function startCronLoop(
       } catch {
         // Cron errors are surfaced via unhandledRejection — no crash
       }
+      // Signal may have fired during tick — cron.dispose() won't cancel in-flight ticks
+      if (controller.signal.aborted) return;
     });
     controller.signal.addEventListener("abort", () => cron.dispose(), { once: true });
     return controller;
