@@ -9,6 +9,7 @@
 
 import { $ } from "bun";
 import { bunVersion, isDirectRun } from "../lib/bun-utils.ts";
+import { recordField } from "../lib/boundary.ts";
 import { pathExists, readJsonFile } from "../lib/bun-io.ts";
 import { join } from "path";
 import {
@@ -51,12 +52,6 @@ interface ContextMeta {
   generatedAt: string;
   configHashes: ConfigHash[];
   freshnessScore: number;
-}
-
-function recordField(obj: unknown, key: string): unknown {
-  return typeof obj === "object" && obj !== null
-    ? (obj as Record<string, unknown>)[key]
-    : undefined;
 }
 
 function isConfigHash(value: unknown): value is ConfigHash {

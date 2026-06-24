@@ -1,7 +1,8 @@
+import { isPlainObject, isStringRecord, recordField } from "./boundary.ts";
 import { pathExists, readJsonFile, readJsonValidated } from "./bun-io.ts";
+import { parseTomlValue } from "./toml-config.ts";
 
 import { join } from "path";
-import { TOML } from "bun";
 
 interface PackageJsonTrusted {
   trustedDependencies?: string[];
@@ -13,21 +14,6 @@ interface PackageJsonTrusted {
     preinstall?: string;
     install?: string;
   };
-}
-
-function recordField(obj: unknown, key: string): unknown {
-  return typeof obj === "object" && obj !== null
-    ? (obj as Record<string, unknown>)[key]
-    : undefined;
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.values(value).every((v) => typeof v === "string")
-  );
 }
 
 function isPackageJsonTrusted(value: unknown): value is PackageJsonTrusted {
@@ -51,13 +37,6 @@ function isPackageJsonTrusted(value: unknown): value is PackageJsonTrusted {
             recordField(scripts, k) === undefined || typeof recordField(scripts, k) === "string"
         )))
   );
-}
-
-interface BunfigTrustedConfig {
-  install?: {
-    trustedDependencies?: string[];
-  };
-  trustedDependencies?: string[];
 }
 
 export interface TrustedDependencyScan {
@@ -102,8 +81,16 @@ export async function readTrustedDependencies(projectDir: string): Promise<{
 
   if (pathExists(bunfigPath)) {
     try {
-      const config = TOML.parse(await Bun.file(bunfigPath).text()) as BunfigTrustedConfig;
-      legacyBunfigTrusted = config.install?.trustedDependencies || config.trustedDependencies || [];
+      const config = parseTomlValue(await Bun.file(bunfigPath).text());
+      const install = config ? recordField(config, "install") : undefined;
+      const installTrusted =
+        isPlainObject(install) && Array.isArray(install.trustedDependencies)
+          ? (install.trustedDependencies as string[])
+          : [];
+      const rootTrusted = Array.isArray(config?.trustedDependencies)
+        ? (config.trustedDependencies as string[])
+        : [];
+      legacyBunfigTrusted = installTrusted.length > 0 ? installTrusted : rootTrusted;
     } catch {
       const content = await Bun.file(bunfigPath).text();
       const match = content.match(/trustedDependencies\s*=\s*\[([^\]]*)\]/);

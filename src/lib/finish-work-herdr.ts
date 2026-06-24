@@ -1012,7 +1012,9 @@ export async function runDoctorPaneGate(
       exitCode: 1,
       ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
       stdout: "",
-      stderr: resolved.error || "doctor pane not resolved",
+      stderr: resolved.error
+        ? `Cannot route ${name} to doctor pane: ${resolved.error}`
+        : "doctor pane not resolved",
       routed: true,
     };
   }
@@ -1035,7 +1037,9 @@ export async function runDoctorPaneGate(
       exitCode: 1,
       ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
       stdout: ran.stdout,
-      stderr: ran.stderr || "pane run failed",
+      stderr: ran.stderr
+        ? `herdr pane run failed on doctor ${doctorPaneId}: ${ran.stderr}`
+        : "pane run failed",
       doctorPaneId,
       routed: true,
     };
@@ -1061,7 +1065,10 @@ export async function runDoctorPaneGate(
       exitCode: 1,
       ms: Math.round((Bun.nanoseconds() - start) / 1_000_000),
       stdout: log,
-      stderr: wait.stderr || wait.stdout || "doctor gate wait timed out",
+      stderr:
+        wait.stderr || wait.stdout
+          ? `${name} timed out in doctor pane ${doctorPaneId} after ${FINISH_WORK_DOCTOR_GATE_TIMEOUT_MS}ms: ${wait.stderr || wait.stdout}`
+          : "doctor gate wait timed out",
       doctorPaneId,
       routed: true,
     };

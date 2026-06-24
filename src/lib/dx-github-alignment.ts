@@ -4,7 +4,7 @@
  * Keeps project-local dx.config.toml in parity with package scripts and GitHub CI.
  */
 
-import { pathExists } from "./bun-io.ts";
+import { pathExists, readJsonFile } from "./bun-io.ts";
 
 import { join } from "path";
 import YAML from "js-yaml";
@@ -183,7 +183,7 @@ async function readYaml(path: string): Promise<UnknownRecord | null> {
 
 async function readPackage(path: string): Promise<PackageManifest | null> {
   try {
-    const pkg = record(await Bun.file(path).json());
+    const pkg = record(await readJsonFile(path));
     const scriptsSource = record(pkg.scripts);
     const scripts: Record<string, string> = {};
     for (const [key, value] of Object.entries(scriptsSource)) {

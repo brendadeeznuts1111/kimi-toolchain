@@ -20,7 +20,7 @@ trigger:
 dependencies: []
 loaded_by: System / On-demand
 role: Toolchain meta-runbook — CLI routing, gates, Kimi vs toolchain split
-token_estimate: 1300
+token_estimate: 1350
 run_as: inline
 metadata:
   companionSkills:
@@ -78,6 +78,18 @@ Docs: https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html
 | `kimi provider list` / `catalog list` / `catalog add` | Provider management               |
 
 Built-in subagents: `coder`, `explore`, `plan`. Env overrides: `KIMI_MODEL_*` (non-persistent), `KIMI_CODE_BACKGROUND_KEEP_ALIVE_ON_EXIT`, `KIMI_CODE_EXPERIMENTAL_SUB_SKILL`.
+
+## Meta-binary discovery
+
+`kimi-toolchain` itself exposes a few global flags in addition to routing subcommands:
+
+| Flag           | Purpose                                                                 |
+| -------------- | ----------------------------------------------------------------------- |
+| `--help`       | Print usage + tool list                                                 |
+| `--version`    | Print toolchain version, commit, and build channel                      |
+| `--list-tools` | Emit JSON catalog of every registered tool and its resolved script path |
+
+Use `--list-tools` when automating or shell-completing. If an unknown tool name is passed, the router suggests the closest registered name (e.g. `kimi-toolchain docto` → `Did you mean doctor?`).
 
 ## Decision Protocol
 

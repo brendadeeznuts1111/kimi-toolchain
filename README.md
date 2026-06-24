@@ -74,6 +74,8 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 
 | Command                                 | Description                            |
 | --------------------------------------- | -------------------------------------- |
+| `bun run agents:sync`                   | scripts/sync-agents-md.ts              |
+| `bun run agents:sync:check`             | scripts/sync-agents-md.ts              |
 | `bun run ast-grep:scan`                 | scripts/ast-grep-scan.ts               |
 | `bun run ast-grep:scan:json`            | scripts/ast-grep-scan.ts               |
 | `bun run ast-grep:test`                 | See package.json scripts               |

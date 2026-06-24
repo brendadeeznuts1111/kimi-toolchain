@@ -41,6 +41,40 @@ describe("kimi-toolchain router", () => {
     expect(stdout).toContain("source");
   }, 10_000);
 
+  test("--list-tools emits JSON tool catalog", async () => {
+    const { stdout, exitCode } = await run(META, ["--list-tools"]);
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout) as Array<{
+      name: string;
+      script: string | null;
+      source: string;
+    }>;
+    expect(Array.isArray(parsed)).toBe(true);
+    const names = parsed.map((t) => t.name);
+    expect(names).toContain("doctor");
+    expect(names).toContain("workspace");
+    expect(names).toContain("guardian");
+    const doctor = parsed.find((t) => t.name === "doctor");
+    expect(doctor).toBeDefined();
+    expect(doctor?.source).toBe("repo");
+    expect(doctor?.script).toMatch(/kimi-doctor\.ts$/);
+  }, 10_000);
+
+  test("unknown tool suggests closest match", async () => {
+    const { stdout, exitCode } = await run(META, ["docto"]);
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("Unknown tool: docto");
+    expect(stdout).toContain("Did you mean doctor?");
+  }, 10_000);
+
+  test("unknown tool with no close match only prints help", async () => {
+    const { stdout, exitCode } = await run(META, ["xyzxyzxyz"]);
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("Unknown tool: xyzxyzxyz");
+    expect(stdout).not.toContain("Did you mean");
+    expect(stdout).toContain("Usage:");
+  }, 10_000);
+
   test("workspace verify runs", async () => {
     const { stdout, exitCode } = await run(META, ["workspace", "verify"]);
     expect(stdout).toContain("Workspace verify");

@@ -32,6 +32,47 @@ Repos: [kimi-toolchain](https://github.com/brendadeeznuts1111/kimi-toolchain) (`
 
 Doc constants: `BUN_RUNTIME_*_DOC_URL`, `BUN_API_REFERENCE_URL`, `BUN_DOCS_RSS_URL`, `BUN_BENCHMARKING_DOC_URL` in `bun-install-config.ts`. Typed reference: [bun.com/reference/bun](https://bun.com/reference/bun). Docs RSS: [bun.com/rss.xml](https://bun.com/rss.xml).
 
+### Bun API usage map
+
+| Bun API                                        | Why It Matters                                    | Where It Gets Used                |
+| ---------------------------------------------- | ------------------------------------------------- | --------------------------------- |
+| `Bun.color`                                    | Native color handling (better than manual ANSI)   | Channel formatters, herdr output  |
+| `Bun.markdown`                                 | Render beautiful terminal reports                 | New markdown status reporter      |
+| `Bun.TOML`                                     | Native `dx.config.toml` parsing                   | Dynamic herdr tab config reload   |
+| `Bun.nanoseconds`                              | True high-resolution probe timing                 | `network-loop.ts` probe timing    |
+| `Bun.sleep`                                    | Proper async sleep (replaces `setTimeout`)        | Main probe/watch loops            |
+| `Bun.stringWidth` / `stripAnsi`                | Unicode-safe terminal layout                      | Status lines, tables, formatters  |
+| `Bun.gzipSync` / `gunzipSync`                  | Compressed snapshot persistence                   | `snapshot-io.ts`                  |
+| `Bun.deepEquals`                               | Fast structural snapshot comparison               | Baseline diff optimization        |
+| `Bun.semver`                                   | Runtime vs snapshot version gating                | Strict version checks             |
+| `Bun.dns`                                      | DNS prefetch before probes                        | Faster health checks              |
+| `Bun.peek`                                     | Non-blocking promise status inspection            | Early-exit probe logic            |
+| `Bun.which`                                    | Discover optional binaries (`rsvg-convert`, etc.) | Image pipeline                    |
+| `Bun.password`                                 | Secure secret hashing                             | `secret-resolver.ts`              |
+| `Bun.spawn`                                    | Launch `herdr-doctor` or external tools           | Tab spawning                      |
+| `Bun.gc`                                       | Force GC before big snapshot operations           | Memory hygiene                    |
+| `Bun.escapeHTML`                               | Safe HUD injection                                | WebView HUD                       |
+| `Bun.readableStreamToText` / `ArrayBufferSink` | Efficient I/O                                     | Streaming manifests, UDP batching |
+
+### Bun pattern migration guide
+
+> Grounded in official Bun API reference (v1.3.12+). See [bun.sh/docs/runtime/bun-apis](https://bun.sh/docs/runtime/bun-apis) · [bun.sh/reference](https://bun.sh/reference).
+
+| Old Pattern                            | Official Bun Replacement                                | Signature / Notes                                                                       |
+| -------------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `setInterval(async () => {}, ms)`      | `Bun.cron("* * * * * *", async () => { ... })`          | In-process, no overlap, UTC, `--hot` safe, disposable via `using`                       |
+| `setInterval(async () => {}, ms)`      | `startCronLoop(cronExpr, intervalMs, tick)`             | Compat shim in `bun-utils.ts` — uses `Bun.cron` on ≥1.3.12, falls back to interval loop |
+| `await new Promise(() => {})`          | `await Bun.sleep(Infinity)`                             | `Bun.sleep(ms: number \| Date): Promise<void>`                                          |
+| `performance.now()`                    | `Bun.nanoseconds()`                                     | `Bun.nanoseconds(): number` — high-res since process start                              |
+| `process.env`                          | `Bun.env`                                               | Direct alias                                                                            |
+| `Date.now() / 1000`                    | `Math.floor(Number(Bun.nanoseconds()) / 1_000_000_000)` | High-res epoch, bigint-safe                                                             |
+| `proc.stdin.getWriter()` + write/close | `stdin: new Response(body)` in `Bun.spawn(...)`         | `Bun.spawn({ cmd: [...], stdin: new Response(JSON.stringify(state)) })`                 |
+| Manual resource cleanup                | `await using` (WebView / HUD)                           | Supported via `using` declaration                                                       |
+| Glob + file ops                        | `new Bun.Glob()`, `Bun.file()`, `Bun.write()`           | Fully native                                                                            |
+| Hashing                                | `Bun.hash.crc32(buffer)`                                | `Bun.hash` module                                                                       |
+| Timing in loops                        | `Bun.nanoseconds()`                                     | Preferred over `Date.now()` / `performance.*`                                           |
+| Keep-alive / graceful shutdown         | `Bun.sleep(Infinity, { signal })` + `AbortController`   | `abortController.signal` support                                                        |
+
 ## Core Defaults
 
 | Need                              | Reference                                                                                                                                                                                                      | Follow                                                                                                                                                                                                                                                                                                                      |

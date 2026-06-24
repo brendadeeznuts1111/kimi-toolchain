@@ -14,6 +14,7 @@ import { parsePolicyConfig } from "./cloudflare-access-policy.ts";
 import { SecretKeys } from "./secrets-constants.ts";
 import { readSecretFromEnv } from "./secrets-env.ts";
 import { safeJsonc } from "./utils.ts";
+import { Schema } from "effect";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -109,12 +110,48 @@ export interface OrphanedResource {
 
 // ── API ──────────────────────────────────────────────────────────────
 
-type ApiResponse<T> = {
-  ok: boolean;
-  status: number;
-  text(): Promise<string>;
-  json(): Promise<{ result?: T; success?: boolean; errors?: Array<{ message: string }> }>;
-};
+/** Cloudflare API envelope — validates success/errors; result is untyped. */
+const ApiEnvelope = Schema.Struct({
+  success: Schema.Boolean,
+  errors: Schema.optional(Schema.mutable(Schema.Array(Schema.Struct({ message: Schema.String })))),
+  messages: Schema.optional(Schema.Array(Schema.String)),
+  result: Schema.optional(Schema.Unknown),
+});
+
+interface ApiOk<T> {
+  success: true;
+  result: T;
+}
+
+interface ApiError {
+  success: false;
+  errors?: Array<{ message: string }>;
+}
+
+/** Narrow parsed JSON to the expected Cloudflare API shape. */
+function narrowApiResult<T>(raw: unknown): ApiOk<T> | ApiError {
+  const envelope = Schema.decodeUnknownSync(ApiEnvelope)(raw);
+  if (envelope.success === false) {
+    return { success: false as const, errors: envelope.errors };
+  }
+  return { success: true as const, result: envelope.result as T };
+}
+
+/** Fetch Cloudflare API, validate the envelope, return result or throw. */
+async function apiFetch<T>(url: string, init: RequestInit & { timeoutMs?: number }): Promise<T> {
+  const resp = await fetchWithTimeout(url, init);
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Cloudflare API ${resp.status}: ${text}`);
+  }
+  const raw = await resp.json();
+  const narrowed = narrowApiResult<T>(raw);
+  if (narrowed.success === false) {
+    const msg = narrowed.errors?.[0]?.message ?? "API returned success: false";
+    throw new Error(`Cloudflare API error: ${msg}`);
+  }
+  return narrowed.result;
+}
 
 // ── Credentials ──────────────────────────────────────────────────────
 
@@ -167,24 +204,30 @@ export async function getCredentials(
 }
 
 export async function verifyToken(apiToken: string): Promise<{ valid: boolean; message?: string }> {
+  const TokenStatusSchema = Schema.Struct({
+    success: Schema.Boolean,
+    errors: Schema.optional(Schema.Array(Schema.Struct({ message: Schema.String }))),
+  });
+
   try {
-    const resp = (await fetchWithTimeout(`${API_BASE}/user/tokens/verify`, {
+    const resp = await fetchWithTimeout(`${API_BASE}/user/tokens/verify`, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${apiToken}`,
         "Content-Type": "application/json",
       },
       timeoutMs: 15000,
-    })) as unknown as ApiResponse<{ status: string }>;
+    });
 
     if (!resp.ok) {
       const text = await resp.text();
       return { valid: false, message: `Cloudflare API ${resp.status}: ${text}` };
     }
 
-    const data = await resp.json();
+    const raw = await resp.json();
+    const data = Schema.decodeUnknownSync(TokenStatusSchema)(raw);
     if (data.success === false) {
-      const msg = data.errors?.map((e) => e.message).join("; ") || "Token verification failed";
+      const msg = data.errors?.[0]?.message || "Token verification failed";
       return { valid: false, message: msg };
     }
 
@@ -196,27 +239,14 @@ export async function verifyToken(apiToken: string): Promise<{ valid: boolean; m
 }
 
 export async function apiGet<T>(accountId: string, apiToken: string, path: string): Promise<T> {
-  const url = `${API_BASE}/accounts/${accountId}${path}`;
-  const resp = (await fetchWithTimeout(url, {
+  return apiFetch<T>(`${API_BASE}/accounts/${accountId}${path}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${apiToken}`,
       "Content-Type": "application/json",
     },
     timeoutMs: 15000,
-  })) as unknown as ApiResponse<T>;
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Cloudflare API ${resp.status}: ${text}`);
-  }
-
-  const data = await resp.json();
-  if (data.success === false) {
-    const msg = data.errors?.map((e) => e.message).join("; ") || "API request failed";
-    throw new Error(`Cloudflare API error: ${msg}`);
-  }
-  return data.result || ([] as T);
+  });
 }
 
 export function isAuthError(err: unknown): boolean {
@@ -242,28 +272,17 @@ export async function rotateServiceToken(
   apiToken: string,
   tokenId: string
 ): Promise<{ client_id: string; client_secret: string }> {
-  const url = `${API_BASE}/accounts/${accountId}/access/service_tokens/${tokenId}/refresh`;
-  const resp = (await fetchWithTimeout(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiToken}`,
-      "Content-Type": "application/json",
-    },
-    timeoutMs: 15000,
-  })) as unknown as ApiResponse<{ client_id: string; client_secret: string }>;
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Cloudflare API ${resp.status}: ${text}`);
-  }
-
-  const data = await resp.json();
-  if (data.success === false) {
-    const msg = data.errors?.map((e) => e.message).join("; ") || "API request failed";
-    throw new Error(`Cloudflare API error: ${msg}`);
-  }
-  if (!data.result) throw new Error("API returned empty result");
-  return data.result;
+  return apiFetch<{ client_id: string; client_secret: string }>(
+    `${API_BASE}/accounts/${accountId}/access/service_tokens/${tokenId}/refresh`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        "Content-Type": "application/json",
+      },
+      timeoutMs: 15000,
+    }
+  );
 }
 
 // ── Token Violation Sweep ────────────────────────────────────────────
@@ -799,35 +818,31 @@ export async function discoverOrphanedResources(
   const orphaned: OrphanedResource[] = [];
 
   // Fetch all R2 buckets
-  const bucketsRes = await fetchWithTimeout(`${API_BASE}/accounts/${accountId}/r2/buckets`, {
+  const bucketsRes = fetchWithTimeout(`${API_BASE}/accounts/${accountId}/r2/buckets`, {
     headers: { Authorization: `Bearer ${apiToken}` },
   });
-  const bucketsData = (await (bucketsRes as unknown as { json(): Promise<unknown> }).json()) as {
-    result?: { buckets?: Array<{ name: string }> };
-  };
+  const bucketsData: { result?: { buckets?: Array<{ name: string }> } } = await (
+    await bucketsRes
+  ).json();
   const buckets: Array<{ name: string }> = bucketsData.result?.buckets || [];
 
   // Fetch all workers and their bindings
-  const workersRes = await fetchWithTimeout(`${API_BASE}/accounts/${accountId}/workers/scripts`, {
+  const workersRes = fetchWithTimeout(`${API_BASE}/accounts/${accountId}/workers/scripts`, {
     headers: { Authorization: `Bearer ${apiToken}` },
   });
-  const workersData = (await (workersRes as unknown as { json(): Promise<unknown> }).json()) as {
-    result?: Array<{ id: string }>;
-  };
+  const workersData: { result?: Array<{ id: string }> } = await (await workersRes).json();
   const workerNames: string[] = (workersData.result || []).map((w: { id: string }) => w.id);
 
   const boundBuckets = new Set<string>();
   for (const w of workerNames) {
     try {
-      const settingsRes = await fetchWithTimeout(
+      const settingsRes = fetchWithTimeout(
         `${API_BASE}/accounts/${accountId}/workers/scripts/${w}/settings`,
         { headers: { Authorization: `Bearer ${apiToken}` } }
       );
-      const settingsData = (await (
-        settingsRes as unknown as { json(): Promise<unknown> }
-      ).json()) as {
+      const settingsData: {
         result?: { bindings?: Array<{ type: string; bucket_name?: string }> };
-      };
+      } = await (await settingsRes).json();
       const r2Bindings = (settingsData.result?.bindings || []).filter(
         (b: { type: string }) => b.type === "r2_bucket"
       );

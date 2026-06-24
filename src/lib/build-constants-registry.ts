@@ -3,7 +3,8 @@
  * Powers constants-manifest.json generation and cross-repo parity checks.
  */
 
-import { pathExists } from "./bun-io.ts";
+import { asRecord } from "./boundary.ts";
+import { pathExists, readJsonFile } from "./bun-io.ts";
 
 import { join } from "path";
 import { homeDir } from "./paths.ts";
@@ -86,9 +87,7 @@ const DEFINE_KEY = /^([A-Z][A-Z0-9_]*) = /;
 const DEFINE_DOMAIN = /^# define-domain:([a-z][a-z0-9-]*)/;
 
 function record(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
+  return asRecord(value) ?? {};
 }
 
 export function expandRepoPath(path: string, projectRoot: string): string {
@@ -524,7 +523,7 @@ export async function generateConstantsManifest(projectRoot: string): Promise<Co
 
   let repoName = "kimi-toolchain";
   try {
-    const pkg = record(await Bun.file(join(projectRoot, "package.json")).json());
+    const pkg = record(await readJsonFile(join(projectRoot, "package.json")));
     if (typeof pkg.name === "string") repoName = pkg.name;
   } catch {
     // keep default
@@ -572,7 +571,7 @@ export async function readConstantsManifest(
   const path = join(projectRoot, "constants-manifest.json");
   if (!pathExists(path)) return null;
   try {
-    const raw = await Bun.file(path).json();
+    const raw = await readJsonFile(path);
     return isConstantsManifest(raw) ? raw : null;
   } catch {
     return null;

@@ -174,6 +174,31 @@ async function runFollowUpStep(
   };
 }
 
+async function currentGitBranch(): Promise<string | null> {
+  const result = await $`git branch --show-current`.cwd(REPO_ROOT).nothrow().quiet();
+  if (result.exitCode !== 0) return null;
+  return result.stdout.toString().trim() || null;
+}
+
+async function hasUpstreamBranch(): Promise<{ ok: boolean; branch?: string; error?: string }> {
+  const branch = await currentGitBranch();
+  if (!branch) {
+    return { ok: false, error: "Unable to determine current git branch" };
+  }
+  const upstream = await $`git rev-parse --abbrev-ref --symbolic-full-name @{u}`
+    .cwd(REPO_ROOT)
+    .nothrow()
+    .quiet();
+  if (upstream.exitCode !== 0) {
+    return {
+      ok: false,
+      branch,
+      error: `Branch ${branch} has no upstream branch. Run: git push -u origin ${branch}`,
+    };
+  }
+  return { ok: true, branch };
+}
+
 async function runGitSteps(message: string, push: boolean, dryRun: boolean): Promise<GitResult> {
   const result: GitResult = {
     attempted: true,
@@ -199,6 +224,12 @@ async function runGitSteps(message: string, push: boolean, dryRun: boolean): Pro
   result.committed = true;
 
   if (!push) return result;
+
+  const upstream = await hasUpstreamBranch();
+  if (!upstream.ok) {
+    result.error = upstream.error || "no upstream branch";
+    return result;
+  }
 
   const pushResult = await $`git push`.cwd(REPO_ROOT).nothrow().quiet();
   if (pushResult.exitCode !== 0) {

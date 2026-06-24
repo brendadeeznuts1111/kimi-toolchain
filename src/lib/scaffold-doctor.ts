@@ -119,27 +119,28 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
     return checks;
   }
 
-  try {
-    const pkg = await readPackageManifest(projectDir);
-    const scripts = pkg?.scripts || {};
-    const missingScripts = REQUIRED_PACKAGE_SCRIPTS.filter((s) => !scripts[s]);
-    checks.push({
-      name: "package-scripts",
-      status: missingScripts.length === 0 ? "ok" : "warn",
-      message:
-        missingScripts.length === 0
-          ? "quality scripts defined"
-          : `missing: ${missingScripts.join(", ")}`,
-      fixable: missingScripts.length > 0,
-    });
-  } catch {
+  const pkg = await readPackageManifest(projectDir);
+  if (pkg === null) {
     checks.push({
       name: "package.json",
       status: "error",
       message: "invalid JSON",
       fixable: false,
     });
+    return checks;
   }
+
+  const scripts = pkg.scripts || {};
+  const missingScripts = REQUIRED_PACKAGE_SCRIPTS.filter((s) => !scripts[s]);
+  checks.push({
+    name: "package-scripts",
+    status: missingScripts.length === 0 ? "ok" : "warn",
+    message:
+      missingScripts.length === 0
+        ? "quality scripts defined"
+        : `missing: ${missingScripts.join(", ")}`,
+    fixable: missingScripts.length > 0,
+  });
 
   return checks;
 }

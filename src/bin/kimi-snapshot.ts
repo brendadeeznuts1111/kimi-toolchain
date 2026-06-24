@@ -12,8 +12,12 @@ import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
 import { snapshotDir } from "../lib/paths.ts";
-import { snapshotPath, saveSnapshot, listSnapshots } from "../lib/snapshot-core.ts";
-import type { Snapshot } from "../lib/snapshot-core.ts";
+import {
+  snapshotPath,
+  saveSnapshot,
+  listSnapshots,
+  tryReadSnapshot,
+} from "../lib/snapshot-core.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
 import { isDirectRun } from "../lib/bun-utils.ts";
@@ -31,7 +35,10 @@ async function restoreSnapshot(id: string, projectDir: string) {
     throw new Error(`Snapshot not found: ${id}`);
   }
 
-  const snapshot: Snapshot = await Bun.file(path).json();
+  const snapshot = await tryReadSnapshot(path);
+  if (!snapshot) {
+    throw new Error(`Snapshot corrupt or invalid: ${id}`);
+  }
 
   logger.section(`Restoring snapshot ${id}`);
   logger.info(`Project: ${snapshot.project}`);
@@ -84,9 +91,10 @@ async function doctor(): Promise<
   for await (const file of glob.scan({ cwd: SNAPSHOT_DIR, absolute: true })) {
     total++;
     try {
-      const snap: Snapshot = await Bun.file(file).json();
-      if (!snap.id || !snap.project || !snap.commit) {
+      const snap = await tryReadSnapshot(file);
+      if (!snap) {
         corrupted++;
+        continue;
       }
       if (snap.projectPath && !pathExists(snap.projectPath)) {
         orphaned++;
@@ -156,16 +164,11 @@ async function fixSnapshots() {
     let isCorrupted = false;
     let isOrphaned = false;
 
-    try {
-      const snap: Snapshot = await Bun.file(file).json();
-      if (!snap.id || !snap.project || !snap.commit) {
-        isCorrupted = true;
-      }
-      if (snap.projectPath && !pathExists(snap.projectPath)) {
-        isOrphaned = true;
-      }
-    } catch {
+    const snap = await tryReadSnapshot(file);
+    if (!snap) {
       isCorrupted = true;
+    } else if (snap.projectPath && !pathExists(snap.projectPath)) {
+      isOrphaned = true;
     }
 
     if (isCorrupted || isOrphaned) {
@@ -230,7 +233,11 @@ async function main(): Promise<number> {
       logger.error(`Snapshot not found: ${id}`);
       return 1;
     }
-    const snap: Snapshot = await Bun.file(path).json();
+    const snap = await tryReadSnapshot(path);
+    if (!snap) {
+      logger.error(`Snapshot corrupt or invalid: ${id}`);
+      return 1;
+    }
     logger.section(`Snapshot ${id}`);
     logger.info(`Project:    ${snap.project}`);
     logger.info(`Path:       ${snap.projectPath}`);

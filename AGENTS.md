@@ -78,7 +78,7 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 | `package.json`               | Project metadata, `bin` map (31 registered CLI tools), npm scripts, dependencies (`effect`, `js-yaml`), `trustedDependencies` policy, devDependencies (`@types/bun`, `oxfmt`, `oxlint`, `ts-morph`, `typescript`) |
 | `bunfig.toml`                | Bun install policy (`[install]`), test defaults (`[test]`), and build-time define constants (`[define]`)                                                                                                          |
 | `tsconfig.json`              | TypeScript strict, ESNext, bundler resolution, `noEmit`, includes `src/`, `test/`, `scripts/`, `types/*.d.ts`                                                                                                     |
-| `dx.config.toml`             | Project DX policy: runtime (`containers = "none"`), quality gate script aliases, `[finishWork]` gates, `[herdr]` orchestration layout, `[cloudflare]` read-only mode, `[[endpoints]]` inventory                   |
+| `dx.config.toml`             | Project DX policy: runtime (`containers = "none"`), quality gate script aliases, `[finishWork]` gates, `[herdr]` orchestration layout, `[cloudflare]` read-only mode, `[[endpoints]]` inventory (10 endpoints)    |
 | `.oxfmtrc.json`              | `oxfmt` formatter config (printWidth 100, 2-space tabs, trailing commas `es5`, ignore patterns)                                                                                                                   |
 | `.oxlintrc.json`             | `oxlint` linter config (plugins `typescript`, `unicorn`, `oxc`; category `correctness` = error)                                                                                                                   |
 | `error-taxonomy.yml`         | Failure classification schema used by `kimi-error`, `kimi-debug`, `kimi-heal`, and the failure ledger                                                                                                             |
@@ -133,7 +133,7 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 | `src/lib/`           | Shared library modules. Flat by default to avoid deep imports and circular dependencies. `src/lib/effect/` is the intentional exception for Effect adapters. See `src/lib/README.md` for the domain map.                                                                                               |
 | `src/install-hooks/` | `postinstall.ts` — Bun package hook that idempotently sets up `~/.kimi-code/`.                                                                                                                                                                                                                         |
 | `src/kimi-hooks/`    | Kimi Code lifecycle hooks (e.g., `log-tool-failure.ts`) that are declared in `~/.kimi-code/config.toml` `[[hooks]]`.                                                                                                                                                                                   |
-| `src/gates/`         | Built-in execution gates (`bunfig-policy`, `perf-gate`, `tls-compliance`, `card-probe`, `strategy-performance`, `model-drift`).                                                                                                                                                                        |
+| `src/gates/`         | Built-in execution gates (`bunfig-policy`, `card-probe`, `config-status`, `email-i18n`, `hardcoded-secrets`, `model-drift`, `perf-gate`, `runtime-utils-coverage`, `strategy-performance`, `tls-compliance`, `url-i18n`).                                                                              |
 | `src/harness/`       | Effect benchmark harness handlers and perf monitors.                                                                                                                                                                                                                                                   |
 | `test/`              | Unit, integration, smoke, DB tests, helpers, and fixtures. See `test/testing.md`. Bun API compliance regression tests in `test/bun-release-compliance.unit.test.ts` verify per-release bugfixes and codebase usage patterns.                                                                           |
 | `scripts/`           | Quality gate runners, lint sub-scripts, sync scripts, and CI helpers.                                                                                                                                                                                                                                  |
@@ -146,23 +146,88 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 | `ci/`                | CI impact config (`impact.config.json`) consumed by `scripts/ci-impact.ts` and `src/lib/effect/ci-pipeline.ts` for change-based gate selection.                                                                                                                                                        |
 | `herdr-plugin/`      | kimi-toolchain Herdr plugin (`herdr-plugin.toml`, `bootstrap.ts`, `reconcile.ts`, `doctor.ts`, `benchmark-portal.ts`); linked by `scripts/install-herdr-plugin.sh`.                                                                                                                                    |
 
+### Registered CLI bins (`package.json` `bin`)
+
+<!-- agents-sync:bins:begin -->
+
+| Bin                      | Entry                               |
+| ------------------------ | ----------------------------------- |
+| `kimi-bake`              | `src/bin/kimi-bake.ts`              |
+| `kimi-capabilities`      | `src/bin/kimi-capabilities.ts`      |
+| `kimi-cleanup-legacy`    | `src/bin/kimi-cleanup-legacy.ts`    |
+| `kimi-cloudflare-access` | `src/bin/kimi-cloudflare-access.ts` |
+| `kimi-context-gen`       | `src/bin/kimi-context-gen.ts`       |
+| `kimi-contract`          | `src/bin/kimi-contract.ts`          |
+| `kimi-dashboard-mcp`     | `src/bin/kimi-dashboard-mcp.ts`     |
+| `kimi-debug`             | `src/bin/kimi-debug.ts`             |
+| `kimi-decision`          | `src/bin/kimi-decision.ts`          |
+| `kimi-deep-audit`        | `src/bin/kimi-deep-audit.ts`        |
+| `kimi-doctor`            | `src/bin/kimi-doctor.ts`            |
+| `kimi-error`             | `src/bin/kimi-error.ts`             |
+| `kimi-fix`               | `src/bin/kimi-fix.ts`               |
+| `kimi-githooks`          | `src/bin/kimi-githooks.ts`          |
+| `kimi-governance`        | `src/bin/kimi-governance.ts`        |
+| `kimi-guardian`          | `src/bin/kimi-guardian.ts`          |
+| `kimi-heal`              | `src/bin/kimi-heal.ts`              |
+| `kimi-mcp`               | `src/bin/kimi-mcp.ts`               |
+| `kimi-memory`            | `src/bin/kimi-memory.ts`            |
+| `kimi-new`               | `src/bin/kimi-new.ts`               |
+| `kimi-orphan-kill`       | `src/bin/kimi-orphan-kill.ts`       |
+| `kimi-release`           | `src/bin/kimi-release.ts`           |
+| `kimi-resource-governor` | `src/bin/kimi-resource-governor.ts` |
+| `kimi-restore-baseline`  | `src/bin/kimi-restore-baseline.ts`  |
+| `kimi-secrets`           | `src/bin/kimi-secrets.ts`           |
+| `kimi-snapshot`          | `src/bin/kimi-snapshot.ts`          |
+| `kimi-toolchain`         | `src/bin/kimi-toolchain.ts`         |
+| `kimi-trace`             | `src/bin/kimi-trace.ts`             |
+| `kimi-why`               | `src/bin/kimi-why.ts`               |
+| `kimi-workflow`          | `src/bin/kimi-workflow.ts`          |
+| `unified-shell-bridge`   | `src/bin/unified-shell-bridge.ts`   |
+
+<!-- agents-sync:bins:end -->
+
+### DX endpoints (`dx.config.toml` `[[endpoints]]`)
+
+<!-- agents-sync:endpoints:begin -->
+
+| Name                        | URL                                                                                          |
+| --------------------------- | -------------------------------------------------------------------------------------------- |
+| `cloudflare-mcp`            | https://mcp.cloudflare.com/mcp                                                               |
+| `examples-artifact-lineage` | http://127.0.0.1:5678/api/artifacts/model-drift/lineage                                      |
+| `examples-cards`            | http://127.0.0.1:5678/api/cards                                                              |
+| `examples-dashboard`        | http://127.0.0.1:5678/                                                                       |
+| `examples-health`           | http://127.0.0.1:5678/health                                                                 |
+| `examples-showcase`         | http://127.0.0.1:5678/api/examples                                                           |
+| `herdr-examples-health`     | http://127.0.0.1:18412/api/examples/health                                                   |
+| `herdr-meta`                | http://127.0.0.1:18412/api/meta                                                              |
+| `herdr-skill`               | https://github.com/ogulcancelik/herdr/blob/d998753efe506a04c80306795efc72bff60bb0ec/SKILL.md |
+| `serve-probe-cards`         | http://127.0.0.1:5678/api/cards                                                              |
+
+<!-- agents-sync:endpoints:end -->
+
 ### `src/lib/` domains (summary)
 
-| Domain         | Representative files                                                                                                   |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Core**       | `utils.ts`, `version.ts`, `paths.ts`, `tool-runner.ts`, `health-check.ts`, `logger.ts`                                 |
-| **Effect**     | `effect/errors.ts`, `effect/cli-runtime.ts`, `effect/tool-runner-effect.ts`, `effect/cli-contract-effect.ts`           |
-| **Governance** | `r-score.ts`, `governance-check.ts`, `governance.ts`, `readme-sync.ts`                                                 |
-| **Scaffold**   | `scaffold-templates.ts`, `template-policy-audit.ts`, `scaffold-agents.ts`, `scaffold-doctor.ts`, `scaffold-quality.ts` |
-| **Cloudflare** | `cloudflare-access.ts`, `cloudflare-access-policy.ts`                                                                  |
-| **Governor**   | `governor-*.ts` (resource limits, parallelism, disk quota, diagnostic cache)                                           |
-| **Memory**     | `memory-budget.ts`, `memory-sessions.ts`, `sessions-schema.ts`                                                         |
-| **Git**        | `git-helpers.ts`, `conventional-commits.ts`, `changelog.ts`                                                            |
-| **Config**     | `mcp-config.ts`, `kimi-config-audit.ts`, `test-gates.ts`, `test-runtime.ts`, `testing-docs-lint.ts`, `artifacts.ts`    |
-| **Health**     | `workspace-health.ts`, `workspace-commands.ts`, `legacy-cleanup.ts`, `ecosystem-health.ts`                             |
-| **Doctor**     | `doctor-runs.ts`, `doctor-pipeline.ts`, `doctor-adapters/`, `doctor-adapter-types.ts`                                  |
-| **Sync**       | `desktop-sync.ts`, `sync-hashes.ts`, `sync-manifest.ts`                                                                |
-| **Taxonomy**   | `error-taxonomy.ts`                                                                                                    |
+<!-- agents-sync:lib-domains:begin -->
+
+| Domain         | Representative files                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Core**       | `utils.ts`, `version.ts`, `paths.ts`, `tool-runner.ts`, `health-check.ts`, `logger.ts`                              |
+| **Effect**     | `effect/` (`errors`, `config`, `tool-runner-effect`, `cli-runtime`)                                                 |
+| **Governance** | `r-score.ts`, `governance-check.ts`, `governance.ts`, `readme-sync.ts`                                              |
+| **Scaffold**   | `scaffold-templates.ts`, `scaffold-agents.ts`, `scaffold-aligned.ts`, `scaffold-doctor.ts`, `scaffold-quality.ts`   |
+| **Cloudflare** | `cloudflare-access.ts`, `cloudflare-access-policy.ts`                                                               |
+| **Governor**   | `governor-*.ts` (6 files)                                                                                           |
+| **Memory**     | `memory-budget.ts`, `memory-sessions.ts`, `sessions-schema.ts`                                                      |
+| **Git**        | `git-helpers.ts`, `conventional-commits.ts`, `changelog.ts`                                                         |
+| **Config**     | `mcp-config.ts`, `kimi-config-audit.ts`, `test-gates.ts`, `test-runtime.ts`, `testing-docs-lint.ts`, `artifacts.ts` |
+| **Health**     | `workspace-health.ts`, `workspace-commands.ts`, `legacy-cleanup.ts`, `ecosystem-health.ts`                          |
+| **Process**    | `process-utils.ts`, `snapshot-core.ts`                                                                              |
+| **Doctor**     | `doctor-runs.ts`, `doctor-pipeline.ts`                                                                              |
+| **Sync**       | `desktop-sync.ts`, `sync-hashes.ts`, `sync-manifest.ts`                                                             |
+| **Registry**   | `tool-registry.ts`                                                                                                  |
+| **Taxonomy**   | `error-taxonomy.ts`                                                                                                 |
+
+<!-- agents-sync:lib-domains:end -->
 
 ### Three hook systems (do not conflate)
 
@@ -179,6 +244,18 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 **Do not edit `~/.kimi-code/` manually.** Use `bun run sync` (or `bun run sync:daemon`) to push repo changes to the live runtime, and `bun run sync:verify` to check hashes.
 
 ## Build, test & quality gates
+
+<!-- agents-sync:finish-work-gates:begin -->
+
+| #   | Gate command                       |
+| --- | ---------------------------------- |
+| 1   | `bun run check:fast`               |
+| 2   | `kimi-doctor --gate bunfig-policy` |
+| 3   | `kimi-doctor --effect-gates`       |
+| 4   | `kimi-doctor --automation`         |
+| 5   | `kimi-heal effect audit`           |
+
+<!-- agents-sync:finish-work-gates:end -->
 
 **There is no build step.** TypeScript is run directly via `bun run`.
 

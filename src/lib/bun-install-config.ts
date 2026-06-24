@@ -27,7 +27,9 @@ import {
 } from "./bun-release-registry.ts";
 
 export { BUN_BINARY_DATA_CONVERSION_DOC_URL };
+import { isPlainObject, recordField } from "./boundary.ts";
 import { pathExists, readJsonFile } from "./bun-io.ts";
+import { parseTomlValue } from "./toml-config.ts";
 import { readPackageManifest } from "./utils.ts";
 import { spawnBun } from "./tool-runner.ts";
 import { join } from "path";
@@ -1815,8 +1817,9 @@ function scopeRegistryUrl(value: unknown): string | null {
 
 export function extractBunfigScopeRegistries(bunfigText: string): Record<string, string> {
   try {
-    const parsed = TOML.parse(bunfigText) as { install?: BunfigInstallSection };
-    const scopes = parsed.install?.scopes ?? {};
+    const parsed = parseTomlValue(bunfigText);
+    const install = parsed ? recordField(parsed, "install") : undefined;
+    const scopes = isPlainObject(install) && isPlainObject(install.scopes) ? install.scopes : {};
     const registries: Record<string, string> = {};
     for (const [scope, value] of Object.entries(scopes)) {
       const url = scopeRegistryUrl(value);

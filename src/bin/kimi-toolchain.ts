@@ -11,9 +11,11 @@ import { join, resolve } from "path";
 import {
   DIRECT_BIN,
   TOOL_SHORT_NAMES,
+  listTools,
   resolveRepoToolScript,
   resolveToolScript,
   printToolHelp,
+  suggestToolName,
 } from "../lib/tool-registry.ts";
 import { runWorkspaceCommand, printWorkspaceHelp } from "../lib/workspace-commands.ts";
 import { invokeTool, defaultToolTimeoutMs } from "../lib/tool-runner.ts";
@@ -22,7 +24,7 @@ import { isDirectRun } from "../lib/bun-utils.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { createLogger } from "../lib/logger.ts";
 import { CliError } from "../lib/effect/errors.ts";
-import { writeStdout } from "../lib/cli-contract.ts";
+import { writeStdout, writeStdoutLine } from "../lib/cli-contract.ts";
 import { scrubProcessBunInstallCacheEnv } from "../lib/root-hygiene.ts";
 import { BUILD_CHANNEL, BUILD_TIME, GIT_COMMIT, TOOLCHAIN_VERSION } from "../lib/version.ts";
 
@@ -92,6 +94,12 @@ async function main(): Promise<number> {
     return 0;
   }
 
+  if (args[0] === "--list-tools") {
+    const tools = listTools(REPO_BIN, TOOLS_DIR);
+    await writeStdoutLine(JSON.stringify(tools, null, 2));
+    return 0;
+  }
+
   const tool = args[0];
   const rest = args.slice(1);
 
@@ -127,7 +135,8 @@ async function main(): Promise<number> {
 
   const known = TOOL_SHORT_NAMES as readonly string[];
   if (!known.includes(tool)) {
-    logger.error(`Unknown tool: ${tool}`);
+    const suggestion = suggestToolName(tool);
+    logger.error(`Unknown tool: ${tool}${suggestion ? `. Did you mean ${suggestion}?` : ""}`);
     printToolHelp();
     return 1;
   }

@@ -9,6 +9,8 @@ import { $ } from "bun";
 import { join } from "path";
 import { ensureDir, getProjectName } from "./utils.ts";
 import { snapshotDir } from "./paths.ts";
+import { isPlainObject, isStringArray, isStringRecord } from "./boundary.ts";
+import { readJsonFile, readJsonValidated, tryReadJsonValidated } from "./bun-io.ts";
 
 const SNAPSHOT_DIR = snapshotDir();
 
@@ -23,6 +25,36 @@ export interface Snapshot {
   modifiedFiles: string[];
   envVars: Record<string, string>;
   description: string;
+}
+
+export function isSnapshot(value: unknown): value is Snapshot {
+  if (!isPlainObject(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    typeof value.project === "string" &&
+    typeof value.projectPath === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.branch === "string" &&
+    typeof value.commit === "string" &&
+    isStringArray(value.untrackedFiles) &&
+    isStringArray(value.modifiedFiles) &&
+    isStringRecord(value.envVars) &&
+    typeof value.description === "string"
+  );
+}
+
+/** Soft read — null when missing, corrupt, or failing validation. */
+export async function tryReadSnapshot(path: string): Promise<Snapshot | null> {
+  return tryReadJsonValidated(path, isSnapshot);
+}
+
+/** Strict read — throws when missing, corrupt, or failing validation. */
+export async function readSnapshot(path: string): Promise<Snapshot> {
+  const raw = await readJsonFile(path);
+  if (!isSnapshot(raw)) {
+    throw new Error(`Invalid snapshot: ${path}`);
+  }
+  return raw;
 }
 
 export function snapshotPath(id: string): string {
@@ -110,7 +142,7 @@ export async function listSnapshots(project?: string): Promise<Snapshot[]> {
   const glob = new Bun.Glob("*.json");
   for await (const file of glob.scan({ cwd: SNAPSHOT_DIR, absolute: true })) {
     try {
-      const snap: Snapshot = await Bun.file(file).json();
+      const snap = await readJsonValidated(file, isSnapshot);
       if (!project || snap.project === project) {
         snapshots.push(snap);
       }

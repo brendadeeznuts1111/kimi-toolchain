@@ -7,8 +7,30 @@
  * This test verifies the core operations used by docs linting and terminal output.
  */
 import { describe, expect, test } from "bun:test";
+import {
+  extractMarkdownSections,
+  extractMarkdownTables,
+  extractMarkdownTablesFallback,
+} from "../src/lib/bun-markdown.ts";
 
 const SIMPLE_MD = "# Hello\n\nThis is **bold** and *italic*.\n\n- item 1\n- item 2";
+
+const SECTION_MD = `## Security Layers
+
+| Layer | File |
+| ----- | ---- |
+| Auth | src/auth.ts |
+
+First paragraph.
+
+## Architecture
+
+| Component | Path |
+| --------- | ---- |
+| Core | src/core |
+
+Second paragraph.
+`;
 
 describe("bun-markdown", () => {
   test("Bun.markdown is available", () => {
@@ -48,5 +70,30 @@ describe("bun-markdown", () => {
     const md = Bun.markdown.html(SIMPLE_MD);
     expect(typeof md).toBe("string");
     expect(md.length).toBeGreaterThan(0);
+  });
+
+  test("extractMarkdownTables parses GFM tables", () => {
+    const tables = extractMarkdownTables(SECTION_MD);
+    expect(tables).toHaveLength(2);
+    expect(tables[0]?.headers).toEqual(["Layer", "File"]);
+    expect(tables[0]?.rows[0]).toEqual(["Auth", "src/auth.ts"]);
+    expect(tables[1]?.headers).toEqual(["Component", "Path"]);
+  });
+
+  test("extractMarkdownTablesFallback preserves inline formatting", () => {
+    const tables = extractMarkdownTablesFallback(
+      "| Domain | Files |\n| ------ | ----- |\n| **Core** | `utils.ts` |\n"
+    );
+    expect(tables[0]?.rows[0]?.[0]).toBe("**Core**");
+  });
+
+  test("extractMarkdownSections groups tables under headings", () => {
+    const sections = extractMarkdownSections(SECTION_MD);
+    expect(sections).toHaveLength(2);
+    expect(sections[0]?.title).toBe("Security Layers");
+    expect(sections[0]?.tables).toHaveLength(1);
+    expect(sections[0]?.content).toContain("First paragraph");
+    expect(sections[1]?.title).toBe("Architecture");
+    expect(sections[1]?.content).toContain("Second paragraph");
   });
 });

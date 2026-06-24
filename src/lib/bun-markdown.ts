@@ -126,6 +126,20 @@ export interface MarkdownStructuredOutput {
   codeblocks: Array<{ lang: string; code: string }>;
 }
 
+/** Parsed GFM table — headers plus body rows. */
+export interface MarkdownTableData {
+  headers: string[];
+  rows: string[][];
+}
+
+/** Heading-delimited section with paragraph text and nested tables. */
+export interface MarkdownSection {
+  title: string;
+  level: number;
+  content: string;
+  tables: MarkdownTableData[];
+}
+
 // ── Bounded cache helper ───────────────────────────────────────────
 
 /** Tiny LRU for expensive markdown render results. */
@@ -414,6 +428,247 @@ export function renderMarkdownStructured(
   return { plain, html, headings, codeblocks };
 }
 
+// ── Table / section extraction (Bun.markdown.render callbacks) ─────
+
+interface TableExtractState {
+  headers: string[];
+  rows: string[][];
+  cur: string[];
+}
+
+function createTableExtractState(): TableExtractState {
+  return { headers: [], rows: [], cur: [] };
+}
+
+function flushTableRow(state: TableExtractState): void {
+  if (state.cur.length === 0) return;
+  if (state.headers.length === 0) state.headers = [...state.cur];
+  else state.rows.push([...state.cur]);
+  state.cur = [];
+}
+
+function takeTable(state: TableExtractState): MarkdownTableData | null {
+  flushTableRow(state);
+  if (state.headers.length === 0) return null;
+  const table: MarkdownTableData = {
+    headers: [...state.headers],
+    rows: state.rows.map((row) => [...row]),
+  };
+  state.headers = [];
+  state.rows = [];
+  state.cur = [];
+  return table;
+}
+
+function passthroughRenderHandlers(): MarkdownRenderHandlers {
+  return {
+    heading: (children) => children,
+    paragraph: (children) => children,
+    blockquote: (children) => children,
+    code: (children) => children,
+    list: (children) => children,
+    listItem: (children) => children,
+    hr: () => "",
+    strong: (children) => children,
+    emphasis: (children) => children,
+    link: (children) => children,
+    image: () => "",
+    codespan: (children) => children,
+    strikethrough: (children) => children,
+    text: (children) => children,
+    thead: (children) => children,
+    tbody: (children) => children,
+    html: () => "",
+  };
+}
+
+function tableRowHandlers(
+  state: TableExtractState
+): Pick<MarkdownRenderHandlers, "th" | "td" | "tr"> {
+  return {
+    th: (children) => {
+      state.cur.push(children.trim());
+      return "";
+    },
+    td: (children) => {
+      state.cur.push(children.trim());
+      return "";
+    },
+    tr: () => {
+      flushTableRow(state);
+      return "";
+    },
+  };
+}
+
+/** Extract all GFM tables from markdown via Bun.markdown.render callbacks. */
+export function extractMarkdownTables(text: string): MarkdownTableData[] {
+  if (!markdownRenderSupported()) return extractMarkdownTablesFallback(text);
+
+  const tables: MarkdownTableData[] = [];
+  const state = createTableExtractState();
+  Bun.markdown.render(text, {
+    ...passthroughRenderHandlers(),
+    ...tableRowHandlers(state),
+    table: () => {
+      const table = takeTable(state);
+      if (table) tables.push(table);
+      return "";
+    },
+  });
+  const trailing = takeTable(state);
+  if (trailing) tables.push(trailing);
+  return tables;
+}
+
+function parseMarkdownTableRow(line: string): string[] {
+  return line
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
+}
+
+function isMarkdownTableSeparator(line: string): boolean {
+  return /^\|?\s*:?-{3,}/.test(line.trim());
+}
+
+/** Regex GFM table parser — preserves inline formatting (e.g. `**Core**`). */
+export function extractMarkdownTablesFallback(text: string): MarkdownTableData[] {
+  const tables: MarkdownTableData[] = [];
+  const lines = text.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    const headerLine = lines[i]?.trim() ?? "";
+    if (!headerLine.startsWith("|")) continue;
+
+    const sepLine = lines[i + 1]?.trim() ?? "";
+    if (!isMarkdownTableSeparator(sepLine)) continue;
+
+    const headers = parseMarkdownTableRow(headerLine);
+    if (headers.length === 0) continue;
+
+    const rows: string[][] = [];
+    let rowIndex = i + 2;
+    while (rowIndex < lines.length) {
+      const rowLine = lines[rowIndex]?.trim() ?? "";
+      if (!rowLine.startsWith("|") || isMarkdownTableSeparator(rowLine)) break;
+      rows.push(parseMarkdownTableRow(rowLine));
+      rowIndex++;
+    }
+
+    if (rows.length > 0) tables.push({ headers, rows });
+    i = rowIndex - 1;
+  }
+
+  return tables;
+}
+
+function extractMarkdownSectionsFallback(text: string): MarkdownSection[] {
+  const sections: MarkdownSection[] = [];
+  const headingRe = /^(#{1,6})\s+(.+)$/gm;
+  const matches = [...text.matchAll(headingRe)];
+  if (matches.length === 0) return sections;
+
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i]!;
+    const level = match[1].length;
+    const title = match[2].trim();
+    const start = match.index! + match[0].length;
+    const end = i + 1 < matches.length ? matches[i + 1]!.index! : text.length;
+    const body = text.slice(start, end).trim();
+    const paragraphs = body
+      .split(/\n\n+/)
+      .filter((block) => block.trim() && !block.trim().startsWith("|"))
+      .map((block) => stripMarkdownPlain(block))
+      .join("\n");
+    sections.push({
+      title,
+      level,
+      content: paragraphs,
+      tables: extractMarkdownTablesFallback(body),
+    });
+  }
+  return sections;
+}
+
+/**
+ * Parse markdown into heading-delimited sections with paragraph content
+ * and GFM tables. Uses Bun.markdown.render when available.
+ */
+export function extractMarkdownSections(text: string): MarkdownSection[] {
+  if (!markdownRenderSupported()) {
+    return extractMarkdownSectionsFallback(text);
+  }
+
+  const sections: MarkdownSection[] = [];
+  let current: MarkdownSection | null = null;
+  const contentParts: string[] = [];
+  const sectionTables: MarkdownTableData[] = [];
+  const tableState = createTableExtractState();
+
+  const flushSection = (): void => {
+    if (!current) return;
+    current.content = contentParts.join("\n").trim();
+    current.tables = sectionTables.map((table) => ({
+      headers: [...table.headers],
+      rows: table.rows.map((row) => [...row]),
+    }));
+    sections.push(current);
+    contentParts.length = 0;
+    sectionTables.length = 0;
+    current = null;
+  };
+
+  Bun.markdown.render(text, {
+    heading: (children, meta) => {
+      flushSection();
+      current = { title: children.trim(), level: meta.level, content: "", tables: [] };
+      return "";
+    },
+    paragraph: (children) => {
+      if (current) contentParts.push(children.trim());
+      return "";
+    },
+    table: () => {
+      const table = takeTable(tableState);
+      if (table && current) sectionTables.push(table);
+      return "";
+    },
+    th: (children) => {
+      tableState.cur.push(children.trim());
+      return "";
+    },
+    td: (children) => {
+      tableState.cur.push(children.trim());
+      return "";
+    },
+    tr: () => {
+      flushTableRow(tableState);
+      return "";
+    },
+    blockquote: () => "",
+    code: () => "",
+    list: () => "",
+    listItem: () => "",
+    hr: () => "",
+    strong: (children) => children,
+    emphasis: (children) => children,
+    link: (children) => children,
+    image: () => "",
+    codespan: (children) => children,
+    strikethrough: (children) => children,
+    text: (children) => children,
+    thead: () => "",
+    tbody: () => "",
+    html: () => "",
+  });
+
+  const trailing = takeTable(tableState);
+  if (trailing && current) sectionTables.push(trailing);
+  flushSection();
+  return sections;
+}
+
 // ── Aggregate namespace ────────────────────────────────────────────
 
 export const markdown = {
@@ -434,4 +689,6 @@ export const markdown = {
     return (Bun.markdown as any).react(text, options);
   },
   structured: renderMarkdownStructured,
+  extractTables: extractMarkdownTables,
+  extractSections: extractMarkdownSections,
 };

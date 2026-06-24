@@ -7,7 +7,7 @@
 
 import { join } from "path";
 import { writeStdoutLine } from "./cli-contract.ts";
-import { pathExists, removePath } from "./bun-io.ts";
+import { pathExists, readJsonFile, removePath } from "./bun-io.ts";
 import { execCli, execCliJson } from "./herdr-project-cli.ts";
 import { paneRunSync } from "./herdr-pane-service.ts";
 import { herdrAgentsDir, herdrLatmManifestPath, homeDir } from "./paths.ts";
@@ -286,7 +286,7 @@ async function readLatmManifestFile(path: string): Promise<LatmManifest | null> 
   if (!(await Bun.file(path).exists())) return null;
   let raw: unknown;
   try {
-    raw = await Bun.file(path).json();
+    raw = await readJsonFile(path);
   } catch {
     return null;
   }

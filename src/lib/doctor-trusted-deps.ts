@@ -4,6 +4,7 @@
  */
 
 import type { HealthCheck } from "./health-check.ts";
+import { readPackageManifest } from "./utils.ts";
 
 function check(
   name: string,
@@ -25,25 +26,22 @@ export async function auditTrustedDeps(opts: TrustedDepsAuditOptions = {}): Prom
 
   // ─── Load package.json ─────────────────────────────────────────────────────
   const pkgPath = `${root}/package.json`;
-  let pkg: Record<string, unknown>;
-  try {
-    pkg = await Bun.file(pkgPath).json();
-  } catch {
+  const pkg = await readPackageManifest(root);
+  if (!pkg) {
     checks.push(check("trusted-deps:package-json", "error", `Could not read ${pkgPath}`, false));
     return checks;
   }
 
   const hasTrustedDeps = "trustedDependencies" in pkg;
   const trustedDepsIsArray = Array.isArray(pkg.trustedDependencies);
-  const hasPostinstall =
-    typeof (pkg.scripts as Record<string, unknown> | undefined)?.postinstall === "string";
+  const hasPostinstall = typeof pkg.scripts?.postinstall === "string";
 
   checks.push(
     check(
       "trusted-deps:field-exists",
       hasTrustedDeps ? "ok" : "warn",
       hasTrustedDeps
-        ? `trustedDependencies declared (${(pkg.trustedDependencies as unknown[]).length} entries)`
+        ? `trustedDependencies declared (${pkg.trustedDependencies?.length ?? 0} entries)`
         : "trustedDependencies field missing from package.json",
       !hasTrustedDeps,
       hasTrustedDeps ? undefined : 'Add "trustedDependencies": [] to package.json'
@@ -67,7 +65,7 @@ export async function auditTrustedDeps(opts: TrustedDepsAuditOptions = {}): Prom
       "trusted-deps:postinstall",
       hasPostinstall ? "ok" : "warn",
       hasPostinstall
-        ? `postinstall script present: ${(pkg.scripts as Record<string, string>).postinstall}`
+        ? `postinstall script present: ${pkg.scripts?.postinstall}`
         : "postinstall script missing — manual setup required after global install",
       !hasPostinstall,
       !hasPostinstall

@@ -212,9 +212,13 @@ export const BUN_RANDOM_UUIDV7_DOC_URL = "https://bun.com/reference/bun/randomUU
 
 export type PeekStatus = "fulfilled" | "pending" | "rejected";
 
-/** Parse TOML text (Bun.TOML.parse). */
+/** Parse TOML text (Bun.TOML.parse) with plain-object root validation. */
 export function parseToml(text: string): Record<string, unknown> {
-  return Bun.TOML.parse(text) as Record<string, unknown>;
+  const parsed: unknown = Bun.TOML.parse(text);
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("TOML root must be a table/object");
+  }
+  return parsed as Record<string, unknown>;
 }
 
 /** Resolve a module specifier from a directory (Bun.resolveSync). */
@@ -656,6 +660,47 @@ export function startIntervalLoop(
 /** Abort an interval loop started with {@link startDelayedIntervalLoop} or {@link startIntervalLoop}. */
 export function stopDelayedIntervalLoop(controller: AbortController | null): void {
   controller?.abort();
+}
+
+// ---------------------------------------------------------------------------
+// Bun.cron compatibility — native cron when available (Bun ≥1.3.12), else interval loop
+// ---------------------------------------------------------------------------
+
+const BUN_CRON_READY = typeof (Bun as Record<string, unknown>).cron === "function";
+
+/**
+ * Start a periodic loop using `Bun.cron` when available (Bun ≥1.3.12),
+ * falling back to {@link startIntervalLoop} on older runtimes.
+ *
+ * Cron form: in-process, no overlap, UTC, `--hot` safe, disposable via `using`.
+ * Interval form: same AbortController-based loop used elsewhere in the codebase.
+ *
+ * @param cronExpr 6-field cron expression (e.g. `"* * * * * *"` for every second)
+ * @param intervalMs Fallback interval in milliseconds (used when Bun.cron unavailable)
+ * @param tick Async callback — next invocation waits for the previous Promise to settle
+ * @returns AbortController — call `.abort()` to stop
+ */
+export function startCronLoop(
+  cronExpr: string,
+  intervalMs: number,
+  tick: () => void | Promise<void>
+): AbortController {
+  if (BUN_CRON_READY) {
+    const controller = new AbortController();
+    const cron = (
+      Bun as unknown as { cron: (expr: string, cb: () => void) => { dispose: () => void } }
+    ).cron(cronExpr, async () => {
+      if (controller.signal.aborted) return;
+      try {
+        await tick();
+      } catch {
+        // Cron errors are surfaced via unhandledRejection — no crash
+      }
+    });
+    controller.signal.addEventListener("abort", () => cron.dispose(), { once: true });
+    return controller;
+  }
+  return startIntervalLoop(intervalMs, tick);
 }
 
 /** Terminal display width (Bun.stringWidth). */

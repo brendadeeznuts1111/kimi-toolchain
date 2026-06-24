@@ -12,6 +12,7 @@ import { dirname, join } from "path";
 
 /** @see {@link BUN_ARCHIVE_RELEASE_URL} */
 export { BUN_ARCHIVE_RELEASE_URL };
+import { isStringRecord, recordField } from "./boundary.ts";
 import { makeDir, parseJsonValue, readJsonFile } from "./bun-io.ts";
 import { scanTreeSync } from "./globs.ts";
 import { isToolchainManifest, type ToolchainManifest } from "./version.ts";
@@ -41,21 +42,6 @@ export interface SnapshotArchiveMeta {
   gitHead: string | null;
   bunVersion: string;
   fileCount: number;
-}
-
-function recordField(obj: unknown, key: string): unknown {
-  return typeof obj === "object" && obj !== null
-    ? (obj as Record<string, unknown>)[key]
-    : undefined;
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.values(value).every((v) => typeof v === "string")
-  );
 }
 
 function isSnapshotArchiveMeta(value: unknown): value is SnapshotArchiveMeta {

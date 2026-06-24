@@ -151,6 +151,8 @@
     "pr:status": "bun run scripts/pr-status.ts",
     "pr:diff": "bun run scripts/pr-diff.ts",
     "docs:sync": "bun run scripts/readme-sync.ts --fix",
+    "agents:sync": "bun run scripts/sync-agents-md.ts --write",
+    "agents:sync:check": "bun run scripts/sync-agents-md.ts --check",
     "reclassify:failures": "bun run scripts/reclassify-failure-ledger.ts",
     "format": "oxfmt --write -c .oxfmtrc.json .",
     "fix:drift": "bun run --sequential format typecheck",

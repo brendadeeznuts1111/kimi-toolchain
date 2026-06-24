@@ -9,11 +9,14 @@
  *   kimi-guardian [check|fix|report|sign|verify|doctor]
  */
 
-import { $, TOML } from "bun";
+import { $ } from "bun";
 import { Database } from "bun:sqlite";
 import { isDirectRun } from "../lib/bun-utils.ts";
+import { isPlainObject, recordField } from "../lib/boundary.ts";
 import { makeDir, pathExists, readJsonFile } from "../lib/bun-io.ts";
+import { parseTomlValue } from "../lib/toml-config.ts";
 import { join } from "path";
+import { Schema } from "effect";
 import {
   ensureDir,
   sha256File,
@@ -78,13 +81,6 @@ interface DbManifestRow {
 
 interface DbCountRow {
   c: number;
-}
-
-interface BunfigInstallConfig {
-  install?: {
-    trustedDependencies?: string[];
-  };
-  trustedDependencies?: string[];
 }
 
 // ── Database ─────────────────────────────────────────────────────────
@@ -309,7 +305,7 @@ async function checkCVEs(
 
   for (const dep of deps.slice(0, 10)) {
     try {
-      const resp = (await fetchWithTimeout(`https://api.osv.dev/v1/query`, {
+      const resp = await fetchWithTimeout(`https://api.osv.dev/v1/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -317,12 +313,21 @@ async function checkCVEs(
           version: dep.current,
         }),
         timeoutMs: 10000,
-      })) as unknown as {
-        status: number;
-        json(): Promise<{ vulns?: Array<{ id: string; severity?: Array<{ score?: string }> }> }>;
-      };
+      });
       if (resp.status < 200 || resp.status >= 300) continue;
-      const data = await resp.json();
+      const OsvResponseSchema = Schema.Struct({
+        vulns: Schema.optional(
+          Schema.Array(
+            Schema.Struct({
+              id: Schema.String,
+              severity: Schema.optional(
+                Schema.Array(Schema.Struct({ score: Schema.optional(Schema.String) }))
+              ),
+            })
+          )
+        ),
+      });
+      const data = Schema.decodeUnknownSync(OsvResponseSchema)(await resp.json());
       for (const vuln of data.vulns || []) {
         cves.push({
           name: dep.name,
@@ -349,14 +354,20 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
   // Primary source: package.json (Bun canonical location)
   const pkg = await readPackageJson(projectDir, isPackageJsonManifest);
   if (!pkg) return [];
-  const pkgTrusted = Array.isArray(pkg.trustedDependencies) ? pkg.trustedDependencies : [];
+  const pkgTrusted: string[] = Array.isArray(pkg.trustedDependencies)
+    ? pkg.trustedDependencies.filter((x): x is string => typeof x === "string")
+    : [];
   let allowed = new Set<string>(pkgTrusted);
 
   // Override: bunfig.toml [install].trustedDependencies
   if (pathExists(bunfigPath)) {
     try {
-      const config = TOML.parse(await Bun.file(bunfigPath).text()) as BunfigInstallConfig;
-      const tomlTrusted = config.install?.trustedDependencies;
+      const config = parseTomlValue(await Bun.file(bunfigPath).text());
+      const install = config ? recordField(config, "install") : undefined;
+      const tomlTrusted =
+        isPlainObject(install) && Array.isArray(install.trustedDependencies)
+          ? install.trustedDependencies
+          : undefined;
       if (Array.isArray(tomlTrusted)) {
         // TOML override replaces package.json (Bun behavior: config file wins)
         allowed = new Set(tomlTrusted);

@@ -6,13 +6,15 @@
  * validation is a simple predicate function.
  *
  * @example
+ * import { recordField } from "./boundary.ts";
  * const schema = (v: unknown): v is { port: number; host: string } =>
  *   typeof v === "object" && v !== null &&
- *   typeof (v as any).port === "number" &&
- *   typeof (v as any).host === "string";
+ *   typeof recordField(v, "port") === "number" &&
+ *   typeof recordField(v, "host") === "string";
  * const result = await loadTomlConfig("config.toml", schema, { port: 3000, host: "localhost" });
  */
 
+import { isPlainObject } from "./boundary.ts";
 import { pathExists, readText } from "./bun-io.ts";
 import { safeToml } from "./utils.ts";
 
@@ -104,10 +106,25 @@ export function loadTomlConfigSync<T>(path: string, schema: TomlSchema<T>, defau
 
 // ── Built-in schemas ───────────────────────────────────────────────
 
+/** Validate parsed TOML root is a plain object. */
+export function parseTomlValue(text: string): Record<string, unknown> | null {
+  const parsed = safeToml<unknown>(text, null);
+  return isPlainObject(parsed) ? parsed : null;
+}
+
+/** Read a TOML file and return a plain object root, or null on missing/parse failure. */
+export async function readTomlRecord(path: string): Promise<Record<string, unknown> | null> {
+  if (!pathExists(path)) return null;
+  try {
+    return parseTomlValue(readText(path));
+  } catch {
+    return null;
+  }
+}
+
 /** Schema for a simple key-value config (e.g., bunfig [run] section). */
 export function recordSchema<T = string>(): TomlSchema<Record<string, T>> {
-  return (v: unknown): v is Record<string, T> =>
-    typeof v === "object" && v !== null && !Array.isArray(v);
+  return (v: unknown): v is Record<string, T> => isPlainObject(v);
 }
 
 /** Schema for a config with required string fields. */

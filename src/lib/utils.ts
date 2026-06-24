@@ -9,7 +9,8 @@
  * For paths: import { toolsDir, homeDir } from "./paths.ts"
  */
 
-import { makeDir, pathExists } from "./bun-io.ts";
+import { isOptionalStringRecord, recordField } from "./boundary.ts";
+import { makeDir, pathExists, readJsonFile } from "./bun-io.ts";
 import { join } from "path";
 import { $ } from "bun";
 import { isAgentContext, runTool, invokeTool, toolsDir } from "./tool-runner.ts";
@@ -77,22 +78,13 @@ export interface PackageJsonManifest {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   engines?: Record<string, string>;
+  packageManager?: string;
+  bin?: Record<string, string>;
+  trustedDependencies?: unknown[];
 }
 
 export function isPackageJsonManifest(value: unknown): value is PackageJsonManifest {
   return typeof value === "object" && value !== null;
-}
-
-function isRecordOfStrings(value: unknown): value is Record<string, string> {
-  if (typeof value !== "object" || value === null) return false;
-  for (const [k, v] of Object.entries(value)) {
-    if (typeof k !== "string" || typeof v !== "string") return false;
-  }
-  return true;
-}
-
-function isOptionalRecordOfStrings(value: unknown): boolean {
-  return value === undefined || isRecordOfStrings(value);
 }
 
 /** Validator for package.json reads that only need `{ name?: string }`. */
@@ -111,7 +103,7 @@ export function isPackageJsonWithScripts(
   return (
     typeof value === "object" &&
     value !== null &&
-    isOptionalRecordOfStrings((value as { scripts?: unknown }).scripts)
+    isOptionalStringRecord(recordField(value, "scripts"))
   );
 }
 
@@ -122,8 +114,8 @@ export function isPackageJsonWithScriptsAndDevDeps(
   return (
     typeof value === "object" &&
     value !== null &&
-    isOptionalRecordOfStrings((value as { scripts?: unknown }).scripts) &&
-    isOptionalRecordOfStrings((value as { devDependencies?: unknown }).devDependencies)
+    isOptionalStringRecord(recordField(value, "scripts")) &&
+    isOptionalStringRecord(recordField(value, "devDependencies"))
   );
 }
 
@@ -142,9 +134,7 @@ export function isPackageJsonWithTrustedDeps(
 /** Validator for package.json reads that need `{ bin?: Record<string, string> }`. */
 export function isPackageJsonWithBin(value: unknown): value is { bin?: Record<string, string> } {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    isOptionalRecordOfStrings((value as { bin?: unknown }).bin)
+    typeof value === "object" && value !== null && isOptionalStringRecord(recordField(value, "bin"))
   );
 }
 
@@ -173,8 +163,8 @@ export function isPackageJsonWithDeps(
   return (
     typeof value === "object" &&
     value !== null &&
-    isOptionalRecordOfStrings((value as { dependencies?: unknown }).dependencies) &&
-    isOptionalRecordOfStrings((value as { devDependencies?: unknown }).devDependencies)
+    isOptionalStringRecord(recordField(value, "dependencies")) &&
+    isOptionalStringRecord(recordField(value, "devDependencies"))
   );
 }
 
@@ -186,7 +176,7 @@ export async function readPackageJson<T extends Record<string, unknown>>(
   const pkgPath = join(projectDir, "package.json");
   if (!pathExists(pkgPath)) return null;
   try {
-    const pkg: unknown = await Bun.file(pkgPath).json();
+    const pkg = await readJsonFile(pkgPath);
     if (validator) return validator(pkg) ? pkg : null;
     return isPackageJsonManifest(pkg) ? (pkg as T) : null;
   } catch {

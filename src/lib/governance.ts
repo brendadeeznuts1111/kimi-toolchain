@@ -5,6 +5,7 @@
  * Extracted from src/bin/kimi-governance.ts for reuse.
  */
 
+import { recordField } from "./boundary.ts";
 import { pathExists, readJsonFile, readJsonFileOr } from "./bun-io.ts";
 import { join } from "path";
 import { $ } from "bun";
@@ -48,12 +49,6 @@ export interface CoverageHistoryEntry {
   percentage: number;
   covered: number;
   total: number;
-}
-
-function recordField(obj: unknown, key: string): unknown {
-  return typeof obj === "object" && obj !== null
-    ? (obj as Record<string, unknown>)[key]
-    : undefined;
 }
 
 export function isCoverageHistoryEntry(value: unknown): value is CoverageHistoryEntry {

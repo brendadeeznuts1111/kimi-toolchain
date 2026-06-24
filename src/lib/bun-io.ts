@@ -167,12 +167,18 @@ export async function readJsonFileOr<T>(
   }
 }
 
-/**
- * Bun-native async JSON read.
- * @deprecated Prefer `readJsonFile` + `parseJsonValue`, or `readJsonValidated`.
- */
-export async function readJsonAsync<T = unknown>(path: string): Promise<T> {
-  return (await readJsonFile(path)) as T;
+/** Read and validate JSON; returns null when missing, unparseable, or invalid. */
+export async function tryReadJsonValidated<T>(
+  path: string,
+  validate: JsonValidator<T>
+): Promise<T | null> {
+  if (!pathExists(path)) return null;
+  try {
+    const raw = await readJsonFile(path);
+    return validate(raw) ? raw : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Bun-native async write — prefer in new async code. */
