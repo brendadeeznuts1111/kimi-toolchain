@@ -402,14 +402,6 @@ export function sleepSync(ms: number): void {
 /** @see https://bun.com/docs/runtime/utils */
 export const BUN_RUNTIME_UTILS_DOC_URL = "https://bun.com/docs/runtime/utils";
 
-/** @see https://bun.com/docs/runtime/utils#bun-main */
-export const BUN_MAIN_DOC_URL = "https://bun.com/docs/runtime/utils#bun-main";
-
-/** Absolute path to the process entry script (`Bun.main`). */
-export function entryScriptPath(): string {
-  return Bun.main;
-}
-
 /**
  * True when `modulePath` is the process entry script (`import.meta.path === Bun.main`).
  * Use at the bottom of CLI bins instead of `import.meta.main` for a single SSOT surface.
