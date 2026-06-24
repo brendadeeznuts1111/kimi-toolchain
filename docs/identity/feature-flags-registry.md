@@ -30,6 +30,7 @@ Set to `1` to activate. Escape hatches are for emergencies — document bypasses
 | `skip-portal-gate`          | env-escape | `KIMI_SKIP_PORTAL_GATE`          | `com.kimi.toolchain.gates`      | false   | Bypass artifact portal convergence gate on pre-push.                   |
 | `skip-governance-preflight` | env-escape | `KIMI_SKIP_GOVERNANCE_PREFLIGHT` | `com.kimi.toolchain.governance` | false   | Skip governance preflight auto-fix before R-Score.                     |
 | `skip-network-probe`        | env-escape | `KIMI_SKIP_NETWORK_PROBE`        | `com.kimi.toolchain.testing`    | false   | Skip live MCP/network probe assertions in unit tests (CI/offline).     |
+| `skip-release-blog-audit`   | env-escape | `KIMI_SKIP_RELEASE_BLOG_AUDIT`   | `com.kimi.toolchain.governance` | false   | Skip live historical blog audit in validate:release-ssot (offline).    |
 | `perf-install`              | env-opt-in | `KIMI_PERF_INSTALL`              | `com.kimi.toolchain.perf`       | false   | Enable install benchmark on CI (opt-in).                               |
 
 ## Usage

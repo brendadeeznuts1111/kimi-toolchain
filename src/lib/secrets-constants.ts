@@ -29,6 +29,14 @@ export const Services = {
   SECURITY: "com.herdr.security",
   /** CI/CD runners — env-fallback tier only. */
   CI: "com.herdr.ci",
+  /** Release signing pipeline (GitHub Actions + local build-and-sign). */
+  RELEASE: "com.herdr.release",
+  /** Archive baseline storage (R2-backed sync/restore). */
+  ARCHIVE: "com.kimi-toolchain.archive",
+  /** Release SSOT metadata fetch and verification. */
+  RELEASE_SSOT: "com.kimi-toolchain.release",
+  /** Herdr remote WebSocket proxy (unix-socket forwarded TLS). */
+  HERDR_REMOTE_WS: "com.herdr.remote-ws",
 } as const;
 
 export type ServiceName = (typeof Services)[keyof typeof Services];
@@ -56,6 +64,20 @@ export const Consumers = {
   SCANNER_PIPELINE: "bun-install",
   /** Generic CLI tool consumer (CI runners). */
   CLI_TOOL: "cli-tool",
+  /** GitHub Actions workflow runner. */
+  GITHUB_ACTIONS: "github-actions",
+  /** Local release build script (scripts/build-and-sign.ts). */
+  LOCAL_BUILD_SCRIPT: "local-build-script",
+  /** Archive baseline sync consumer. */
+  SYNC_BASELINE: "sync-baseline",
+  /** Archive baseline restore consumer. */
+  RESTORE_BASELINE: "restore-baseline",
+  /** head-table-typed.ts release metadata extraction. */
+  HEAD_TABLE_TYPED: "head-table-typed",
+  /** Release SSOT verification gate. */
+  RELEASE_VERIFY: "release-verify",
+  /** Herdr remote WebSocket proxy consumer. */
+  HERDR_WS_UNIX: "herdr-ws-unix",
 } as const;
 
 export type ConsumerName = (typeof Consumers)[keyof typeof Consumers];
@@ -80,4 +102,24 @@ export const SecretKeys = {
   MASTER_KEY: { service: Services.DASHBOARD, name: "master-key" },
   SCANNER_API_KEY: { service: Services.SECURITY, name: "scanner-api-key" },
   CI_GITHUB_TOKEN: { service: Services.CI, name: "github-token" },
+  BUN_RELEASE_SIGNING_KEY: {
+    service: Services.RELEASE,
+    name: "bun-release-signing-key",
+  },
+  R2_ARCHIVE_BUCKET: {
+    service: Services.ARCHIVE,
+    name: "r2-archive-bucket",
+  },
+  R2_ARCHIVE_ENDPOINT: {
+    service: Services.ARCHIVE,
+    name: "r2-archive-endpoint",
+  },
+  GITHUB_RELEASE_TOKEN: {
+    service: Services.RELEASE_SSOT,
+    name: "github-release-token",
+  },
+  HERDR_PROXY_CERT: {
+    service: Services.HERDR_REMOTE_WS,
+    name: "herdr-proxy-cert",
+  },
 } as const satisfies Record<string, { service: ServiceName; name: string }>;

@@ -38,6 +38,9 @@ const ENV_ALIASES: Record<string, readonly string[]> = {
     "NPM_TOKEN",
     "NPM_CONFIG_TOKEN",
   ],
+  [`${SecretKeys.BUN_RELEASE_SIGNING_KEY.service}:${SecretKeys.BUN_RELEASE_SIGNING_KEY.name}`]: [
+    "BUN_RELEASE_SIGNING_KEY",
+  ],
 };
 
 export function secretEnvCandidates(service: string, name: string): string[] {

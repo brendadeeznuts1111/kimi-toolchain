@@ -21,11 +21,12 @@ Detection: `detectStorageBackend()` in `src/lib/secrets-storage.ts`.
 
 Secrets with `storageTier: "env-fallback"` are read from env when `Bun.secrets` returns null:
 
-| Secret                                | Env vars (first match wins)                             |
-| ------------------------------------- | ------------------------------------------------------- |
-| `com.herdr.ci/github-token`           | `COM_HERDR_CI_GITHUB_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN` |
-| `kimi-toolchain/cloudflare-api-token` | `CLOUDFLARE_API_TOKEN`                                  |
-| `com.herdr.dashboard/jwt-secret`      | `JWT_SECRET`                                            |
+| Secret                                      | Env vars (first match wins)                             |
+| ------------------------------------------- | ------------------------------------------------------- |
+| `com.herdr.ci/github-token`                 | `COM_HERDR_CI_GITHUB_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN` |
+| `kimi-toolchain/cloudflare-api-token`       | `CLOUDFLARE_API_TOKEN`                                  |
+| `com.herdr.dashboard/jwt-secret`            | `JWT_SECRET`                                            |
+| `com.herdr.release/bun-release-signing-key` | `BUN_RELEASE_SIGNING_KEY`                               |
 
 Canonical key: `secretEnvKey(service, name)` in `src/lib/secrets-env.ts`.
 
@@ -49,7 +50,7 @@ Set `KIMI_SECRETS_STRICT_STORAGE=1` to block `get()` on secure-tier secrets when
 bun run scripts/lint-secrets-registry.ts
 ```
 
-Enforces `SecretKeys` ↔ `secrets-policy.json5` ↔ `docs/identity/secrets-registry.md` parity; CI service secrets must declare `storageTier: "env-fallback"`.
+Enforces `SecretKeys` ↔ `secrets-policy.json5` ↔ `docs/identity/secrets-registry.md` parity; CI service secrets must declare `storageTier: "env-fallback"` (CI runners typically lack OS keychain access).
 
 ### Dashboard
 
@@ -81,8 +82,9 @@ Optional `storageTier` on each `secrets-policy.json5` entry:
 | `credential-manager` | Windows-only secrets (rare)                                  |
 | `libsecret`          | Linux desktop with GNOME Keyring / KWallet                   |
 | `env-fallback`       | CI/CD runners — explicit opt-in for plaintext env vars       |
+| `Bun.secrets`        | Alias for the platform-native secure default                 |
 
-Omit `storageTier` to use the platform-native secure default (`keychain` / `credential-manager` / `libsecret`).
+Omit `storageTier` or set `Bun.secrets` to use the platform-native secure default (`keychain` / `credential-manager` / `libsecret`).
 
 ### CI example
 
@@ -100,13 +102,17 @@ Omit `storageTier` to use the platform-native secure default (`keychain` / `cred
 
 ## Services
 
-| Constant                  | Service id            | Purpose                       |
-| ------------------------- | --------------------- | ----------------------------- |
-| `Services.KIMI_TOOLCHAIN` | `kimi-toolchain`      | Cloudflare Access credentials |
-| `Services.CLI`            | `com.herdr.cli`       | CLI tool tokens               |
-| `Services.DASHBOARD`      | `com.herdr.dashboard` | JWT, CSRF, master key         |
-| `Services.SECURITY`       | `com.herdr.security`  | Scanner API key               |
-| `Services.CI`             | `com.herdr.ci`        | CI-only short-lived tokens    |
+| Constant                   | Service id                   | Purpose                       |
+| -------------------------- | ---------------------------- | ----------------------------- |
+| `Services.KIMI_TOOLCHAIN`  | `kimi-toolchain`             | Cloudflare Access credentials |
+| `Services.CLI`             | `com.herdr.cli`              | CLI tool tokens               |
+| `Services.DASHBOARD`       | `com.herdr.dashboard`        | JWT, CSRF, master key         |
+| `Services.SECURITY`        | `com.herdr.security`         | Scanner API key               |
+| `Services.CI`              | `com.herdr.ci`               | CI-only short-lived tokens    |
+| `Services.RELEASE`         | `com.herdr.release`          | Bun release signing key       |
+| `Services.ARCHIVE`         | `com.kimi-toolchain.archive` | Archive baseline storage (R2) |
+| `Services.RELEASE_SSOT`    | `com.kimi-toolchain.release` | Release SSOT metadata fetch   |
+| `Services.HERDR_REMOTE_WS` | `com.herdr.remote-ws`        | Herdr remote WS proxy cert    |
 
 ## Verification
 

@@ -15,6 +15,7 @@ export const STORAGE_TIERS: readonly StorageBackend[] = [
   "credential-manager",
   "libsecret",
   "env-fallback",
+  "Bun.secrets",
 ] as const;
 
 /** Whether the experimental Bun.secrets API is present in this runtime. */
@@ -86,6 +87,9 @@ export function defaultStorageTierForPlatform(): StorageBackend {
 }
 
 export function effectiveStorageTier(entry: SecretPolicyEntry): StorageBackend {
+  if (entry.storageTier === "Bun.secrets") {
+    return defaultStorageTierForPlatform();
+  }
   return entry.storageTier ?? defaultStorageTierForPlatform();
 }
 

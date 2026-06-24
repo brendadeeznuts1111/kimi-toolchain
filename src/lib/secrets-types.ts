@@ -18,7 +18,12 @@ export type DynamicSecretKey = { service: string; name: string };
 export type AnySecretKey = SecretKey | DynamicSecretKey;
 
 /** OS storage tier for Bun.secrets — see docs/identity/secrets-registry.md. */
-export type StorageBackend = "keychain" | "credential-manager" | "libsecret" | "env-fallback";
+export type StorageBackend =
+  | "keychain"
+  | "credential-manager"
+  | "libsecret"
+  | "env-fallback"
+  | "Bun.secrets";
 
 export type StorageSecurityLevel = "high" | "low";
 

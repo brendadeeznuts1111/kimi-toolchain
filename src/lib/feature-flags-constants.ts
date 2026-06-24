@@ -112,6 +112,15 @@ export const FEATURE_FLAG_DEFINITIONS = [
     domain: "com.kimi.toolchain.testing",
   },
   {
+    id: "skip-release-blog-audit",
+    kind: "env-escape",
+    key: "KIMI_SKIP_RELEASE_BLOG_AUDIT",
+    description:
+      "Skip live historical blog audit in validate:release-ssot (offline / registry-only checks).",
+    defaultEnabled: false,
+    domain: "com.kimi.toolchain.governance",
+  },
+  {
     id: "perf-install",
     kind: "env-opt-in",
     key: "KIMI_PERF_INSTALL",
@@ -134,6 +143,7 @@ export const ENV_ESCAPE_FLAG_KEYS = [
   "KIMI_SKIP_PORTAL_GATE",
   "KIMI_SKIP_GOVERNANCE_PREFLIGHT",
   "KIMI_SKIP_NETWORK_PROBE",
+  "KIMI_SKIP_RELEASE_BLOG_AUDIT",
 ] as const;
 export type EnvEscapeFlagKey = (typeof ENV_ESCAPE_FLAG_KEYS)[number];
 
