@@ -223,15 +223,6 @@ export function parseToml(text: string): Record<string, unknown> {
  * Prefer a string href; URL objects are normalized via `.href`.
  * @see https://bun.com/docs/runtime/utils#bun-fileurltopath
  */
-export function filePathFromUrl(url: string | URL): string {
-  return Bun.fileURLToPath(typeof url === "string" ? url : url.href);
-}
-
-/** Absolute path → file:// URL (Bun.pathToFileURL). */
-export function fileUrlFromPath(path: string): URL {
-  return Bun.pathToFileURL(path);
-}
-
 /** High-resolution monotonic clock — delegates to {@link nowNs} in timing.ts. */
 export function nowNanos(): number {
   return nowNs();

@@ -16,7 +16,7 @@ import { appendText, makeDir } from "./bun-io.ts";
 import { inspectAgent } from "./inspect.ts";
 import { isAgentContext } from "./tool-runner.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
-import { nowNanos } from "./bun-utils.ts";
+import { nowNs } from "./timing.ts";
 import type { ErrorSeverity } from "./error-domains-constants.ts";
 import { colorOutputEnabled, formatError, type FormattedErrorInput } from "./error-format.ts";
 
@@ -106,7 +106,7 @@ export class Logger {
   private fields: Record<string, unknown> | undefined;
   private traceId: string | undefined;
   private spanId: string | undefined;
-  /** Active performance timers keyed by label. Stores nowNanos() (Bun.nanoseconds()) start values. */
+  /** Active performance timers keyed by label. Stores nowNs() (Bun.nanoseconds()) start values. */
   private timers = new Map<string, number>();
 
   constructor(options: LoggerOptions = {}) {
@@ -297,16 +297,16 @@ export class Logger {
   }
 
   /**
-   * Start a named performance timer using nowNanos() (Bun.nanoseconds()).
+   * Start a named performance timer using nowNs() (Bun.nanoseconds()).
    * Call timeEnd(label) to emit an entry with sub-millisecond durationMs.
    */
   time(label: string): void {
-    this.timers.set(label, nowNanos());
+    this.timers.set(label, nowNs());
   }
 
   /**
    * Stop a named performance timer and emit an entry with durationMs.
-   * Uses nowNanos() (Bun.nanoseconds()) for sub-millisecond precision (ns / 1_000_000 = ms).
+   * Uses nowNs() (Bun.nanoseconds()) for sub-millisecond precision (ns / 1_000_000 = ms).
    * Returns the elapsed milliseconds, or -1 if the timer was never started.
    */
   timeEnd(label: string, level: LogLevel = "debug"): number {
@@ -316,7 +316,7 @@ export class Logger {
       return -1;
     }
     this.timers.delete(label);
-    const durationMs = (nowNanos() - start) / 1_000_000;
+    const durationMs = (nowNs() - start) / 1_000_000;
     const entry: LogEntry = {
       ...this.baseEntry(level, `${label}: ${durationMs.toFixed(3)}ms`),
       durationMs,
