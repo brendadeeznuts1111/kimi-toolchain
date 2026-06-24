@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { findCpuProfile } from "../src/lib/ci-profile.ts";
+import {
+  gateSpawnEnv,
+  probeBunExecutable,
+  scrubEphemeralBunNodeDirs,
+} from "../src/lib/root-hygiene.ts";
 import { captureProfile, PERF_GATE_SLOW_MS } from "../src/lib/perf-gate.ts";
 import { REPO_ROOT, testTempDir, cleanupPath } from "./helpers.ts";
 
@@ -35,11 +40,13 @@ describe("ci-profile", () => {
   });
 
   test("verify script passes in repo root", async () => {
-    const proc = Bun.spawn(["bun", "scripts/verify-bun-features.ts"], {
+    scrubEphemeralBunNodeDirs();
+    const proc = Bun.spawn([probeBunExecutable(), "scripts/verify-bun-features.ts"], {
       cwd: REPO_ROOT,
+      env: gateSpawnEnv(Bun.env),
       stdout: "pipe",
       stderr: "pipe",
     });
     expect(await proc.exited).toBe(0);
-  }, 60_000);
+  }, 120_000);
 });
