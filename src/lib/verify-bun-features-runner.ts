@@ -34,6 +34,18 @@ import { ensureDir } from "./utils.ts";
 import type { ConfigStatusReport } from "./config-status.ts";
 import { tmpdir } from "os";
 import { join } from "path";
+import { gateSpawnEnv, probeBunExecutable, scrubEphemeralBunNodeDirs } from "./root-hygiene.ts";
+
+function gateBunSpawn(args: string[], options: { cwd?: string } = {}) {
+  scrubEphemeralBunNodeDirs();
+  return Bun.spawn({
+    cmd: [probeBunExecutable(), ...args],
+    env: gateSpawnEnv(Bun.env),
+    stdout: "pipe",
+    stderr: "pipe",
+    ...options,
+  });
+}
 
 function elapsedMsRoundedLocal(startNs: number): number {
   return Math.round(elapsedMs(startNs));
@@ -137,11 +149,7 @@ function recordProbe(
 }
 
 async function runScriptDryRun(script: string): Promise<{ ok: boolean; detail: string }> {
-  const proc = Bun.spawn({
-    cmd: [process.execPath, "run", script, "--dry-run"],
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const proc = gateBunSpawn(["run", script, "--dry-run"]);
   const exit = await proc.exited;
   const out = await readableStreamToText(proc.stdout);
   const err = await readableStreamToText(proc.stderr);
@@ -548,27 +556,21 @@ async function checkAuditScriptsDryRun(): Promise<void> {
     return ep.path !== "audit:dry-run";
   });
 
-  await Promise.all(
-    endpoints.map(async (endpoint) => {
-      const start = nowNs();
-      const { ok, detail } = await runScriptDryRun(endpoint.path);
-      const ms = elapsedMsRoundedLocal(start);
-      const checkId = endpoint.verifyCheckId ?? `audit.${endpoint.path}`;
-      record(checkId, "audit", ok, detail, ms, false, endpoint.id);
-      recordProbe(endpoint, ok, detail, ms, "dry-run");
-    })
-  );
+  for (const endpoint of endpoints) {
+    const start = nowNs();
+    const { ok, detail } = await runScriptDryRun(endpoint.path);
+    const ms = elapsedMsRoundedLocal(start);
+    const checkId = endpoint.verifyCheckId ?? `audit.${endpoint.path}`;
+    record(checkId, "audit", ok, detail, ms, false, endpoint.id);
+    recordProbe(endpoint, ok, detail, ms, "dry-run");
+  }
 }
 
 async function checkAuditDryRunBundle(): Promise<void> {
   const endpoint = AUDIT_CLI_ENDPOINTS.find((e) => e.path === "audit:dry-run");
   if (!endpoint) return;
   const start = nowNs();
-  const proc = Bun.spawn({
-    cmd: [process.execPath, "run", "audit:dry-run"],
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const proc = gateBunSpawn(["run", "audit:dry-run"]);
   const exit = await proc.exited;
   const out = await readableStreamToText(proc.stdout);
   const err = await readableStreamToText(proc.stderr);
@@ -588,11 +590,7 @@ async function checkAuditConfigGates(strict: boolean): Promise<void> {
   const start = nowNs();
 
   if (strict) {
-    const proc = Bun.spawn({
-      cmd: [process.execPath, "run", "audit:config"],
-      stdout: "pipe",
-      stderr: "pipe",
-    });
+    const proc = gateBunSpawn(["run", "audit:config"]);
     const exit = await proc.exited;
     const out = await readableStreamToText(proc.stdout);
     const err = await readableStreamToText(proc.stderr);
@@ -617,11 +615,7 @@ async function checkAuditConfigGates(strict: boolean): Promise<void> {
     return;
   }
 
-  const proc = Bun.spawn({
-    cmd: [process.execPath, "run", "scripts/config-status.ts", "--json"],
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const proc = gateBunSpawn(["run", "scripts/config-status.ts", "--json"]);
   await proc.exited;
   const out = await readableStreamToText(proc.stdout);
   const ms = elapsedMsRoundedLocal(start);
@@ -646,19 +640,14 @@ async function checkAuditConfigGates(strict: boolean): Promise<void> {
 
 async function checkParallelScripts(): Promise<void> {
   const start = nowNs();
-  const proc = Bun.spawn({
-    cmd: [
-      process.execPath,
-      "run",
-      "--parallel",
-      "bun run audit:secrets --dry-run",
-      "bun run audit:config --dry-run",
-      "bun run audit:images --dry-run",
-      "bun run audit:network --dry-run",
-    ],
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const proc = gateBunSpawn([
+    "run",
+    "--parallel",
+    "bun run audit:secrets --dry-run",
+    "bun run audit:config --dry-run",
+    "bun run audit:images --dry-run",
+    "bun run audit:network --dry-run",
+  ]);
   const exit = await proc.exited;
   const out = await readableStreamToText(proc.stdout);
   const err = await readableStreamToText(proc.stderr);
@@ -690,11 +679,7 @@ async function checkParallelScripts(): Promise<void> {
 async function checkCanvasCompanions(): Promise<void> {
   const endpoint = AUDIT_CLI_ENDPOINTS.find((e) => e.id === "canvas-generate");
   const start = nowNs();
-  const proc = Bun.spawn({
-    cmd: [process.execPath, "run", "canvas:generate", "--check"],
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const proc = gateBunSpawn(["run", "canvas:generate", "--check"]);
   const exit = await proc.exited;
   const out = await readableStreamToText(proc.stdout);
   const err = await readableStreamToText(proc.stderr);
@@ -725,11 +710,7 @@ async function runTemplateGate(
 ): Promise<void> {
   const endpoint = AUDIT_CLI_ENDPOINTS.find((e) => e.id === endpointId);
   const start = nowNs();
-  const proc = Bun.spawn({
-    cmd: [process.execPath, "run", script],
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  const proc = gateBunSpawn(["run", script]);
   const exit = await proc.exited;
   const out = await readableStreamToText(proc.stdout);
   const err = await readableStreamToText(proc.stderr);
@@ -790,20 +771,10 @@ async function checkCpuProfCapture(): Promise<void> {
   const profDir = join(reportProjectRoot, ".kimi-artifacts", "profiles");
   ensureDir(profDir);
   await Bun.write(join(profDir, ".gitkeep"), "");
-  const proc = Bun.spawn({
-    cmd: [
-      process.execPath,
-      "--cpu-prof",
-      "--cpu-prof-interval=500",
-      "--cpu-prof-dir",
-      profDir,
-      "run",
-      scriptPath,
-    ],
-    stdout: "pipe",
-    stderr: "pipe",
-    cwd: reportProjectRoot,
-  });
+  const proc = gateBunSpawn(
+    ["--cpu-prof", "--cpu-prof-interval=500", "--cpu-prof-dir", profDir, "run", scriptPath],
+    { cwd: reportProjectRoot }
+  );
   const exit = await proc.exited;
   const err = await readableStreamToText(proc.stderr);
   const ms = elapsedMsRoundedLocal(start);
@@ -878,6 +849,8 @@ export async function runVerifyBunFeatures(options: VerifyRunOptions = {}): Prom
   endpointProbes.length = 0;
   configReport = null;
   reportProjectRoot = options.projectRoot ?? process.cwd();
+  scrubEphemeralBunNodeDirs();
+  Object.assign(Bun.env, gateSpawnEnv(Bun.env));
   const started = nowNs();
 
   await checkWebGlobalsContract();

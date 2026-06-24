@@ -13,6 +13,7 @@ import { runEnvContractProbes } from "./bun-cli-env-probes.ts";
 import { runMarkdownEntrypointContractProbes } from "./bun-cli-markdown-probes.ts";
 import { runRunTestContractProbes } from "./bun-cli-run-test-probes.ts";
 import { runTestChangedContractProbes } from "./bun-cli-test-changed-probes.ts";
+import { gateSpawnEnv, probeBunExecutable, scrubEphemeralBunNodeDirs } from "./root-hygiene.ts";
 
 export interface CliContractProbeResult {
   readonly id: string;
@@ -58,10 +59,11 @@ async function spawnInDir(
   args: string[],
   env?: Record<string, string | undefined>
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  scrubEphemeralBunNodeDirs();
   const proc = Bun.spawn({
-    cmd: [process.execPath, ...args],
+    cmd: [probeBunExecutable(), ...args],
     cwd,
-    env: env ? { ...Bun.env, ...env } : undefined,
+    env: gateSpawnEnv(env ? { ...Bun.env, ...env } : Bun.env),
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -294,7 +296,7 @@ export async function runUserAgentContractProbes(): Promise<CliContractProbeResu
 
 export async function probeBunNoColor(): Promise<CliContractProbeResult> {
   const proc = Bun.spawnSync({
-    cmd: [process.execPath],
+    cmd: [probeBunExecutable()],
     env: { ...Bun.env, NO_COLOR: "1" },
     stdout: "pipe",
     stderr: "pipe",
@@ -306,12 +308,12 @@ export async function probeBunNoColor(): Promise<CliContractProbeResult> {
 
 export async function probeBunRevision(): Promise<CliContractProbeResult> {
   const versionProc = Bun.spawnSync({
-    cmd: [process.execPath, "--version"],
+    cmd: [probeBunExecutable(), "--version"],
     stdout: "pipe",
     stderr: "pipe",
   });
   const revisionProc = Bun.spawnSync({
-    cmd: [process.execPath, "--revision"],
+    cmd: [probeBunExecutable(), "--revision"],
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -325,7 +327,7 @@ export async function probeBunRevision(): Promise<CliContractProbeResult> {
 
 export async function probeBunGetcompletes(): Promise<CliContractProbeResult> {
   const proc = Bun.spawnSync({
-    cmd: [process.execPath, "getcompletes"],
+    cmd: [probeBunExecutable(), "getcompletes"],
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -382,7 +384,7 @@ export async function probeBunConfig(): Promise<CliContractProbeResult> {
   writeText(configPath, "[debug]\n");
   try {
     const proc = Bun.spawnSync({
-      cmd: [process.execPath, `--config=${configPath}`],
+      cmd: [probeBunExecutable(), `--config=${configPath}`],
       env: { ...Bun.env },
       stdout: "pipe",
       stderr: "pipe",
@@ -685,7 +687,7 @@ function bunOptionsEnv(value: string): Record<string, string | undefined> {
 
 export async function probeBunOptionsBasic(): Promise<CliContractProbeResult> {
   const proc = Bun.spawnSync({
-    cmd: [process.execPath],
+    cmd: [probeBunExecutable()],
     env: bunOptionsEnv("--print='BUN_OPTIONS WAS A SUCCESS'"),
     stdout: "pipe",
     stderr: "pipe",
@@ -696,7 +698,7 @@ export async function probeBunOptionsBasic(): Promise<CliContractProbeResult> {
 
 export async function probeBunOptionsMultiple(): Promise<CliContractProbeResult> {
   const proc = Bun.spawnSync({
-    cmd: [process.execPath],
+    cmd: [probeBunExecutable()],
     env: bunOptionsEnv("--print='MULTIPLE OPTIONS' --quiet"),
     stdout: "pipe",
     stderr: "pipe",
@@ -707,7 +709,7 @@ export async function probeBunOptionsMultiple(): Promise<CliContractProbeResult>
 
 export async function probeBunOptionsQuotes(): Promise<CliContractProbeResult> {
   const proc = Bun.spawnSync({
-    cmd: [process.execPath],
+    cmd: [probeBunExecutable()],
     env: bunOptionsEnv('--print="QUOTED OPTIONS"'),
     stdout: "pipe",
     stderr: "pipe",
@@ -718,7 +720,7 @@ export async function probeBunOptionsQuotes(): Promise<CliContractProbeResult> {
 
 export async function probeBunOptionsPriority(): Promise<CliContractProbeResult> {
   const proc = Bun.spawnSync({
-    cmd: [process.execPath, "--print='COMMAND LINE'"],
+    cmd: [probeBunExecutable(), "--print='COMMAND LINE'"],
     env: bunOptionsEnv("--quiet"),
     stdout: "pipe",
     stderr: "pipe",
@@ -732,7 +734,7 @@ export async function probeBunOptionsCpuProf(): Promise<CliContractProbeResult> 
   makeDir(dir, { recursive: true });
   try {
     const proc = Bun.spawnSync({
-      cmd: [process.execPath, "-e", "1"],
+      cmd: [probeBunExecutable(), "-e", "1"],
       env: bunOptionsEnv(`--cpu-prof --cpu-prof-dir=${dir}`),
       stdout: "pipe",
       stderr: "pipe",
@@ -747,7 +749,7 @@ export async function probeBunOptionsCpuProf(): Promise<CliContractProbeResult> 
 
 export async function probeBunOptionsEmpty(): Promise<CliContractProbeResult> {
   const proc = Bun.spawnSync({
-    cmd: [process.execPath, "--print='NORMAL'"],
+    cmd: [probeBunExecutable(), "--print='NORMAL'"],
     env: bunOptionsEnv(""),
     stdout: "pipe",
     stderr: "pipe",
@@ -767,7 +769,14 @@ export async function probeBunOptionsCpuProfCompile(): Promise<CliContractProbeR
 
     // Compile standalone executable
     const build = Bun.spawnSync({
-      cmd: [process.execPath, "build", "--compile", join(dir, "entry.ts"), "--outfile", exePath],
+      cmd: [
+        probeBunExecutable(),
+        "build",
+        "--compile",
+        join(dir, "entry.ts"),
+        "--outfile",
+        exePath,
+      ],
       env: Bun.env,
       stdout: "pipe",
       stderr: "pipe",

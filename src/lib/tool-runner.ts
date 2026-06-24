@@ -14,7 +14,11 @@ import { recordStep } from "./step-budget.ts";
 import { classifyAndSuggest } from "./error-taxonomy.ts";
 import { childTraceEnv, ensureProcessTrace, TRACE_ID_ENV } from "./effect/trace-context.ts";
 import { buildTraceEvent, recordTraceEvent } from "./trace-ledger.ts";
-import { applyBunInstallCacheEnvSanitizer } from "./root-hygiene.ts";
+import {
+  applyBunInstallCacheEnvSanitizer,
+  isEphemeralBunNodeExecutable,
+  probeBunExecutable,
+} from "./root-hygiene.ts";
 import { elapsedMs, nowNs } from "./timing.ts";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
@@ -75,9 +79,14 @@ export function isBunExecutable(argv0: string): boolean {
  * Linux/macOS only; harmless when the flag is already present.
  */
 export function withBunNoOrphans(command: string[]): string[] {
-  const argv0 = command[0];
-  if (!argv0 || !isBunExecutable(argv0) || command.includes("--no-orphans")) return command;
-  return [argv0, "--no-orphans", ...command.slice(1)];
+  let cmd = command;
+  const argv0 = cmd[0];
+  if (argv0 && (argv0 === "bun" || isEphemeralBunNodeExecutable(argv0))) {
+    cmd = [probeBunExecutable(), ...cmd.slice(1)];
+  }
+  const resolved = cmd[0];
+  if (!resolved || !isBunExecutable(resolved) || cmd.includes("--no-orphans")) return cmd;
+  return [resolved, "--no-orphans", ...cmd.slice(1)];
 }
 
 /** Long-running tools (watch loops, MCP stdio servers) must not inherit the 30s router timeout. */

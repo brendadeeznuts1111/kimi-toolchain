@@ -6,6 +6,7 @@ import { join } from "path";
 import { appendText, readText, writeText } from "./bun-io.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import { cliProbe, withCliFixtureDir } from "./bun-cli-fixture.ts";
+import { gateSpawnEnv, probeBunExecutable, scrubEphemeralBunNodeDirs } from "./root-hygiene.ts";
 
 export interface CliContractProbeResult {
   readonly id: string;
@@ -79,10 +80,11 @@ async function runTestChanged(
   if (options.junitPath) {
     args.push("--reporter=junit", `--reporter-outfile=${options.junitPath}`);
   }
+  scrubEphemeralBunNodeDirs();
   const proc = Bun.spawn({
-    cmd: [process.execPath, ...args],
+    cmd: [probeBunExecutable(), ...args],
     cwd,
-    env,
+    env: gateSpawnEnv(env),
     stdout: "pipe",
     stderr: "pipe",
   });

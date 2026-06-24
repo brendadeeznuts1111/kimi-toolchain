@@ -121,7 +121,16 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
 
   try {
     const pkg = await readPackageManifest(projectDir);
-    const scripts = pkg?.scripts || {};
+    if (!pkg) {
+      checks.push({
+        name: "package.json",
+        status: "error",
+        message: "invalid JSON",
+        fixable: false,
+      });
+      return checks;
+    }
+    const scripts = pkg.scripts || {};
     const missingScripts = REQUIRED_PACKAGE_SCRIPTS.filter((s) => !scripts[s]);
     checks.push({
       name: "package-scripts",

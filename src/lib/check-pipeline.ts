@@ -12,6 +12,7 @@ import {
 } from "./gate-runner.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
+import { gateSpawnEnv as buildGateSpawnEnv } from "./root-hygiene.ts";
 import { withBunNoOrphans } from "./tool-runner.ts";
 import {
   changedIncludesTypeScript,
@@ -324,7 +325,7 @@ async function runStepTracked(
       cwd: projectRoot,
       stdout: "inherit",
       stderr: "inherit",
-      env: withNoOrphansEnv(),
+      env: withNoOrphansEnv(buildGateSpawnEnv(Bun.env)),
     });
     const exitCode = await proc.exited;
     if (exitCode !== 0) {
@@ -375,7 +376,7 @@ async function runStepTrackedWithActive(
       cwd: projectRoot,
       stdout: "pipe",
       stderr: "pipe",
-      env: withNoOrphansEnv(),
+      env: withNoOrphansEnv(buildGateSpawnEnv(Bun.env)),
     });
     active.push(proc);
     const [stdout, stderr, code] = await Promise.all([

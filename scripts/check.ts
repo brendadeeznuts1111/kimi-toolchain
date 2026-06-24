@@ -21,9 +21,15 @@ import {
 } from "../src/lib/check-pipeline.ts";
 import { startCheckWatchMode } from "./check-watch-runner.ts";
 import type { CheckOptions } from "../src/lib/check-types.ts";
-import { scrubProcessBunInstallCacheEnv } from "../src/lib/root-hygiene.ts";
+import {
+  gateSpawnEnv,
+  scrubEphemeralBunNodeDirs,
+  scrubProcessBunInstallCacheEnv,
+} from "../src/lib/root-hygiene.ts";
 
+scrubEphemeralBunNodeDirs();
 scrubProcessBunInstallCacheEnv();
+Object.assign(Bun.env, gateSpawnEnv(Bun.env));
 
 const REPO_ROOT = join(import.meta.dir, "..");
 

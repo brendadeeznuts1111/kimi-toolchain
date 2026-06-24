@@ -7,6 +7,7 @@ import { makeDir, pathExists } from "./bun-io.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { GIT_LOCAL_ENV_KEYS, withBunNoOrphans } from "./tool-runner.ts";
 import { formatErrorColored } from "./error-format.ts";
+import { gateSpawnEnv as buildGateSpawnEnv, scrubEphemeralBunNodeDirs } from "./root-hygiene.ts";
 
 import { join } from "path";
 import { $ } from "bun";
@@ -107,7 +108,7 @@ export async function shouldSkipGate(projectRoot: string, gate: string): Promise
 }
 
 function gateSpawnEnv(env?: Record<string, string | undefined>): Record<string, string> {
-  return withNoOrphansEnv({ ...Bun.env, ...env });
+  return withNoOrphansEnv(buildGateSpawnEnv({ ...Bun.env, ...env }));
 }
 
 export async function runGate(
@@ -115,6 +116,7 @@ export async function runGate(
   cmd: string[],
   options: { cwd: string; env?: Record<string, string | undefined> }
 ): Promise<GateResult> {
+  scrubEphemeralBunNodeDirs();
   const start = Bun.nanoseconds();
   const proc = Bun.spawn(withBunNoOrphans(cmd), {
     cwd: options.cwd,
