@@ -66,6 +66,19 @@ categories:
       - regex: "lint:build-constants failed"
       - regex: "tuning set version"
 
+  - id: release_metadata_drift
+    name: Release metadata drift
+    description: A Bun release blog post (.md) reports version, tag, or commit hash that disagrees with bun-release-registry.ts.
+    severity: error
+    expected: false
+    suggestion: "Update BUN_RELEASE or BUN_RELEASE_HISTORY in src/lib/bun-release-registry.ts to match the shipped release, or correct the blog source."
+    autoFix: "bun run scripts/head-table-typed.ts --section release --verify --md <path> --html <path>"
+    patterns:
+      - regex: "release_metadata_drift"
+      - regex: "release commit hash mismatch"
+      - regex: "release version mismatch"
+      - regex: "release tag mismatch"
+
   - id: lint_failure
     name: Lint check failed
     description: oxlint or banned-terms check failed.

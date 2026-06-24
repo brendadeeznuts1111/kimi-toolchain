@@ -7,14 +7,20 @@
  *   bun run scripts/head-table-typed.ts --section release
  *   bun run scripts/head-table-typed.ts --section release --format json
  *   bun run scripts/head-table-typed.ts --section release --out /tmp/bun-v1.3.6-release.md
+ *   bun run scripts/head-table-typed.ts --section release --verify --md /tmp/bun-v1.3.7.md --html /tmp/bun-v1.3.7.html
+ *   bun run scripts/head-table-typed.ts --section release --version 1.3.6 --verify --md /tmp/bun-v1.3.6.md --html /tmp/bun-v1.3.6.html
  */
 
+import { semver } from "bun";
 import {
   BUN_ARCHIVE_RELEASE_URL,
   BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL,
   BUN_JSONC_RELEASE_URL,
   BUN_RELEASE,
+  BUN_RELEASE_HISTORY,
   BUN_WEBSOCKET_PROXY_RELEASE_URL,
+  type BunReleaseRecord,
+  type BunReleaseVersion,
   commitHashFromUrl,
   releaseCommitUrl,
   releaseMarkdownAlt,
@@ -409,6 +415,67 @@ export function buildContentRows(html: string, md: string): TypedRow[] {
 
 const RELEASE_ANCHOR = (slug: string) => `${BUN_RELEASE.blogUrl}#${slug}`;
 
+export interface ReleaseMetaDrift {
+  field: "hash" | "tag" | "version";
+  expected: string;
+  actual: string;
+  message: string;
+}
+
+function parseMdVersion(md: string): string | null {
+  const fm = parseMdFrontmatter(md);
+  const title = fm.title ?? "";
+  const match = title.match(/\b(v?\d+\.\d+\.\d+)\b/);
+  return match?.[1] ?? null;
+}
+
+/**
+ * Compare release metadata discovered in the blog .md against the registry SSOT.
+ * Returns an empty array when the sources agree or when the .md lacks parseable metadata.
+ */
+export function verifyReleaseMeta(
+  md: string,
+  target: BunReleaseRecord = BUN_RELEASE
+): ReleaseMetaDrift[] {
+  const drifts: ReleaseMetaDrift[] = [];
+  const commits = [
+    ...md.matchAll(/<!--\s*(https:\/\/github\.com\/oven-sh\/bun\/commit\/[a-f0-9]+)\s*-->/g),
+  ].map((x) => x[1]);
+  const parsedCommitUrl = commits.at(-1) ?? "";
+  const parsedHash = parsedCommitUrl ? commitHashFromUrl(parsedCommitUrl) : "";
+
+  if (parsedHash && parsedHash !== target.hash) {
+    drifts.push({
+      field: "hash",
+      expected: target.hash,
+      actual: parsedHash,
+      message: `release commit hash mismatch: blog .md has ${parsedHash.slice(0, 12)}…, registry has ${target.hash.slice(0, 12)}…`,
+    });
+  }
+
+  const parsedVersion = parseMdVersion(md);
+  if (parsedVersion && semver.order(parsedVersion, target.version) !== 0) {
+    drifts.push({
+      field: "version",
+      expected: target.version,
+      actual: parsedVersion,
+      message: `release version mismatch: blog .md has v${parsedVersion}, registry has v${target.version}`,
+    });
+  }
+
+  const parsedTag = parsedVersion ? `bun-v${parsedVersion.replace(/^v/, "")}` : null;
+  if (parsedTag && parsedTag !== target.tag) {
+    drifts.push({
+      field: "tag",
+      expected: target.tag,
+      actual: parsedTag,
+      message: `release tag mismatch: registry has ${target.tag}, .md derives ${parsedTag}`,
+    });
+  }
+
+  return drifts;
+}
+
 function parseMdFrontmatter(md: string): Record<string, string> {
   const m = md.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return {};
@@ -438,14 +505,6 @@ export function parseReleaseMeta(md: string, html: string): ReleaseMeta {
     ...md.matchAll(/<!--\s*(https:\/\/github\.com\/oven-sh\/bun\/commit\/[a-f0-9]+)\s*-->/g),
   ].map((x) => x[1]);
   const ogImage = head.match(/name="og:image"\s+content="([^"]+)"/i)?.[1] ?? RELEASE_OG_IMAGE;
-
-  const parsedCommitUrl = commits.at(-1) ?? "";
-  const parsedHash = parsedCommitUrl ? commitHashFromUrl(parsedCommitUrl) : "";
-  if (parsedHash && parsedHash !== BUN_RELEASE.hash) {
-    console.error(
-      `WARN: blog .md release commit ${parsedHash.slice(0, 12)}… differs from SSOT ${BUN_RELEASE.hash.slice(0, 12)}… — update bun-release-registry.ts`
-    );
-  }
 
   return {
     version: fm.title ?? `Bun v${BUN_RELEASE.version}`,
@@ -865,18 +924,24 @@ function parseArgs(argv: string[]): {
   section: "head" | "content" | "jsonld" | "release" | "all";
   format: "table" | "json" | "md";
   outPath?: string;
+  verify: boolean;
+  targetVersion: string | null;
 } {
   let htmlPath = "/tmp/bun-v1.3.6.html";
   let mdPath = "/tmp/bun-v1.3.6.md";
   let section: "head" | "content" | "jsonld" | "release" | "all" = "all";
   let format: "table" | "json" | "md" = "table";
   let outPath: string | undefined;
+  let verify = false;
+  let targetVersion: string | null = null;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--html") htmlPath = argv[++i] ?? htmlPath;
     else if (arg === "--md") mdPath = argv[++i] ?? mdPath;
     else if (arg === "--out") outPath = argv[++i];
+    else if (arg === "--verify") verify = true;
+    else if (arg === "--version") targetVersion = argv[++i] ?? null;
     else if (arg === "--format") {
       const next = argv[++i];
       if (next === "table" || next === "json" || next === "md") format = next;
@@ -892,7 +957,7 @@ function parseArgs(argv: string[]): {
         section = next;
     }
   }
-  return { htmlPath, mdPath, section, format, outPath };
+  return { htmlPath, mdPath, section, format, outPath, verify, targetVersion };
 }
 
 function releaseToMarkdown(rows: ReleaseRow[], meta: ReleaseMeta): string {
@@ -913,15 +978,36 @@ function releaseToMarkdown(rows: ReleaseRow[], meta: ReleaseMeta): string {
 }
 
 async function main(): Promise<void> {
-  const { htmlPath, mdPath, section, format, outPath } = parseArgs(Bun.argv.slice(2));
+  const { htmlPath, mdPath, section, format, outPath, verify, targetVersion } = parseArgs(
+    Bun.argv.slice(2)
+  );
   const html = await Bun.file(htmlPath).text();
   const md = await Bun.file(mdPath).text();
+
+  const releaseToVerify = targetVersion
+    ? BUN_RELEASE_HISTORY[targetVersion as BunReleaseVersion]
+    : BUN_RELEASE;
+  if (targetVersion && !releaseToVerify) {
+    console.error(`No registry entry for version ${targetVersion}`);
+    process.exit(1);
+  }
 
   const headRows = buildHeadRows(html);
   const contentRows = buildContentRows(html, md);
   const jsonLdRows = buildJsonLdBlockRows(html);
   const releaseMeta = parseReleaseMeta(md, html);
   const releaseRows = buildReleaseContentRows(md, html);
+
+  const drifts = verifyReleaseMeta(md, releaseToVerify);
+  if (drifts.length > 0) {
+    const summary = drifts.map((d) => d.message).join("; ");
+    if (verify) {
+      throw new Error(`release_metadata_drift: ${summary}`);
+    }
+    for (const d of drifts) {
+      console.error(`WARN: ${d.message} — update bun-release-registry.ts`);
+    }
+  }
 
   const print = (title: string, rows: TypedRow[]) => {
     console.log(`\n## ${title} (${rows.length} rows)\n`);

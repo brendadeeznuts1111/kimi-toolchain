@@ -131,6 +131,19 @@ export async function buildSteps(
         silentOnSuccess: quiet,
       });
     }
+    if (pathExists(join(projectRoot, "scripts", "validate-release-ssot.ts"))) {
+      const releaseSsotCmd = [
+        "bun",
+        "run",
+        "scripts/validate-release-ssot.ts",
+        ...(options.fast ? ["--skip-blog-audit"] : []),
+      ];
+      steps.push({
+        name: "validate:release-ssot",
+        cmd: releaseSsotCmd,
+        silentOnSuccess: quiet,
+      });
+    }
   }
 
   if (options.fast && (await isKimiToolchainRepo(projectRoot))) {
@@ -511,15 +524,24 @@ export async function runCheckPipeline(
   const gateQuiet = (!options.verbose && shouldSilentOnSuccess()) || options.jsonSummary;
 
   const testStep = steps.find((step) => step.name === "test" || step.name === "test:fast");
-  const independentSteps = steps.filter((step) => step !== testStep);
+  const formatStep = steps.find((step) => step.name === "format:check");
+  const independentSteps = steps.filter((step) => step !== testStep && step !== formatStep);
+
+  const allResults: GateResult[] = [];
+  if (formatStep) {
+    allResults.push(await runStepTracked(projectRoot, formatStep, gateQuiet));
+    if (options.failFast && allResults[0]?.exitCode !== 0) {
+      return { ...buildCheckResult(allResults), scopedGatesRecorded: 0 };
+    }
+  }
+
   const independentResults = await runStepsParallel(
     projectRoot,
     independentSteps,
     gateQuiet,
     options.failFast
   );
-
-  const allResults = [...independentResults];
+  allResults.push(...independentResults);
   if (testStep) {
     allResults.push(await runStepTracked(projectRoot, testStep, gateQuiet));
   }

@@ -33,6 +33,9 @@ describe("verify-bun-features-runner", () => {
     expect(report.checks.some((c) => c.id === "bun.udp")).toBe(true);
     expect(report.checks.some((c) => c.id === "bun.image")).toBe(true);
     expect(report.checks.some((c) => c.id === "web.globals")).toBe(true);
+    expect(report.checks.some((c) => c.id === "cli.alignment" && c.ok)).toBe(true);
+    expect(report.checks.some((c) => c.id === "cli.case-alignment" && c.ok)).toBe(true);
+    expect(report.checks.some((c) => c.id === "cli.contract" && c.ok)).toBe(true);
   }, 60_000);
 
   test("countVerifyFailures ignores advisory drift unless strict", async () => {

@@ -19,7 +19,13 @@ import {
   extractSyncSnapshotArchive,
 } from "./archive-persistence.ts";
 import { bunImageSupported } from "./bun-image.ts";
-import { checkBunVersionPin, readableStreamToText } from "./bun-utils.ts";
+import {
+  auditCliAlignment,
+  auditCliCaseAlignment,
+  checkBunVersionPin,
+  readableStreamToText,
+} from "./bun-utils.ts";
+import { runAllCliContractProbes } from "./bun-cli-contract-probes.ts";
 import type { ToolchainManifest } from "./version.ts";
 import { captureMimallocStats, parseMimallocStats } from "./memory/governor.ts";
 import { runWebGlobalsContractProbes } from "./bun-web-globals-contract.ts";
@@ -158,7 +164,51 @@ async function checkWebGlobalsContract(): Promise<void> {
     failed.length === 0
       ? `${probes.length} probes ok`
       : failed.map((p) => `${p.id}: ${p.detail}`).join("; "),
-    ms,
+    ms
+  );
+}
+
+async function checkCliAlignment(): Promise<void> {
+  const start = nowNs();
+  const report = auditCliAlignment();
+  const ms = elapsedMsRoundedLocal(start);
+  record(
+    "cli.alignment",
+    "runtime",
+    report.aligned,
+    report.aligned
+      ? `${report.percent}% (${report.covered}/${report.total} @ ${report.commit.slice(0, 12)})`
+      : `gaps: ${report.uncovered.slice(0, 3).join(", ")}${report.uncovered.length > 3 ? "…" : ""}`,
+    ms
+  );
+}
+
+async function checkCliCaseAlignment(): Promise<void> {
+  const start = nowNs();
+  const report = auditCliCaseAlignment();
+  const ms = elapsedMsRoundedLocal(start);
+  record(
+    "cli.case-alignment",
+    "runtime",
+    report.aligned,
+    `${report.cataloguedPercent}% catalogued (${report.totalCases} cases) · depth ${report.depthWeightedPercent}% · ported ${report.portedPercent}%`,
+    ms
+  );
+}
+
+async function checkCliContractProbes(): Promise<void> {
+  const start = nowNs();
+  const probes = await runAllCliContractProbes();
+  const failed = probes.filter((p) => !p.ok);
+  const ms = elapsedMsRoundedLocal(start);
+  record(
+    "cli.contract",
+    "runtime",
+    failed.length === 0,
+    failed.length === 0
+      ? `${probes.length} probes ok`
+      : failed.map((p) => `${p.id}: ${p.detail}`).join("; "),
+    ms
   );
 }
 
@@ -831,6 +881,9 @@ export async function runVerifyBunFeatures(options: VerifyRunOptions = {}): Prom
   const started = nowNs();
 
   await checkWebGlobalsContract();
+  await checkCliAlignment();
+  await checkCliCaseAlignment();
+  await checkCliContractProbes();
   await checkSymbolDispose();
   await checkUsingStatement();
   await checkBunGlob();

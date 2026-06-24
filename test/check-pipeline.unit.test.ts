@@ -38,6 +38,23 @@ describe("check-pipeline", () => {
     expect(envDrift?.cmd).toEqual(["bun", "run", "scripts/check-env-drift.ts"]);
   });
 
+  test("fast toolchain checks include release-ssot with blog audit skipped", async () => {
+    const steps = await buildSteps(REPO_ROOT, baseOptions, null);
+    const releaseSsot = steps.find((step) => step.name === "validate:release-ssot");
+    expect(releaseSsot?.cmd).toEqual([
+      "bun",
+      "run",
+      "scripts/validate-release-ssot.ts",
+      "--skip-blog-audit",
+    ]);
+  });
+
+  test("full check runs release-ssot with live blog audit", async () => {
+    const steps = await buildSteps(REPO_ROOT, { ...baseOptions, fast: false }, null);
+    const releaseSsot = steps.find((step) => step.name === "validate:release-ssot");
+    expect(releaseSsot?.cmd).toEqual(["bun", "run", "scripts/validate-release-ssot.ts"]);
+  });
+
   test("check --dry-run does not create a test gate lock", async () => {
     const root = testTempDir("check-dry-run-lock-");
     const lockDir = join(root, "locks");

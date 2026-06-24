@@ -677,15 +677,32 @@ export const BUN_DETECT_BUN_GUIDE_DOC_URL = "https://bun.com/guides/util/detect-
 /** Bun release registry — canonical definitions in bun-release-registry.ts */
 export {
   BUN_ARCHIVE_RELEASE_URL,
+  BUN_BUFFER_FROM_RELEASE_URL,
   BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL,
+  BUN_CPU_PROF_MD_RELEASE_URL,
+  BUN_JSON5_RELEASE_URL,
   BUN_JSONC_RELEASE_URL,
+  BUN_JSONL_RELEASE_URL,
   BUN_RELEASE,
+  BUN_RELEASE_1_3_6_FEATURE_ANCHORS,
+  BUN_RELEASE_BLOG_URL,
   BUN_RELEASE_FEATURE_ANCHORS,
   BUN_RELEASE_HISTORY,
   BUN_RELEASE_PREVIOUS,
   BUN_WEBSOCKET_PROXY_RELEASE_URL,
+  BUN_WRAP_ANSI_RELEASE_URL,
+  BUN_HEAP_PROF_RELEASE_URL,
+  BUN_HEADER_CASE_RELEASE_URL,
+  BUN_NODE_INSPECTOR_RELEASE_URL,
+  BUN_BUFFER_SWAP_RELEASE_URL,
+  BUN_REPL_MODE_RELEASE_URL,
+  BUN_S3_PRESIGN_RELEASE_URL,
+  BUN_S3_CONTENT_ENCODING_RELEASE_URL,
+  BUN_FFI_NIXOS_RELEASE_URL,
   breakingChangeCount,
   buildReleaseHistoryRows,
+  computeReleaseDiff,
+  computeReleaseDiffVersions,
   formatBreakingCell,
   measureReleaseHistoryRows,
   commitHashFromUrl,
@@ -697,8 +714,9 @@ export {
   semverCompare,
   sortReleaseVersions,
   type BunReleaseRecord,
-  type BunReleaseRole,
+  type ReleaseRole,
   type BunReleaseVersion,
+  type ReleaseDiff,
   type ReleaseHistoryMetrics,
   type ReleaseHistoryRow,
 } from "./bun-release-registry.ts";
@@ -728,35 +746,56 @@ export {
   type PeImportKind,
 } from "./bun-binary-portability.ts";
 
-export { runWebGlobalsContractProbes, type WebGlobalsProbeResult } from "./bun-web-globals-contract.ts";
+export {
+  runWebGlobalsContractProbes,
+  type WebGlobalsProbeResult,
+} from "./bun-web-globals-contract.ts";
 
 export {
+  auditCliAlignment,
+  BUN_UPSTREAM_CLI_COVERAGE_RULES,
   BUN_UPSTREAM_CLI_SECTIONS,
+  BUN_UPSTREAM_CLI_TEST_FILE_COUNT,
+  BUN_UPSTREAM_CLI_TEST_FILES,
   BUN_UPSTREAM_HARNESS_PATH,
   BUN_UPSTREAM_TEST_CLI_TREE_URL,
   BUN_UPSTREAM_TEST_COMMIT,
   BUN_UPSTREAM_TEST_REFS,
   BUN_UPSTREAM_TEST_TREE_URL,
+  auditCliCaseAlignment,
+  BUN_UPSTREAM_CLI_CASE_COUNT,
+  BUN_UPSTREAM_CLI_PORT_REFS,
+  buildCliAlignmentRows,
+  buildCliPortRefRows,
   buildUpstreamCliSectionRows,
   buildUpstreamTestRefRows,
+  resolveCliTestCoverage,
   upstreamBlobUrl,
   upstreamTreeUrl,
   type BunUpstreamCliSection,
   type BunUpstreamTestRef,
   type BunUpstreamTestRefId,
+  type CliAlignmentReport,
+  type CliCaseAlignmentReport,
+  type CliCoverageKind,
+  type CliCoverageRule,
+  type CliPortRef,
+  type CliTestCoverage,
 } from "./bun-upstream-test-refs.ts";
 
-/** @deprecated Use {@link BUN_RELEASE}.blogUrl — removed after next toolchain bump */
-export { BUN_RELEASE_1_3_6_URL } from "./bun-release-registry.ts";
-/** @deprecated Use {@link BUN_RELEASE} fields — removed after next toolchain bump */
 export {
-  BUN_RELEASE_1_3_6_COMMIT_HASH,
-  BUN_RELEASE_1_3_6_COMMIT_URL,
-  BUN_RELEASE_1_3_6_MARKDOWN_ALT,
-  BUN_RELEASE_1_3_6_OG_IMAGE,
-  BUN_RELEASE_1_3_6_PUBLISHED,
-  BUN_RELEASE_1_3_6_TAG,
-} from "./bun-release-registry.ts";
+  normalizeConsoleOutput,
+  runAllCliContractProbes,
+  runBunCliContractProbes,
+  runBunfigTestOptionsProbes,
+  runBunOptionsContractProbes,
+  runConsoleDepthContractProbes,
+  runHeapProfContractProbes,
+  runUserAgentContractProbes,
+  type CliContractProbeResult,
+} from "./bun-cli-contract-probes.ts";
+
+export { runRunTestContractProbes } from "./bun-cli-run-test-probes.ts";
 
 /** Read the pinned Bun version from `.bun-version` if present. */
 export async function readPinnedBunVersion(projectRoot = process.cwd()): Promise<string | null> {

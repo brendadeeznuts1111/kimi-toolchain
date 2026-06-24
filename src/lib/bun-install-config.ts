@@ -20,6 +20,11 @@ import {
   bunVersion,
   detectBunRuntime,
 } from "./bun-utils.ts";
+import {
+  BUN_BUFFER_FROM_RELEASE_URL,
+  BUN_HEAP_PROF_RELEASE_URL,
+  BUN_RELEASE_BLOG_URL,
+} from "./bun-release-registry.ts";
 
 export { BUN_BINARY_DATA_CONVERSION_DOC_URL };
 import { pathExists } from "./bun-io.ts";
@@ -34,8 +39,10 @@ export const BUN_INSTALL_DOC_URL = "https://bun.com/docs/pm/cli/install";
 export const BUN_PM_UPDATE_DOC_URL = "https://bun.com/docs/pm/cli/update";
 export const BUN_RELEASE_1_3_13_URL = "https://bun.com/blog/bun-v1.3.13";
 export const BUN_RELEASE_1_3_13_SOURCE_MAPS_URL = `${BUN_RELEASE_1_3_13_URL}#source-maps-use-up-to-8x-less-memory`;
-export const BUN_RELEASE_1_3_7_URL = "https://bun.com/blog/bun-v1.3.7";
-export const BUN_BUFFER_FROM_OPTIMIZATION_URL = `${BUN_RELEASE_1_3_7_URL}#faster-buffer-from-with-arrays`;
+/** @deprecated Use {@link BUN_RELEASE_BLOG_URL} from bun-release-registry.ts */
+export const BUN_RELEASE_1_3_7_URL = BUN_RELEASE_BLOG_URL;
+/** @deprecated Use {@link BUN_BUFFER_FROM_RELEASE_URL} */
+export const BUN_BUFFER_FROM_OPTIMIZATION_URL = BUN_BUFFER_FROM_RELEASE_URL;
 export const BUN_HTML_STATIC_CONSOLE_DOC_URL =
   "https://bun.com/docs/bundler/html-static#echo-console-logs-from-browser-to-terminal";
 export const BUN_MARKDOWN_RUN_DOC_URL = "https://bun.com/docs/runtime/markdown.md";
@@ -252,7 +259,8 @@ export const BUN_RUNTIME_WEB_APIS_DOC_URL = "https://bun.com/docs/runtime/web-ap
 export const BUN_API_REFERENCE_URL = "https://bun.com/reference/bun";
 /** Bun documentation RSS feed for drift/watch workflows. */
 export const BUN_DOCS_RSS_URL = "https://bun.com/rss.xml";
-export const BUN_HEAP_PROF_BLOG_URL = `${BUN_RELEASE_1_3_7_URL}#heap-profiling-with-heap-prof`;
+/** @deprecated Use {@link BUN_HEAP_PROF_RELEASE_URL} */
+export const BUN_HEAP_PROF_BLOG_URL = BUN_HEAP_PROF_RELEASE_URL;
 export const BUN_CGROUP_PARALLELISM_DOC_URL = `${BUN_RUNTIME_GLOBALS_DOC_URL}#navigator-hardwareconcurrency`;
 export const BUN_RUNTIME_HTTP_DOC_URL = "https://bun.com/docs/runtime/http";
 export const BUN_HTTPS_PROXY_KEEPALIVE_DOC_URL = `${BUN_RUNTIME_HTTP_DOC_URL}#proxying`;
