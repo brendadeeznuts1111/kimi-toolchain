@@ -61,9 +61,9 @@ CHANGELOG.md
 /.tmp/
 /.tmp-*/
 /.tmp-kimi-test-home/
-.tmp-drift-*/
-.tmp-test-*/
-.tmp-path-align-*/
+/.tmp-drift-*/
+/.tmp-test-*/
+/.tmp-path-align-*/
 
 # SQLite databases
 *.sqlite
@@ -72,8 +72,8 @@ CHANGELOG.md
 
 # Compiled binaries & source maps
 *.executable
-cli
-out.js
+/cli
+/out.js
 *.tar.gz
 *.zip
 *.wasm
@@ -144,6 +144,12 @@ Without the leading slash, `memory/` or `guardian/` would suppress matches at
 any depth. Root-relative patterns keep the ignore list precise without hiding
 tracked source code.
 
+The same principle applies to file patterns. Compiled outputs like `/cli` and
+`/out.js` are anchored to the repo root so a tracked file named `cli` or
+`out.js` nested under `src/` or `examples/` would still be indexed. Glob
+patterns (`*.sqlite`, `*.log`, `*.map`, etc.) match at any depth — these are
+safe because the file extensions never appear in tracked source.
+
 ## Layer 2 — Global `~/.rgignore`
 
 **Path:** `~/.rgignore`  
@@ -180,26 +186,26 @@ when adding a new cache or artifact directory.
 
 ### Cross-file sync watchlist
 
-| Pattern | `.rgignore` | `.gitignore` | `.oxfmtrc.json` | Notes |
-|---|---|---|---|---|
-| `node_modules/` | ✅ | ✅ | — | Too large to index or format |
-| `bun.lock` | ✅ | — | ✅ | Tracked by Git, hidden from search/formatter |
-| `canonical-references.json` | ✅ | — | ✅ | Generated manifest, tracked |
-| `CHANGELOG.md` | ✅ | — | ✅ | Generated release notes, tracked |
-| `examples/dashboard-urls.md` | — | — | ✅ | Generated dashboard docs (formatter-only; tracked & searchable) |
-| `*.log` | ✅ | ✅ | ✅ | Ephemeral logs |
-| `/.cache/` / `.cache` | ✅ | ✅ | ✅ | Formatter omits the leading slash |
-| `.bun-native-baseline.json` | ✅ | ✅ | — | Baseline is machine-local |
-| `*.cpuprofile` | ✅ | ✅ | — | Generated profiles |
-| `.kimi-test-execve-child.ts` | ✅ | ✅ | ✅ | Formatter temp + test fixture helper |
-| `reasonix.toml` | ✅ | ✅ | — | Local agent config |
-| `/.grok/` | ✅ | — | — | Editor runtime (add to `.gitignore` if it appears on your machine) |
-| `/tools/` | ✅ | ✅ | — | Live runtime tools directory |
-| `*.tsbuildinfo` | ✅ | — | — | TypeScript incremental build cache |
-| `*.map` | ✅ | — | — | Generated source maps |
-| `*.orig` / `*.rej` / `*.bak` | ✅ | — | — | Merge/rebase conflict artifacts (proactive) |
-| `*.swp` / `*.swo` | ✅ | — | — | Vim swap files (proactive) |
-| `.idea/` / `.vscode/` / `.fleet/` / `.zed/` | ✅ | — | — | IDE directories (proactive; not currently in repo) |
+| Pattern                                     | `.rgignore` | `.gitignore` | `.oxfmtrc.json` | Notes                                                              |
+| ------------------------------------------- | ----------- | ------------ | --------------- | ------------------------------------------------------------------ |
+| `node_modules/`                             | ✅          | ✅           | —               | Too large to index or format                                       |
+| `bun.lock`                                  | ✅          | —            | ✅              | Tracked by Git, hidden from search/formatter                       |
+| `canonical-references.json`                 | ✅          | —            | ✅              | Generated manifest, tracked                                        |
+| `CHANGELOG.md`                              | ✅          | —            | ✅              | Generated release notes, tracked                                   |
+| `examples/dashboard-urls.md`                | —           | —            | ✅              | Generated dashboard docs (formatter-only; tracked & searchable)    |
+| `*.log`                                     | ✅          | ✅           | ✅              | Ephemeral logs                                                     |
+| `/.cache/` / `.cache`                       | ✅          | ✅           | ✅              | Formatter omits the leading slash                                  |
+| `.bun-native-baseline.json`                 | ✅          | ✅           | —               | Baseline is machine-local                                          |
+| `*.cpuprofile`                              | ✅          | ✅           | —               | Generated profiles                                                 |
+| `.kimi-test-execve-child.ts`                | ✅          | ✅           | ✅              | Formatter temp + test fixture helper                               |
+| `reasonix.toml`                             | ✅          | ✅           | —               | Local agent config                                                 |
+| `/.grok/`                                   | ✅          | —            | —               | Editor runtime (add to `.gitignore` if it appears on your machine) |
+| `/tools/`                                   | ✅          | ✅           | —               | Live runtime tools directory                                       |
+| `*.tsbuildinfo`                             | ✅          | —            | —               | TypeScript incremental build cache                                 |
+| `*.map`                                     | ✅          | —            | —               | Generated source maps                                              |
+| `*.orig` / `*.rej` / `*.bak`                | ✅          | —            | —               | Merge/rebase conflict artifacts (proactive)                        |
+| `*.swp` / `*.swo`                           | ✅          | —            | —               | Vim swap files (proactive)                                         |
+| `.idea/` / `.vscode/` / `.fleet/` / `.zed/` | ✅          | —            | —               | IDE directories (proactive; not currently in repo)                 |
 
 ### Quick sync check
 

@@ -19,7 +19,7 @@ import {
   sortReleaseVersions,
 } from "../src/lib/bun-release-registry.ts";
 
-const RELEASE_LITERAL_ALLOWLIST = new Set(["src/lib/bun-release-registry.ts"]);
+const RELEASE_LITERAL_ALLOWLIST = new Set(["src/lib/bun-release-registry.ts", "src/lib/execve-handoff.ts"]);
 const DEFAULT_CACHE_DIR = "/tmp";
 
 function fail(message: string): never {

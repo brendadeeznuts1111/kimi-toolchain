@@ -1,8 +1,12 @@
 # Project-level ripgrep ignores — search/AI discovery only, not Git
 # Keeps build artifacts, caches, generated files, and temp dirs out of rg results.
 # Keep in sync with .gitignore and .oxfmtrc.json when adding new artifact paths.
+# See docs/rgignore.md for the full layered ignore strategy and sync checklist.
+#
 # Directory patterns use a leading slash to match only the repo root, so tracked
 # source directories with the same name elsewhere remain searchable.
+# Glob patterns (*.foo) match at any depth — use sparingly for file extensions
+# that will never appear in tracked source.
 
 # Dependencies
 node_modules/
@@ -54,9 +58,9 @@ CHANGELOG.md
 /.tmp/
 /.tmp-*/
 /.tmp-kimi-test-home/
-.tmp-drift-*/
-.tmp-test-*/
-.tmp-path-align-*/
+/.tmp-drift-*/
+/.tmp-test-*/
+/.tmp-path-align-*/
 
 # SQLite databases
 *.sqlite
@@ -65,8 +69,8 @@ CHANGELOG.md
 
 # Compiled binaries & source maps
 *.executable
-cli
-out.js
+/cli
+/out.js
 *.tar.gz
 *.zip
 *.wasm

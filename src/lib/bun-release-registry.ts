@@ -53,15 +53,92 @@ export const BUN_RELEASE_HISTORY = {
     breaking: ["none"],
     featureCommitCount: 0,
   },
+  "1.3.8": {
+    version: "1.3.8",
+    tag: "bun-v1.3.8",
+    hash: "b64edcb490b486fb8af90cb2cb2dc51590453064",
+    url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.8",
+    blogUrl: "https://bun.com/blog/bun-v1.3.8",
+    blogPublished: "2026-01-29T10:38:16.000Z",
+    author: "Jarred Sumner",
+    breaking: ["none"],
+    featureCommitCount: 0,
+  },
+  "1.3.9": {
+    version: "1.3.9",
+    tag: "bun-v1.3.9",
+    hash: "cf6cdbbbadd50604bc17f21ed5d0612c920a5d9a",
+    url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.9",
+    blogUrl: "https://bun.com/blog/bun-v1.3.9",
+    blogPublished: "2026-02-08T09:31:23.000Z",
+    author: "Jarred Sumner",
+    breaking: ["none"],
+    featureCommitCount: 0,
+  },
+  "1.3.10": {
+    version: "1.3.10",
+    tag: "bun-v1.3.10",
+    hash: "30e609e08073cf7114bfb278506962a5b19d0677",
+    url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.10",
+    blogUrl: "https://bun.com/blog/bun-v1.3.10",
+    blogPublished: "2026-02-26T07:08:20.000Z",
+    author: "Jarred Sumner",
+    breaking: ["none"],
+    featureCommitCount: 0,
+  },
+  "1.3.11": {
+    version: "1.3.11",
+    tag: "bun-v1.3.11",
+    hash: "a04817ce2b7f1a1e8b7cbf8af8f2c027ab072f1d",
+    url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.11",
+    blogUrl: "https://bun.com/blog/bun-v1.3.11",
+    blogPublished: "2026-03-18T04:31:40.000Z",
+    author: "Jarred Sumner",
+    breaking: ["none"],
+    featureCommitCount: 0,
+  },
+  "1.3.12": {
+    version: "1.3.12",
+    tag: "bun-v1.3.12",
+    hash: "700fc117a2fd01ac0201deaa6fa69c5557acb04f",
+    url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.12",
+    blogUrl: "https://bun.com/blog/bun-v1.3.12",
+    blogPublished: "2026-04-10T03:04:46.000Z",
+    author: "Jarred Sumner",
+    breaking: ["none"],
+    featureCommitCount: 0,
+  },
+  "1.3.13": {
+    version: "1.3.13",
+    tag: "bun-v1.3.13",
+    hash: "bf2e2cecf27e800962b1e7f03d66278f9d5d2e79",
+    url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.13",
+    blogUrl: "https://bun.com/blog/bun-v1.3.13",
+    blogPublished: "2026-04-20T08:07:57.000Z",
+    author: "Jarred Sumner",
+    breaking: ["none"],
+    featureCommitCount: 0,
+  },
+  "1.3.14": {
+    version: "1.3.14",
+    tag: "bun-v1.3.14",
+    hash: "0d9b296af33f2b851fcbf4df3e9ec89751734ba4",
+    url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.14",
+    blogUrl: "https://bun.com/blog/bun-v1.3.14",
+    blogPublished: "2026-05-13T03:48:28.000Z",
+    author: "Jarred Sumner",
+    breaking: ["none"],
+    featureCommitCount: 0,
+  },
 } as const satisfies Record<string, BunReleaseRecord>;
 
 export type BunReleaseVersion = keyof typeof BUN_RELEASE_HISTORY;
 
 /** Active target — change when bumping the toolchain pin. */
-export const BUN_RELEASE = BUN_RELEASE_HISTORY["1.3.7"];
+export const BUN_RELEASE = BUN_RELEASE_HISTORY["1.3.14"];
 
 /** Previous baseline — rollback / regression compare. */
-export const BUN_RELEASE_PREVIOUS = BUN_RELEASE_HISTORY["1.3.6"];
+export const BUN_RELEASE_PREVIOUS = BUN_RELEASE_HISTORY["1.3.13"];
 
 /** Active release blog URL (doc-link lint / head tables). */
 export const BUN_RELEASE_BLOG_URL = BUN_RELEASE.blogUrl;
@@ -231,7 +308,7 @@ export const BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL = releaseFeatureUrl(
   RELEASE_1_3_6_BLOG
 );
 
-/** Active-release feature deep links (v1.3.7). */
+/** Active-release feature deep links (v1.3.7 — features shipped that release). */
 export const BUN_BUFFER_FROM_RELEASE_URL = releaseFeatureUrl(
   BUN_RELEASE_FEATURE_ANCHORS.bufferFrom
 );
