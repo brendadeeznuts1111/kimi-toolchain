@@ -20,6 +20,8 @@ CHANGELOG.md
 /dist/
 *.bun-build
 *.bun-build*
+.bun-build*
+*.tsbuildinfo
 *.log
 
 # Coverage & test reports
@@ -38,10 +40,12 @@ CHANGELOG.md
 /.kimi-code/
 /.kimi-test-locks/
 /.devin/
+/.grok/
 /memory/
 /var/
 /guardian/
 /governor/
+/tools/
 /.bun-create/
 /.cursor/
 /.codex/
@@ -50,13 +54,16 @@ CHANGELOG.md
 /.tmp/
 /.tmp-*/
 /.tmp-kimi-test-home/
+.tmp-drift-*/
+.tmp-test-*/
+.tmp-path-align-*/
 
 # SQLite databases
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
 
-# Compiled binaries
+# Compiled binaries & source maps
 *.executable
 cli
 out.js
@@ -64,16 +71,34 @@ out.js
 *.zip
 *.wasm
 *.node
+*.map
 
-# Compile-smoke temp
+# Compile-smoke & test temp
 *.tmp-compile-smoke.ts
 test-define-tmp.ts
+.kimi-test-execve-child.ts
 
 # Formatter temp
 scripts/.fmt-*
 
+# IDE / editor directories (not tracked; proactive)
+.idea/
+.vscode/
+.fleet/
+.zed/
+
+# Merge / rebase conflict artifacts
+*.orig
+*.rej
+*.bak
+
+# Editor swap files
+*.swp
+*.swo
+
 # Editor-specific agent rules (AGENTS.md is the canonical source)
 CLAUDE.md
+reasonix.toml
 
 # Secrets / local env (excluded from Git; also hide from search)
 .env
