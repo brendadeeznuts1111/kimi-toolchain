@@ -16,7 +16,7 @@
 
 import { join } from "path";
 import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
-import { pathExists, removePath } from "../src/lib/bun-io.ts";
+import { pathExists } from "../src/lib/bun-io.ts";
 import { emitGateFailure, runGate, type GateResult } from "../src/lib/gate-runner.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -26,9 +26,8 @@ async function cleanCoverageTmp(): Promise<number> {
   const coverageDir = join(REPO_ROOT, "coverage");
   if (!pathExists(coverageDir)) return 0;
   let removed = 0;
-  const glob = new Bun.Glob("*.tmp");
-  for await (const file of glob.scan({ cwd: coverageDir, onlyFiles: true })) {
-    removePath(join(coverageDir, file));
+  for (const file of new Bun.Glob("*.tmp").scanSync({ cwd: coverageDir, onlyFiles: true })) {
+    await Bun.file(join(coverageDir, file)).delete();
     removed++;
   }
   return removed;

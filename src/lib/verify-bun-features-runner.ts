@@ -13,8 +13,16 @@ import {
   type AuditEndpointMeta,
 } from "./audit-endpoints-metadata.ts";
 import { BUN_COLOR_STRING_FORMATS, verifyColorFormat } from "./bun-color-formats.ts";
+import {
+  archiveSupported,
+  createSyncSnapshotArchive,
+  extractSyncSnapshotArchive,
+} from "./archive-persistence.ts";
+import { bunImageSupported } from "./bun-image.ts";
 import { checkBunVersionPin, readableStreamToText } from "./bun-utils.ts";
+import type { ToolchainManifest } from "./version.ts";
 import { captureMimallocStats, parseMimallocStats } from "./memory/governor.ts";
+import { runWebGlobalsContractProbes } from "./bun-web-globals-contract.ts";
 import { elapsedMs, nowNs } from "./timing.ts";
 import { ensureDir } from "./utils.ts";
 import type { ConfigStatusReport } from "./config-status.ts";
@@ -136,6 +144,22 @@ async function runScriptDryRun(script: string): Promise<{ ok: boolean; detail: s
     return { ok: false, detail: `exit ${exit}: ${firstLine}` };
   }
   return { ok: true, detail: firstLine };
+}
+
+async function checkWebGlobalsContract(): Promise<void> {
+  const start = nowNs();
+  const probes = runWebGlobalsContractProbes();
+  const failed = probes.filter((p) => !p.ok);
+  const ms = elapsedMsRoundedLocal(start);
+  record(
+    "web.globals",
+    "runtime",
+    failed.length === 0,
+    failed.length === 0
+      ? `${probes.length} probes ok`
+      : failed.map((p) => `${p.id}: ${p.detail}`).join("; "),
+    ms,
+  );
 }
 
 async function checkSymbolDispose(): Promise<void> {
@@ -294,6 +318,102 @@ async function checkBunGc(): Promise<void> {
     const ms = elapsedMsRoundedLocal(start);
     record("bun.gc", "runtime", false, error instanceof Error ? error.message : String(error), ms);
   }
+}
+
+async function checkBunArchiveRoundTrip(): Promise<void> {
+  const start = nowNs();
+  if (!archiveSupported()) {
+    const ms = elapsedMsRoundedLocal(start);
+    record("bun.archive", "runtime", true, "Bun.Archive unavailable on this build", ms, true);
+    return;
+  }
+
+  const tmp = join(tmpdir(), `kimi-archive-${Date.now()}`);
+  try {
+    const manifest: ToolchainManifest = {
+      toolchainVersion: "0.0.0-verify",
+      desktopVersion: null,
+      gitHead: null,
+      lastSyncedAt: new Date().toISOString(),
+      files: [],
+      fileHashes: { "lib/utils.ts": "abc123" },
+    };
+    const bytes = await createSyncSnapshotArchive(manifest, { compress: "gzip", level: 1 });
+    const extracted = await extractSyncSnapshotArchive(bytes, tmp);
+    const ok =
+      extracted.manifest.toolchainVersion === manifest.toolchainVersion &&
+      extracted.fileHashes["lib/utils.ts"] === "abc123";
+    const ms = elapsedMsRoundedLocal(start);
+    record(
+      "bun.archive",
+      "runtime",
+      ok,
+      ok ? `gzip round-trip ok (${bytes.length} bytes)` : "extracted manifest mismatch",
+      ms
+    );
+  } catch (error) {
+    const ms = elapsedMsRoundedLocal(start);
+    record(
+      "bun.archive",
+      "runtime",
+      false,
+      error instanceof Error ? error.message : String(error),
+      ms
+    );
+  } finally {
+    try {
+      await Bun.$`rm -rf ${tmp}`.quiet().nothrow();
+    } catch {
+      // ignore cleanup failures
+    }
+  }
+}
+
+/** Probe Bun.udpSocket bind/close (DNS hooks, StatsD, syndication transports). */
+export async function verifyUdpSocket(): Promise<boolean> {
+  try {
+    const bun = Bun as typeof Bun & {
+      udpSocket?: (opts: { port: number }) => Promise<{ close(): Promise<void> }>;
+    };
+    if (typeof bun.udpSocket !== "function") return false;
+    const socket = await bun.udpSocket({ port: 0 });
+    await socket.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Probe Bun.Image availability (thumbnails, QR, peptide labels). */
+export function verifyImageApi(): boolean {
+  return bunImageSupported();
+}
+
+async function checkBunUdpSocket(): Promise<void> {
+  const start = nowNs();
+  const bun = Bun as typeof Bun & { udpSocket?: unknown };
+  if (typeof bun.udpSocket !== "function") {
+    const ms = elapsedMsRoundedLocal(start);
+    record("bun.udp", "runtime", true, "Bun.udpSocket unavailable on this build", ms, true);
+    return;
+  }
+  const ok = await verifyUdpSocket();
+  const ms = elapsedMsRoundedLocal(start);
+  record("bun.udp", "runtime", ok, ok ? "udpSocket bind/close ok" : "udpSocket probe failed", ms);
+}
+
+async function checkBunImageApi(): Promise<void> {
+  const start = nowNs();
+  const ok = verifyImageApi();
+  const ms = elapsedMsRoundedLocal(start);
+  record(
+    "bun.image",
+    "runtime",
+    ok,
+    ok ? "Bun.Image available" : "Bun.Image unavailable on this build",
+    ms,
+    !ok
+  );
 }
 
 async function checkBunZstdRoundTrip(): Promise<void> {
@@ -710,6 +830,7 @@ export async function runVerifyBunFeatures(options: VerifyRunOptions = {}): Prom
   reportProjectRoot = options.projectRoot ?? process.cwd();
   const started = nowNs();
 
+  await checkWebGlobalsContract();
   await checkSymbolDispose();
   await checkUsingStatement();
   await checkBunGlob();
@@ -717,7 +838,10 @@ export async function runVerifyBunFeatures(options: VerifyRunOptions = {}): Prom
   await checkBunVersionPinMatch();
   await checkBunSecrets();
   await checkBunGc();
+  await checkBunArchiveRoundTrip();
   await checkBunZstdRoundTrip();
+  await checkBunUdpSocket();
+  await checkBunImageApi();
   await checkMimallocStats();
   await checkAuditScriptsDryRun();
   await checkAuditDryRunBundle();

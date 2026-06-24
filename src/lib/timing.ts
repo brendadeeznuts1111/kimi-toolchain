@@ -3,13 +3,13 @@
  * @see https://bun.com/docs/project/benchmarking#measuring-time
  */
 
-/** Minimum meaningful delta for performance.now() (sub-ms ops need Bun.nanoseconds). */
+/** Minimum meaningful delta for millisecond-scale timing (sub-ms ops use Bun.nanoseconds). */
 export const MIN_PERF_NOW_MS = 1;
 
 export const NS_PER_MS = 1_000_000;
 
 export function nowMs(): number {
-  return performance.now();
+  return nsToMs(Bun.nanoseconds());
 }
 
 /** High-resolution monotonic clock (nanoseconds since process start). */

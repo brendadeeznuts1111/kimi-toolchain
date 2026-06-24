@@ -7,6 +7,7 @@
  * ~/.kimi-code/var/tool-failures.jsonl.
  */
 
+import { readableStreamToText } from "../lib/bun-utils.ts";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { appendHookError } from "../lib/hook-error-ledger.ts";
 import { safeParse } from "../lib/utils.ts";
@@ -38,18 +39,7 @@ interface HookPayload {
 }
 
 async function main() {
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of Bun.stdin.stream()) {
-    chunks.push(chunk);
-  }
-  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
-  const combined = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    combined.set(chunk, offset);
-    offset += chunk.length;
-  }
-  const text = new TextDecoder().decode(combined).trim();
+  const text = (await readableStreamToText(Bun.stdin.stream())).trim();
   if (!text) return;
 
   const payload = safeParse(text, null as HookPayload | null);

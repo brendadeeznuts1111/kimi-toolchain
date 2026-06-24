@@ -15,6 +15,7 @@ import {
   type CanonicalReferencesInspectSection,
 } from "./canonical-references.ts";
 import { markdownAnsiSupported, renderMarkdownAnsi } from "./bun-markdown.ts";
+import { startDelayedIntervalLoop, stopDelayedIntervalLoop } from "./bun-utils.ts";
 import { withBunNoOrphans } from "./tool-runner.ts";
 
 const stdinDecoder = new TextDecoder();
@@ -398,7 +399,7 @@ async function runReferencesInspectPollWatch(
 
   let currentSection: ReferencesInspectWatchSection = options.initialSection ?? "all";
   let running: Subprocess | null = null;
-  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let pollLoop: AbortController | null = null;
 
   const runInspect = async (): Promise<void> => {
     await killSubprocess(running);
@@ -418,7 +419,7 @@ async function runReferencesInspectPollWatch(
   };
 
   await runInspect();
-  pollTimer = setInterval(() => void runInspect(), pollMs);
+  pollLoop = startDelayedIntervalLoop(pollMs, () => runInspect());
 
   if (process.stdin.isTTY) {
     process.stdin.setRawMode(true);
@@ -436,7 +437,8 @@ async function runReferencesInspectPollWatch(
         }
       }
     } finally {
-      if (pollTimer) clearInterval(pollTimer);
+      stopDelayedIntervalLoop(pollLoop);
+      pollLoop = null;
       await killSubprocess(running);
       process.stdin.setRawMode(false);
     }
@@ -448,6 +450,7 @@ async function runReferencesInspectPollWatch(
     process.once("SIGINT", onSignal);
     process.once("SIGTERM", onSignal);
   });
-  if (pollTimer) clearInterval(pollTimer);
+  stopDelayedIntervalLoop(pollLoop);
+  pollLoop = null;
   await killSubprocess(running);
 }

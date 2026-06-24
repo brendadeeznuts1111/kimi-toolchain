@@ -8,6 +8,7 @@
 
 import { Effect } from "effect";
 import { readableStreamToText } from "./bun-utils.ts";
+import { elapsedMs, nowNs } from "./timing.ts";
 import {
   runCapabilityAggregator,
   type CapabilityReport,
@@ -506,7 +507,7 @@ function applyOneAction(
       }
 
       const preDecisionId = await recordHealPreviewDecision(action);
-      const started = performance.now();
+      const started = nowNs();
       try {
         const result = await runCommand(action.command!, options.projectRoot ?? plan.projectRoot, {
           maxOutputBytes: options.maxOutputBytes,
@@ -520,7 +521,7 @@ function applyOneAction(
           exitCode: result.exitCode,
           stdout: result.stdout,
           stderr: result.stderr,
-          durationMs: Math.round(performance.now() - started),
+          durationMs: Math.round(elapsedMs(started)),
         };
         const followUpDecisionId = await recordHealOutcomeDecision(action, applied, preDecisionId);
         return {
@@ -534,7 +535,7 @@ function applyOneAction(
           status: "failed",
           command: action.command,
           reason: error instanceof Error ? error.message : Bun.inspect(error),
-          durationMs: Math.round(performance.now() - started),
+          durationMs: Math.round(elapsedMs(started)),
         };
         const followUpDecisionId = await recordHealOutcomeDecision(action, applied, preDecisionId);
         return {

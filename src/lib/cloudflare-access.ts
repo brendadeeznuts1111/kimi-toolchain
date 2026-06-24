@@ -13,6 +13,7 @@ import { homeDir } from "./paths.ts";
 import { parsePolicyConfig } from "./cloudflare-access-policy.ts";
 import { SecretKeys } from "./secrets-constants.ts";
 import { readSecretFromEnv } from "./secrets-env.ts";
+import { safeJsonc } from "./utils.ts";
 
 // ── Config ───────────────────────────────────────────────────────────
 
@@ -701,6 +702,68 @@ const INFRASTRUCTURE_MAP: Record<
   }
 > = loadInfraMap();
 
+type WranglerJsonConfig = {
+  name?: string;
+  r2_buckets?: Array<{ bucket_name?: string }>;
+  d1_databases?: Array<{ database_name?: string }>;
+  kv_namespaces?: Array<{ id?: string }>;
+};
+
+function applyWranglerJsonConfig(
+  parsed: WranglerJsonConfig,
+  result: {
+    workerName?: string;
+    r2Buckets?: string[];
+    d1Databases?: string[];
+    kvNamespaces?: string[];
+  }
+): void {
+  if (parsed.name && !result.workerName) result.workerName = parsed.name;
+  if (parsed.r2_buckets?.length && !result.r2Buckets) {
+    result.r2Buckets = parsed.r2_buckets
+      .map((entry) => entry.bucket_name)
+      .filter((name): name is string => Boolean(name));
+  }
+  if (parsed.d1_databases?.length && !result.d1Databases) {
+    result.d1Databases = parsed.d1_databases
+      .map((entry) => entry.database_name)
+      .filter((name): name is string => Boolean(name));
+  }
+  if (parsed.kv_namespaces?.length && !result.kvNamespaces) {
+    result.kvNamespaces = parsed.kv_namespaces
+      .map((entry) => entry.id)
+      .filter((id): id is string => Boolean(id));
+  }
+}
+
+function applyWranglerTextBindings(
+  text: string,
+  result: {
+    workerName?: string;
+    r2Buckets?: string[];
+    d1Databases?: string[];
+    kvNamespaces?: string[];
+  }
+): void {
+  const r2Matches = [...text.matchAll(/bucket_name\s*=\s*"([^"]+)"/g)];
+  const d1Matches = [...text.matchAll(/database_name\s*=\s*"([^"]+)"/g)];
+  const kvMatches = [...text.matchAll(/id\s*=\s*"([^"]+)"/g)];
+  const nameMatches = [...text.matchAll(/name\s*=\s*"([^"]+)"/g)];
+
+  if (r2Matches.length && !result.r2Buckets) {
+    result.r2Buckets = r2Matches.map((m) => m[1]!);
+  }
+  if (d1Matches.length && !result.d1Databases) {
+    result.d1Databases = d1Matches.map((m) => m[1]!);
+  }
+  if (kvMatches.length && !result.kvNamespaces) {
+    result.kvNamespaces = kvMatches.map((m) => m[1]!);
+  }
+  if (nameMatches.length && !result.workerName) {
+    result.workerName = nameMatches[0]![1];
+  }
+}
+
 export async function discoverInfrastructure(
   app: AccessApplication,
   localPath?: string
@@ -737,24 +800,11 @@ export async function discoverInfrastructure(
       if (await f.exists()) {
         try {
           const text = await f.text();
-          // Simple regex extraction for bindings (wrangler.toml/json)
-          const r2Matches = [...text.matchAll(/bucket_name\s*=\s*"([^"]+)"/g)];
-          const d1Matches = [...text.matchAll(/database_name\s*=\s*"([^"]+)"/g)];
-          const kvMatches = [...text.matchAll(/id\s*=\s*"([^"]+)"/g)];
-          const nameMatches = [...text.matchAll(/name\s*=\s*"([^"]+)"/g)];
-
-          if (r2Matches.length && !result.r2Buckets) {
-            result.r2Buckets = r2Matches.map((m) => m[1]);
+          if (wp.endsWith(".jsonc") || wp.endsWith(".json")) {
+            const parsed = safeJsonc<WranglerJsonConfig | null>(text, null);
+            if (parsed) applyWranglerJsonConfig(parsed, result);
           }
-          if (d1Matches.length && !result.d1Databases) {
-            result.d1Databases = d1Matches.map((m) => m[1]);
-          }
-          if (kvMatches.length && !result.kvNamespaces) {
-            result.kvNamespaces = kvMatches.map((m) => m[1]);
-          }
-          if (nameMatches.length && !result.workerName) {
-            result.workerName = nameMatches[0][1];
-          }
+          applyWranglerTextBindings(text, result);
         } catch {
           /* ignore parse errors */
         }

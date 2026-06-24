@@ -6,7 +6,10 @@
  */
 
 import { join } from "path";
+import { BUN_RELEASE } from "./bun-release-registry.ts";
 import { readTextAsync } from "./bun-io.ts";
+
+const RELEASE_BLOG_PATHNAME = new URL(BUN_RELEASE.blogUrl).pathname;
 
 export interface DocLinkViolation {
   file: string;
@@ -65,6 +68,7 @@ export const BUN_SH_DOCS_ALLOWLIST_FILES = new Set([
 /** Generated ecosystem manifest — literal homepage/docs URLs are intentional SSOT. */
 export const DOC_CONSTANT_LITERAL_ALLOWLIST_FILES = new Set([
   "src/lib/canonical-references-data.ts",
+  "src/lib/bun-release-registry.ts",
 ]);
 
 /** Shared Bun doc constants — defining file may contain the literal URL once. */
@@ -83,6 +87,50 @@ export const BUN_DOC_LINK_CONSTANTS = [
     match: {
       hostnames: ["bun.com"],
       pathnamePrefix: "/docs/pm/cli/install",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_RELEASE_1_3_6_URL",
+    definingFile: "src/lib/bun-release-registry.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: RELEASE_BLOG_PATHNAME,
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_ARCHIVE_RELEASE_URL",
+    definingFile: "src/lib/bun-release-registry.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: RELEASE_BLOG_PATHNAME,
+      hash: "#bun-archive-api-creates-extracts-tarballs",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_JSONC_RELEASE_URL",
+    definingFile: "src/lib/bun-release-registry.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: RELEASE_BLOG_PATHNAME,
+      hash: "#bun-jsonc-api-for-parsing-json-with-comments",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_WEBSOCKET_PROXY_RELEASE_URL",
+    definingFile: "src/lib/bun-release-registry.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: RELEASE_BLOG_PATHNAME,
+      hash: "#http-https-proxy-support-for-websocket",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
+    constant: "BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL",
+    definingFile: "src/lib/bun-release-registry.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: RELEASE_BLOG_PATHNAME,
+      hash: "#compile-executable-path-cli-flag",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -247,6 +295,15 @@ export const BUN_DOC_LINK_CONSTANTS = [
     } satisfies BunDocLinkMatchSpec,
   },
   {
+    constant: "BUN_BINARY_DATA_CONVERSION_DOC_URL",
+    definingFile: "src/lib/bun-utils.ts",
+    match: {
+      hostnames: ["bun.com"],
+      pathname: "/docs/runtime/binary-data",
+      hashPrefix: "#conversion",
+    } satisfies BunDocLinkMatchSpec,
+  },
+  {
     constant: "BUN_WORKSPACES_DOC_URL",
     definingFile: "src/lib/bun-install-config.ts",
     match: {
@@ -267,7 +324,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/install/workspaces",
+      pathname: "/guides/install/workspaces",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -310,7 +367,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-install-config.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/install/workspaces",
+      pathname: "/guides/install/workspaces",
       hashPrefix: "#configuring-a-monorepo-using-workspaces",
     } satisfies BunDocLinkMatchSpec,
   },
@@ -377,7 +434,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-utils.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/util/version",
+      pathname: "/guides/util/version",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -385,7 +442,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-utils.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/util/detect-bun",
+      pathname: "/guides/util/detect-bun",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -453,7 +510,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-utils.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/util/gzip",
+      pathname: "/guides/util/gzip",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -461,7 +518,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/bun-utils.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/util/hash-a-password",
+      pathname: "/guides/util/hash-a-password",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -520,7 +577,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/cli-contract.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides",
+      pathname: "/guides",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -528,7 +585,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/cli-contract.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/process/argv",
+      pathname: "/guides/process/argv",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -536,7 +593,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/cli-contract.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/process/stdin",
+      pathname: "/guides/process/stdin",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -544,7 +601,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/cli-contract.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/process/stdout",
+      pathname: "/guides/process/stdout",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -552,7 +609,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/cli-contract.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/process/spawn-stderr",
+      pathname: "/guides/process/spawn-stderr",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -560,7 +617,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/cli-contract.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/process/ctrl-c",
+      pathname: "/guides/process/ctrl-c",
     } satisfies BunDocLinkMatchSpec,
   },
   {
@@ -577,7 +634,7 @@ export const BUN_DOC_LINK_CONSTANTS = [
     definingFile: "src/lib/cli-contract.ts",
     match: {
       hostnames: ["bun.com"],
-      pathname: "/docs/guides/html-rewriter/extract-links",
+      pathname: "/guides/html-rewriter/extract-links",
     } satisfies BunDocLinkMatchSpec,
   },
   {

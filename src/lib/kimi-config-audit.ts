@@ -31,11 +31,12 @@ function configTomlPath(home: string = homeDir()): string {
 }
 
 function hookSnippet(home: string): string {
-  const hookPath = join(home, ".kimi-code", "kimi-hooks", HOOK_SCRIPT_NAME);
+  const codeDir = join(home, ".kimi-code");
+  const hookPath = join(codeDir, "kimi-hooks", HOOK_SCRIPT_NAME);
   return `
 [[hooks]]
 event = "${HOOK_EVENT}"
-command = "bun run ${hookPath}"
+command = "cd ${codeDir} && bun run ${hookPath}"
 timeout = ${HOOK_TIMEOUT}
 `;
 }

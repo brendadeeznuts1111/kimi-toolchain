@@ -7,11 +7,20 @@
  *
  * B3.6 — ESM --bytecode in --compile.
  * @see https://bun.com/docs/bundler/executables
- * @see https://bun.com/docs/guides/runtime/build-time-constants
+ * @see https://bun.com/guides/runtime/build-time-constants
+ * @see {@link BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL}
  */
 
 import { join } from "path";
-import { bunRevision, bunVersion, readableStreamToText } from "./bun-utils.ts";
+import {
+  BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL,
+  bunRevision,
+  bunVersion,
+  readableStreamToText,
+} from "./bun-utils.ts";
+
+/** @see {@link BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL} */
+export { BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL };
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -32,6 +41,11 @@ export interface CompileOptions {
   cwd?: string;
   /** Build-time defines passed as `--define KEY=JSON_LITERAL`. */
   define?: Record<string, string>;
+  /**
+   * Local Bun executable for cross-compile (Bun >= 1.3.6 `--compile-executable-path`).
+   * Falls back to `KIMI_COMPILE_EXECUTABLE_PATH` when unset.
+   */
+  executablePath?: string;
 }
 
 export interface CompileResult {
@@ -132,18 +146,8 @@ export async function probeCompileCapabilities(): Promise<CompileCapabilities> {
 
 // ── Compile ────────────────────────────────────────────────────────
 
-/**
- * Compile a TypeScript/JavaScript entry point to a standalone executable.
- *
- * Default format is ESM with bytecode (Bun >= 1.4.0 required).
- */
-export async function compileBinary(options: CompileOptions): Promise<CompileResult> {
-  const start = Date.now();
-  const caps = await probeCompileCapabilities();
-  const format = options.format ?? caps.recommendedFormat;
-  const bytecode = options.bytecode !== false;
-  const cwd = options.cwd ?? process.cwd();
-
+/** Build `bun build --compile` argv from options (exported for tests). */
+export function buildCompileCliArgs(options: CompileOptions, format: CompileFormat): string[] {
   const args = [
     "build",
     "--compile",
@@ -162,7 +166,30 @@ export async function compileBinary(options: CompileOptions): Promise<CompileRes
     }
   }
 
-  if (bytecode) args.push("--bytecode");
+  if (options.bytecode !== false) args.push("--bytecode");
+
+  const executablePath =
+    options.executablePath?.trim() || Bun.env.KIMI_COMPILE_EXECUTABLE_PATH?.trim() || "";
+  if (executablePath) {
+    args.push("--compile-executable-path", executablePath);
+  }
+
+  return args;
+}
+
+/**
+ * Compile a TypeScript/JavaScript entry point to a standalone executable.
+ *
+ * Default format is ESM with bytecode (Bun >= 1.4.0 required).
+ */
+export async function compileBinary(options: CompileOptions): Promise<CompileResult> {
+  const start = Date.now();
+  const caps = await probeCompileCapabilities();
+  const format = options.format ?? caps.recommendedFormat;
+  const bytecode = options.bytecode !== false;
+  const cwd = options.cwd ?? process.cwd();
+
+  const args = buildCompileCliArgs(options, format);
 
   const proc = Bun.spawn(["bun", ...args], {
     cwd,

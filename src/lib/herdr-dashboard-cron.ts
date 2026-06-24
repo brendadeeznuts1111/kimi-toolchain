@@ -2,10 +2,12 @@
  * herdr-dashboard-cron.ts — Background scheduling for dashboard discovery refresh.
  *
  * Bun.cron (1.4+) uses 5 fields (minute hour day month weekday) — no seconds.
- * Sub-minute poll intervals use setInterval instead.
+ * Sub-minute poll intervals use {@link startDelayedIntervalLoop} (`Bun.sleep`) instead.
  */
 
-/** Minimum interval for setInterval scheduling. */
+import { startDelayedIntervalLoop, stopDelayedIntervalLoop } from "./bun-utils.ts";
+
+/** Minimum interval for sleep-loop scheduling. */
 export const DASHBOARD_INTERVAL_MIN_MS = 1000;
 
 /** Minimum interval for Bun.cron (one minute granularity). */
@@ -58,7 +60,7 @@ function assertPollInterval(ms: number): void {
 export function buildCronSchedule(ms: number): string {
   if (ms < DASHBOARD_CRON_MIN_MS) {
     throw new DashboardCronConfigError(
-      `cron scheduling requires >= ${DASHBOARD_CRON_MIN_MS}ms (got ${ms}); use setInterval for sub-minute polls`
+      `cron scheduling requires >= ${DASHBOARD_CRON_MIN_MS}ms (got ${ms}); use Bun.sleep loops for sub-minute polls`
     );
   }
   const minutes = Math.max(1, Math.round(ms / 60_000));
@@ -68,7 +70,7 @@ export function buildCronSchedule(ms: number): string {
 /**
  * Start the dashboard discovery background poll.
  *
- * - Sub-minute intervals: setInterval
+ * - Sub-minute intervals: Bun.sleep loop
  * - >= 1 minute: Bun.cron (UTC)
  * - Skips overlapping invocations via the hub's own guard
  * - Stops when the returned Disposable is disposed
@@ -83,20 +85,22 @@ export function startDashboardCron(hub: DashboardCronHub): DashboardCronHandle {
   let unrefTimer: (() => void) | undefined;
 
   if (hub.ssePollMs < DASHBOARD_CRON_MIN_MS) {
-    const timer = setInterval(() => {
-      void (async () => {
-        try {
-          await hub.refresh();
-        } catch (err: unknown) {
-          hub.logger.debug(
-            `cron refresh failed: ${err instanceof Error ? err.message : String(err)}`
-          );
-        }
-      })();
-    }, hub.ssePollMs);
-    stopTimer = () => clearInterval(timer);
-    refTimer = () => timer.ref();
-    unrefTimer = () => timer.unref();
+    const holdTimer = setInterval(() => {}, 2_147_483_647);
+    const loop = startDelayedIntervalLoop(hub.ssePollMs, async () => {
+      try {
+        await hub.refresh();
+      } catch (err: unknown) {
+        hub.logger.debug(
+          `cron refresh failed: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    });
+    stopTimer = () => {
+      stopDelayedIntervalLoop(loop);
+      clearInterval(holdTimer);
+    };
+    refTimer = () => holdTimer.ref();
+    unrefTimer = () => holdTimer.unref();
     scheduleLabel = `interval ${hub.ssePollMs}ms`;
   } else {
     const schedule = buildCronSchedule(hub.ssePollMs);

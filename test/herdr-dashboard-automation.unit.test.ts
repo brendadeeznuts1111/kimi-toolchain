@@ -1,6 +1,7 @@
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, setSystemTime, test } from "bun:test";
 import { join } from "path";
 import { bunImageSupported } from "../src/lib/bun-image.ts";
+import { probeDashboardThumbnail } from "../src/lib/herdr-dashboard-automation-gate.ts";
 import {
   AGENT_ATTACH_SELECTOR,
   AGENTS_BODY_SELECTOR,
@@ -8,6 +9,7 @@ import {
   DASHBOARD_SCROLL_SETTLE_MS,
   DASHBOARD_SCREENSHOT_SCROLL_EVERY_N,
   feedDashboardScreenshotPng,
+  pollUntil,
   PROCESSES_TOGGLE_SELECTOR,
   runDashboardAutomation,
   runDashboardAutomationSmoke,
@@ -18,11 +20,55 @@ import {
   waitForSelectorCount,
   webViewScreenshotBytes,
 } from "../src/lib/herdr-dashboard-automation.ts";
+import { MOCK_CLOCK_EPOCH } from "./helpers/mock-clock.ts";
 import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard-server.ts";
 import { addChromeCdpListener, webViewSupported } from "../src/lib/webview-console.ts";
 import { REPO_ROOT, withTempDir } from "./helpers.ts";
 
 describe("herdr-dashboard-automation", () => {
+  afterEach(() => {
+    setSystemTime();
+  });
+
+  test("pollUntil expires deterministically with setSystemTime", async () => {
+    setSystemTime(MOCK_CLOCK_EPOCH);
+    let ticks = 0;
+    const ok = await pollUntil(
+      async () => {
+        ticks += 1;
+        return false;
+      },
+      {
+        timeoutMs: 1000,
+        pollMs: 200,
+        sleep: async (ms) => {
+          setSystemTime(new Date(Date.now() + ms));
+        },
+      }
+    );
+    expect(ok).toBe(false);
+    expect(ticks).toBeGreaterThan(0);
+    expect(Date.now()).toBeGreaterThanOrEqual(MOCK_CLOCK_EPOCH.getTime() + 1000);
+  });
+
+  test("waitForDashboardReady respects injected deadline clock", async () => {
+    setSystemTime(MOCK_CLOCK_EPOCH);
+    let evalCalls = 0;
+    const evaluate = mock(async () => {
+      evalCalls += 1;
+      return evalCalls >= 2;
+    });
+    const view = { evaluate } as unknown as Bun.WebView;
+    const ready = await waitForDashboardReady(view, {
+      timeoutMs: 500,
+      pollMs: 100,
+      sleep: async (ms) => {
+        setSystemTime(new Date(Date.now() + ms));
+      },
+    });
+    expect(ready).toBe(true);
+    expect(evalCalls).toBe(2);
+  });
   test("AGENT_ATTACH_SELECTOR targets data-action attach buttons", () => {
     expect(AGENT_ATTACH_SELECTOR).toContain('data-action="attach"');
   });
@@ -129,24 +175,12 @@ describe("herdr-dashboard-automation", () => {
         pollMs: 300,
       });
 
-      const deadline = Date.now() + 12_000;
-      let thumbnailOk = false;
-      while (Date.now() < deadline) {
-        const res = (await fetch(`${server.url}api/thumbnail`)) as unknown as {
-          ok: boolean;
-          status: number;
-          headers: { get(name: string): string | null };
-        };
-        if (res.ok && res.headers.get("content-type") === "image/webp") {
-          thumbnailOk = true;
-          break;
-        }
-        await Bun.sleep(300);
-      }
+      const probe = await probeDashboardThumbnail(server.url, { timeoutMs: 12_000 });
 
       controller.abort();
       await feed;
-      expect(thumbnailOk).toBe(true);
+      expect(probe.ok).toBe(true);
+      expect(probe.contentType).toBe("image/webp");
     } finally {
       controller.abort();
       server.stop();

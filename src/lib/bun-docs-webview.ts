@@ -52,7 +52,7 @@ function trimTrailingPunctuation(url: string): string {
 
 /** Extract the first Bun docs URL from MCP text output. */
 export function extractBunDocsUrl(text: string): string | undefined {
-  const match = text.match(/https?:\/\/bun\.com\/docs\/[^\s"'<>)\]}]+/);
+  const match = text.match(/https?:\/\/bun\.com\/(?:docs\/|guides\/)[^\s"'<>)\]}]+/);
   return match ? trimTrailingPunctuation(match[0]) : undefined;
 }
 

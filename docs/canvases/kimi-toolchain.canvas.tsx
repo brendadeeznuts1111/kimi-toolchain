@@ -55,7 +55,7 @@ const TOOL_INVENTORY = [
   ["Herdr", ""],
   [
     "Infrastructure",
-    "kimi-dashboard-mcp (MCP stdio), kimi-mcp (MCP stdio), kimi-toolchain (router), unified-shell-bridge (MCP stdio)",
+    "kimi-dashboard-mcp (MCP stdio), kimi-mcp (MCP stdio), kimi-restore-baseline, kimi-toolchain (router), kimi-workflow, unified-shell-bridge (MCP stdio)",
   ],
 ] as const;
 
@@ -217,7 +217,7 @@ const CANVAS_ROUTING_ROW_TONE = [
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "398 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "407 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -240,12 +240,12 @@ const TOOL_CATEGORIES = [
   { id: "heal", label: "Heal / Memory", count: 7 },
   { id: "scaffold", label: "Scaffold", count: 6 },
   { id: "herdr", label: "Herdr", count: 0 },
-  { id: "infra", label: "Router / Bridge", count: 4 },
+  { id: "infra", label: "Router / Bridge", count: 6 },
 ] as const;
 
-const BIN_COUNT = 29;
-const LIB_COUNT = 451;
-const UNIT_COUNT = 398;
+const BIN_COUNT = 31;
+const LIB_COUNT = 471;
+const UNIT_COUNT = 407;
 const INTEGRATION_COUNT = 18;
 const SMOKE_COUNT = 9;
 const CURSOR_CANVAS_COUNT = 13;

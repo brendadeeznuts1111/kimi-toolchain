@@ -50,6 +50,8 @@ const BIN_CATEGORY: Record<string, HubBinCategory> = {
   "kimi-dashboard": "infra",
   "kimi-mcp": "infra",
   "kimi-dashboard-mcp": "infra",
+  "kimi-restore-baseline": "infra",
+  "kimi-workflow": "infra",
   "unified-shell-bridge": "infra",
 };
 

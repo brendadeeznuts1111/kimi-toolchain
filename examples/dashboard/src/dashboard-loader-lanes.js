@@ -14,6 +14,7 @@ export const DASHBOARD_LOADER_LANES = {
     "card-convergence",
     "card-bunfig-policy",
     "card-config-status",
+    "card-sync-baseline",
     "card-scaffold",
     "card-metrics-schema",
     "card-kimi-doctor",

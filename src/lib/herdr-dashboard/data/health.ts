@@ -1,4 +1,5 @@
 import { fetchDashboardProbeCards } from "./artifacts.ts";
+import { elapsedMs, nowNs } from "../../timing.ts";
 
 export interface DashboardMetricsPayload {
   ok: boolean;
@@ -14,9 +15,9 @@ export interface DashboardMetricsPayload {
 }
 
 async function measureEventLoopLagMs(): Promise<number> {
-  const start = performance.now();
+  const start = nowNs();
   await Bun.sleep(0);
-  return Math.round((performance.now() - start) * 10) / 10;
+  return Math.round(elapsedMs(start) * 10) / 10;
 }
 
 /** Collect runtime performance metrics for the dashboard Metrics tab. */

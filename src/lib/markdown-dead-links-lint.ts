@@ -2,7 +2,7 @@
  * Markdown dead-link lint — Bun.markdown.render extraction + Bun I/O / fetch.
  *
  * @see https://bun.com/docs/runtime/markdown
- * @see https://bun.com/docs/guides/html-rewriter/extract-links
+ * @see https://bun.com/guides/html-rewriter/extract-links
  */
 
 import { dirname, join, normalize } from "path";

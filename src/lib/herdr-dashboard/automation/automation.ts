@@ -108,22 +108,53 @@ export async function scrollToDashboardSelector(
   }
 }
 
-/** Poll until `window.__HERDR_DASHBOARD_READY__` is true (fallback when scrollTo is insufficient). */
-export async function waitForDashboardReady(
-  view: Bun.WebView,
-  opts?: { timeoutMs?: number; pollMs?: number }
-): Promise<boolean> {
-  const timeoutMs = opts?.timeoutMs ?? 10_000;
-  const pollMs = opts?.pollMs ?? 200;
-  const deadline = Date.now() + timeoutMs;
+export interface PollUntilOptions {
+  timeoutMs: number;
+  pollMs: number;
+  /** Injectable clock for tests (`setSystemTime` + advance on sleep). */
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+}
 
-  while (Date.now() < deadline) {
-    const ready = await view.evaluate(DASHBOARD_READY_EVAL);
-    if (ready === true) return true;
-    await Bun.sleep(pollMs);
+/**
+ * Poll `tick` until it returns true or `timeoutMs` elapses.
+ * @see test/bun-mock-clock-patterns.unit.test.ts — setSystemTime deadline pattern
+ */
+export async function pollUntil(
+  tick: () => Promise<boolean>,
+  opts: PollUntilOptions
+): Promise<boolean> {
+  const now = opts.now ?? (() => Date.now());
+  const sleep = opts.sleep ?? ((ms: number) => Bun.sleep(ms));
+  const deadline = now() + opts.timeoutMs;
+
+  while (now() < deadline) {
+    if (await tick()) return true;
+    await sleep(opts.pollMs);
   }
 
   return false;
+}
+
+/** Poll until `window.__HERDR_DASHBOARD_READY__` is true (fallback when scrollTo is insufficient). */
+export async function waitForDashboardReady(
+  view: Bun.WebView,
+  opts?: {
+    timeoutMs?: number;
+    pollMs?: number;
+    now?: () => number;
+    sleep?: (ms: number) => Promise<void>;
+  }
+): Promise<boolean> {
+  const timeoutMs = opts?.timeoutMs ?? 10_000;
+  const pollMs = opts?.pollMs ?? 200;
+  return pollUntil(
+    async () => {
+      const ready = await view.evaluate(DASHBOARD_READY_EVAL);
+      return ready === true;
+    },
+    { timeoutMs, pollMs, now: opts?.now, sleep: opts?.sleep }
+  );
 }
 
 /**
@@ -208,22 +239,28 @@ export interface DashboardAutomationStepContext {
 export async function waitForSelectorCount(
   view: Bun.WebView,
   selector: string,
-  opts?: { minCount?: number; timeoutMs?: number; pollMs?: number }
+  opts?: {
+    minCount?: number;
+    timeoutMs?: number;
+    pollMs?: number;
+    now?: () => number;
+    sleep?: (ms: number) => Promise<void>;
+  }
 ): Promise<number> {
   const minCount = opts?.minCount ?? 1;
   const timeoutMs = opts?.timeoutMs ?? 10_000;
   const pollMs = opts?.pollMs ?? 200;
-  const deadline = Date.now() + timeoutMs;
-
-  while (Date.now() < deadline) {
-    const count = Number(
-      await view.evaluate(`document.querySelectorAll(${JSON.stringify(selector)}).length`)
-    );
-    if (count >= minCount) return count;
-    await Bun.sleep(pollMs);
-  }
-
-  return 0;
+  let lastCount = 0;
+  const ok = await pollUntil(
+    async () => {
+      lastCount = Number(
+        await view.evaluate(`document.querySelectorAll(${JSON.stringify(selector)}).length`)
+      );
+      return lastCount >= minCount;
+    },
+    { timeoutMs, pollMs, now: opts?.now, sleep: opts?.sleep }
+  );
+  return ok ? lastCount : 0;
 }
 
 /** Execute one declarative automation step against a live WebView. */

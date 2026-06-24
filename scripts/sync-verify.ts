@@ -6,7 +6,9 @@
 import { desktopRuntimeDepsOk } from "../src/lib/desktop-runtime-deps.ts";
 import { detectSyncDrift } from "../src/lib/sync-hashes.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
+import { scriptRepoRoot } from "../src/lib/paths.ts";
+
+const REPO_ROOT = scriptRepoRoot();
 
 const report = await detectSyncDrift(REPO_ROOT);
 const depsOk = desktopRuntimeDepsOk();

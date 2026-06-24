@@ -234,6 +234,29 @@ export function scanImageFilesSync(root = "."): string[] {
   return toAbsolutePaths(cwd, files).sort();
 }
 
+export interface ScanTreeSyncOptions extends Pick<
+  GlobScanOptions,
+  "onlyFiles" | "dot" | "absolute"
+> {
+  exclude?: readonly string[];
+}
+
+/** Scan a directory tree synchronously — matches bun-types `build.ts` doc-copy pattern. */
+export function scanTreeSync(
+  cwd: string,
+  pattern = "**/*",
+  options: ScanTreeSyncOptions = {}
+): string[] {
+  const { exclude, onlyFiles = true, ...scanOpts } = options;
+  const glob = new Glob(pattern);
+  let entries = [...glob.scanSync({ cwd, onlyFiles, ...scanOpts })];
+  if (exclude?.length) {
+    const excludeGlobs = compileExcludes(exclude);
+    entries = entries.filter((rel) => !isExcluded(rel, excludeGlobs));
+  }
+  return entries.sort();
+}
+
 export function scanSourceFilesSync(
   root = ".",
   options?: Pick<SourceScanOptions, "includeScripts" | "includeExamples">

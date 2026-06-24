@@ -36,6 +36,7 @@ import {
   fetchDashboardArtifactIndexStats,
   fetchDashboardRunsList,
 } from "./herdr-dashboard-data.ts";
+import { startDelayedIntervalLoop, stopDelayedIntervalLoop } from "./bun-utils.ts";
 import { withBenchmarkConvergence } from "./benchmark-convergence.ts";
 import { type BenchmarkApiEnvelope, runEffectBenchmarkCardLoop } from "./effect-benchmark-card.ts";
 
@@ -214,7 +215,7 @@ export async function startProbeServer(
   let lastArtifactPath: string | undefined;
   let lastConfigStatusArtifactPath: string | undefined;
   let refreshInFlight: Promise<CardStatus[]> | null = null;
-  let refreshTimer: ReturnType<typeof setInterval> | null = null;
+  let refreshLoop: AbortController | null = null;
   let benchmarkEnvelope: BenchmarkApiEnvelope | null = options.effectBenchmarkEnvelope ?? null;
   let benchmarkFetchedAt: string | null = null;
   let benchmarkRefreshInFlight: Promise<BenchmarkApiEnvelope> | null = null;
@@ -571,9 +572,9 @@ export async function startProbeServer(
   }
 
   if (refreshIntervalMs > 0) {
-    refreshTimer = setInterval(() => {
+    refreshLoop = startDelayedIntervalLoop(refreshIntervalMs, () => {
       void refresh();
-    }, refreshIntervalMs);
+    });
   }
 
   return {
@@ -584,10 +585,8 @@ export async function startProbeServer(
     getLastArtifactPath: () => lastArtifactPath,
     getLastConfigStatusArtifactPath: () => lastConfigStatusArtifactPath,
     stop: () => {
-      if (refreshTimer) {
-        clearInterval(refreshTimer);
-        refreshTimer = null;
-      }
+      stopDelayedIntervalLoop(refreshLoop);
+      refreshLoop = null;
       server.stop();
     },
   };

@@ -29,6 +29,7 @@ export const TOOL_SHORT_NAMES = [
   "release",
   "snapshot",
   "resource-governor",
+  "restore-baseline",
   "secrets",
   "orphan-kill",
   "error",
@@ -61,6 +62,7 @@ const SHORT_TO_SCRIPT: Record<string, string> = {
   release: "kimi-release.ts",
   snapshot: "kimi-snapshot.ts",
   "resource-governor": "kimi-resource-governor.ts",
+  "restore-baseline": "kimi-restore-baseline.ts",
   secrets: "kimi-secrets.ts",
   "orphan-kill": "kimi-orphan-kill.ts",
   error: "kimi-error.ts",
@@ -123,6 +125,7 @@ export function formatToolHelp(): string {
   const lines = [
     `Usage: ${META_BIN} <tool> [args...]`,
     `       ${META_BIN} workspace <verify|audit|fix|cleanup> [options]`,
+    `       ${META_BIN} restore-baseline --archive <path> --to <dir> [--dry-run] [--force]`,
     `       ${META_BIN} cleanup root [--dry-run] [--json]`,
     `       ${META_BIN} --version`,
     "",
@@ -133,6 +136,7 @@ export function formatToolHelp(): string {
     "Examples:",
     `  ${META_BIN} doctor --quick`,
     `  ${META_BIN} workspace verify`,
+    `  ${META_BIN} restore-baseline --dry-run`,
     `  ${META_BIN} guardian check`,
   ];
   return lines.join("\n");

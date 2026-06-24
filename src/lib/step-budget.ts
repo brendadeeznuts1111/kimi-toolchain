@@ -5,6 +5,8 @@
  * Designed to prevent max_steps_exceeded by giving early feedback.
  */
 
+import { elapsedMs as elapsedMsFromNs, nowNs } from "./timing.ts";
+
 const STEP_WARN_THRESHOLD = 20;
 const STEP_CRITICAL_THRESHOLD = 25;
 
@@ -21,12 +23,12 @@ let _turnStart = 0;
 /** Reset the budget tracker at the start of a new turn. */
 export function resetStepBudget(): void {
   _budgetLog = [];
-  _turnStart = performance.now();
+  _turnStart = nowNs();
 }
 
 /** Record a tool invocation in the current turn. */
 export function recordStep(toolName: string, durationMs: number, isError: boolean): void {
-  _budgetLog.push({ toolName, timestamp: performance.now(), durationMs, isError });
+  _budgetLog.push({ toolName, timestamp: nowNs(), durationMs, isError });
 }
 
 /** Get current step count and status. */
@@ -38,11 +40,11 @@ export function getStepBudgetStatus(): {
   recentTools: string[];
 } {
   const count = _budgetLog.length;
-  const elapsedMs = Math.round(performance.now() - _turnStart);
+  const turnElapsedMs = Math.round(elapsedMsFromNs(_turnStart));
   const recentTools = _budgetLog.slice(-5).map((s) => s.toolName);
 
   let status: "ok" | "warn" | "critical" = "ok";
-  let message = `${count} steps, ${elapsedMs}ms elapsed`;
+  let message = `${count} steps, ${turnElapsedMs}ms elapsed`;
 
   if (count >= STEP_CRITICAL_THRESHOLD) {
     status = "critical";
@@ -52,7 +54,7 @@ export function getStepBudgetStatus(): {
     message = `WARN: ${count} steps used — approaching limit. Consider batching edits and running targeted tests only.`;
   }
 
-  return { count, elapsedMs, status, message, recentTools };
+  return { count, elapsedMs: turnElapsedMs, status, message, recentTools };
 }
 
 /** Print a step-budget warning if thresholds are crossed. Returns true if critical. */

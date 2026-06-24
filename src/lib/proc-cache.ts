@@ -6,10 +6,9 @@
  * process-utils.ts.
  */
 
-import { dedupInflight, hashInflightPayload } from "./bun-utils.ts";
-
-const decoder = new TextDecoder();
+import { dedupInflight, hashInflightPayload, readableStreamToText } from "./bun-utils.ts";
 const inflightCommands = new Map<string, Promise<string>>();
+const decoder = new TextDecoder();
 
 // ── Cache ────────────────────────────────────────────────────────────
 
@@ -55,7 +54,7 @@ export async function getCachedCommandOutputAsync(
 
   return dedupInflight(inflightCommands, key, async () => {
     const proc = Bun.spawn([command, ...resolved], { stdout: "pipe", stderr: "pipe" });
-    const output = decoder.decode(await new Response(proc.stdout).arrayBuffer());
+    const output = await readableStreamToText(proc.stdout);
     await proc.exited;
     _procCache.set(key, { value: output, ts: Date.now() });
     return output;

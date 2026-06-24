@@ -1,7 +1,7 @@
 /**
  * Test gate configuration — fast unit vs full smoke suites.
- * @see https://bun.com/docs/guides/test/timeout
- * @see https://bun.com/docs/guides/test/bail
+ * @see https://bun.com/guides/test/timeout
+ * @see https://bun.com/guides/test/bail
  * @see https://bun.com/docs/test/configuration
  */
 
@@ -62,10 +62,19 @@ export const UNIT_TEST_FILES = [
   "test/arm64-jsc-performance.unit.test.ts",
   "test/buffer-from-performance.unit.test.ts",
   "test/bun-markdown.unit.test.ts",
+  "test/bun-utils.unit.test.ts",
+  "test/bun-binary-portability.unit.test.ts",
+  "test/bun-web-globals-contract.unit.test.ts",
+  "test/bun-upstream-test-refs.unit.test.ts",
   "test/bun-utils-password.unit.test.ts",
   "test/bun-utils-base64.unit.test.ts",
   "test/bun-utils-gzip.unit.test.ts",
   "test/compression.unit.test.ts",
+  "test/archive-persistence.unit.test.ts",
+  "test/archive-package.unit.test.ts",
+  "test/sync-archive.unit.test.ts",
+  "test/archive-baseline-integration.unit.test.ts",
+  "test/sync-baseline-metrics.unit.test.ts",
   "test/gzip-performance.unit.test.ts",
   "test/bun-utils-hostname.unit.test.ts",
   "test/bun-utils-hex.unit.test.ts",
@@ -161,6 +170,8 @@ export const UNIT_TEST_FILES = [
   "test/herdr-dashboard-gate-watch.unit.test.ts",
   "test/deferred-watch.unit.test.ts",
   "test/bundle-gate.unit.test.ts",
+  "test/bundle-gate-integration.unit.test.ts",
+  "test/config-loader.unit.test.ts",
   "test/compile-target.unit.test.ts",
   "test/herdr-dashboard-automation.unit.test.ts",
   "test/tochange-tracker.unit.test.ts",
@@ -168,6 +179,7 @@ export const UNIT_TEST_FILES = [
   "test/bun-spawn-env.unit.test.ts",
   "test/path-alignment.unit.test.ts",
   "test/workspace-known-blockers.unit.test.ts",
+  "test/workflow.unit.test.ts",
   "test/mcp-config.unit.test.ts",
   "test/mcp-probe.unit.test.ts",
   "test/mcp-sse.unit.test.ts",

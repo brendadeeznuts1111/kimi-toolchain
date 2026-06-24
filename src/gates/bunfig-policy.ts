@@ -3,6 +3,30 @@ import {
   type BunInstallConfigAudit,
   type BunInstallPolicyRow,
 } from "../lib/bun-install-config.ts";
+import {
+  auditProjectBunfigRedundancy,
+  type BunfigRedundancyAudit,
+} from "../lib/bunfig-redundancy.ts";
+import {
+  auditMachineBunPolicy,
+  machineCheckFailures,
+  machineCheckWarnings,
+  type MachineBunPolicyAudit,
+} from "../lib/machine-bun-policy.ts";
+import {
+  buildSsotSummary,
+  formatSsotDisplayValue,
+  inheritedSsotNotes,
+  overrideSsotWarnings,
+  readMachineInstallSsot,
+  ssotEntry,
+  ssotSatisfiesInstallPolicy,
+  suppressInheritedSsotWarning,
+  unsetSsotWarnings,
+  type MachineSsotEntry,
+  type MachineSsotKey,
+  type MachineSsotSummary,
+} from "../lib/machine-bun-ssot.ts";
 
 import type { Gate, GateResult, GateRunOptions } from "./types.ts";
 
@@ -10,9 +34,13 @@ export type BunfigPolicyGateStatus = "pass" | "warn" | "fail";
 
 export interface BunfigPolicyGateSummary {
   bunfigPath: string | null;
+  machineBunfigPath: string | null;
   frozenLockfile: boolean | null;
   minimumReleaseAge: number | null;
   linker: string | null;
+  globalStore: string | null;
+  cacheDir: string | null;
+  ssot: MachineSsotSummary;
   riskyEnvOverrides: string[];
   runtimeBun: string;
   packageManager: string | null;
@@ -29,6 +57,11 @@ export interface BunfigPolicyGateResult {
   warnings: string[];
   summary: BunfigPolicyGateSummary;
   audit: BunInstallConfigAudit;
+  machine: MachineBunPolicyAudit;
+  /** Install keys inherited from ~/.bunfig.toml when unset in project bunfig. */
+  inherited: string[];
+  ssot: MachineSsotEntry[];
+  redundancy: BunfigRedundancyAudit;
   checkedAt: string;
 }
 
@@ -67,6 +100,8 @@ export async function bunfigPolicyGate(
   projectRoot = process.cwd()
 ): Promise<BunfigPolicyGateResult> {
   const audit = await auditBunInstallConfig(projectRoot);
+  const ssot = await readMachineInstallSsot(audit.bunfigInstall);
+  const inherited = inheritedSsotNotes(ssot);
   const failures: string[] = [];
   const warnings: string[] = [];
   const frozen = audit.tables.lockfile.find((row) => row.key === "frozenLockfile");
@@ -114,12 +149,49 @@ export async function bunfigPolicyGate(
     warnings.push(policyRowMessage(minimumReleaseAge));
   }
 
-  if (linker && !policyRowOk(linker)) {
-    warnings.push(policyRowMessage(linker));
+  for (const row of audit.tables.linker) {
+    if (!policyRowOk(row) && !ssotSatisfiesInstallPolicy(ssot, row.key as MachineSsotKey)) {
+      warnings.push(policyRowMessage(row));
+    }
+  }
+  for (const row of audit.tables.cache) {
+    if (
+      row.key === "cacheDir" &&
+      !policyRowOk(row) &&
+      !ssotSatisfiesInstallPolicy(ssot, "cacheDir")
+    ) {
+      warnings.push(policyRowMessage(row));
+    }
   }
 
   for (const warning of audit.warnings) {
+    if (suppressInheritedSsotWarning(warning, ssot)) continue;
     warnings.push(warning);
+  }
+
+  for (const line of overrideSsotWarnings(ssot)) {
+    warnings.push(line);
+  }
+  for (const line of unsetSsotWarnings(ssot)) {
+    warnings.push(line);
+  }
+
+  const redundancy = await auditProjectBunfigRedundancy(projectRoot);
+  const machineBunfigPath = redundancy.machineBunfigPath;
+  for (const hit of redundancy.hits) {
+    for (const message of hit.messages) {
+      warnings.push(`${hit.relativePath}: ${message}`);
+    }
+  }
+
+  const machine = await auditMachineBunPolicy();
+  if (machine.applicable) {
+    for (const line of machineCheckFailures(machine.checks)) {
+      failures.push(`machine.${line}`);
+    }
+    for (const line of machineCheckWarnings(machine.checks)) {
+      warnings.push(`machine.${line}`);
+    }
   }
 
   const cleanFailures = unique(failures);
@@ -144,9 +216,13 @@ export async function bunfigPolicyGate(
     warnings: cleanWarnings,
     summary: {
       bunfigPath: audit.bunfigPath,
+      machineBunfigPath,
       frozenLockfile: policyValueBoolean(frozen),
       minimumReleaseAge: policyValueNumber(minimumReleaseAge),
-      linker: linker?.current ?? null,
+      linker: linker?.current ?? ssotEntry(ssot, "linker")?.effective ?? null,
+      globalStore: ssotEntry(ssot, "globalStore")?.effective ?? null,
+      cacheDir: ssotEntry(ssot, "cacheDir")?.effective ?? null,
+      ssot: buildSsotSummary(ssot),
       riskyEnvOverrides,
       runtimeBun: audit.versions.runtimeBun,
       packageManager: audit.versions.packageManager,
@@ -154,6 +230,10 @@ export async function bunfigPolicyGate(
       runtimeSatisfiesEngines: audit.versions.runtimeSatisfiesEngines,
     },
     audit,
+    machine,
+    inherited,
+    ssot,
+    redundancy,
     checkedAt: new Date().toISOString(),
   };
 }
@@ -177,15 +257,37 @@ export function formatBunfigPolicyGate(result: BunfigPolicyGateResult): string[]
   const lines = [
     `${result.status}: ${result.name}${result.reason ? ` — ${result.reason}` : ""}`,
     `       └─ source: ${result.summary.bunfigPath ?? "bunfig.toml missing"}`,
+    `       └─ machine: ${result.summary.machineBunfigPath ?? "n/a (no ~/.bunfig.toml)"}`,
     `       └─ frozenLockfile: ${result.summary.frozenLockfile ?? "unset"}`,
     `       └─ minimumReleaseAge: ${result.summary.minimumReleaseAge ?? "unset"}`,
-    `       └─ linker: ${result.summary.linker ?? "unset"}`,
+    `       └─ linker: ${formatSsotDisplayValue(ssotEntry(result.ssot, "linker"))}`,
+    `       └─ globalStore: ${formatSsotDisplayValue(ssotEntry(result.ssot, "globalStore"))}`,
+    `       └─ cache.dir: ${formatSsotDisplayValue(ssotEntry(result.ssot, "cacheDir"))}`,
     `       └─ runtime: ${result.summary.runtimeBun} | engines.bun=${result.summary.enginesBun ?? "unset"} | ok=${result.summary.runtimeSatisfiesEngines}`,
     `       └─ packageManager: ${result.summary.packageManager ?? "unset"}`,
   ];
 
   for (const name of result.summary.riskyEnvOverrides) {
     lines.push(`       └─ env override: ${name}`);
+  }
+
+  for (const note of result.inherited) {
+    lines.push(`       └─ inherit: ${note}`);
+  }
+
+  if (result.redundancy.hits.length > 0) {
+    for (const hit of result.redundancy.hits) {
+      for (const message of hit.messages) {
+        lines.push(`       └─ redundant: ${hit.relativePath}: ${message}`);
+      }
+    }
+  }
+
+  if (result.machine.applicable) {
+    for (const check of result.machine.checks) {
+      const tag = check.ok ? "ok" : "drift";
+      lines.push(`       └─ machine.${check.id}: ${tag} — ${check.detail}`);
+    }
   }
 
   return lines;

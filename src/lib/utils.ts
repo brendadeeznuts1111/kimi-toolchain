@@ -64,7 +64,7 @@ export { sha256File, sha256String } from "./hash.ts";
 
 // ── Safe Parse ────────────────────────────────────────────────────────
 // Canonical implementations live in safe-parse.ts to avoid circular imports.
-export { safeParse, safeToml, safeJson5 } from "./safe-parse.ts";
+export { safeParse, safeToml, safeJson5, safeJsonc, jsoncSupported } from "./safe-parse.ts";
 
 // ── Project Info ─────────────────────────────────────────────────────
 

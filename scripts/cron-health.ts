@@ -17,6 +17,7 @@ import {
   auditCanonicalReferencesHealth,
   repoCanonicalReferencesPath,
 } from "../src/lib/canonical-references.ts";
+import { runIfNotInflight } from "../src/lib/bun-utils.ts";
 import { homeDir } from "../src/lib/paths.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -89,7 +90,7 @@ process.on("unhandledRejection", (err) => {
 await runAudit();
 
 {
-  using _job = bunAny.cron(cronExpression, () => void runAudit());
+  using _job = bunAny.cron(cronExpression, () => runIfNotInflight(runAudit));
 
   await new Promise<void>((resolve) => {
     const stop = () => resolve();

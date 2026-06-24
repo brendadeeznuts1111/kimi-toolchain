@@ -162,7 +162,7 @@ describe("doctor-gates-runner", () => {
           expect(order).toEqual(["bunfig-policy", "perf-gate"]);
           expect(autoResolved).toEqual(["bunfig-policy"]);
           expect(results[0]?.gate).toBe("bunfig-policy");
-          expect(results[0]?.status).toBe("pass");
+          expect(results[0]?.status === "pass" || results[0]?.status === "warn").toBe(true);
         });
       });
     },

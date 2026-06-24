@@ -1,16 +1,18 @@
 /**
- * bundle-gate.ts — Bun build --metafile-md bundle analysis gate.
+ * bundle-gate.ts — Bun.build metafile bundle analysis gate.
  *
- * Runs `bun build --metafile-md=<tmp>` on a project entry point, parses the
- * LLM-friendly markdown report, and surfaces bloat warnings.
+ * Runs `Bun.build({ metafile: true })` on a project entry point, writes
+ * esbuild-compatible `meta.json` for machine-readable drift, and emits an
+ * LLM-friendly markdown summary alongside the JSON artifact.
  *
  * B3.5 — metafile-md bundle gate integration.
+ * @see https://bun.com/docs/bundler#metafile
  * @see https://bun.com/docs/cli/build#--metafile-md
  */
 
-import { join } from "path";
+import { join, relative, resolve } from "path";
 import { tmpdir } from "os";
-import { pathExists, readText } from "./bun-io.ts";
+import { pathExists, readJsonAsync } from "./bun-io.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -47,6 +49,23 @@ export interface BundleGateFinding {
   detail: string;
 }
 
+export interface BundleMetafileInput {
+  bytes: number;
+  format?: string;
+  imports?: { external?: boolean }[];
+}
+
+export interface BundleMetafileOutput {
+  bytes: number;
+  entryPoint?: string;
+  inputs?: Record<string, { bytesInOutput: number }>;
+}
+
+export interface BundleMetafile {
+  inputs: Record<string, BundleMetafileInput>;
+  outputs: Record<string, BundleMetafileOutput>;
+}
+
 export interface BundleGateReport {
   schemaVersion: 1;
   tool: "bundle-gate";
@@ -55,6 +74,8 @@ export interface BundleGateReport {
   summary: BundleQuickSummary | null;
   largestModules: BundleModuleRow[];
   findings: BundleGateFinding[];
+  /** esbuild-compatible metafile JSON path (machine-readable drift). */
+  metafilePath: string | null;
   markdownPath: string | null;
   error: string | null;
   generatedAt: string;
@@ -80,6 +101,23 @@ const DEFAULT_MAX_SINGLE_FRACTION = 0.15;
 const DEFAULT_MAX_NODE_MODULES_FRACTION = 0.6;
 const DEFAULT_MAX_INPUT_MODULES = 500;
 const DEFAULT_ENTRY_POINT = "src/bin/kimi-doctor.ts";
+
+let bundleBuildChain: Promise<void> = Promise.resolve();
+
+/** Serialize Bun.build calls — concurrent bundler runs throw AggregateError in bun:test. */
+async function withBundleBuildLock<T>(run: () => Promise<T>): Promise<T> {
+  const prior = bundleBuildChain;
+  let release!: () => void;
+  bundleBuildChain = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await prior;
+  try {
+    return await run();
+  } finally {
+    release();
+  }
+}
 
 // ── Report parsing ─────────────────────────────────────────────────
 
@@ -188,6 +226,127 @@ export function extractSection(report: string, heading: string): string {
   return nextIdx > 0 ? report.slice(idx, nextIdx) : report.slice(idx);
 }
 
+// ── Metafile JSON (Bun.build metafile: true) ─────────────────────
+
+function formatBytesHuman(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  return `${bytes} B`;
+}
+
+/** Summarize esbuild metafile JSON from Bun.build({ metafile: true }). */
+export function summarizeMetafile(metafile: BundleMetafile): BundleQuickSummary {
+  const inputModules = Object.keys(metafile.inputs).length;
+  const outputEntries = Object.entries(metafile.outputs);
+  const totalBytes = outputEntries.reduce((sum, [, output]) => sum + output.bytes, 0);
+  const entryPoints =
+    outputEntries.filter(([, output]) => output.entryPoint).length || outputEntries.length;
+
+  let nodeModulesBytes = 0;
+  const nodeModulePaths = new Set<string>();
+  let esmModules = 0;
+  let cjsModules = 0;
+  let externalImports = 0;
+
+  for (const input of Object.values(metafile.inputs)) {
+    if (input.format === "esm") esmModules++;
+    else if (input.format === "cjs") cjsModules++;
+    for (const imp of input.imports ?? []) {
+      if (imp.external) externalImports++;
+    }
+  }
+
+  for (const [, output] of outputEntries) {
+    for (const [modulePath, contrib] of Object.entries(output.inputs ?? {})) {
+      if (!modulePath.includes("node_modules")) continue;
+      nodeModulesBytes += contrib.bytesInOutput;
+      nodeModulePaths.add(modulePath);
+    }
+  }
+
+  return {
+    totalBytes,
+    inputModules,
+    entryPoints,
+    nodeModulesBytes,
+    nodeModulesFiles: nodeModulePaths.size,
+    esmModules,
+    cjsModules,
+    externalImports,
+  };
+}
+
+/** Rank modules by output contribution from esbuild metafile JSON. */
+export function largestModulesFromMetafile(metafile: BundleMetafile): BundleModuleRow[] {
+  const totalBytes = Object.values(metafile.outputs).reduce((sum, output) => sum + output.bytes, 0);
+  const contributions = new Map<string, { bytes: number; format: string }>();
+
+  for (const [, output] of Object.entries(metafile.outputs)) {
+    for (const [modulePath, contrib] of Object.entries(output.inputs ?? {})) {
+      const existing = contributions.get(modulePath);
+      const inputFormat = metafile.inputs[modulePath]?.format ?? "esm";
+      if (existing) {
+        existing.bytes += contrib.bytesInOutput;
+      } else {
+        contributions.set(modulePath, { bytes: contrib.bytesInOutput, format: inputFormat });
+      }
+    }
+  }
+
+  return [...contributions.entries()]
+    .map(([module, data]) => ({
+      outputBytes: data.bytes,
+      pctOfTotal: totalBytes > 0 ? (data.bytes / totalBytes) * 100 : 0,
+      module,
+      format: data.format,
+    }))
+    .sort((a, b) => b.outputBytes - a.outputBytes);
+}
+
+/** Markdown summary from esbuild metafile JSON (alias for gate + integration tests). */
+export function generateMarkdownSummary(metafile: BundleMetafile): string {
+  return formatMetafileMarkdown(summarizeMetafile(metafile), largestModulesFromMetafile(metafile));
+}
+
+/** Write an LLM-friendly markdown report compatible with legacy parsers. */
+export function formatMetafileMarkdown(
+  summary: BundleQuickSummary,
+  largest: BundleModuleRow[]
+): string {
+  const lines = [
+    "# Bundle Analysis Report",
+    "",
+    "## Quick Summary",
+    "",
+    "| Metric | Value |",
+    "|--------|-------|",
+    `| Total output size | ${formatBytesHuman(summary.totalBytes)} |`,
+    `| Input modules | ${summary.inputModules} |`,
+    `| Entry points | ${summary.entryPoints} |`,
+    `| node_modules contribution | ${summary.nodeModulesFiles} files (${formatBytesHuman(summary.nodeModulesBytes)}) |`,
+    `| ESM modules | ${summary.esmModules} |`,
+    `| CommonJS modules | ${summary.cjsModules} |`,
+    `| External imports | ${summary.externalImports} |`,
+    "",
+    "## Largest Modules by Output Contribution",
+    "",
+    "| Output Bytes | % of Total | Module | Format |",
+    "|--------------|------------|--------|--------|",
+  ];
+
+  for (const row of largest.slice(0, 20)) {
+    lines.push(
+      `| ${formatBytesHuman(row.outputBytes)} | ${row.pctOfTotal.toFixed(1)}% | \`${row.module}\` | ${row.format} |`
+    );
+  }
+
+  if (largest.length > 20) {
+    lines.push("", `*...and ${largest.length - 20} more modules with output contribution*`);
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
 // ── Rule evaluation ────────────────────────────────────────────────
 
 // Exported for tests.
@@ -251,6 +410,121 @@ export function evaluate(
   return findings;
 }
 
+export type BundleBuildArtifacts = {
+  metafile: BundleMetafile;
+  metafilePath: string;
+  markdownPath: string;
+};
+
+export interface BuildWithMetafileResult extends BundleBuildArtifacts {
+  outDir: string;
+  entryPath: string;
+}
+
+/**
+ * Build a single entry with `Bun.build({ metafile: true })` and write meta.json + markdown.
+ * Throws when the entry is missing or the build fails.
+ */
+export async function buildWithMetafile(
+  entryPath: string,
+  outDir: string,
+  options: { target?: string; projectRoot?: string } = {}
+): Promise<BuildWithMetafileResult> {
+  const absoluteEntry = resolve(entryPath);
+  const projectRoot = resolve(options.projectRoot ?? process.cwd());
+
+  if (!(await Bun.file(absoluteEntry).exists())) {
+    throw new Error(`Entry point not found: ${entryPath}`);
+  }
+
+  const relEntry = relative(projectRoot, absoluteEntry);
+  if (relEntry.startsWith("..")) {
+    throw new Error(`Entry point outside project root: ${entryPath}`);
+  }
+
+  const metafilePath = join(outDir, "meta.json");
+  const markdownPath = join(outDir, "report.md");
+  const built = await buildProjectBundle(
+    projectRoot,
+    { path: relEntry, target: options.target ?? "bun" },
+    outDir,
+    metafilePath,
+    markdownPath
+  );
+
+  if ("error" in built) {
+    throw new Error(built.error);
+  }
+
+  return { ...built, outDir, entryPath: absoluteEntry };
+}
+
+/**
+ * Prefer Bun.build({ metafile: true }); fall back to CLI `--metafile` when the
+ * in-process bundler throws (parallel bun:test workers).
+ */
+async function buildProjectBundle(
+  projectRoot: string,
+  validEntry: BundleGateEntryPoint,
+  outDir: string,
+  metafilePath: string,
+  markdownPath: string
+): Promise<BundleBuildArtifacts | { error: string }> {
+  const entryPath = join(projectRoot, validEntry.path);
+  const target = validEntry.target ?? "bun";
+
+  try {
+    const buildResult = await withBundleBuildLock(() =>
+      Bun.build({
+        entrypoints: [entryPath],
+        outdir: outDir,
+        target: target as "bun",
+        metafile: true,
+      })
+    );
+    if (buildResult.success && buildResult.metafile) {
+      const metafile = buildResult.metafile as BundleMetafile;
+      await Bun.write(metafilePath, JSON.stringify(metafile));
+      const summary = summarizeMetafile(metafile);
+      const largest = largestModulesFromMetafile(metafile);
+      await Bun.write(markdownPath, formatMetafileMarkdown(summary, largest));
+      return { metafile, metafilePath, markdownPath };
+    }
+  } catch {
+    // CLI fallback below — safe under parallel bun:test.
+  }
+
+  const proc = Bun.spawn(
+    [
+      "bun",
+      "build",
+      validEntry.path,
+      "--outdir",
+      outDir,
+      `--metafile=${metafilePath}`,
+      `--metafile-md=${markdownPath}`,
+      "--target",
+      target,
+    ],
+    { cwd: projectRoot, stdout: "pipe", stderr: "pipe" }
+  );
+  const stderr = await readableStreamToText(proc.stderr);
+  await proc.exited;
+  if (proc.exitCode !== 0) {
+    return { error: stderr.slice(0, 500) || `bun build exited with code ${proc.exitCode}` };
+  }
+  if (!(await Bun.file(metafilePath).exists())) {
+    return { error: `metafile not written: ${metafilePath}` };
+  }
+  const metafile = await readJsonAsync<BundleMetafile>(metafilePath);
+  if (!(await Bun.file(markdownPath).exists())) {
+    const summary = summarizeMetafile(metafile);
+    const largest = largestModulesFromMetafile(metafile);
+    await Bun.write(markdownPath, formatMetafileMarkdown(summary, largest));
+  }
+  return { metafile, metafilePath, markdownPath };
+}
+
 // ── Main ───────────────────────────────────────────────────────────
 
 export async function runBundleGate(options: BundleGateOptions): Promise<BundleGateReport> {
@@ -276,6 +550,7 @@ export async function runBundleGate(options: BundleGateOptions): Promise<BundleG
           detail: `Checked: ${entryPoints.map((e) => e.path).join(", ")}`,
         },
       ],
+      metafilePath: null,
       markdownPath: null,
       error: "No valid entry point found",
       generatedAt,
@@ -284,34 +559,17 @@ export async function runBundleGate(options: BundleGateOptions): Promise<BundleG
 
   const outDir = join(tmpdir(), `bundle-gate-${Bun.nanoseconds()}`);
   const markdownPath = join(outDir, "report.md");
+  const metafilePath = join(outDir, "meta.json");
 
   try {
-    // Build
-    const proc = Bun.spawn(
-      [
-        "bun",
-        "build",
-        validEntry.path,
-        "--outdir",
-        outDir,
-        `--metafile-md=${markdownPath}`,
-        "--target",
-        validEntry.target ?? "bun",
-      ],
-      {
-        cwd: projectRoot,
-        stdout: "pipe",
-        stderr: "pipe",
-      }
+    const built = await buildProjectBundle(
+      projectRoot,
+      validEntry,
+      outDir,
+      metafilePath,
+      markdownPath
     );
-
-    const [_stdout, stderr] = await Promise.all([
-      readableStreamToText(proc.stdout),
-      readableStreamToText(proc.stderr),
-    ]);
-    await proc.exited;
-
-    if (proc.exitCode !== 0) {
+    if ("error" in built) {
       return {
         schemaVersion: 1,
         tool: "bundle-gate",
@@ -323,55 +581,20 @@ export async function runBundleGate(options: BundleGateOptions): Promise<BundleG
           {
             severity: "error",
             rule: "build-failed",
-            message: `bun build exited with code ${proc.exitCode}`,
-            detail: stderr.slice(0, 500),
+            message: "Bundle build failed",
+            detail: built.error,
           },
         ],
+        metafilePath: null,
         markdownPath: null,
-        error: stderr.slice(0, 500),
+        error: built.error,
         generatedAt,
       };
     }
 
-    // Parse report
-    if (!pathExists(markdownPath)) {
-      return {
-        schemaVersion: 1,
-        tool: "bundle-gate",
-        ok: false,
-        entryPoint: validEntry.path,
-        summary: null,
-        largestModules: [],
-        findings: [
-          {
-            severity: "error",
-            rule: "report-missing",
-            message: "Metafile markdown report not generated",
-            detail: `Expected: ${markdownPath}`,
-          },
-        ],
-        markdownPath: null,
-        error: "Metafile markdown report not generated",
-        generatedAt,
-      };
-    }
-
-    const reportMd = readText(markdownPath);
-    const quickSection = extractSection(reportMd, "Quick Summary");
-    const largestSection = extractSection(reportMd, "Largest Modules by Output Contribution");
-
-    const summary = quickSection ? parseQuickSummary(quickSection) : null;
-    const largestModules = largestSection ? parseLargestModules(largestSection) : [];
-    const findings = summary
-      ? evaluate(summary, largestModules, options)
-      : [
-          {
-            severity: "error" as const,
-            rule: "parse-failed",
-            message: "Failed to parse Quick Summary from metafile report",
-            detail: "Bun build succeeded but report parsing failed.",
-          },
-        ];
+    const summary = summarizeMetafile(built.metafile);
+    const largestModules = largestModulesFromMetafile(built.metafile);
+    const findings = evaluate(summary, largestModules, options);
 
     return {
       schemaVersion: 1,
@@ -381,7 +604,8 @@ export async function runBundleGate(options: BundleGateOptions): Promise<BundleG
       summary,
       largestModules,
       findings,
-      markdownPath,
+      metafilePath: built.metafilePath,
+      markdownPath: built.markdownPath,
       error: null,
       generatedAt,
     };
@@ -401,6 +625,7 @@ export async function runBundleGate(options: BundleGateOptions): Promise<BundleG
           detail: String(err).slice(0, 500),
         },
       ],
+      metafilePath: null,
       markdownPath: null,
       error: String(err).slice(0, 500),
       generatedAt,

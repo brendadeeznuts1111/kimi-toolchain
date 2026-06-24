@@ -2,11 +2,20 @@ import { describe, expect, test } from "bun:test";
 import {
   countVerifyFailures,
   runVerifyBunFeatures,
+  verifyImageApi,
+  verifyUdpSocket,
   VERIFY_GROUP_ORDER,
   type VerifyReport,
 } from "../src/lib/verify-bun-features-runner.ts";
 
 describe("verify-bun-features-runner", () => {
+  test("verifyUdpSocket and verifyImageApi expose runtime probes", async () => {
+    const imageOk = verifyImageApi();
+    expect(typeof imageOk).toBe("boolean");
+    const udpOk = await verifyUdpSocket();
+    expect(typeof udpOk).toBe("boolean");
+  });
+
   test("runVerifyBunFeatures returns grouped checks and summary", async () => {
     const report = await runVerifyBunFeatures();
     expect(report.checks.length).toBeGreaterThan(10);
@@ -21,6 +30,9 @@ describe("verify-bun-features-runner", () => {
     const templateRegistry = report.checks.find((c) => c.id === "templates.registry");
     expect(templateRegistry?.ok).toBe(true);
     expect(report.checks.every((c) => c.ms >= 0)).toBe(true);
+    expect(report.checks.some((c) => c.id === "bun.udp")).toBe(true);
+    expect(report.checks.some((c) => c.id === "bun.image")).toBe(true);
+    expect(report.checks.some((c) => c.id === "web.globals")).toBe(true);
   }, 60_000);
 
   test("countVerifyFailures ignores advisory drift unless strict", async () => {
@@ -84,7 +96,14 @@ describe("verify-bun-features-runner", () => {
 
   test("runVerifyBunFeatures probes core Bun runtime APIs", async () => {
     const report = await runVerifyBunFeatures();
-    for (const id of ["bun.secrets", "bun.gc", "bun.zstd", "bun.version-pin", "mimalloc.stats"]) {
+    for (const id of [
+      "bun.secrets",
+      "bun.gc",
+      "bun.archive",
+      "bun.zstd",
+      "bun.version-pin",
+      "mimalloc.stats",
+    ]) {
       const check = report.checks.find((c) => c.id === id);
       expect(check).toBeDefined();
       expect(check?.group).toBe("runtime");

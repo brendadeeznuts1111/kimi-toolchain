@@ -990,12 +990,12 @@ other = "https://registry.example.test/"
 
     await withEnv(
       {
+        ...CLEAN_INSTALL_AUDIT_ENV,
         BUN_FEATURE_FLAG_NO_ORPHANS: undefined,
         BUN_INSTALL_GLOBAL_STORE: undefined,
         BUN_FEATURE_FLAG_DISABLE_BUN_JSX: undefined,
         BUN_RUNTIME_TRANSPILER_CACHE_PATH: undefined,
         BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT: undefined,
-        ...CLEAN_INSTALL_AUDIT_ENV,
       },
       async () => {
         const report = await buildInstallPolicyReport(dir);
@@ -1245,9 +1245,9 @@ other = "https://registry.example.test/"
         docsUrl: "https://bun.com/docs/pm/filter",
         filterMatchingDocsUrl: "https://bun.com/docs/pm/filter#matching",
         workspacesDocsUrl: "https://bun.com/docs/pm/workspaces",
-        workspacesGuideUrl: "https://bun.com/docs/guides/install/workspaces",
+        workspacesGuideUrl: "https://bun.com/guides/install/workspaces",
         workspacesGuideMonorepoUrl:
-          "https://bun.com/docs/guides/install/workspaces#configuring-a-monorepo-using-workspaces",
+          "https://bun.com/guides/install/workspaces#configuring-a-monorepo-using-workspaces",
         workspacesCatalogsSectionUrl:
           "https://bun.com/docs/pm/workspaces#share-versions-with-catalogs",
         catalogsDocsUrl: "https://bun.com/docs/pm/catalogs#overview",
@@ -1502,10 +1502,10 @@ other = "https://registry.example.test/"
       expect(report.internalOptimizations.bunVersion).toBe(Bun.version);
       expect(report.internalOptimizations.bunRevision).toBe(Bun.revision);
       expect(report.internalOptimizations.docs.versionGuide).toBe(
-        "https://bun.com/docs/guides/util/version"
+        "https://bun.com/guides/util/version"
       );
       expect(report.internalOptimizations.docs.detectBunGuide).toBe(
-        "https://bun.com/docs/guides/util/detect-bun"
+        "https://bun.com/guides/util/detect-bun"
       );
       expect(report.internalOptimizations.docs.updateCli).toBe(
         "https://bun.com/docs/pm/cli/update"

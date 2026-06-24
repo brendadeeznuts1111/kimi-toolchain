@@ -2,9 +2,14 @@ import { describe, expect, test } from "bun:test";
 import {
   decodeBase64,
   decodeBase64Bytes,
+  decodeBase64UrlBytes,
+  decodeUtf8,
   encodeBase64,
   encodeBase64Bytes,
+  encodeBase64UrlBytes,
+  encodeUtf8,
 } from "../src/lib/bun-utils.ts";
+import { signJwt, verifyJwt } from "../src/lib/jwt.ts";
 
 describe("base64 encoding wrapper", () => {
   test("guide example: btoa/atob round-trip for hello world", () => {
@@ -22,16 +27,33 @@ describe("base64 encoding wrapper", () => {
 
   test("bytes helpers round-trip UTF-8 text", () => {
     const text = "hello world";
-    const bytes = new TextEncoder().encode(text);
+    const bytes = encodeUtf8(text);
     const encoded = encodeBase64Bytes(bytes);
     expect(encoded).toBe("aGVsbG8gd29ybGQ=");
-    expect(new TextDecoder().decode(decodeBase64Bytes(encoded))).toBe(text);
+    expect(decodeUtf8(decodeBase64Bytes(encoded))).toBe(text);
   });
 
   test("bytes helpers round-trip arbitrary binary", () => {
     const bytes = Uint8Array.from([0, 1, 255, 128, 42]);
     const encoded = encodeBase64Bytes(bytes);
     expect(decodeBase64Bytes(encoded)).toEqual(bytes);
+  });
+
+  test("base64url helpers round-trip JWT-shaped JSON bytes", () => {
+    const payload = encodeUtf8(JSON.stringify({ sub: "user", exp: 9_999_999_999 }));
+    const encoded = encodeBase64UrlBytes(payload);
+    expect(encoded).not.toContain("+");
+    expect(encoded).not.toContain("/");
+    expect(encoded).not.toContain("=");
+    expect(decodeUtf8(decodeBase64UrlBytes(encoded))).toBe(
+      JSON.stringify({ sub: "user", exp: 9_999_999_999 })
+    );
+  });
+
+  test("jwt sign/verify uses base64url byte helpers", () => {
+    const token = signJwt({ sub: "base64url-ssot" }, "test-secret", { ttlSeconds: 3600 });
+    const verified = verifyJwt(token, "test-secret");
+    expect(verified.claims.sub).toBe("base64url-ssot");
   });
 
   test("decodeBase64 throws on invalid input", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildCompileCliArgs,
   compileBinary,
   parseVersion,
   probeCompileCapabilities,
@@ -65,6 +66,19 @@ describe("compile-target", () => {
         expect(caps.esmBytecode).toBe(true);
       }
     }
+  });
+
+  test("buildCompileCliArgs adds --compile-executable-path when set", () => {
+    const args = buildCompileCliArgs(
+      {
+        entryPoint: "./app.ts",
+        outfile: "./out",
+        executablePath: "/opt/bun-linux-x64",
+      },
+      "esm"
+    );
+    expect(args).toContain("--compile-executable-path");
+    expect(args).toContain("/opt/bun-linux-x64");
   });
 
   // ── runCompileGate ────────────────────────────────────────────────

@@ -134,6 +134,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run deep-audit:json`               | Run kimi-deep-audit from repo          |
 | `bun run deep-audit:report`             | Run kimi-deep-audit from repo          |
 | `bun run deep-audit:webview`            | Run kimi-deep-audit from repo          |
+| `bun run deep-native:scan`              | scripts/deep-native-scan.ts            |
 | `bun run discover`                      | scripts/discover.ts                    |
 | `bun run discover:constants`            | scripts/discover.ts                    |
 | `bun run discover:dx`                   | scripts/discover.ts                    |
@@ -173,12 +174,15 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run lint:taxonomy-coverage`        | Lint script                            |
 | `bun run lint:terms`                    | Lint script                            |
 | `bun run lint:tochange`                 | Lint script                            |
+| `bun run machine:bun`                   | Run machine-bun from repo              |
 | `bun run manifest:generate`             | scripts/generate-constants-manifest.ts |
 | `bun run mcp`                           | Run kimi-mcp from repo                 |
 | `bun run memory-budget`                 | Run kimi-doctor from repo              |
 | `bun run memory-check`                  | scripts/memory-check.ts                |
+| `bun run migrate:setinterval:v2`        | scripts/migrate-setinterval-v2.ts      |
 | `bun run new`                           | Run kimi-new from repo                 |
 | `bun run oneliners`                     | scripts/oneliners.ts                   |
+| `bun run package:dist`                  | scripts/package-dist.ts                |
 | `bun run perf:auto-train`               | scripts/perf-auto-train.ts             |
 | `bun run perf:effect-handlers`          | scripts/effect-benchmark.ts            |
 | `bun run pm:cache`                      | Bun package manager helper             |
@@ -209,16 +213,19 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run runtime:info`                  | scripts/runtime-info.ts                |
 | `bun run scan`                          | scripts/scan.ts                        |
 | `bun run scope:run`                     | scripts/scope-run.ts                   |
+| `bun run secret`                        | scripts/bun-secret.ts                  |
 | `bun run secrets:gate`                  | scripts/secrets-storage-gate.ts        |
 | `bun run serve-probe`                   | Run kimi-doctor from repo              |
 | `bun run setup`                         | See package.json scripts               |
 | `bun run skills:table`                  | scripts/skills-table.ts                |
 | `bun run sync`                          | Runtime sync script                    |
+| `bun run sync:baseline-dry-run`         | Run kimi-restore-baseline from repo    |
 | `bun run sync:check`                    | Runtime sync script                    |
 | `bun run sync:cursor-canvases`          | Runtime sync script                    |
 | `bun run sync:daemon`                   | Runtime sync script                    |
 | `bun run sync:manifest`                 | Runtime sync script                    |
 | `bun run sync:verify`                   | Runtime sync script                    |
+| `bun run sync:verify:baseline`          | Runtime sync script                    |
 | `bun run test`                          | scripts/test-run.ts                    |
 | `bun run test:changed`                  | Test tier script                       |
 | `bun run test:changed:push`             | Test tier script                       |
@@ -245,6 +252,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run trace`                         | Run kimi-trace from repo               |
 | `bun run typecheck`                     | See package.json scripts               |
 | `bun run unify`                         | scripts/unify.ts                       |
+| `bun run validate:release-ssot`         | scripts/validate-release-ssot.ts       |
 | `bun run verify-workspace`              | scripts/verify-workspace.ts            |
 | `bun run verify:bun-features`           | scripts/verify-bun-features.ts         |
 | `bun run verify:bun-features:strict`    | scripts/verify-bun-features.ts         |

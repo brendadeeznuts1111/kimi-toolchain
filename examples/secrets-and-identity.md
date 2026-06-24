@@ -19,15 +19,63 @@ Template policy requires `Bun.secrets`-first docs in every `.env.example`, herdr
 
 ## Bun.secrets (preferred in scaffolds)
 
+Doc: https://bun.com/docs/runtime/secrets
+
 ```typescript
-// Resolve at runtime — OS keychain on macOS/Linux, Credential Manager on Windows
-const token = await Bun.secrets.get({ service: "my-app", name: "API_TOKEN" });
-await Bun.secrets.set({ service: "my-app", name: "API_TOKEN", value: "..." });
+// Get — string | null
+const token = await Bun.secrets.get({ service: "my-app", name: "github-token" });
+
+// Set
+await Bun.secrets.set({ service: "my-app", name: "github-token", value: "ghp_xxx" });
+
+// Delete — boolean
+const deleted = await Bun.secrets.delete({ service: "my-app", name: "github-token" });
 ```
+
+| Platform | Storage                            |
+| -------- | ---------------------------------- |
+| macOS    | Keychain Services                  |
+| Linux    | libsecret (GNOME Keyring, KWallet) |
+| Windows  | Windows Credential Manager         |
+
+**Limitations:** experimental API; local development only (not production servers); service/name &lt; 256 chars; max value 2048–4096 bytes (platform-dependent).
 
 Greenfield templates use `resolveDevSecrets()` (`src/lib/secrets/legacy.ts` in herdr-service-template) so postinstall can spawn before the registry exists. Never commit `.env` — ship `.env.example` only.
 
 Runtime regression: `bun test test/bun-secrets-runtime.unit.test.ts` (skipped in CI on non-Windows when keychain is unavailable).
+
+### Domain-scoped wrapper (`com.factory-wager`)
+
+For factory-wager integrations (sportsbook, payments, alerts), use `src/lib/secrets.ts` — OS store first, env fallback for CI:
+
+```typescript
+import { getSecret, setSecret, deleteSecret } from "../src/lib/secrets.ts";
+
+const buckeyeKey =
+  (await getSecret("sportsbook", "buckeye-api-key")) ?? process.env.BUCKEYE_API_KEY;
+const stripeKey = await getSecret("payments", "stripe-live-key");
+```
+
+Service namespace: `com.factory-wager.<domain>` (e.g. `com.factory-wager.sportsbook`).
+
+### `bun run secret` CLI (until native `bun secret` lands)
+
+```bash
+bun run secret set sportsbook buckeye-api-key "ghp_xxx"
+bun run secret get sportsbook buckeye-api-key
+bun run secret delete sportsbook buckeye-api-key
+```
+
+Shell aliases (`~/.config/shell/aliases.sh`): `bsec`, `bsec-set`, `bsec-get`, `bsec-del` → `bun run --cwd ~/kimi-toolchain secret …`
+
+### Machine policy integration
+
+| Layer                              | Check                                                    |
+| ---------------------------------- | -------------------------------------------------------- |
+| `bun_verify`                       | `✅ Bun.secrets` via `bun -e` (non-fatal if unavailable) |
+| `kimi-doctor --gate bunfig-policy` | `machine.Bun.secrets` — non-fatal warn when API missing  |
+
+Policy-enforced kimi-toolchain secrets (`com.herdr.*`) remain on **`kimi-secrets`** + `secrets-policy.json5` — see below.
 
 ## kimi-secrets CLI
 

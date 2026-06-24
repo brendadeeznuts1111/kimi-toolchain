@@ -67,7 +67,7 @@ const REGISTERED_CONSTANTS = [
   ],
   ["BUN_INSTALL_DOC_URL", "src/lib/bun-install-config.ts", "bun.com", "/docs/pm/cli/install"],
   ["BUN_IMAGE_DOCS_URL", "src/lib/bun-image.ts", "bun.com", "/docs/runtime/image"],
-  ["BUN_GUIDES_INDEX_DOC_URL", "src/lib/cli-contract.ts", "bun.com", "/docs/guides"],
+  ["BUN_GUIDES_INDEX_DOC_URL", "src/lib/cli-contract.ts", "bun.com", "/guides"],
 ] as const;
 
 const SEE_LADDER = [
@@ -123,8 +123,8 @@ const DOC_LINKS_SEE = [
   ["Ecosystem manifest root", 'docs: "https://bun.sh/docs"', "canonical-references.toml / data.ts"],
   [
     "Bun guides hub",
-    "https://bun.com/docs/guides (bun.sh redirects)",
-    "BUN_GUIDES_INDEX_DOC_URL · argv/stdin/stdout under /docs/guides/…",
+    "https://bun.com/guides (bun.com/docs/guides redirects)",
+    "BUN_GUIDES_INDEX_DOC_URL · argv/stdin/stdout under /guides/…",
   ],
   [
     "dx URL inventory rows",

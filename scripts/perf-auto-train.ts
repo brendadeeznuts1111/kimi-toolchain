@@ -23,13 +23,13 @@ import {
   trainEffectThresholds,
   type BenchmarkRegression,
 } from "../src/lib/effect-benchmark.ts";
-import { thresholdsBaselinePath } from "../src/lib/paths.ts";
+import { scriptRepoRoot, thresholdsBaselinePath } from "../src/lib/paths.ts";
 // Side-effect import: registers the built-in effect-handler benchmarks.
 import { runEffectBenchmarks } from "../src/harness/perf-monitor.ts";
 import type { Metric } from "../src/harness/html-reporter.ts";
 import { invokeCommand } from "../src/lib/tool-runner.ts";
 
-const REPO_ROOT = process.cwd();
+const REPO_ROOT = scriptRepoRoot();
 const OUT_DIR = join(REPO_ROOT, "reports");
 const BASELINE_PATH = thresholdsBaselinePath(REPO_ROOT);
 const REPORT_PATH = join(OUT_DIR, "effect-benchmark.html");

@@ -20,6 +20,8 @@
  * @see {@link BUN_IMAGE_BACKENDS_URL}
  */
 
+import { decodeBase64Bytes } from "./bun-utils.ts";
+
 export const BUN_IMAGE_DOCS_URL = "https://bun.com/docs/runtime/image";
 export const BUN_IMAGE_TERMINALS_URL = `${BUN_IMAGE_DOCS_URL}#terminals`;
 export const BUN_IMAGE_PLACEHOLDERS_URL = `${BUN_IMAGE_DOCS_URL}#placeholders`;
@@ -44,12 +46,11 @@ export type DashboardThumbnailResizeFilter =
   | "mks2013"
   | "mks2021";
 
-const TINY_PNG = Uint8Array.from(
-  atob(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-  ),
-  (c) => c.charCodeAt(0)
-);
+/** 1×1 transparent PNG fixture (base64 → `Uint8Array.fromBase64`). */
+export const TINY_PNG_B64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+export const TINY_PNG = decodeBase64Bytes(TINY_PNG_B64);
 
 export type DashboardThumbnailFormat = "webp" | "avif" | "jpeg" | "png";
 export type DashboardWebViewShell = "serve" | "webview" | "automation";

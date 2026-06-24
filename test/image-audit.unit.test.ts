@@ -6,15 +6,8 @@ import {
   scanHeaderForSecrets,
   shannonEntropy,
 } from "../src/lib/image-audit.ts";
+import { TINY_PNG } from "../src/lib/bun-image.ts";
 import { cleanupPath, testTempDir } from "./helpers.ts";
-
-// 1x1 transparent PNG (base64)
-const TINY_PNG = Uint8Array.from(
-  atob(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-  ),
-  (c) => c.charCodeAt(0)
-);
 
 describe("image-audit", () => {
   test("shannonEntropy of uniform bytes is maximal", () => {

@@ -13,7 +13,11 @@ import {
   formatHerdrSocketPayload,
 } from "../src/lib/herdr-socket-transport.ts";
 import { connectHerdrUnixSocket } from "../src/lib/herdr-unix-socket.ts";
-import { resolveHerdrWsUnixUrl } from "../src/lib/herdr-ws-unix.ts";
+import {
+  isUnixWebSocketUrl,
+  resolveHerdrWsUnixUrl,
+  resolveWebSocketProxy,
+} from "../src/lib/herdr-ws-unix.ts";
 import { cleanupPath, testTempDir, withEnv } from "./helpers.ts";
 
 async function withMockHerdrWsServer<T>(fn: (socketPath: string) => T | Promise<T>): Promise<T> {
@@ -115,6 +119,27 @@ describe.serial("herdr-ws-unix", () => {
     expect(resolveHerdrWsUnixUrl("/tmp/herdr.sock")).toBe("ws+unix:///tmp/herdr.sock:/");
     expect(resolveHerdrWsUnixUrl("/tmp/herdr.sock", "/events")).toBe(
       "ws+unix:///tmp/herdr.sock:/events"
+    );
+  });
+
+  test("isUnixWebSocketUrl detects unix schemes only", () => {
+    expect(isUnixWebSocketUrl("ws+unix:///tmp/herdr.sock:/")).toBe(true);
+    expect(isUnixWebSocketUrl("wss://example.com/socket")).toBe(false);
+  });
+
+  test("resolveWebSocketProxy skips unix and NO_PROXY hosts", () => {
+    withEnv(
+      {
+        HTTP_PROXY: "http://corp:8080",
+        HTTPS_PROXY: "http://corp:8443",
+        NO_PROXY: "localhost,127.0.0.1",
+      },
+      () => {
+        expect(resolveWebSocketProxy("ws+unix:///tmp/herdr.sock:/")).toBeUndefined();
+        expect(resolveWebSocketProxy("wss://example.com/herdr")).toBe("http://corp:8443");
+        expect(resolveWebSocketProxy("ws://internal.example/herdr")).toBe("http://corp:8080");
+        expect(resolveWebSocketProxy("wss://localhost/herdr")).toBeUndefined();
+      }
     );
   });
 

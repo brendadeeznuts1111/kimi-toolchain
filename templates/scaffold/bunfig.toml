@@ -1,28 +1,29 @@
+# <project>/bunfig.toml — project overrides only
+# Machine install policy (linker, globalStore, cache.dir) inherits from ~/.bunfig.toml
+# Doc: https://bun.com/docs/pm/cli/install#configuring-bun-install-with-bunfig-toml
+# Audit: cd ~/projects && bun run audit:bunfig
+
 [install]
-# Trusted dependencies with postinstall scripts
-# Run `kimi-guardian check` to auto-populate
+# Trusted dependencies with postinstall scripts — run `kimi-guardian check` to populate
 trustedDependencies = []
 
-# Supply-chain hardening (aligned with root policy)
-frozenLockfile = true
+# Supply-chain hardening (project-specific)
+# Machine ~/.bunfig.toml sets frozenLockfile=true — override false for active local dev
+frozenLockfile = false
 saveTextLockfile = true
 ignoreScripts = false
 minimumReleaseAge = 259200
 
-# Isolated linker: dramatically faster in peer-heavy monorepos.
-linker = "isolated"
-# Bun ≥1.3.14 — shared virtual store for warm installs (~7× faster)
-globalStore = true
+# DO NOT duplicate machine keys here:
+# linker, globalStore, [install.cache].dir
 
 [install.cache]
-# Global cache directory (shared across projects)
+# Omit dir — ~/.bunfig.toml owns absolute cache path on developer machines
 
 [run]
 noOrphans = true
 
 [test]
-# Unit tests run concurrently; smoke tests stay sequential
 concurrentTestGlob = ["test/*.unit.test.ts"]
 coverageSkipTestFiles = true
-
 coverageThreshold = { lines = 0.35, functions = 0.25 }

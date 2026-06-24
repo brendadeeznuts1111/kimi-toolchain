@@ -4,7 +4,12 @@
 
 import { SecretsManager } from "./secrets-manager.ts";
 import { runSecretsList } from "./effect/secrets-runtime.ts";
-import { effectiveStorageTier, isStrictStorageEnabled } from "./secrets-storage.ts";
+import {
+  bunSecretsMethods,
+  effectiveStorageTier,
+  isBunSecretsAvailable,
+  isStrictStorageEnabled,
+} from "./secrets-storage.ts";
 import { secretsPolicyPath } from "./paths.ts";
 import type { StorageStatus } from "./secrets-storage.ts";
 
@@ -27,7 +32,7 @@ export interface SecretsApiResponse {
 }
 
 export async function buildSecretsApiResponse(projectRoot: string): Promise<SecretsApiResponse> {
-  const available = typeof Bun.secrets === "object" && Bun.secrets !== null;
+  const available = isBunSecretsAvailable();
   const manager = new SecretsManager({
     projectRoot,
     policyPath: secretsPolicyPath(projectRoot),
@@ -38,11 +43,7 @@ export async function buildSecretsApiResponse(projectRoot: string): Promise<Secr
 
   return {
     available,
-    methods: {
-      get: typeof Bun.secrets?.get === "function",
-      set: typeof Bun.secrets?.set === "function",
-      delete: typeof Bun.secrets?.delete === "function",
-    },
+    methods: bunSecretsMethods(),
     platform: process.platform,
     storage,
     strictStorage: isStrictStorageEnabled(),

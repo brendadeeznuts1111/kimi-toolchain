@@ -236,16 +236,16 @@ Render this guide in tooling via [Bun.markdown.html](https://bun.com/docs/runtim
 
 Contracts in `test-runtime.ts` align with these Bun docs:
 
-| Topic                           | Bun doc                                                               |
-| ------------------------------- | --------------------------------------------------------------------- |
-| Runtime env, globals, isolation | [runtime-behavior](https://bun.com/docs/test/runtime-behavior)        |
-| Discovery                       | [discovery](https://bun.com/docs/test/discovery)                      |
-| `bunfig.toml` `[test]`          | [configuration](https://bun.com/docs/test/configuration)              |
-| Writing tests                   | [writing-tests](https://bun.com/docs/test/writing-tests)              |
-| Running tests                   | [test#run-tests](https://bun.com/docs/test#run-tests)                 |
-| Snapshot testing                | [snapshot](https://bun.com/docs/guides/test/snapshot)                 |
-| Updating snapshots              | [update-snapshots](https://bun.com/docs/guides/test/update-snapshots) |
-| `bun:test` API                  | [reference/bun/test](https://bun.com/reference/bun/test)              |
+| Topic                           | Bun doc                                                          |
+| ------------------------------- | ---------------------------------------------------------------- |
+| Runtime env, globals, isolation | [runtime-behavior](https://bun.com/docs/test/runtime-behavior)   |
+| Discovery                       | [discovery](https://bun.com/docs/test/discovery)                 |
+| `bunfig.toml` `[test]`          | [configuration](https://bun.com/docs/test/configuration)         |
+| Writing tests                   | [writing-tests](https://bun.com/docs/test/writing-tests)         |
+| Running tests                   | [test#run-tests](https://bun.com/docs/test#run-tests)            |
+| Snapshot testing                | [snapshot](https://bun.com/guides/test/snapshot)                 |
+| Updating snapshots              | [update-snapshots](https://bun.com/guides/test/update-snapshots) |
+| `bun:test` API                  | [reference/bun/test](https://bun.com/reference/bun/test)         |
 
 ### Bun API compliance regression tests
 

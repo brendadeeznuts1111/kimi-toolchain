@@ -14,8 +14,8 @@ describe("bun-docs-webview", () => {
   });
 
   test("extractBunDocsUrl ignores trailing punctuation", () => {
-    expect(extractBunDocsUrl("See https://bun.com/docs/guides/process/spawn, then continue.")).toBe(
-      "https://bun.com/docs/guides/process/spawn"
+    expect(extractBunDocsUrl("See https://bun.com/guides/process/spawn, then continue.")).toBe(
+      "https://bun.com/guides/process/spawn"
     );
   });
 
@@ -36,12 +36,10 @@ describe("bun-docs-webview", () => {
   test("resolveBunDocsUrlFromSearch extracts URL from text blocks", () => {
     const result = resolveBunDocsUrlFromSearch({
       ok: true,
-      content: [
-        { type: "text", text: "Title: spawn\nLink: https://bun.com/docs/guides/process/spawn" },
-      ],
+      content: [{ type: "text", text: "Title: spawn\nLink: https://bun.com/guides/process/spawn" }],
       latencyMs: 100,
     });
-    expect(result.url).toBe("https://bun.com/docs/guides/process/spawn");
+    expect(result.url).toBe("https://bun.com/guides/process/spawn");
     expect(result.fallback).toBe(false);
   });
 

@@ -9,6 +9,7 @@ import { capabilitySnapshotsDir, configTomlPath, failureLedgerPath, mcpPath } fr
 import { safeParse } from "./utils.ts";
 import { auditContractTrust } from "./contract-signing.ts";
 import { queryDecisionLedger, recordDecision } from "./decision-ledger.ts";
+import { elapsedMs, nowNs } from "./timing.ts";
 
 export type CapabilityStatus = "healthy" | "degraded" | "unavailable";
 export type CapabilityType = "mcp" | "hook" | "credential" | "contract";
@@ -144,7 +145,7 @@ export async function writeCapabilitySnapshot(report: CapabilityReport): Promise
 
 function runOneCapability(check: CapabilityCheck): Effect.Effect<CapabilityResult, never> {
   return Effect.gen(function* () {
-    const started = performance.now();
+    const started = nowNs();
     const result = yield* check.healthCheck.pipe(
       Effect.catchAll((error) =>
         Effect.succeed({
@@ -157,7 +158,7 @@ function runOneCapability(check: CapabilityCheck): Effect.Effect<CapabilityResul
     );
     return {
       ...result,
-      latencyMs: Math.round(performance.now() - started),
+      latencyMs: Math.round(elapsedMs(started)),
     };
   });
 }

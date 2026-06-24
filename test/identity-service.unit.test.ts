@@ -1,6 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import { Effect, Either, Layer } from "effect";
 import { Identity, IdentityTest, IdentityLive } from "../src/lib/effect/identity-service.ts";
+import { MOCK_CLOCK_EPOCH, utcSeconds, withSystemTime } from "./helpers/mock-clock.ts";
 import {
   JwtExpired,
   JwtInvalidSignature,
@@ -32,6 +33,9 @@ function runEither<A, E>(effect: Effect.Effect<A, E, Identity>): Promise<Either.
 }
 
 describe("identity-service > JWT", () => {
+  afterEach(() => {
+    setSystemTime();
+  });
   test("signToken produces a 3-part JWT", async () => {
     const token = await run(
       Effect.gen(function* () {
@@ -70,20 +74,62 @@ describe("identity-service > JWT", () => {
   });
 
   test("verifyToken fails on expired token", async () => {
-    const either = await runEither(
-      Effect.gen(function* () {
-        const id = yield* Identity;
-        const token = yield* id.signToken({
-          sub: "user-123",
-          exp: Math.floor(Date.now() / 1000) - 10,
-        });
-        return yield* id.verifyToken(token);
-      })
-    );
-    expect(Either.isLeft(either)).toBe(true);
-    if (Either.isLeft(either)) {
-      expect(either.left instanceof JwtExpired).toBe(true);
-    }
+    await withSystemTime(MOCK_CLOCK_EPOCH, async () => {
+      const either = await runEither(
+        Effect.gen(function* () {
+          const id = yield* Identity;
+          const token = yield* id.signToken({
+            sub: "user-123",
+            exp: utcSeconds() - 10,
+          });
+          return yield* id.verifyToken(token);
+        })
+      );
+      expect(Either.isLeft(either)).toBe(true);
+      if (Either.isLeft(either)) {
+        expect(either.left instanceof JwtExpired).toBe(true);
+      }
+    });
+  });
+
+  test("verifyToken TTL boundary without busy-wait", async () => {
+    await withSystemTime(MOCK_CLOCK_EPOCH, async () => {
+      const token = await run(
+        Effect.gen(function* () {
+          const id = yield* Identity;
+          return yield* id.signToken({ sub: "user-123" }, { ttlSeconds: 1 });
+        })
+      );
+
+      const validNow = await runEither(
+        Effect.gen(function* () {
+          const id = yield* Identity;
+          return yield* id.verifyToken(token);
+        })
+      );
+      expect(Either.isRight(validNow)).toBe(true);
+
+      setSystemTime(new Date(MOCK_CLOCK_EPOCH.getTime() + 999));
+      const validBeforeExpiry = await runEither(
+        Effect.gen(function* () {
+          const id = yield* Identity;
+          return yield* id.verifyToken(token);
+        })
+      );
+      expect(Either.isRight(validBeforeExpiry)).toBe(true);
+
+      setSystemTime(new Date(MOCK_CLOCK_EPOCH.getTime() + 1001));
+      const expired = await runEither(
+        Effect.gen(function* () {
+          const id = yield* Identity;
+          return yield* id.verifyToken(token);
+        })
+      );
+      expect(Either.isLeft(expired)).toBe(true);
+      if (Either.isLeft(expired)) {
+        expect(expired.left instanceof JwtExpired).toBe(true);
+      }
+    });
   });
 
   test("verifyToken fails on invalid format", async () => {
@@ -275,6 +321,9 @@ describe("identity-service > Session Cookies", () => {
 });
 
 describe("identity-service > CSRF", () => {
+  afterEach(() => {
+    setSystemTime();
+  });
   test("generateCsrf + verifyCsrf round-trip", async () => {
     await run(
       Effect.gen(function* () {
@@ -333,8 +382,9 @@ describe("identity-service > CSRF", () => {
       )
     );
 
-    const start = Date.now();
-    while (Date.now() - start < 1100) {}
+    // Bun.CSRF.verify ages against real wall clock — setSystemTime does not apply yet.
+    // Generate with long TTL, verify with 1s maxAge: after 1.1s → csrf_token_expired (not invalid).
+    await Bun.sleep(1100);
 
     const result = await Effect.runPromise(
       Effect.provide(shortTtlLayer)(

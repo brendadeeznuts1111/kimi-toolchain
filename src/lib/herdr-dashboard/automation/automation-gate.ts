@@ -10,6 +10,7 @@
 import { bunImageSupported } from "../../bun-image.ts";
 import {
   dashboardSmokeActions,
+  pollUntil,
   runDashboardAutomation,
   runDashboardAutomationSmoke,
   type DashboardAutomationSmokeResult,
@@ -76,37 +77,45 @@ export function resolveDashboardAutomationUrl(
 
 export async function probeDashboardThumbnail(
   baseUrl: string,
-  opts?: { timeoutMs?: number }
+  opts?: {
+    timeoutMs?: number;
+    pollMs?: number;
+    now?: () => number;
+    sleep?: (ms: number) => Promise<void>;
+  }
 ): Promise<DashboardAutomationThumbnailProbe> {
   const timeoutMs = opts?.timeoutMs ?? 8_000;
+  const pollMs = opts?.pollMs ?? 300;
   const thumbnailUrl = `${normalizeDashboardBaseUrl(baseUrl)}api/thumbnail?width=160&height=90&quality=75`;
-  const deadline = Date.now() + timeoutMs;
+  let terminal: DashboardAutomationThumbnailProbe = { ok: false, status: 404 };
 
-  while (Date.now() < deadline) {
-    try {
-      const res = (await fetch(thumbnailUrl, {
-        signal: AbortSignal.timeout(5_000),
-      })) as unknown as {
-        ok: boolean;
-        status: number;
-        headers: { get(name: string): string | null };
-      };
-      const contentType = res.headers.get("content-type") ?? undefined;
-      const cache = res.headers.get("x-thumbnail-cache") ?? undefined;
-      if (res.ok && contentType === "image/webp") {
-        return { ok: true, status: res.status, contentType, cache };
+  await pollUntil(
+    async () => {
+      try {
+        const res = (await fetch(thumbnailUrl, {
+          signal: AbortSignal.timeout(5_000),
+        })) as unknown as {
+          ok: boolean;
+          status: number;
+          headers: { get(name: string): string | null };
+        };
+        const contentType = res.headers.get("content-type") ?? undefined;
+        const cache = res.headers.get("x-thumbnail-cache") ?? undefined;
+        if (res.ok && contentType === "image/webp") {
+          terminal = { ok: true, status: res.status, contentType, cache };
+          return true;
+        }
+        if (res.status === 404) return false;
+        terminal = { ok: false, status: res.status, contentType, cache };
+        return true;
+      } catch {
+        return false;
       }
-      if (res.status === 404) {
-        await Bun.sleep(300);
-        continue;
-      }
-      return { ok: false, status: res.status, contentType, cache };
-    } catch {
-      await Bun.sleep(300);
-    }
-  }
+    },
+    { timeoutMs, pollMs, now: opts?.now, sleep: opts?.sleep }
+  );
 
-  return { ok: false, status: 404 };
+  return terminal;
 }
 
 function smokeActionsForMode(ownedServer: boolean, processesTimeoutMs?: number) {

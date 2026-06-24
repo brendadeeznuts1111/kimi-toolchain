@@ -316,7 +316,7 @@ describe("bun-release-compliance Bun Workers", () => {
 });
 
 // ── CTRL+C signal handling (official docs) ────────────────────────────
-// @see https://bun.com/docs/guides/process/ctrl-c
+// @see https://bun.com/guides/process/ctrl-c
 
 describe("bun-release-compliance CTRL+C signal handling", () => {
   test("process.on SIGINT + process.exit pattern works (official docs recipe)", async () => {
@@ -334,7 +334,7 @@ describe("bun-release-compliance CTRL+C signal handling", () => {
   test("cli-contract.ts defines BUN_CTRL_C_DOC_URL", () => {
     const text = readSrc("src/lib/cli-contract.ts");
     expect(text).toContain("BUN_CTRL_C_DOC_URL");
-    expect(text).toContain("https://bun.com/docs/guides/process/ctrl-c");
+    expect(text).toContain("https://bun.com/guides/process/ctrl-c");
   });
 
   test("doc-links-lint.ts registers BUN_CTRL_C_DOC_URL", () => {
@@ -370,7 +370,7 @@ describe("bun-release-compliance HTML static keyboard shortcuts", () => {
 });
 
 // ── HTMLRewriter link extraction (official docs) ──────────────────────
-// @see https://bun.com/docs/guides/html-rewriter/extract-links
+// @see https://bun.com/guides/html-rewriter/extract-links
 
 describe("bun-release-compliance HTMLRewriter link extraction", () => {
   test("HTMLRewriter is available in Bun runtime", () => {
@@ -440,7 +440,7 @@ describe("bun-release-compliance HTMLRewriter link extraction", () => {
   test("cli-contract.ts defines BUN_HTML_REWRITER_EXTRACT_LINKS_DOC_URL", () => {
     const text = readSrc("src/lib/cli-contract.ts");
     expect(text).toContain("BUN_HTML_REWRITER_EXTRACT_LINKS_DOC_URL");
-    expect(text).toContain("https://bun.com/docs/guides/html-rewriter/extract-links");
+    expect(text).toContain("https://bun.com/guides/html-rewriter/extract-links");
   });
 
   test("doc-links-lint.ts registers BUN_HTML_REWRITER_EXTRACT_LINKS_DOC_URL", () => {
@@ -464,7 +464,7 @@ describe("bun-release-compliance HTMLRewriter in markdown-dead-links-lint", () =
 
   test("markdown-dead-links-lint.ts references HTMLRewriter docs URL in JSDoc", () => {
     const text = readSrc("src/lib/markdown-dead-links-lint.ts");
-    expect(text).toContain("https://bun.com/docs/guides/html-rewriter/extract-links");
+    expect(text).toContain("https://bun.com/guides/html-rewriter/extract-links");
   });
 
   test("extractMarkdownLinks extracts href from inline HTML via HTMLRewriter", async () => {

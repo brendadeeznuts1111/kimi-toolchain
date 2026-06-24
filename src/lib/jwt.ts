@@ -18,6 +18,7 @@ import type {
   VerifiedJwt,
 } from "./identity-types.ts";
 import { constantTimeEqual } from "./crypto-utils.ts";
+import { decodeBase64UrlBytes, decodeUtf8, encodeBase64UrlBytes, encodeUtf8 } from "./bun-utils.ts";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -28,26 +29,6 @@ const HMAC_ALGORITHMS = {
   HS384: "sha384",
   HS512: "sha512",
 } as const;
-
-// ── Base64URL ────────────────────────────────────────────────────────
-
-function base64UrlEncode(data: Uint8Array): string {
-  let binary = "";
-  for (const byte of data) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function base64UrlDecode(str: string): Uint8Array {
-  const padded = str.replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
 
 // ── HMAC via Bun.CryptoHasher ────────────────────────────────────────
 
@@ -101,8 +82,8 @@ export function signJwt(
   }
 
   const header: JwtHeader = { alg: algorithm, typ: "JWT" };
-  const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
-  const payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(fullClaims)));
+  const headerB64 = encodeBase64UrlBytes(encodeUtf8(JSON.stringify(header)));
+  const payloadB64 = encodeBase64UrlBytes(encodeUtf8(JSON.stringify(fullClaims)));
   const signingInput = `${headerB64}.${payloadB64}`;
 
   const signature = hmacSign(signingInput, secret, algorithm);
@@ -134,7 +115,7 @@ export function verifyJwt(token: string, secret: string, config: JwtConfig = {})
 
   let header: JwtHeader;
   try {
-    header = JSON.parse(new TextDecoder().decode(base64UrlDecode(headerB64)));
+    header = JSON.parse(decodeUtf8(decodeBase64UrlBytes(headerB64)));
   } catch {
     throw { type: "jwt_invalid_format" } as { type: JwtError };
   }
@@ -152,7 +133,7 @@ export function verifyJwt(token: string, secret: string, config: JwtConfig = {})
 
   let claims: JwtClaims;
   try {
-    claims = JSON.parse(new TextDecoder().decode(base64UrlDecode(payloadB64)));
+    claims = JSON.parse(decodeUtf8(decodeBase64UrlBytes(payloadB64)));
   } catch {
     throw { type: "jwt_invalid_format" } as { type: JwtError };
   }
@@ -190,8 +171,8 @@ export function decodeJwt(token: string): { header: JwtHeader; claims: JwtClaims
     throw { type: "jwt_invalid_format" } as { type: JwtError };
   }
 
-  const header = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[0])));
-  const claims = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[1])));
+  const header = JSON.parse(decodeUtf8(decodeBase64UrlBytes(parts[0])));
+  const claims = JSON.parse(decodeUtf8(decodeBase64UrlBytes(parts[1])));
 
   return { header, claims };
 }

@@ -89,7 +89,7 @@ const SLEEP_SETTIMEOUT = /new\s+Promise\s*[<(][^>)]*\)\s*=>\s*setTimeout|setTime
 
 const PROCESS_ARGV = /\bprocess\.argv\b/;
 
-const RESPONSE_STREAM_TEXT = /new\s+Response\s*\([^)]*\)\.text\s*\(\s*\)/;
+const RESPONSE_STREAM_CONSUME = /new\s+Response\s*\([^)]*\)\.(text|arrayBuffer|json)\s*\(\s*\)/;
 
 const RAW_BUN_SPAWN = /Bun\.spawn\s*\(\s*(?!\s*withBunNoOrphans\s*\()\s*\[\s*["']bun["']/;
 const RAW_BUN_EXECPATH_SPAWN =
@@ -296,16 +296,16 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
   },
   {
     id: "response-stream-text",
-    message: "Prefer readableStreamToText from bun-utils.ts",
+    message: "Prefer readableStreamToText / readableStreamToArrayBuffer from bun-utils.ts",
     replacement: "readableStreamToText(stream)",
     defaultMode: "off",
     detect(ctx) {
       return scanLineMatches(
         ctx,
         "response-stream-text",
-        "Response(stream).text()",
-        "Bun.readableStreamToText",
-        RESPONSE_STREAM_TEXT
+        "Response(stream).text/arrayBuffer/json()",
+        "readableStreamToText / Bun.readableStreamTo*",
+        RESPONSE_STREAM_CONSUME
       );
     },
   },

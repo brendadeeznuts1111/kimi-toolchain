@@ -175,15 +175,90 @@ function renderSchema(container, schema) {
     const sections = d.sections || {};
     const install = sections.install || {};
     const define = sections.define || {};
+    const effective = d.effectiveInstall || {};
+    const ssot = d.ssot || {};
+    const inherited = d.inherited || [];
+    const badgeFor = (status) =>
+      status === "inherited"
+        ? "badge-ok"
+        : status === "override"
+          ? "badge-warn"
+          : status === "unset"
+            ? "badge-warn"
+            : "badge-ok";
+    const row = (label, value, status) =>
+      `<div class="row"><span>${label}</span><code>${value ?? "unset"}</code>${status ? `<span class="badge ${badgeFor(status)}">${status}</span>` : ""}</div>`;
     let h = `<div class="row"><span>Policy file</span><code>${d.path || "./bunfig.toml"}</code></div>`;
+    h += `<div class="row"><span>Machine SSOT</span><code>${d.machineBunfigPath || "n/a"}</code></div>`;
     h += `<div class="row"><span>Sections</span><strong>${Object.keys(sections).length}</strong></div>`;
     h += `<div class="row"><span>Defines</span><strong>${Object.keys(define).length}</strong></div>`;
     h += `<div class="row"><span>Frozen lockfile</span><span class="badge ${install.frozenLockfile === false ? "badge-warn" : "badge-ok"}">${install.frozenLockfile === false ? "OFF" : "ON"}</span></div>`;
-    h += `<div class="row"><span>Linker</span><code>${install.linker || "default"}</code></div>`;
-    h += `<p style="font-size:10px;color:var(--muted);margin-top:6px">${d.mergeRule || "global → project → CLI"}</p>`;
+    h += row("Linker", effective.linker ?? install.linker, ssot.linker?.status);
+    h += row("Global store", effective.globalStore, ssot.globalStore?.status);
+    h += row("Cache dir", effective.cacheDir, ssot.cacheDir?.status);
+    if (inherited.length) {
+      h += `<ul style="margin:4px 0 0 16px;font-size:10px;color:var(--muted)">${inherited
+        .map((note) => `<li>${note}</li>`)
+        .join("")}</ul>`;
+    }
+    h += `<p style="font-size:10px;color:var(--muted);margin-top:6px">${d.mergeRule || "machine → project → CLI"}</p>`;
     card("card-bunfig-policy", h);
   } catch (e) {
     card("card-bunfig-policy", `<p class="status err">${e.message}</p>`);
+  }
+})();
+function baselineSparkline(values) {
+  if (!values?.length) return "";
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const blocks = "▁▂▃▄▅▆▇█";
+  return values
+    .map((v) => {
+      const idx = Math.round(((v - min) / range) * (blocks.length - 1));
+      return blocks[Math.max(0, Math.min(blocks.length - 1, idx))];
+    })
+    .join("");
+}
+
+// Sync Baseline
+(async () => {
+  try {
+    const d = await fetchJson("/api/sync-baseline");
+    if (!d.ok) {
+      card(
+        "card-sync-baseline",
+        `<p class="status warn">No baseline archive. Run <code>bun run sync</code> to generate.</p>`
+      );
+      return;
+    }
+    const sizeMb = (d.syncBaselineSize / 1048576).toFixed(2);
+    let h = `<div class="row"><span>Archive</span><code style="font-size:9px">${d.archivePath}</code></div>`;
+    h += `<div class="row"><span>Size</span><strong>${sizeMb} MB</strong> <span style="font-size:10px;color:var(--muted)">(${d.syncBaselineSize} B)</span></div>`;
+    const hashTone = d.hashChanged ? "warn" : "ok";
+    h += `<div class="row"><span>Hash</span><code>${d.syncBaselineHash}</code> <span class="badge badge-${hashTone}">${d.hashChanged ? "CHANGED" : "STABLE"}</span></div>`;
+    if (d.previousSyncBaselineHash) {
+      h += `<div class="row"><span>Prev hash</span><code style="font-size:9px">${d.previousSyncBaselineHash}</code></div>`;
+      const delta =
+        d.sizeDelta === 0 ? "±0 B" : `${d.sizeDelta > 0 ? "+" : ""}${d.sizeDelta} B vs last record`;
+      h += `<div class="row"><span>Size delta</span><strong>${delta}</strong></div>`;
+    }
+    h += `<div class="row"><span>File hashes</span><strong>${d.fileCount ?? "—"}</strong></div>`;
+    h += `<div class="row"><span>Version</span><strong>${d.toolchainVersion ?? "—"}</strong></div>`;
+    h += `<div class="row"><span>Last synced</span><span style="font-size:10px">${d.lastSyncedAt ?? "—"}</span></div>`;
+    if (d.history?.sizes?.length) {
+      const driftTotal = (d.history.driftCounts ?? []).reduce((a, b) => a + b, 0);
+      const spark = baselineSparkline(d.history.sizes);
+      h += `<div class="row"><span>Size trend</span><code style="font-size:11px;letter-spacing:1px" title="${d.history.sizes.join(" → ")} B">${spark}</code></div>`;
+      if (driftTotal > 0) {
+        h += `<p class="status warn" style="margin-top:6px;font-size:10px">${driftTotal} hash drift event(s) in last ${d.history.sizes.length} sync(s)</p>`;
+      }
+    }
+    const fetched = d.fetchedAt ? new Date(d.fetchedAt).toLocaleString() : "—";
+    h += `<p class="status ok" style="margin-top:8px;font-size:10px">Fetched at ${fetched} · refresh to compare hash/size drift</p>`;
+    card("card-sync-baseline", h);
+  } catch (e) {
+    card("card-sync-baseline", `<p class="status err">${e.message}</p>`);
   }
 })();
 // Config Status

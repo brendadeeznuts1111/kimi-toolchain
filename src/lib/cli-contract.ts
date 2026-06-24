@@ -41,31 +41,31 @@ export class CliContractError extends Error {
 /** Machine-readable output schema version. Bump only on breaking envelope changes. */
 export const CLI_OUTPUT_SCHEMA_VERSION = 1;
 
-/** Bun guides hub — canonical host is bun.com (bun.sh/docs/guides redirects). */
-export const BUN_GUIDES_INDEX_DOC_URL = "https://bun.com/docs/guides";
+/** Bun guides hub — canonical path is bun.com/guides (bun.com/docs/guides redirects). */
+export const BUN_GUIDES_INDEX_DOC_URL = "https://bun.com/guides";
 
-/** @see https://bun.com/docs/guides/process/argv */
-export const BUN_ARGV_DOC_URL = "https://bun.com/docs/guides/process/argv";
+/** @see https://bun.com/guides/process/argv */
+export const BUN_ARGV_DOC_URL = "https://bun.com/guides/process/argv";
 
-/** @see https://bun.com/docs/guides/process/stdin */
-export const BUN_STDIN_DOC_URL = "https://bun.com/docs/guides/process/stdin";
+/** @see https://bun.com/guides/process/stdin */
+export const BUN_STDIN_DOC_URL = "https://bun.com/guides/process/stdin";
 
-/** @see https://bun.com/docs/guides/process/stdout */
-export const BUN_STDOUT_DOC_URL = "https://bun.com/docs/guides/process/stdout";
+/** @see https://bun.com/guides/process/stdout */
+export const BUN_STDOUT_DOC_URL = "https://bun.com/guides/process/stdout";
 
-/** @see https://bun.com/docs/guides/process/spawn-stderr */
-export const BUN_SPAWN_STDERR_DOC_URL = "https://bun.com/docs/guides/process/spawn-stderr";
+/** @see https://bun.com/guides/process/spawn-stderr */
+export const BUN_SPAWN_STDERR_DOC_URL = "https://bun.com/guides/process/spawn-stderr";
 
-/** @see https://bun.com/docs/guides/process/ctrl-c */
-export const BUN_CTRL_C_DOC_URL = "https://bun.com/docs/guides/process/ctrl-c";
+/** @see https://bun.com/guides/process/ctrl-c */
+export const BUN_CTRL_C_DOC_URL = "https://bun.com/guides/process/ctrl-c";
 
 /** @see https://bun.com/docs/bundler/html-static#keyboard-shortcuts */
 export const BUN_HTML_STATIC_KEYBOARD_DOC_URL =
   "https://bun.com/docs/bundler/html-static#keyboard-shortcuts";
 
-/** @see https://bun.com/docs/guides/html-rewriter/extract-links */
+/** @see https://bun.com/guides/html-rewriter/extract-links */
 export const BUN_HTML_REWRITER_EXTRACT_LINKS_DOC_URL =
-  "https://bun.com/docs/guides/html-rewriter/extract-links";
+  "https://bun.com/guides/html-rewriter/extract-links";
 
 /** @see https://bun.com/docs/runtime/child-process */
 export const BUN_CHILD_PROCESS_DOC_URL = "https://bun.com/docs/runtime/child-process";

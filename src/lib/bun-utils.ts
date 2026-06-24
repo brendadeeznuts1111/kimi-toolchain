@@ -58,8 +58,8 @@ export function generateSpanId(): string {
 /** Password hashing (argon2id default, bcrypt optional) — same as `Bun.password`. */
 export { password };
 
-/** @see https://bun.com/docs/guides/util/hash-a-password */
-export const BUN_PASSWORD_DOC_URL = "https://bun.com/docs/guides/util/hash-a-password";
+/** @see https://bun.com/guides/util/hash-a-password */
+export const BUN_PASSWORD_DOC_URL = "https://bun.com/guides/util/hash-a-password";
 
 export type PasswordHashOptions = Parameters<typeof password.hash>[1];
 
@@ -114,8 +114,12 @@ export function verifyPassword(plain: string, hash: string): Promise<boolean> {
  * @see {@link BUN_BASE64_DOC_URL}
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
  */
-/** @see https://bun.com/docs/guides/util/base64 */
-export const BUN_BASE64_DOC_URL = "https://bun.com/docs/guides/util/base64";
+/** @see https://bun.com/guides/util/base64 */
+export const BUN_BASE64_DOC_URL = "https://bun.com/guides/util/base64";
+
+/** Binary conversion recipes index — footer target for guides/binary/*. */
+export const BUN_BINARY_DATA_CONVERSION_DOC_URL =
+  "https://bun.com/docs/runtime/binary-data#conversion";
 
 /** Encode a string to base64 (`btoa`). */
 export function encodeBase64(data: string): string {
@@ -137,6 +141,16 @@ export function decodeBase64Bytes(encoded: string): Uint8Array {
   return Uint8Array.fromBase64(encoded);
 }
 
+/** Encode bytes to base64url without padding (`Uint8Array.prototype.toBase64`). */
+export function encodeBase64UrlBytes(bytes: Uint8Array): string {
+  return bytes.toBase64({ alphabet: "base64url", omitPadding: true });
+}
+
+/** Decode base64url to bytes (`Uint8Array.fromBase64`). */
+export function decodeBase64UrlBytes(encoded: string): Uint8Array {
+  return Uint8Array.fromBase64(encoded, { alphabet: "base64url" });
+}
+
 /**
  * Hex encoding (`Uint8Array.prototype.toHex` / `Uint8Array.fromHex`).
  *
@@ -154,6 +168,38 @@ export function encodeHex(bytes: Uint8Array): string {
 /** Decode hex string to bytes (`Uint8Array.fromHex`). */
 export function decodeHex(hex: string): Uint8Array {
   return Uint8Array.fromHex(hex);
+}
+
+/**
+ * UTF-8 encode a string to bytes (`TextEncoder`).
+ *
+ * @see {@link BUN_BINARY_DATA_CONVERSION_DOC_URL}
+ */
+export function encodeUtf8(text: string): Uint8Array {
+  return new TextEncoder().encode(text);
+}
+
+/**
+ * UTF-8 decode bytes to string (`TextDecoder`).
+ * Accepts `Uint8Array`, `ArrayBuffer`, and `DataView` per binary conversion guides.
+ *
+ * @see {@link BUN_BINARY_DATA_CONVERSION_DOC_URL}
+ * @see https://bun.com/guides/binary/dataview-to-string
+ */
+export function decodeUtf8(bytes: Uint8Array): string {
+  return new TextDecoder().decode(bytes);
+}
+
+/** Decode optional byte buffer to UTF-8 string; empty when missing. */
+export function decodeUtf8Bytes(
+  bytes: Uint8Array | ArrayBuffer | null | undefined,
+  trim = false
+): string {
+  if (bytes == null) return "";
+  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  if (view.byteLength === 0) return "";
+  const text = new TextDecoder().decode(view);
+  return trim ? text.trim() : text;
 }
 
 /** UTF-8 byte length for a string (`TextEncoder`). */
@@ -289,8 +335,8 @@ export async function fetchJsonBody<T>(
  *
  * @see {@link BUN_GZIP_DOC_URL}
  */
-/** @see https://bun.com/docs/guides/util/gzip */
-export const BUN_GZIP_DOC_URL = "https://bun.com/docs/guides/util/gzip";
+/** @see https://bun.com/guides/util/gzip */
+export const BUN_GZIP_DOC_URL = "https://bun.com/guides/util/gzip";
 
 function gzipInput(data: string | Uint8Array): Uint8Array<ArrayBuffer> {
   if (typeof data === "string") {
@@ -510,6 +556,108 @@ export async function dedupInflight<T>(
   return await promise;
 }
 
+export type InflightCoalescer = (run: () => Promise<void>) => void;
+
+/**
+ * Cron-style coalescing: skip when the previous run is still pending (Bun.peek).
+ * Replaces boolean `isRunning` guards — peek reads promise state synchronously.
+ */
+export function createInflightCoalescer(): InflightCoalescer {
+  let current: Promise<void> | null = null;
+  return (run) => {
+    if (current !== null && peekPromiseStatus(current) === "pending") {
+      return;
+    }
+    const promise = run().finally(() => {
+      if (current === promise) current = null;
+    });
+    current = promise;
+    void promise;
+  };
+}
+
+const defaultInflightCoalescer = createInflightCoalescer();
+
+/** Module-default coalescer (cron-health and one-off scripts). */
+export function runIfNotInflight(run: () => Promise<void>): void {
+  defaultInflightCoalescer(run);
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException
+    ? error.name === "AbortError"
+    : error instanceof Error && error.name === "AbortError";
+}
+
+function abortError(): DOMException {
+  return new DOMException("Aborted", "AbortError");
+}
+
+/** `Bun.sleep` with early exit when `signal` aborts (types/runtime may lack native signal option). */
+export async function sleepAbortable(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) throw abortError();
+  await Promise.race([
+    Bun.sleep(ms),
+    new Promise<never>((_, reject) => {
+      signal.addEventListener("abort", () => reject(abortError()), { once: true });
+    }),
+  ]);
+}
+
+/**
+ * setInterval-equivalent: wait `intervalMs`, then run `tick`, repeat until aborted.
+ * First tick runs after the initial delay (not immediately).
+ */
+export function startDelayedIntervalLoop(
+  intervalMs: number,
+  tick: () => void | Promise<void>
+): AbortController {
+  const controller = new AbortController();
+  void (async () => {
+    const { signal } = controller;
+    while (!signal.aborted) {
+      try {
+        await sleepAbortable(intervalMs, signal);
+      } catch (error) {
+        if (signal.aborted || isAbortError(error)) return;
+        throw error;
+      }
+      if (signal.aborted) return;
+      await tick();
+    }
+  })();
+  return controller;
+}
+
+/**
+ * setInterval-equivalent: run `tick` immediately, wait `intervalMs`, repeat until aborted.
+ */
+export function startIntervalLoop(
+  intervalMs: number,
+  tick: () => void | Promise<void>
+): AbortController {
+  const controller = new AbortController();
+  void (async () => {
+    const { signal } = controller;
+    while (!signal.aborted) {
+      await tick();
+      if (signal.aborted) return;
+      try {
+        await sleepAbortable(intervalMs, signal);
+      } catch (error) {
+        if (signal.aborted || isAbortError(error)) return;
+        throw error;
+      }
+    }
+  })();
+  return controller;
+}
+
+/** Abort an interval loop started with {@link startDelayedIntervalLoop} or {@link startIntervalLoop}. */
+export function stopDelayedIntervalLoop(controller: AbortController | null): void {
+  controller?.abort();
+}
+
 /** Terminal display width (Bun.stringWidth). */
 export function terminalWidth(text: string, countAnsi = false): number {
   return Bun.stringWidth(text, countAnsi ? { countAnsiEscapeCodes: true } : undefined);
@@ -520,11 +668,95 @@ export function escapeHtml(value: string | number | boolean | object): string {
   return Bun.escapeHTML(value);
 }
 
-/** @see https://bun.com/docs/guides/util/version */
-export const BUN_VERSION_GUIDE_DOC_URL = "https://bun.com/docs/guides/util/version";
+/** @see https://bun.com/guides/util/version */
+export const BUN_VERSION_GUIDE_DOC_URL = "https://bun.com/guides/util/version";
 
-/** @see https://bun.com/docs/guides/util/detect-bun */
-export const BUN_DETECT_BUN_GUIDE_DOC_URL = "https://bun.com/docs/guides/util/detect-bun";
+/** @see https://bun.com/guides/util/detect-bun */
+export const BUN_DETECT_BUN_GUIDE_DOC_URL = "https://bun.com/guides/util/detect-bun";
+
+/** Bun release registry — canonical definitions in bun-release-registry.ts */
+export {
+  BUN_ARCHIVE_RELEASE_URL,
+  BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL,
+  BUN_JSONC_RELEASE_URL,
+  BUN_RELEASE,
+  BUN_RELEASE_FEATURE_ANCHORS,
+  BUN_RELEASE_HISTORY,
+  BUN_RELEASE_PREVIOUS,
+  BUN_WEBSOCKET_PROXY_RELEASE_URL,
+  breakingChangeCount,
+  buildReleaseHistoryRows,
+  formatBreakingCell,
+  measureReleaseHistoryRows,
+  commitHashFromUrl,
+  releaseRoleForVersion,
+  releaseCommitUrl,
+  releaseFeatureUrl,
+  releaseMarkdownAlt,
+  releaseOgImage,
+  semverCompare,
+  sortReleaseVersions,
+  type BunReleaseRecord,
+  type BunReleaseRole,
+  type BunReleaseVersion,
+  type ReleaseHistoryMetrics,
+  type ReleaseHistoryRow,
+} from "./bun-release-registry.ts";
+
+export {
+  formatReleaseHistoryTable,
+  RELEASE_BREAKING_PROPERTIES,
+  RELEASE_HISTORY_FULL_PROPERTIES,
+  RELEASE_HISTORY_SUMMARY_PROPERTIES,
+  RELEASE_TABLE_PRINTER_OPTS,
+  renderReleaseTable,
+  type ReleaseHistoryTableOptions,
+} from "./bun-release-inspect.ts";
+
+export {
+  ALLOWED_DELAY_ONLY,
+  ALLOWED_DLL_IMPORTS,
+  GLIBC_FLOOR,
+  formatPortabilityViolationTable,
+  glibcVersionAboveFloor,
+  parseGlibcSymbolViolations,
+  parseLibatomicLines,
+  parsePeImports,
+  peImportViolations,
+  type GlibcSymbolViolation,
+  type PeImport,
+  type PeImportKind,
+} from "./bun-binary-portability.ts";
+
+export { runWebGlobalsContractProbes, type WebGlobalsProbeResult } from "./bun-web-globals-contract.ts";
+
+export {
+  BUN_UPSTREAM_CLI_SECTIONS,
+  BUN_UPSTREAM_HARNESS_PATH,
+  BUN_UPSTREAM_TEST_CLI_TREE_URL,
+  BUN_UPSTREAM_TEST_COMMIT,
+  BUN_UPSTREAM_TEST_REFS,
+  BUN_UPSTREAM_TEST_TREE_URL,
+  buildUpstreamCliSectionRows,
+  buildUpstreamTestRefRows,
+  upstreamBlobUrl,
+  upstreamTreeUrl,
+  type BunUpstreamCliSection,
+  type BunUpstreamTestRef,
+  type BunUpstreamTestRefId,
+} from "./bun-upstream-test-refs.ts";
+
+/** @deprecated Use {@link BUN_RELEASE}.blogUrl — removed after next toolchain bump */
+export { BUN_RELEASE_1_3_6_URL } from "./bun-release-registry.ts";
+/** @deprecated Use {@link BUN_RELEASE} fields — removed after next toolchain bump */
+export {
+  BUN_RELEASE_1_3_6_COMMIT_HASH,
+  BUN_RELEASE_1_3_6_COMMIT_URL,
+  BUN_RELEASE_1_3_6_MARKDOWN_ALT,
+  BUN_RELEASE_1_3_6_OG_IMAGE,
+  BUN_RELEASE_1_3_6_PUBLISHED,
+  BUN_RELEASE_1_3_6_TAG,
+} from "./bun-release-registry.ts";
 
 /** Read the pinned Bun version from `.bun-version` if present. */
 export async function readPinnedBunVersion(projectRoot = process.cwd()): Promise<string | null> {

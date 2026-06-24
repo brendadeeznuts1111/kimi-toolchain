@@ -135,6 +135,20 @@ test:shard    ──► full discovery, one CI slice
 
 ---
 
+## Name filter (`--grep`)
+
+Bun >= 1.3.6 adds `--grep` as an alias for `--test-name-pattern` (same as Jest/Mocha `-t`):
+
+```bash
+bun test --grep "archive round-trip"
+bun test --test-name-pattern "archive round-trip"
+bun test -t "archive round-trip"
+```
+
+Use with an explicit file path for fast TDD loops. Tier scripts (`test:fast`, `test:changed`) do not pass `--grep` — add it manually when debugging a single `describe` or `test` name inside a known file.
+
+---
+
 ## Agent decision table
 
 | If you need…                                    | Use                                      |
@@ -146,6 +160,7 @@ test:shard    ──► full discovery, one CI slice
 | Simulate or run one CI shard                    | `BUN_TEST_SHARD=2/4 bun run test:shard`  |
 | Full tier chain (unit → integration → smoke)    | `bun run test`                           |
 | Single file debug                               | `bun test ./test/foo.unit.test.ts`       |
+| Filter by test/describe name (Bun >= 1.3.6)     | `bun test --grep "should handle"`        |
 | Contract constants and flag compositions        | `src/lib/test-runtime.ts` (`BUN_TEST_*`) |
 
 ---

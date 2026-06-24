@@ -539,12 +539,31 @@ export async function apiBunfig(): Promise<Response> {
       return jsonResponse({ error: "No bunfig.toml found" });
     }
     const raw = await file.text();
-    const parsed = Bun.TOML.parse(raw);
+    const parsed = Bun.TOML.parse(raw) as { install?: Record<string, unknown> };
+    const { readMachineInstallSsot, buildSsotSummary } =
+      await import("../../../../src/lib/machine-bun-ssot.ts");
+    const { readUserBunfigInstall } = await import("../../../../src/lib/bunfig-redundancy.ts");
+    const machine = await readUserBunfigInstall();
+    const ssotEntries = await readMachineInstallSsot(
+      (parsed.install as import("../../../../src/lib/bun-install-config.ts").BunfigInstallSection) ??
+        null
+    );
+    const ssot = buildSsotSummary(ssotEntries);
     return jsonResponse({
       path: "./bunfig.toml",
       sections: parsed,
+      machineBunfigPath: machine.bunfigPath,
+      effectiveInstall: {
+        linker: ssot.linker.effective,
+        globalStore: ssot.globalStore.effective,
+        cacheDir: ssot.cacheDir.effective,
+      },
+      ssot,
+      inherited: ssotEntries
+        .filter((entry) => entry.status === "inherited")
+        .map((entry) => entry.note),
       mergeRule:
-        "global (~/.bunfig.toml) → project (./bunfig.toml) shallow merge → CLI flags override",
+        "machine (~/.bunfig.toml) → project (./bunfig.toml) shallow merge → CLI flags override",
       import: 'import bunfig from "./bunfig.toml" with { type: "toml" };',
     });
   } catch (e) {

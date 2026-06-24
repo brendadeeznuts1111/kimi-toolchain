@@ -11,7 +11,7 @@
  * Regression: `bun run lint:defines` validates that every `[define]` value is valid JSON.
  *
  * @see bunfig.toml `[define]`
- * @see https://bun.com/docs/guides/runtime/build-time-constants
+ * @see https://bun.com/guides/runtime/build-time-constants
  * @see scripts/lint-build-constants.ts
  * @see test/build-constants.unit.test.ts
  * @see CODE_REFERENCES.md § Build-time constants

@@ -1,6 +1,12 @@
 import { describe, test, expect } from "bun:test";
 import { Effect } from "effect";
 import { Identity, IdentityTest } from "../src/lib/effect/identity-service.ts";
+import {
+  MOCK_CLOCK_EPOCH,
+  advanceSystemTime,
+  utcSeconds,
+  withSystemTime,
+} from "./helpers/mock-clock.ts";
 
 const TEST_JWT_SECRET = "test-jwt-secret-for-pairing";
 const TEST_CSRF_SECRET = "test-csrf-secret-for-pairing";
@@ -85,38 +91,41 @@ describe("identity-pairing", () => {
 
 describe("identity-service > JWT edge cases", () => {
   test("signToken with nbf in future fails verification", async () => {
-    await run(
-      Effect.gen(function* () {
-        const identity = yield* Identity;
+    await withSystemTime(MOCK_CLOCK_EPOCH, async () => {
+      await run(
+        Effect.gen(function* () {
+          const identity = yield* Identity;
 
-        const futureNbf = Math.floor(Date.now() / 1000) + 3600;
-        const token = yield* identity.signToken({
-          sub: "user1",
-          nbf: futureNbf,
-        });
+          const futureNbf = utcSeconds() + 3600;
+          const token = yield* identity.signToken({
+            sub: "user1",
+            nbf: futureNbf,
+          });
 
-        const result = yield* Effect.either(identity.verifyToken(token));
+          const result = yield* Effect.either(identity.verifyToken(token));
 
-        expect(result._tag).toBe("Left");
-      })
-    );
+          expect(result._tag).toBe("Left");
+        })
+      );
+    });
   });
 
   test("signToken with very short TTL expires immediately", async () => {
-    await run(
-      Effect.gen(function* () {
-        const identity = yield* Identity;
+    await withSystemTime(MOCK_CLOCK_EPOCH, async () => {
+      await run(
+        Effect.gen(function* () {
+          const identity = yield* Identity;
 
-        const token = yield* identity.signToken({ sub: "user1" }, { ttlSeconds: 1 });
+          const token = yield* identity.signToken({ sub: "user1" }, { ttlSeconds: 1 });
 
-        // Wait 1.1 seconds for expiry
-        yield* Effect.sleep("1.1 seconds");
+          advanceSystemTime(1100, MOCK_CLOCK_EPOCH.getTime());
 
-        const result = yield* Effect.either(identity.verifyToken(token));
+          const result = yield* Effect.either(identity.verifyToken(token));
 
-        expect(result._tag).toBe("Left");
-      })
-    );
+          expect(result._tag).toBe("Left");
+        })
+      );
+    });
   });
 
   test("decodeToken succeeds on valid token without verification", async () => {

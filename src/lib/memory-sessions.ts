@@ -11,6 +11,7 @@ import {
   type ImpactResult,
 } from "./sessions-schema.ts";
 import { memoryDir, varDir } from "./paths.ts";
+import { startDelayedIntervalLoop, stopDelayedIntervalLoop } from "./bun-utils.ts";
 
 const MEMORY_DIR = memoryDir();
 const VAR_DIR = varDir();
@@ -406,15 +407,15 @@ export function getStats(): {
 
 // ── Auto-Save Integration ────────────────────────────────────────────
 
-let _autoSaveInterval: ReturnType<typeof setInterval> | null = null;
+let _autoSaveLoop: AbortController | null = null;
 
 export async function startAutoSave(projectPath: string, intervalMs = 120000) {
-  if (_autoSaveInterval) clearInterval(_autoSaveInterval);
+  stopAutoSave();
 
   const project = await getProjectName(projectPath);
   const id = randomUUIDv7();
 
-  _autoSaveInterval = setInterval(async () => {
+  _autoSaveLoop = startDelayedIntervalLoop(intervalMs, async () => {
     const { $ } = await import("bun");
     let gitHead = "";
     let lockfileHash = "";
@@ -451,14 +452,12 @@ export async function startAutoSave(projectPath: string, intervalMs = 120000) {
       keyDecisions: [],
       status: "active",
     });
-  }, intervalMs);
+  });
 
   return id;
 }
 
 export function stopAutoSave() {
-  if (_autoSaveInterval) {
-    clearInterval(_autoSaveInterval);
-    _autoSaveInterval = null;
-  }
+  stopDelayedIntervalLoop(_autoSaveLoop);
+  _autoSaveLoop = null;
 }

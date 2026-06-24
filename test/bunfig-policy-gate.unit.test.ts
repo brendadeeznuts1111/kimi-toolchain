@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
-import { writeText } from "../src/lib/bun-io.ts";
+import { makeDir, writeText } from "../src/lib/bun-io.ts";
 import { bunfigPolicyGate, formatBunfigPolicyGate } from "../src/gates/index.ts";
 import {
   CLEAN_INSTALL_AUDIT_ENV,
@@ -8,6 +8,8 @@ import {
   spawnCaptured,
   testTempDir,
   withEnv,
+  seedMachineBunfigSsot,
+  withIsolatedHome,
 } from "./helpers.ts";
 import { pathExists } from "../src/lib/bun-io.ts";
 import { bunfigPolicyGateDefinition, runBunfigPolicyGate } from "../src/gates/bunfig-policy.ts";
@@ -24,8 +26,6 @@ frozenLockfile = true
 exact = false
 ignoreScripts = false
 concurrentScripts = 8
-linker = "isolated"
-globalStore = true
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200
@@ -51,6 +51,13 @@ function writeSecureProject(dir: string, bunfig = SECURE_BUNFIG): void {
 
 const CLEAN_ENV = CLEAN_INSTALL_AUDIT_ENV;
 
+function withIsolatedCleanInstall<T>(fn: () => T | Promise<T>): T | Promise<T> {
+  return withIsolatedHome((home) => {
+    seedMachineBunfigSsot(home);
+    return withEnv({ ...CLEAN_ENV, HOME: home }, fn);
+  });
+}
+
 /** Spawn-heavy kimi-doctor invocations need headroom under parallel pre-push gates. */
 const SPAWN_TEST_TIMEOUT_MS = 60_000;
 
@@ -59,11 +66,19 @@ describe("bunfig-policy-gate", () => {
     const dir = testTempDir("bunfig-policy-pass-");
     writeSecureProject(dir);
 
-    await withEnv(CLEAN_ENV, async () => {
+    await withIsolatedCleanInstall(async () => {
       const result = await bunfigPolicyGate(dir);
       expect(result.status).toBe("pass");
       expect(result.summary.frozenLockfile).toBe(true);
       expect(result.summary.minimumReleaseAge).toBe(259200);
+      expect(result.summary.linker).toBe("isolated");
+      expect(result.inherited.some((n) => n.includes("[install].linker"))).toBe(true);
+      expect(result.summary.ssot.linker.status).toBe("inherited");
+      expect(result.summary.globalStore).toBe("true");
+      expect(result.summary.cacheDir).toBeTruthy();
+      expect(
+        formatBunfigPolicyGate(result).some((line) => line.includes("isolated (inherited)"))
+      ).toBe(true);
       expect(formatBunfigPolicyGate(result)[0]).toContain("pass: bunfig-policy");
     });
   });
@@ -75,7 +90,7 @@ describe("bunfig-policy-gate", () => {
       SECURE_BUNFIG.replace("frozenLockfile = true", "frozenLockfile = false")
     );
 
-    await withEnv(CLEAN_ENV, async () => {
+    await withIsolatedCleanInstall(async () => {
       const result = await bunfigPolicyGate(dir);
       expect(result.status).toBe("fail");
       expect(result.failures.some((line) => line.includes("frozenLockfile"))).toBe(true);
@@ -86,7 +101,7 @@ describe("bunfig-policy-gate", () => {
     const dir = testTempDir("bunfig-policy-warn-");
     writeSecureProject(dir, SECURE_BUNFIG.replace("minimumReleaseAge = 259200\n", ""));
 
-    await withEnv(CLEAN_ENV, async () => {
+    await withIsolatedCleanInstall(async () => {
       const result = await bunfigPolicyGate(dir);
       expect(result.status).toBe("warn");
       expect(result.warnings.some((line) => line.includes("minimumReleaseAge"))).toBe(true);
@@ -109,11 +124,58 @@ describe("bunfig-policy-gate", () => {
       )
     );
 
-    await withEnv(CLEAN_ENV, async () => {
+    await withIsolatedCleanInstall(async () => {
       const result = await bunfigPolicyGate(dir);
       expect(result.status).toBe("fail");
       expect(result.failures.some((line) => line.includes("packageManager"))).toBe(true);
       expect(result.failures.some((line) => line.includes("engines.bun"))).toBe(true);
+    });
+  });
+
+  test("passes when project omits linker/globalStore inherited from machine SSOT", async () => {
+    const dir = testTempDir("bunfig-policy-ssot-");
+    const home = testTempDir("bunfig-policy-ssot-home-");
+    writeSecureProject(
+      dir,
+      SECURE_BUNFIG.replace('linker = "isolated"\n', "").replace("globalStore = true\n", "")
+    );
+
+    seedMachineBunfigSsot(home, "/tmp/bunfig-policy-ssot-cache");
+
+    await withEnv({ ...CLEAN_ENV, HOME: home }, async () => {
+      const result = await bunfigPolicyGate(dir);
+      expect(result.status).toBe("pass");
+      expect(result.inherited.some((n) => n.includes("[install].linker"))).toBe(true);
+      expect(result.inherited.some((n) => n.includes("[install].globalStore"))).toBe(true);
+      expect(result.warnings.some((w) => w.includes("[install].linker is unset"))).toBe(false);
+      expect(result.warnings.some((w) => w.startsWith("linker unset"))).toBe(false);
+    });
+  });
+
+  test("fails when machine ~/.bunfig.toml linker drifts", async () => {
+    const dir = testTempDir("bunfig-policy-machine-");
+    const home = testTempDir("bunfig-policy-machine-home-");
+    writeSecureProject(dir);
+
+    writeText(
+      join(home, ".bunfig.toml"),
+      `[install]
+linker = "hoisted"
+globalStore = true
+minimumReleaseAge = 259200
+
+[install.cache]
+dir = "/tmp/machine-bunfig-policy-cache"
+`
+    );
+    makeDir(join(home, ".config/shell"), { recursive: true });
+    writeText(join(home, ".config/shell/path.sh"), "# path\n");
+
+    await withEnv({ ...CLEAN_ENV, HOME: home }, async () => {
+      const result = await bunfigPolicyGate(dir);
+      expect(result.machine.applicable).toBe(true);
+      expect(result.status).toBe("fail");
+      expect(result.failures.some((line) => line.includes("machine.linker"))).toBe(true);
     });
   });
 
@@ -132,7 +194,9 @@ describe("bunfig-policy-gate", () => {
     "kimi-doctor --gate bunfig-policy returns pass via dependency runner",
     async () => {
       const dir = testTempDir("bunfig-policy-cli-");
+      const home = testTempDir("bunfig-policy-cli-home-");
       writeSecureProject(dir);
+      seedMachineBunfigSsot(home);
 
       const result = await spawnCaptured(
         [
@@ -145,7 +209,7 @@ describe("bunfig-policy-gate", () => {
           dir,
           "--json",
         ],
-        { cwd: join(import.meta.dir, ".."), env: CLEAN_ENV }
+        { cwd: join(import.meta.dir, ".."), env: { ...CLEAN_ENV, HOME: home } }
       );
 
       expect(result.exitCode).toBe(0);
@@ -165,7 +229,9 @@ describe("bunfig-policy-gate", () => {
     "kimi-doctor accepts --gate=bunfig-policy form",
     async () => {
       const dir = testTempDir("bunfig-policy-cli-eq-");
+      const home = testTempDir("bunfig-policy-cli-eq-home-");
       writeSecureProject(dir);
+      seedMachineBunfigSsot(home);
 
       const result = await spawnCaptured(
         [
@@ -177,7 +243,7 @@ describe("bunfig-policy-gate", () => {
           dir,
           "--json",
         ],
-        { cwd: join(import.meta.dir, ".."), env: CLEAN_ENV }
+        { cwd: join(import.meta.dir, ".."), env: { ...CLEAN_ENV, HOME: home } }
       );
 
       expect(result.exitCode).toBe(0);
@@ -203,16 +269,19 @@ describe("bunfig-policy-gate", () => {
     const dir = testTempDir("bunfig-policy-artifact-");
     writeSecureProject(dir);
 
-    await withEnv(CLEAN_ENV, async () => {
-      const { results } = await runGatesWithDependencies([bunfigPolicyGateDefinition], {
-        projectRoot: dir,
-        saveArtifact: true,
+    await withIsolatedHome(async (home) => {
+      seedMachineBunfigSsot(home);
+      await withEnv({ ...CLEAN_ENV, HOME: home }, async () => {
+        const { results } = await runGatesWithDependencies([bunfigPolicyGateDefinition], {
+          projectRoot: dir,
+          saveArtifact: true,
+        });
+        const result = results[0];
+        expect(result?.status).toBe("pass");
+        expect(result?.artifactPath).toBeTruthy();
+        expect(pathExists(result!.artifactPath!)).toBe(true);
+        expect(result!.artifactPath).toContain(join(dir, ".kimi", "artifacts", "bunfig-policy"));
       });
-      const result = results[0];
-      expect(result?.status).toBe("pass");
-      expect(result?.artifactPath).toBeTruthy();
-      expect(pathExists(result!.artifactPath!)).toBe(true);
-      expect(result!.artifactPath).toContain(join(dir, ".kimi", "artifacts", "bunfig-policy"));
     });
   });
 
@@ -220,7 +289,9 @@ describe("bunfig-policy-gate", () => {
     "kimi-doctor --save-artifact persists gate JSON",
     async () => {
       const dir = testTempDir("bunfig-policy-artifact-cli-");
+      const home = testTempDir("bunfig-policy-artifact-cli-home-");
       writeSecureProject(dir);
+      seedMachineBunfigSsot(home);
 
       const result = await spawnCaptured(
         [
@@ -234,7 +305,7 @@ describe("bunfig-policy-gate", () => {
           dir,
           "--json",
         ],
-        { cwd: join(import.meta.dir, ".."), env: CLEAN_ENV }
+        { cwd: join(import.meta.dir, ".."), env: { ...CLEAN_ENV, HOME: home } }
       );
 
       expect(result.exitCode).toBe(0);
@@ -253,7 +324,9 @@ describe("bunfig-policy-gate", () => {
     "kimi-doctor --artifacts-list and --artifacts-latest inspect saved runs",
     async () => {
       const dir = testTempDir("bunfig-policy-artifacts-cli-");
+      const home = testTempDir("bunfig-policy-artifacts-cli-home-");
       writeSecureProject(dir);
+      seedMachineBunfigSsot(home);
 
       const run = await spawnCaptured(
         [
@@ -266,7 +339,7 @@ describe("bunfig-policy-gate", () => {
           "--project-root",
           dir,
         ],
-        { cwd: join(import.meta.dir, ".."), env: CLEAN_ENV }
+        { cwd: join(import.meta.dir, ".."), env: { ...CLEAN_ENV, HOME: home } }
       );
       expect(run.exitCode).toBe(0);
 

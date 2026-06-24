@@ -10,10 +10,11 @@ import {
 } from "../data/data.ts";
 import { createDashboardEventBus, type DashboardEventBus } from "../bus.ts";
 import { HerdrDashboardDiscoveryCache, type DashboardCacheStats } from "../discovery/cache.ts";
+import { sleepAbortable } from "../../bun-utils.ts";
 import { startDashboardCron } from "../cron.ts";
 import { Logger } from "../../logger.ts";
 
-/** Default SSE poll interval in milliseconds. Bun.cron rounds to whole minutes; sub-minute intervals use setInterval. */
+/** Default SSE poll interval in milliseconds. Bun.cron rounds to whole minutes; sub-minute intervals use Bun.sleep. */
 export const DASHBOARD_SSE_INTERVAL_MS = 5000;
 export const DASHBOARD_STALE_MS = 15_000;
 
@@ -269,12 +270,25 @@ export class HerdrDashboardHub {
 
   createAgentsLiveStream(): ReadableStream<Uint8Array> {
     let active: SseController | null = null;
-    let keepAlive: Timer | null = null;
+    let keepAlive: AbortController | null = null;
     return new ReadableStream<Uint8Array>({
       start: (controller) => {
         active = controller;
         this.subscribers.add(controller);
-        keepAlive = setInterval(() => this.enqueueKeepAlive(controller), 5000);
+        const keepAliveLoop = new AbortController();
+        keepAlive = keepAliveLoop;
+        void (async () => {
+          const { signal } = keepAliveLoop;
+          while (!signal.aborted) {
+            try {
+              await sleepAbortable(5000, signal);
+            } catch {
+              return;
+            }
+            if (signal.aborted) return;
+            this.enqueueKeepAlive(controller);
+          }
+        })();
         if (this.lastPayloadField) {
           this.enqueuePayload(controller, this.lastPayloadField);
           return;
@@ -288,7 +302,8 @@ export class HerdrDashboardHub {
         });
       },
       cancel: () => {
-        if (keepAlive) clearInterval(keepAlive);
+        keepAlive?.abort();
+        keepAlive = null;
         if (!active) return;
         this.subscribers.delete(active);
       },

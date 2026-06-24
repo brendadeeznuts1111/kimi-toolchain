@@ -1,4 +1,4 @@
-import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, mock, jest } from "bun:test";
 import {
   buildCronSchedule,
   startDashboardCron,
@@ -35,11 +35,7 @@ describe("herdr-dashboard-cron", () => {
       callback: () => void | Promise<void>;
       stop: ReturnType<typeof mock>;
     }> = [];
-
-    const originalSetInterval = globalThis.setInterval;
-    const originalClearInterval = globalThis.clearInterval;
-    const intervalTimers: Array<{ ms: number; callback: () => void; id: number }> = [];
-    let nextTimerId = 1;
+    const activeHandles: Array<{ stop: () => void }> = [];
 
     const originalOnce = process.once;
     const originalOff = process.off;
@@ -48,8 +44,7 @@ describe("herdr-dashboard-cron", () => {
 
     beforeEach(() => {
       cronJobs.length = 0;
-      intervalTimers.length = 0;
-      nextTimerId = 1;
+      activeHandles.length = 0;
       sigtermListeners.length = 0;
       sigintListeners.length = 0;
 
@@ -58,17 +53,6 @@ describe("herdr-dashboard-cron", () => {
         cronJobs.push(job);
         return job;
       }) as unknown as typeof Bun.cron;
-
-      globalThis.setInterval = ((callback: () => void, ms?: number) => {
-        const id = nextTimerId++;
-        intervalTimers.push({ ms: ms ?? 0, callback, id });
-        return id as unknown as ReturnType<typeof setInterval>;
-      }) as typeof setInterval;
-
-      globalThis.clearInterval = ((id: number) => {
-        const idx = intervalTimers.findIndex((timer) => timer.id === id);
-        if (idx >= 0) intervalTimers.splice(idx, 1);
-      }) as typeof clearInterval;
 
       process.once = ((event: string, listener: () => void) => {
         if (event === "SIGTERM") sigtermListeners.push(listener);
@@ -85,32 +69,36 @@ describe("herdr-dashboard-cron", () => {
     });
 
     afterEach(() => {
+      for (const handle of activeHandles.splice(0)) {
+        handle.stop();
+      }
+      jest.useRealTimers();
       bunRef.cron = originalCron;
-      globalThis.setInterval = originalSetInterval;
-      globalThis.clearInterval = originalClearInterval;
       process.once = originalOnce;
       process.off = originalOff;
     });
 
-    test("uses setInterval for sub-minute poll intervals", () => {
+    test("uses Bun.sleep loop for sub-minute poll intervals", () => {
+      jest.useFakeTimers();
       const refresh = mock(() => Promise.resolve());
       const logger = { debug: mock(() => {}), info: mock(() => {}) };
 
-      startDashboardCron({ ssePollMs: 5000, refresh, logger });
+      activeHandles.push(startDashboardCron({ ssePollMs: 5000, refresh, logger }));
 
-      expect(intervalTimers).toHaveLength(1);
-      expect(intervalTimers[0]?.ms).toBe(5000);
+      expect(jest.getTimerCount()).toBeGreaterThan(0);
       expect(cronJobs).toHaveLength(0);
     });
 
-    test("interval callback invokes refresh", async () => {
+    test("sleep loop invokes refresh after initial delay", async () => {
+      jest.useFakeTimers();
       const refresh = mock(() => Promise.resolve());
       const logger = { debug: mock(() => {}), info: mock(() => {}) };
 
-      startDashboardCron({ ssePollMs: 5000, refresh, logger });
+      activeHandles.push(startDashboardCron({ ssePollMs: 5000, refresh, logger }));
       expect(refresh).not.toHaveBeenCalled();
 
-      await intervalTimers[0]?.callback();
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
       expect(refresh).toHaveBeenCalledTimes(1);
     });
 
@@ -118,25 +106,30 @@ describe("herdr-dashboard-cron", () => {
       const refresh = mock(() => Promise.resolve());
       const logger = { debug: mock(() => {}), info: mock(() => {}) };
 
-      startDashboardCron({ ssePollMs: DASHBOARD_CRON_MIN_MS, refresh, logger });
+      activeHandles.push(startDashboardCron({ ssePollMs: DASHBOARD_CRON_MIN_MS, refresh, logger }));
 
       expect(cronJobs).toHaveLength(1);
       expect(cronJobs[0]?.schedule).toBe("*/1 * * * *");
-      expect(intervalTimers).toHaveLength(0);
     });
 
-    test("dispose stops interval timers and removes signal listeners", () => {
+    test("dispose stops sleep loops and removes signal listeners", async () => {
+      jest.useFakeTimers();
       const refresh = mock(() => Promise.resolve());
       const logger = { debug: mock(() => {}), info: mock(() => {}) };
 
       const disposable = startDashboardCron({ ssePollMs: 5000, refresh, logger });
-      const timerId = intervalTimers[0]?.id;
       expect(sigtermListeners).toHaveLength(1);
       expect(sigintListeners).toHaveLength(1);
 
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+      const callsBeforeDispose = refresh.mock.calls.length;
+
       disposable[Symbol.dispose]();
 
-      expect(intervalTimers.find((timer) => timer.id === timerId)).toBeUndefined();
+      jest.advanceTimersByTime(5000);
+      await Promise.resolve();
+      expect(refresh.mock.calls.length).toBe(callsBeforeDispose);
       expect(sigtermListeners).toHaveLength(0);
       expect(sigintListeners).toHaveLength(0);
     });

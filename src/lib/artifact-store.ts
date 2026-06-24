@@ -8,7 +8,7 @@
  * @see examples/artifact-trading-loop.md — L2 feedback loop demo
  */
 import { join } from "path";
-import { bunVersion, runtimeHostname } from "./bun-utils.ts";
+import { bunVersion, runtimeHostname, utf8ByteLength } from "./bun-utils.ts";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
 import { GATE_LEVEL_PRUNE_MS } from "../gates/types.ts";
 import { generateArtifactLineageMermaid, generateRunLineageMermaid } from "./graph-to-mermaid.ts";
@@ -851,7 +851,7 @@ export class ArtifactStore {
     }
     const relativePath = this.relativePath(path);
     const savedAt = new Date().toISOString();
-    const resultSize = new TextEncoder().encode(JSON.stringify(payload)).length;
+    const resultSize = utf8ByteLength(JSON.stringify(payload));
     const contentHash = computeArtifactContentHash(payload);
 
     let lineageMermaid = meta?.lineageMermaid;
@@ -882,7 +882,7 @@ export class ArtifactStore {
       payload,
     };
     const text = JSON.stringify(envelopeWithoutSize, null, 2);
-    const size = new TextEncoder().encode(text).length;
+    const size = utf8ByteLength(text);
     const envelope: ArtifactEnvelope = { ...envelopeWithoutSize, size };
     await Bun.write(path, JSON.stringify(envelope, null, 2));
     this.index.indexEnvelope(envelope, relativePath, path, contentHash);
@@ -901,7 +901,7 @@ export class ArtifactStore {
       resultSize:
         typeof envelope.metadata?.resultSize === "number"
           ? envelope.metadata.resultSize
-          : new TextEncoder().encode(JSON.stringify(envelope.payload)).length,
+          : utf8ByteLength(JSON.stringify(envelope.payload)),
       ...envelope.metadata,
       lineage,
     };
@@ -914,7 +914,7 @@ export class ArtifactStore {
       payload: envelope.payload,
     };
     const text = JSON.stringify(updated, null, 2);
-    const size = new TextEncoder().encode(text).length;
+    const size = utf8ByteLength(text);
     const absolutePath = join(this.projectRoot, relativePath);
     const newEnvelope: ArtifactEnvelope = { ...updated, size };
     await Bun.write(absolutePath, JSON.stringify(newEnvelope, null, 2));
@@ -1248,7 +1248,7 @@ export class ArtifactStore {
     const absolutePath = absoluteArtifactPath(this.projectRoot, relativePath);
     if (!pathExists(absolutePath)) return {};
     const text = await Bun.file(absolutePath).text();
-    return { size: new TextEncoder().encode(text).length };
+    return { size: utf8ByteLength(text) };
   }
 
   /** Newest artifact for a gate, or null when the directory is empty. */

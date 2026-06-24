@@ -98,7 +98,7 @@ bash scripts/install-bin-wrappers.sh
 
 | Concern                 | Command                                       | Notes                                                                                 |
 | ----------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Reproducible CI install | `bun ci`                                      | Frozen lockfile — same as `bun install --frozen-lockfile`                             |
+| Reproducible CI install | `bun ci`                                      | Frozen lockfile — `.github/actions/setup` and `~/projects` GHA workflows use this     |
 | Workspace members       | `bun pm ls --all`                             | `examples/*` registered; e.g. `kimi-toolchain-dashboard@workspace:examples/dashboard` |
 | Scoped install          | `bun install --filter './examples/dashboard'` | One example workspace without reinstalling siblings                                   |
 | Built-in trust list     | `bun pm default-trusted`                      | 367 packages allowed to run dependency lifecycle scripts                              |
@@ -106,6 +106,20 @@ bash scripts/install-bin-wrappers.sh
 | Explicit trust          | `bun pm trust <pkg>`                          | For packages not on Bun’s default list                                                |
 
 Path A workspaces: `"workspaces": ["examples/*"]` in root `package.json`; dashboard consumes root via `"kimi-toolchain": "file:../.."`. Policy SSOT: `src/lib/bun-install-config.ts`; reference: `docs/references/bun-runtime-scaffold.md`.
+
+#### Machine Bun policy (`~` layer)
+
+Developer Macs use `~/.bunfig.toml` as install SSOT. Full matrix: `~/projects/docs/UNIFIED.md`.
+
+| Layer       | File                                                | Role                                                                                       |
+| ----------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Config SSOT | `~/.bunfig.toml`                                    | `linker = "isolated"`, `globalStore = true`, `frozenLockfile = true`, absolute `cache.dir` |
+| Shell       | `~/.config/shell/{path,bun,interactive,aliases}.sh` | PATH, `BUN_INSTALL`, `bun_verify`, aliases — **no** `BUN_INSTALL_GLOBAL_STORE`             |
+| Verify      | `bverify`, `bmachine`, `machine-bun.ts`             | Runtime + policy gates before monorepo work                                                |
+
+**kimi-toolchain `bunfig.toml`:** inherits machine install defaults; keeps project `[test]`, `[define]`, `frozenLockfile`, `globalDir`/`globalBinDir` — does not restate `linker`/`globalStore`/`cache.dir`.
+
+**New workspace template:** `templates/scaffold/bunfig.toml` — strip machine keys; set `frozenLockfile = false` when machine default is `true`.
 
 #### Workspace install verification
 

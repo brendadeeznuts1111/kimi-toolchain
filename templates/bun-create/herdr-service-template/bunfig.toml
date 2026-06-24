@@ -9,9 +9,7 @@ saveTextLockfile = true
 ignoreScripts = false
 minimumReleaseAge = 259200
 
-# Isolated linker: dramatically faster in peer-heavy monorepos.
-linker = "isolated"
-globalStore = true
+# linker, globalStore, cache.dir — inherit from ~/.bunfig.toml when present
 
 [run]
 noOrphans = true

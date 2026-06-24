@@ -14,6 +14,7 @@ import { readableStreamToText } from "./bun-utils.ts";
 import { auditHardcodedSecretsInGlob } from "./hardcoded-secret-audit.ts";
 import { auditSecretLeaksInGlob } from "../doctor/secret-audit.ts";
 import { TEMPLATE_MARKERS } from "./scaffold-templates.ts";
+import { safeJsonc } from "./utils.ts";
 
 export interface TemplatePolicyViolation {
   file: string;
@@ -42,10 +43,8 @@ export interface TemplatePolicyAuditResult {
 const REQUIRED_INSTALL_FIELDS = [
   { key: "trustedDependencies", pattern: /trustedDependencies\s*=\s*\[\]/ },
   { key: "ignoreScripts", pattern: /ignoreScripts\s*=\s*false/ },
-  { key: "frozenLockfile", pattern: /frozenLockfile\s*=\s*true/ },
+  { key: "frozenLockfile", pattern: /frozenLockfile\s*=\s*(?:true|false)/ },
   { key: "saveTextLockfile", pattern: /saveTextLockfile\s*=\s*true/ },
-  { key: "linker", pattern: /linker\s*=\s*"isolated"/ },
-  { key: "globalStore", pattern: /globalStore\s*=\s*true/ },
   { key: "minimumReleaseAge", pattern: /minimumReleaseAge\s*=\s*259200/ },
 ] as const;
 
@@ -345,13 +344,12 @@ export async function auditTemplateTsconfigs(root: string): Promise<TemplatePoli
   const violations: TemplatePolicyViolation[] = [];
   for (const path of collectTemplateTsconfigs(root)) {
     const relPath = rel(root, path);
-    let parsed: { compilerOptions?: Record<string, unknown>; include?: string[] };
-    try {
-      parsed = (await Bun.file(path).json()) as {
-        compilerOptions?: Record<string, unknown>;
-        include?: string[];
-      };
-    } catch {
+    const text = await Bun.file(path).text();
+    const parsed = safeJsonc<{
+      compilerOptions?: Record<string, unknown>;
+      include?: string[];
+    } | null>(text, null);
+    if (!parsed) {
       violations.push({
         file: relPath,
         field: "tsconfig",

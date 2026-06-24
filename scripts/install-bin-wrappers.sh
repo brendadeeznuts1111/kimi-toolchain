@@ -8,7 +8,15 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 mkdir -p "$BIN_DIR"
 
-BUN="$(command -v bun || echo bun)"
+# Prefer stable install path — avoid ephemeral /private/tmp/bun-node-* from command -v
+BUN="${BUN_INSTALL:-${HOME}/.bun}/bin/bun"
+if [[ ! -x "${BUN}" ]]; then
+  BUN="$(command -v bun || true)"
+fi
+if [[ -z "${BUN}" || ! -x "${BUN}" ]]; then
+  echo "❌ bun not found; set BUN_INSTALL or add ~/.bun/bin to PATH" >&2
+  exit 1
+fi
 META="kimi-toolchain"
 META_SCRIPT="${TOOLS_DIR}/${META}.ts"
 

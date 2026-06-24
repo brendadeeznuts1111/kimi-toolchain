@@ -3,6 +3,7 @@
  */
 
 import { Data, Effect } from "effect";
+import { decodeHex, encodeHex } from "./bun-utils.ts";
 import { makeDir, pathExists } from "./bun-io.ts";
 import { dirname, extname, join, relative } from "path";
 import yaml from "js-yaml";
@@ -150,7 +151,7 @@ export async function signContract(
     schemaVersion: 1,
     algorithm: "ed25519",
     keyId,
-    signatureHex: bytesToHex(signature),
+    signatureHex: encodeHex(signature),
     payloadSha256,
     signedAt: new Date().toISOString(),
   };
@@ -346,7 +347,7 @@ async function verifyWithTrustedKeys(
     return a.localeCompare(b);
   });
   const payload = new TextEncoder().encode(normalized);
-  const signatureBytes = hexToBytes(signature.signatureHex);
+  const signatureBytes = decodeHex(signature.signatureHex);
   for (const [keyId, trusted] of candidates) {
     try {
       const publicKey = await importEd25519PublicKey(trusted.publicKey);
@@ -453,19 +454,4 @@ function mapContractCause(path: string, cause: unknown): ContractError {
     path,
     message: cause instanceof Error ? cause.message : Bun.inspect(cause),
   });
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function hexToBytes(hex: string): Uint8Array {
-  if (!/^[0-9a-f]*$/i.test(hex) || hex.length % 2 !== 0) {
-    throw new Error("invalid hex signature");
-  }
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let index = 0; index < bytes.length; index++) {
-    bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
-  }
-  return bytes;
 }

@@ -2,17 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { Glob } from "bun";
 import { auditImageAssets, auditImageFile } from "../lib/image-audit.ts";
-import { imageMetadata } from "../lib/bun-image.ts";
+import { imageMetadata, TINY_PNG } from "../lib/bun-image.ts";
 import { shannonEntropy } from "./entropy.ts";
 import { cleanupPath, testTempDir } from "../../test/helpers.ts";
-
-// 1x1 transparent PNG (base64)
-const TINY_PNG = Uint8Array.from(
-  atob(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-  ),
-  (c) => c.charCodeAt(0)
-);
 
 describe("doctor-image-audit", () => {
   test("shannonEntropy of uniform bytes is maximal", () => {

@@ -95,6 +95,11 @@ async function main(): Promise<number> {
   const tool = args[0];
   const rest = args.slice(1);
 
+  if (tool === "restore-baseline") {
+    const script = join(REPO_BIN, "kimi-restore-baseline.ts");
+    return spawnTool(script, rest);
+  }
+
   if (tool === "cleanup") {
     const sub = rest[0];
     if (!sub || sub === "--help" || sub === "-h") {

@@ -11,6 +11,7 @@
     "CHANGELOG.md",
     ".tmp-*",
     "~/.bun",
+    ".cache",
     ".kimi-artifacts",
     ".kimi/",
     "coverage/",

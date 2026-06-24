@@ -6,10 +6,13 @@
  *   bun run scripts/sync-manifest.ts
  *   bun run scripts/sync-manifest.ts --verify
  *   bun run scripts/sync-manifest.ts --verify --json
+ *   bun run scripts/sync-manifest.ts --verify --baseline
  */
 
 import { join } from "path";
 import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
+import { dryRunRestoreBaseline, printRestoreDryRunTable } from "../src/lib/restore-baseline.ts";
+import { resolveSyncBaselineArchivePath } from "../src/lib/sync-baseline-metrics.ts";
 import { writeSyncManifest, verifySyncManifest } from "../src/lib/sync-manifest.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -20,15 +23,38 @@ function emitJson(value: unknown): void {
 
 async function main(): Promise<number> {
   const verify = Bun.argv.includes("--verify");
+  const baseline = Bun.argv.includes("--baseline");
   const json = Bun.argv.includes("--json");
 
   if (verify) {
     const report = await verifySyncManifest(REPO_ROOT);
-    if (json) {
-      emitJson(report);
-      return report.ok ? 0 : 1;
+    let baselineOk = true;
+    if (baseline) {
+      const archivePath = await resolveSyncBaselineArchivePath(REPO_ROOT);
+      if (!archivePath) {
+        baselineOk = false;
+        if (!json) console.error("✗ Baseline archive missing; run bun run sync");
+      } else {
+        const preview = await dryRunRestoreBaseline(archivePath, REPO_ROOT);
+        baselineOk = preview.ok;
+        if (!json && preview.driftRows.length > 0) {
+          printRestoreDryRunTable(preview.driftRows);
+        }
+        if (!json && baselineOk) console.log("✓ Baseline archive matches repo hashes");
+        else if (!json && !baselineOk) {
+          console.error("✗ Baseline archive drift vs repo; run bun run sync");
+        }
+      }
     }
-    if (report.ok) {
+    if (json) {
+      emitJson({
+        ...report,
+        baselineChecked: baseline,
+        baselineOk: baseline ? baselineOk : undefined,
+      });
+      return report.ok && baselineOk ? 0 : 1;
+    }
+    if (report.ok && baselineOk) {
       console.log("✓ Sync manifest hashes match repo and desktop runtime");
       return 0;
     }

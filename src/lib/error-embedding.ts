@@ -7,6 +7,7 @@
  */
 
 import type { FailureTraceRecord, TraceEvent } from "./trace-ledger.ts";
+import { decodeBase64Bytes, encodeBase64Bytes } from "./bun-utils.ts";
 
 export const EMBEDDING_DIM = KIMI_ERROR_EMBEDDING_DIM;
 
@@ -65,13 +66,11 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
 
 export function encodeEmbedding(vector: Float32Array): string {
   const bytes = new Uint8Array(vector.buffer, vector.byteOffset, vector.byteLength);
-  return btoa(String.fromCharCode(...bytes));
+  return encodeBase64Bytes(bytes);
 }
 
 export function decodeEmbedding(encoded: string): Float32Array {
-  const binary = atob(encoded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const bytes = decodeBase64Bytes(encoded);
   return new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
 }
 

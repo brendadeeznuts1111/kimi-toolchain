@@ -17,6 +17,19 @@ export const STORAGE_TIERS: readonly StorageBackend[] = [
   "env-fallback",
 ] as const;
 
+/** Whether the experimental Bun.secrets API is present in this runtime. */
+export function isBunSecretsAvailable(): boolean {
+  return typeof Bun.secrets === "object" && Bun.secrets !== null;
+}
+
+export function bunSecretsMethods(): { get: boolean; set: boolean; delete: boolean } {
+  return {
+    get: typeof Bun.secrets?.get === "function",
+    set: typeof Bun.secrets?.set === "function",
+    delete: typeof Bun.secrets?.delete === "function",
+  };
+}
+
 export interface StorageStatus {
   platform: NodeJS.Platform;
   backend: StorageBackend;

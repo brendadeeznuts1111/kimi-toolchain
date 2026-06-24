@@ -14,11 +14,14 @@ import {
 } from "./bun-image.ts";
 import { BUN_WEBVIEW_DOCS_URL } from "./webview-console.ts";
 import {
+  BUN_BINARY_DATA_CONVERSION_DOC_URL,
   BUN_DETECT_BUN_GUIDE_DOC_URL,
   BUN_VERSION_GUIDE_DOC_URL,
   bunVersion,
   detectBunRuntime,
 } from "./bun-utils.ts";
+
+export { BUN_BINARY_DATA_CONVERSION_DOC_URL };
 import { pathExists } from "./bun-io.ts";
 import { spawnBun } from "./tool-runner.ts";
 import { join } from "path";
@@ -38,7 +41,7 @@ export const BUN_HTML_STATIC_CONSOLE_DOC_URL =
 export const BUN_MARKDOWN_RUN_DOC_URL = "https://bun.com/docs/runtime/markdown.md";
 export const BUN_WRAP_ANSI_DOC_URL = "https://bun.com/docs/runtime/utils#bun-wrapansi";
 export const BUN_JSON5_DOC_URL = "https://bun.com/docs/runtime/json5#conformance";
-export const BUN_BUILD_DEFINE_DOC_URL = "https://bun.com/docs/guides/runtime/build-time-constants";
+export const BUN_BUILD_DEFINE_DOC_URL = "https://bun.com/guides/runtime/build-time-constants";
 export const BUN_CONSOLE_DOC_URL = "https://bun.com/docs/runtime/console";
 export const BUN_WEB_CRYPTO_DOC_URL =
   "https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API";
@@ -53,7 +56,7 @@ export const BUN_SLICE_ANSI_DOC_URL = "https://bun.com/docs/runtime/utils#bun-sl
 export const BUN_MODULE_RESOLUTION_DOC_URL = "https://bun.com/docs/runtime/module-resolution";
 export const BUN_BINARY_DATA_DOC_URL = "https://bun.com/docs/runtime/binary-data";
 export const BUN_WORKSPACES_DOC_URL = "https://bun.com/docs/pm/workspaces";
-export const BUN_WORKSPACES_GUIDE_DOC_URL = "https://bun.com/docs/guides/install/workspaces";
+export const BUN_WORKSPACES_GUIDE_DOC_URL = "https://bun.com/guides/install/workspaces";
 export const BUN_PM_FILTER_DOC_URL = "https://bun.com/docs/pm/filter";
 export const BUN_GLOB_PATTERNS_DOC_URL =
   "https://bun.com/docs/runtime/glob#supported-glob-patterns";
@@ -373,7 +376,7 @@ export const BUN_INSTALL_CLI = {
   infoDev: "bun info <pkg> --dev",
   securityScannerAdd: "bun add -d <scanner-pkg>",
   securityScannerConfig: '[install.security] scanner = "<pkg>"',
-  /** @see https://bun.com/docs/guides/runtime/build-time-constants */
+  /** @see https://bun.com/guides/runtime/build-time-constants */
   buildDefine: "bun build --define KEY='\"value\"'",
   buildDefineCompile: "bun build --compile --define BUILD_VERSION='\"1.0.0\"'",
   buildDefinePropKey: "--define 'process." + 'env.NODE_ENV="production"\'',
@@ -382,7 +385,7 @@ export const BUN_INSTALL_CLI = {
    * Value-format rules for --define (bun build, bun build --compile, bun run --define).
    * Strings MUST be JSON-quoted. Numbers/booleans are JSON literals.
    * Objects: --define 'CONFIG={"host":"localhost"}'. Property chains: process . env . NODE_ENV.
-   * @see https://bun.com/docs/guides/runtime/build-time-constants
+   * @see https://bun.com/guides/runtime/build-time-constants
    */
   defineValueFormat: {
     string: "--define KEY='\"value\"'",
@@ -404,7 +407,7 @@ export const BUN_INSTALL_CLI = {
   consoleWrite: "console.write('text') // writes to stderr (no trailing newline)",
   /**
    * Bun-native Web Crypto APIs (no Node crypto module needed).
-   * @see https://bun.com/docs/guides/util/base64
+   * @see https://bun.com/guides/util/base64
    * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
    */
   base64EncodeBytes: "Uint8Array.prototype.toBase64()",
@@ -2662,7 +2665,7 @@ function buildRuntimeCapabilities(
       docsUrl: BUN_MEASURING_TIME_DOC_URL,
       apis: ["performance.now()", "Bun.nanoseconds()", "performance.timeOrigin"],
       notes:
-        "Use performance.timeOrigin with Bun.nanoseconds() to convert elapsed time to a Unix timestamp.",
+        "Use performance.timeOrigin with performance.now() to convert elapsed time to a Unix timestamp.",
     },
     publicBenchmarks: {
       status: "available",
@@ -2685,7 +2688,7 @@ function buildRuntimeCapabilities(
     bunImage: {
       status: bunImageSupported() ? "available" : "unavailable",
       command:
-        "bun -e 'const png = Uint8Array.from(atob(\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\"), c => c.charCodeAt(0)); console.log(await new Bun.Image(png).metadata())'",
+        "bun -e 'const png = Uint8Array.fromBase64(\"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==\"); console.log(await new Bun.Image(png).metadata())'",
       description:
         "Native image pipeline — metadata(), resize/encode (WebP/AVIF/JPEG/PNG), placeholders, platform backends",
       docsUrl: BUN_IMAGE_DOCS_URL,

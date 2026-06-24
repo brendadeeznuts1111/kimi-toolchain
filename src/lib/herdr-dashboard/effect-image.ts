@@ -5,6 +5,7 @@
  * Serves a always-available WebP mark when WebView screenshots are offline.
  */
 
+import { decodeBase64Bytes } from "../bun-utils.ts";
 import {
   BUN_IMAGE_DOCS_URL,
   bunImageSupported,
@@ -14,12 +15,10 @@ import {
 } from "../bun-image.ts";
 
 /** Decodable 2×2 PNG from examples/dashboard `apiImage` (resizes for `/api/bun-mark`). */
-export const EFFECT_IMAGE_SAMPLE_PNG = Uint8Array.from(
-  atob(
-    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAE0lEQVR4nGP4z8DwnwGM/zMwAAAf7gP9NRsAMwAAAABJRU5ErkJggg=="
-  ),
-  (c) => c.charCodeAt(0)
-);
+export const EFFECT_IMAGE_SAMPLE_PNG_B64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAE0lEQVR4nGP4z8DwnwGM/zMwAAAf7gP9NRsAMwAAAABJRU5ErkJggg==";
+
+export const EFFECT_IMAGE_SAMPLE_PNG = decodeBase64Bytes(EFFECT_IMAGE_SAMPLE_PNG_B64);
 
 export const EFFECT_IMAGE_MARK_WIDTH = 32;
 export const EFFECT_IMAGE_MARK_HEIGHT = 32;

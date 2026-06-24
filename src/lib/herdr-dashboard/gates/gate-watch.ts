@@ -5,6 +5,7 @@
  * so `gate:failed` / `gate:cleared` reach the audit trail without client polling.
  */
 
+import { startIntervalLoop, stopDelayedIntervalLoop } from "../../bun-utils.ts";
 import type { DashboardEventBus } from "../bus.ts";
 import { fetchDashboardGateHealth, type DashboardGateCheckPayload } from "../data/data.ts";
 
@@ -126,13 +127,10 @@ export function startDashboardGateHealthWatch(
     }
   };
 
-  void runCheck();
-  const timer = setInterval(() => {
-    void runCheck();
-  }, pollMs);
+  const loop = startIntervalLoop(pollMs, runCheck);
 
   return {
     state,
-    stop: () => clearInterval(timer),
+    stop: () => stopDelayedIntervalLoop(loop),
   };
 }

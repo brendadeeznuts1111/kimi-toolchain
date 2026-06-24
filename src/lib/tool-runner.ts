@@ -15,6 +15,7 @@ import { classifyAndSuggest } from "./error-taxonomy.ts";
 import { childTraceEnv, ensureProcessTrace, TRACE_ID_ENV } from "./effect/trace-context.ts";
 import { buildTraceEvent, recordTraceEvent } from "./trace-ledger.ts";
 import { applyBunInstallCacheEnvSanitizer } from "./root-hygiene.ts";
+import { elapsedMs, nowNs } from "./timing.ts";
 
 const DEFAULT_TOOL_TIMEOUT_MS = 30_000;
 const AGENT_TOOL_TIMEOUT_MS = 15_000;
@@ -242,7 +243,7 @@ async function invokeCommandOnce(
   const timeoutMs = options.timeoutMs ?? defaultToolTimeoutMs();
   const gracePeriodMs = options.gracePeriodMs ?? DEFAULT_GRACE_PERIOD_MS;
   const maxOutputBytes = Math.max(0, options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES);
-  const start = performance.now();
+  const start = nowNs();
 
   let proc: Bun.ReadableSubprocess;
   try {
@@ -253,7 +254,7 @@ async function invokeCommandOnce(
       stderr: "pipe",
     });
   } catch (e: unknown) {
-    const durationMs = Math.round(performance.now() - start);
+    const durationMs = Math.round(elapsedMs(start));
     const error = e instanceof Error ? e.message : Bun.inspect(e);
     if (options.recordStepName) {
       recordStep(options.recordStepName, durationMs, true);
@@ -326,7 +327,7 @@ async function invokeCommandOnce(
       `Command timed out after ${timeoutMs}ms (SIGTERM sent, SIGKILL after ${gracePeriodMs}ms)`;
   }
 
-  const durationMs = Math.round(performance.now() - start);
+  const durationMs = Math.round(elapsedMs(start));
 
   if (options.recordStepName) {
     recordStep(options.recordStepName, durationMs, exitCode !== 0 || !!error);

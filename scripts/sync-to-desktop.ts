@@ -5,17 +5,21 @@
  * Syncs this repo's toolchain source to the desktop install at ~/.kimi-code/.
  *
  * Usage:
- *   bun run scripts/sync-to-desktop.ts          # one-shot sync
- *   bun run scripts/sync-to-desktop.ts --daemon # starts Bun.cron (every 5 min)
+ *   bun run scripts/sync-to-desktop.ts                  # one-shot sync + baseline tarball
+ *   bun run scripts/sync-to-desktop.ts -- --no-archive       # manifest only (never)
+ *   bun run scripts/sync-to-desktop.ts -- --archive=always   # force baseline tarball
+ *   bun run scripts/sync-to-desktop.ts -- --archive=auto     # archive on drift (default)
+ *   bun run scripts/sync-to-desktop.ts --daemon         # Bun.cron (every 5 min)
  */
 
 import { syncDesktop } from "../src/lib/desktop-sync.ts";
 import { provisionUserMcp } from "../src/lib/mcp-config.ts";
-import { writeSyncManifest } from "../src/lib/sync-manifest.ts";
+import { finalizeSyncArchive, shouldWriteArchive } from "../src/harness/sync.ts";
 import { hasUncommittedChanges } from "../src/lib/version.ts";
 import { join } from "path";
+import { scriptRepoRoot } from "../src/lib/paths.ts";
 
-const REPO_ROOT = import.meta.dir + "/..";
+const REPO_ROOT = scriptRepoRoot();
 
 interface BunCreateSyncResult {
   updated: string[];
@@ -70,9 +74,15 @@ async function syncBunCreateMirror(repoRoot: string): Promise<BunCreateSyncResul
   return result;
 }
 
+async function finalizeManifest(files: string[]): Promise<void> {
+  await finalizeSyncArchive(REPO_ROOT, {
+    files,
+    writeArchive: await shouldWriteArchive(REPO_ROOT),
+  });
+}
+
 async function main() {
   const isDaemon = Bun.argv.includes("--daemon");
-
   const dirty = await hasUncommittedChanges();
 
   if (dirty && !isDaemon) {
@@ -97,7 +107,10 @@ async function main() {
         if (result.removed.length) parts.push(`${result.removed.length} removed`);
         console.log(`[${stamp}] Synced: ${parts.join(", ")}`);
       }
-      await writeSyncManifest(REPO_ROOT, { files: [...result.updated, ...result.removed] });
+      await finalizeSyncArchive(REPO_ROOT, {
+        files: [...result.updated, ...result.removed],
+        writeArchive: await shouldWriteArchive(REPO_ROOT),
+      });
     });
     console.log("   Press Ctrl+C to stop.");
     return;
@@ -117,7 +130,7 @@ async function main() {
     console.log("   ✓ mcp.json: unified-shell updated");
     result.updated.push("mcp.json");
   }
-  await writeSyncManifest(REPO_ROOT, { files: [...result.updated, ...result.removed] });
+  await finalizeManifest([...result.updated, ...result.removed]);
 
   if (result.updated.length === 0 && result.removed.length === 0) {
     console.log("✅ Already up to date.");

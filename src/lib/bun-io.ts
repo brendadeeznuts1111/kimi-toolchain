@@ -126,6 +126,16 @@ export async function readTextAsync(path: string): Promise<string> {
   return Bun.file(path).text();
 }
 
+/** Bun-native async binary read (`Bun.file(path).bytes()`). */
+export async function readBytesAsync(path: string): Promise<Uint8Array> {
+  return Bun.file(path).bytes();
+}
+
+/** Bun-native async JSON read (`Bun.file(path).json()`). */
+export async function readJsonAsync<T = unknown>(path: string): Promise<T> {
+  return (await Bun.file(path).json()) as T;
+}
+
 /** Bun-native async write — prefer in new async code. */
 export async function writeTextAsync(path: string, data: string): Promise<void> {
   await Bun.write(path, data);

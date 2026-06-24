@@ -27,6 +27,24 @@
 4. If slug persists: `kimi-toolchain workspace fix --deep`, then quit Cursor fully and reopen `kimi-toolchain.code-workspace`.
 5. Full cross-product check: `kimi-toolchain doctor --ecosystem --quick --json`.
 
+## Machine Bun policy (developer Mac)
+
+Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/projects/docs/UNIFIED.md`.
+
+| Component    | File                                                                    | Purpose                                                                                                                            |
+| ------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Config SSOT  | `~/.bunfig.toml`                                                        | `linker = "isolated"`, `globalStore = true`, `frozenLockfile = true`, `minimumReleaseAge = 259200`, absolute `[install.cache].dir` |
+| Env          | `~/.config/shell/bun.sh`                                                | `BUN_INSTALL`, `NO_PROXY`. Commented `BUN_CONFIG_*` only. **No** `BUN_INSTALL_GLOBAL_STORE`                                        |
+| PATH         | `~/.config/shell/path.sh`                                               | PATH ownership                                                                                                                     |
+| Verification | `bun_verify`, `bun run machine:bun`, `kimi-doctor --gate bunfig-policy` | Machine layer in `src/lib/machine-bun-policy.ts`; gate merges project + `~/.bunfig.toml`                                           |
+| Audit        | `~/projects/scripts/audit-bunfig.sh`                                    | `--strict` exits 1 on redundant install keys in workspace `bunfig.toml`                                                            |
+
+**Config hierarchy** ([docs](https://bun.com/docs/pm/cli/install#configuring-bun-install-with-bunfig-toml)): machine `~/.bunfig.toml` + project `./bunfig.toml` (shallow merge; project wins) → overridden by `BUN_CONFIG_*` env → overridden by CLI flags.
+
+**This repo's `bunfig.toml`:** project-specific `[install]` (`frozenLockfile`, `globalDir`, scopes) and `[test]`/`[define]` — does **not** duplicate machine `linker`, `globalStore`, or `cache.dir`.
+
+**Verify:** `bverify` · `bmachine` · `kimi-doctor --gate bunfig-policy` · `cd ~/projects && bun run audit:bunfig`
+
 ## Project overview
 
 `kimi-toolchain` is a Bun-native CLI toolkit that provides project health checks, supply-chain security, governance scoring, session memory, git hooks, and scaffolding automation. It is a meta-project: the tools manage other projects.
@@ -83,7 +101,7 @@
 | Linter           | `oxlint`                                               |
 | Effect framework | `effect` (used for typed CLI/runner pipelines)         |
 
-**Prefer Bun APIs over Node equivalents.** Always use `Bun.file`, `Bun.write`, `new Bun.CryptoHasher("sha256")`, `Bun.spawn`, `await Bun.sleep(ms)`, `new Bun.Glob(...)`, `Bun.TOML.parse(...)`, `Bun.readableStreamToText(...)`. Use `Uint8Array` instead of `Buffer`. See `CODE_REFERENCES.md` for the full Bun-native exemplar map.
+**Prefer Bun APIs over Node equivalents.** Always use `Bun.file`, `Bun.write`, `new Bun.CryptoHasher("sha256")`, `Bun.spawn`, `await Bun.sleep(ms)`, `new Bun.Glob(...)`, `Bun.TOML.parse(...)`, `readableStreamToText()` (not `new Response(stream).text()`). Web-standard binary APIs (`Buffer`, `TextEncoder`/`TextDecoder`, `Uint8Array`) are native in Bun — prefer Bun-branded helpers (`Bun.readableStreamTo*`, `Bun.sleep`, `Bun.nanoseconds`) where they exist. See `CODE_REFERENCES.md` for the full Bun-native exemplar map.
 
 ### Bun 1.4.0 features we use
 
@@ -402,7 +420,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `f
 - **Guardian** baselines `bun.lock` hashes and signs manifests with HMAC (key in macOS Keychain or `~/.kimi-code/guardian/.key` with `chmod 600`).
 - **CVE scanning** uses the OSV API (`api.osv.dev`).
 - **Trusted dependencies** gate: dependency lifecycle scripts must be listed in `package.json` `trustedDependencies` (Bun SSOT). `kimi-guardian check` audits; `kimi-guardian fix` or `bun pm trust <pkg>` adds entries.
-- Secure install policy lives in `bunfig.toml` `[install]`: `frozenLockfile`, `linker = "isolated"`, `minimumReleaseAge`, `globalDir` / `globalBinDir` for `bun install -g`.
+- Secure install policy: machine `~/.bunfig.toml` owns `linker`, `globalStore`, `cache.dir`; this repo's `bunfig.toml` holds project `[install]` (`frozenLockfile`, `minimumReleaseAge`, `globalDir` / `globalBinDir` for `bun install -g`) without duplicating machine keys.
 - CLI SSOT for install commands: `BUN_INSTALL_CLI` in `src/lib/bun-install-config.ts` (`bun ci`, `bun add <pkg>`, `bun update <pkg>`, `kimi-guardian fix`).
 - Validate all external input at system boundaries.
 

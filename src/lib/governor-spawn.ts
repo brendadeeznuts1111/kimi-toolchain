@@ -6,8 +6,9 @@ import { nanoseconds } from "bun";
 import { DEFAULTS } from "./governor-state.ts";
 import { getSessionId, updateSessionPeak } from "./governor-sessions.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
-import { readableStreamToText } from "./bun-utils.ts";
+import { readableStreamToText, sleepAbortable } from "./bun-utils.ts";
 import { getCachedCommandOutputAsync } from "./proc-cache.ts";
+import { nowMs } from "./timing.ts";
 
 export interface ResourceLimits {
   maxMemoryMB?: number;
@@ -27,7 +28,7 @@ export interface ResourceUsage {
 export function getCurrentUsage(): ResourceUsage {
   const memUsage = (process as any).memoryUsage?.() || { rss: 0 };
   const memoryMB = Math.round((memUsage.rss || 0) / 1024 / 1024);
-  const cpuTimeMs = Math.round(performance.now());
+  const cpuTimeMs = Math.round(nowMs());
   return { memoryMB, cpuTimeMs, fileSizeMB: 0, openFiles: 0 };
 }
 
@@ -209,25 +210,36 @@ export async function governedSpawn(
       }, timeoutMs);
 
       // Memory monitor: checks actual subprocess tree RSS every second
-      const monitorId = setInterval(async () => {
-        const treeMem = await getTreeMemory(rootPid);
-        updateSessionPeak(sessionId, treeMem, 0);
+      const monitor = new AbortController();
+      void (async () => {
+        const { signal } = monitor;
+        while (!signal.aborted) {
+          try {
+            await sleepAbortable(1000, signal);
+          } catch {
+            return;
+          }
+          if (signal.aborted) return;
+          const treeMem = await getTreeMemory(rootPid);
+          updateSessionPeak(sessionId, treeMem, 0);
 
-        if (limits.maxMemoryMB && treeMem > limits.maxMemoryMB) {
-          killed = true;
-          killReason = "memory";
-          clearInterval(monitorId);
-          clearTimeout(timeoutId);
-          proc.kill("SIGTERM");
-          if (killTree) killProcessTree(rootPid, "SIGTERM");
-          killFallbackId = setTimeout(() => {
-            if (!proc.killed) {
-              proc.kill("SIGKILL");
-              if (killTree) killProcessTree(rootPid, "SIGKILL");
-            }
-          }, 5000);
+          if (limits.maxMemoryMB && treeMem > limits.maxMemoryMB) {
+            killed = true;
+            killReason = "memory";
+            monitor.abort();
+            clearTimeout(timeoutId);
+            proc.kill("SIGTERM");
+            if (killTree) killProcessTree(rootPid, "SIGTERM");
+            killFallbackId = setTimeout(() => {
+              if (!proc.killed) {
+                proc.kill("SIGKILL");
+                if (killTree) killProcessTree(rootPid, "SIGKILL");
+              }
+            }, 5000);
+            return;
+          }
         }
-      }, 1000);
+      })();
 
       const exitCode = await proc.exited;
       const [stdout, stderr] = await Promise.all([
@@ -236,7 +248,7 @@ export async function governedSpawn(
       ]);
 
       clearTimeout(timeoutId);
-      clearInterval(monitorId);
+      monitor.abort();
       if (killFallbackId) clearTimeout(killFallbackId);
 
       const endTime = nanoseconds();

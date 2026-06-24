@@ -31,6 +31,7 @@ import { apiCanvases, apiCards, apiCanvasFilter } from "./canvas-cards.ts";
 import { apiExec } from "./child-process.ts";
 import { apiColor } from "./color.ts";
 import { apiConfigStatus } from "./config-status.ts";
+import { apiSyncBaseline } from "./sync-baseline.ts";
 import { apiConsole } from "./console.ts";
 import { apiCron } from "./cron.ts";
 import { apiCryptoHash } from "./cryptohasher.ts";
@@ -221,6 +222,7 @@ export const DASHBOARD_STATIC_ROUTES: readonly DashboardStaticRoute[] = [
   route("/api/effect-benchmark/train", () => apiEffectBenchmarkTrain(), ["POST"]),
   route0("/api/effect-benchmark", apiEffectBenchmark),
   route0("/api/config-status", apiConfigStatus),
+  route0("/api/sync-baseline", apiSyncBaseline),
   route0("/api/bun-runtime", apiBunRuntime),
   route0("/api/bun-pm", apiBunPm),
   route0("/api/global-store", apiGlobalStore),

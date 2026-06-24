@@ -8,6 +8,21 @@ export {
   type BunfigPolicyGateSummary,
 } from "./bunfig-policy.ts";
 
+export {
+  buildSsotSummary,
+  formatSsotDisplayValue,
+  inheritedSsotNotes,
+  readMachineInstallSsot,
+  resolveMachineInstallSsot,
+  ssotEntry,
+  ssotSatisfiesInstallPolicy,
+  MACHINE_BUNFIG_LABEL,
+  type MachineSsotEntry,
+  type MachineSsotKey,
+  type MachineSsotStatus,
+  type MachineSsotSummary,
+} from "../lib/machine-bun-ssot.ts";
+
 export type {
   Gate,
   GateArtifactListOptions,

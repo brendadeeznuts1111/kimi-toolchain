@@ -2,7 +2,7 @@
  * Config lifecycle for build-time `[define]` constants (runtime — bunfig.toml).
  * For compile-time --define (bun build --compile), see scripts/build-release-binaries.ts.
  *
- * @see https://bun.com/docs/guides/runtime/build-time-constants
+ * @see https://bun.com/guides/runtime/build-time-constants
  *
  * Canary and A/B workflows are local validation proposals only. Build-time
  * Bun constants cannot route live traffic, so real mutations stay behind --yes.

@@ -5,23 +5,23 @@ Decision rules for Bun-native file streaming in `kimi-toolchain`.
 ## Source-backed API facts
 
 - Bun documents `Bun.file` and `Bun.write` as the recommended optimized file-system APIs: <https://bun.com/docs/runtime/file-io>.
-- `Bun.file(path)` returns a lazy `BunFile`; use `.text()`, `.bytes()`, or `.arrayBuffer()` when the caller needs the whole payload: <https://bun.com/docs/guides/read-file/string>.
-- Use `.stream()` to consume a file incrementally as a `ReadableStream`: <https://bun.com/docs/guides/read-file/stream>.
+- `Bun.file(path)` returns a lazy `BunFile`; use `.text()`, `.bytes()`, or `.arrayBuffer()` when the caller needs the whole payload: <https://bun.com/guides/read-file/string>.
+- Use `.stream()` to consume a file incrementally as a `ReadableStream`: <https://bun.com/guides/read-file/stream>.
 - Streams are for binary data without loading it all into memory at once: <https://bun.com/docs/runtime/streams>.
-- To stream a file over HTTP, pass the `BunFile` directly to `new Response(file)`: <https://bun.com/docs/guides/http/stream-file>.
-- To write a generic `ReadableStream`, wrap it in `new Response(stream)` before `Bun.write`: <https://bun.com/docs/guides/write-file/stream>.
+- To stream a file over HTTP, pass the `BunFile` directly to `new Response(file)`: <https://bun.com/guides/http/stream-file>.
+- To write a generic `ReadableStream`, wrap it in `new Response(stream)` before `Bun.write`: <https://bun.com/guides/write-file/stream>.
 
 ## Decision matrix
 
-| Need                                             | Use                                                                                       | Avoid                                                   |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Small config, taxonomy, manifest, or schema file | `await Bun.file(path).text()` or `await Bun.file(path).json()`                            | Streaming only to immediately concatenate chunks        |
-| Binary payload needed in memory                  | `await Bun.file(path).bytes()`                                                            | Node `Buffer` APIs in new async code                    |
-| Lazy records from large JSONL files              | `for await (const chunk of Bun.file(path).stream())` plus `Bun.JSONL.parseChunk`          | Loading the full file before parsing                    |
-| Copy a large file                                | `await Bun.write(dest, Bun.file(src))` or `await Bun.write(dest, Bun.file(src).stream())` | Manual read-then-write buffers                          |
-| Persist a transformed stream                     | `await Bun.write(dest, new Response(stream))`                                             | Collecting transformed output into a giant string       |
-| Serve a static artifact                          | `return new Response(Bun.file(path))`                                                     | Reading the file first, then building `Response(bytes)` |
-| Read a process or fetch body as text             | `Bun.readableStreamToText(stream)` via `readableStreamToText()`                           | `new Response(stream).text()` open-coded in call sites  |
+| Need                                             | Use                                                                                       | Avoid                                                    |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Small config, taxonomy, manifest, or schema file | `await Bun.file(path).text()` or `await Bun.file(path).json()`                            | Streaming only to immediately concatenate chunks         |
+| Binary payload needed in memory                  | `await Bun.file(path).bytes()` or `Buffer.from(await file.arrayBuffer())`                 | Manual chunk concat when `Bun.readableStreamTo*` applies |
+| Lazy records from large JSONL files              | `for await (const chunk of Bun.file(path).stream())` plus `Bun.JSONL.parseChunk`          | Loading the full file before parsing                     |
+| Copy a large file                                | `await Bun.write(dest, Bun.file(src))` or `await Bun.write(dest, Bun.file(src).stream())` | Manual read-then-write buffers                           |
+| Persist a transformed stream                     | `await Bun.write(dest, new Response(stream))`                                             | Collecting transformed output into a giant string        |
+| Serve a static artifact                          | `return new Response(Bun.file(path))`                                                     | Reading the file first, then building `Response(bytes)`  |
+| Read a process or fetch body as text             | `Bun.readableStreamToText(stream)` via `readableStreamToText()`                           | `new Response(stream).text()` open-coded in call sites   |
 
 ## Repo patterns
 

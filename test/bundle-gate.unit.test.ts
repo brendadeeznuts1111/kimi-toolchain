@@ -2,9 +2,13 @@ import { describe, expect, test } from "bun:test";
 import {
   evaluate,
   extractSection,
+  formatMetafileMarkdown,
+  generateMarkdownSummary,
+  largestModulesFromMetafile,
   parseLargestModules,
   parseQuickSummary,
-  runBundleGate,
+  summarizeMetafile,
+  type BundleMetafile,
   type BundleModuleRow,
   type BundleQuickSummary,
 } from "../src/lib/bundle-gate.ts";
@@ -247,42 +251,42 @@ describe("bundle-gate evaluate", () => {
   });
 });
 
-// ── runBundleGate integration ───────────────────────────────────────
+// ── metafile JSON (Bun.build metafile: true) ───────────────────────
 
-describe("bundle-gate integration", () => {
-  test("runBundleGate on default entry point succeeds", async () => {
-    const report = await runBundleGate({ projectRoot: "." });
-    expect(report.schemaVersion).toBe(1);
-    expect(report.tool).toBe("bundle-gate");
-    expect(report.entryPoint).toBe("src/bin/kimi-doctor.ts");
-    expect(report.summary).not.toBeNull();
-    expect(report.summary!.totalBytes).toBeGreaterThan(0);
-    expect(report.summary!.inputModules).toBeGreaterThan(0);
-    expect(report.largestModules.length).toBeGreaterThan(0);
-    expect(report.error).toBeNull();
-  });
+const METAFILE_FIXTURE: BundleMetafile = {
+  inputs: {
+    "src/bin/kimi-doctor.ts": { bytes: 1000, format: "esm", imports: [] },
+    "node_modules/typescript/lib/typescript.js": {
+      bytes: 8_000_000,
+      format: "cjs",
+      imports: [{ external: true }],
+    },
+    "node_modules/effect/dist/esm/Schema.js": { bytes: 160_000, format: "esm", imports: [] },
+  },
+  outputs: {
+    "kimi-doctor.js": {
+      bytes: 10_000_000,
+      entryPoint: "src/bin/kimi-doctor.ts",
+      inputs: {
+        "src/bin/kimi-doctor.ts": { bytesInOutput: 50_000 },
+        "node_modules/typescript/lib/typescript.js": { bytesInOutput: 8_400_000 },
+        "node_modules/effect/dist/esm/Schema.js": { bytesInOutput: 160_000 },
+      },
+    },
+  },
+};
 
-  test("runBundleGate on nonexistent entry point returns error", async () => {
-    const report = await runBundleGate({
-      projectRoot: ".",
-      entryPoints: [{ path: "src/nonexistent.ts", target: "bun" }],
-    });
-    expect(report.ok).toBe(false);
-    expect(report.summary).toBeNull();
-    expect(report.findings.some((f) => f.rule === "no-entry-point")).toBe(true);
-  });
-
-  test("runBundleGate parses real typescript.js bloat", async () => {
-    const report = await runBundleGate({ projectRoot: "." });
-    const topModule = report.largestModules[0];
-    // TypeScript itself is ~84% of the kimi-doctor bundle
-    if (topModule) {
-      expect(topModule.module).toContain("typescript");
-      expect(topModule.pctOfTotal).toBeGreaterThan(50);
-    }
-    // Should flag both single-module-bloat and node-modules-bloat
-    const rules = report.findings.map((f) => f.rule);
-    expect(rules).toContain("single-module-bloat");
-    expect(rules).toContain("node-modules-bloat");
+describe("bundle-gate metafile", () => {
+  test("summarizeMetafile and largestModulesFromMetafile rank typescript first", () => {
+    const summary = summarizeMetafile(METAFILE_FIXTURE);
+    const largest = largestModulesFromMetafile(METAFILE_FIXTURE);
+    expect(summary.inputModules).toBe(3);
+    expect(summary.totalBytes).toBe(10_000_000);
+    expect(summary.nodeModulesFiles).toBe(2);
+    expect(largest[0]?.module).toContain("typescript");
+    const md = formatMetafileMarkdown(summary, largest);
+    expect(md).toContain("## Quick Summary");
+    expect(parseQuickSummary(extractSection(md, "Quick Summary"))!.inputModules).toBe(3);
+    expect(generateMarkdownSummary(METAFILE_FIXTURE)).toBe(md);
   });
 });

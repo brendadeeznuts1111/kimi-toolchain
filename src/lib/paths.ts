@@ -7,6 +7,11 @@
 
 import { join } from "path";
 
+/** Repo root when invoked from `scripts/<name>.ts` — prefer over `process.cwd()`. */
+export function scriptRepoRoot(scriptDir: string = import.meta.dir): string {
+  return join(scriptDir, "..");
+}
+
 /** Fallback home directory when HOME is not set. */
 export const FALLBACK_HOME_DIR = "/tmp";
 
@@ -51,8 +56,40 @@ export function scriptsDir(): string {
 }
 
 /** Return ~/.kimi-code/var */
-export function varDir(): string {
-  return join(desktopRoot(), "var");
+export function varDir(home?: string): string {
+  return join(desktopRoot(home), "var");
+}
+
+/** Return ~/.kimi-code/var/sync-baseline.tar.gz — gzip sync manifest archive. */
+export function syncBaselineArchivePath(home?: string): string {
+  return join(varDir(home), "sync-baseline.tar.gz");
+}
+
+/** Return ~/.kimi-code/var/sync-baseline-metrics.json — last baseline size/hash snapshot. */
+export function syncBaselineMetricsPath(home?: string): string {
+  return join(varDir(home), "sync-baseline-metrics.json");
+}
+
+function expandEnvPath(value: string, home: string = homeDir()): string {
+  if (value === "~") return home;
+  if (value.startsWith("~/")) return join(home, value.slice(2));
+  return value;
+}
+
+/** Repo sync cache dir: `$BUN_INSTALL_CACHE_DIR` or `<repo>/.cache/`. */
+export function syncBaselineCacheDir(repoRoot: string): string {
+  const raw = Bun.env.BUN_INSTALL_CACHE_DIR;
+  return raw ? expandEnvPath(raw) : join(repoRoot, ".cache");
+}
+
+/** Return repo cache baseline: `$BUN_INSTALL_CACHE_DIR/sync-baseline.tar.gz` or `<repo>/.cache/`. */
+export function syncBaselineCacheArchivePath(repoRoot: string): string {
+  return join(syncBaselineCacheDir(repoRoot), "sync-baseline.tar.gz");
+}
+
+/** Append-only baseline metrics history for dashboard sparklines. */
+export function syncBaselineHistoryPath(repoRoot: string): string {
+  return join(syncBaselineCacheDir(repoRoot), "sync-baseline-history.jsonl");
 }
 
 /** Return ~/.kimi-code/var/tool-failures.jsonl */

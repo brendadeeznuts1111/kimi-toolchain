@@ -11,6 +11,7 @@ import {
   readEffectGatesSnapshots,
 } from "../effect-gates.ts";
 import { safeParse } from "../utils.ts";
+import { elapsedMs, nowNs } from "../timing.ts";
 
 interface EffectGatesJsonEnvelope {
   effectGates?: {
@@ -154,14 +155,14 @@ export const effectGatesAdapter: ExternalToolAdapter = {
 
 /** Run the Effect-gates adapter by building the report directly. */
 export async function runEffectGatesAdapter(projectRoot: string): Promise<AdapterOutput> {
-  const start = performance.now();
+  const start = nowNs();
   const gitHead = await resolveGitHead(projectRoot);
   const [previous] = await readEffectGatesSnapshots(projectRoot, 1);
   const report = await buildEffectGatesReport({ projectRoot, tool: "kimi-doctor", gitHead });
   const regressions = detectRegressions(report, previous ?? null);
   return {
     adapterName: "effect-gates",
-    durationMs: Math.round(performance.now() - start),
+    durationMs: Math.round(elapsedMs(start)),
     checks: effectGatesChecksFromReport(report, regressions),
     rawOutput: JSON.stringify(report),
   };

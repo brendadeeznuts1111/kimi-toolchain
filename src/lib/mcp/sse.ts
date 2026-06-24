@@ -239,7 +239,7 @@ function openCacheDb(dbPath: string): Database {
 
 function createPersistentCache(dbPath: string): PersistentCacheStore {
   const db = openCacheDb(dbPath);
-  let pruneTimer: ReturnType<typeof setInterval> | undefined;
+  let pruneJob: Bun.CronJob | undefined;
 
   function pruneExpired() {
     try {
@@ -250,8 +250,8 @@ function createPersistentCache(dbPath: string): PersistentCacheStore {
   }
 
   // Prune every 10 minutes (unref so it doesn't keep the process alive).
-  pruneTimer = setInterval(pruneExpired, 10 * 60 * 1000);
-  pruneTimer.unref();
+  pruneJob = Bun.cron("*/10 * * * *", pruneExpired);
+  pruneJob.unref();
 
   return {
     get(serverUrl: string, cacheKey: string): unknown {
@@ -286,9 +286,9 @@ function createPersistentCache(dbPath: string): PersistentCacheStore {
     },
 
     close() {
-      if (pruneTimer) {
-        clearInterval(pruneTimer);
-        pruneTimer = undefined;
+      if (pruneJob) {
+        pruneJob.stop();
+        pruneJob = undefined;
       }
       try {
         db.close();
