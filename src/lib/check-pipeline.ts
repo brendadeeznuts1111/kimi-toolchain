@@ -109,6 +109,12 @@ export async function buildSteps(
   }
 
   steps.push({
+    name: "git-identity",
+    cmd: ["bun", "run", "scripts/check-git-identity.ts"],
+    silentOnSuccess: true,
+  });
+
+  steps.push({
     name: "success-metrics",
     cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "--success-metrics", "--json"],
     silentOnSuccess: true,
