@@ -1,0 +1,6 @@
+id: no-manual-feature-url
+valid:
+  - "const url = releaseFeatureUrl(BUN_RELEASE_FEATURE_ANCHORS.wrapAnsi)"
+  - "const url = `${BUN_PM_CLI_DOC_URL}#${section}`"
+invalid:
+  - "const url = `${BUN_RELEASE.blogUrl}#${slug}`"

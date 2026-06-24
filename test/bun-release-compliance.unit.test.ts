@@ -825,17 +825,25 @@ describe("bun-release-compliance compression", () => {
 // ── timing / benchmarking ────────────────────────────────────────────
 
 describe("bun-release-compliance timing-benchmarking", () => {
-  test("timing.ts uses Bun.nanoseconds for microbenchmarks", () => {
+  test("src/lib/timing.ts uses Bun.nanoseconds for general timing", () => {
     const text = readSrc("src/lib/timing.ts");
+    expect(text).toContain("Bun.nanoseconds");
+    expect(text).toContain("bun.com/docs/project/benchmarking#measuring-time");
+    expect(text).not.toContain("benchSync");
+    expect(text).not.toContain("benchAsync");
+  });
+
+  test("bench/lib/timing.ts provides benchmark helpers using Bun.nanoseconds", () => {
+    const text = readSrc("bench/lib/timing.ts");
     expect(text).toContain("Bun.nanoseconds");
     expect(text).toContain("benchSync");
     expect(text).toContain("benchAsync");
     expect(text).toContain("bun.com/docs/project/benchmarking");
   });
 
-  test("bench/core.bench.ts delegates timing to src/lib/timing.ts", () => {
-    const text = readSrc("bench/core.bench.ts");
-    expect(text).toContain('from "../src/lib/timing.ts"');
+  test("bench/runner.ts delegates timing to bench/lib/timing.ts", () => {
+    const text = readSrc("bench/runner.ts");
+    expect(text).toContain('from "./lib/timing.ts"');
     expect(text).not.toContain("function bench(");
   });
 
@@ -919,6 +927,17 @@ describe("bun-release-compliance console-bun-terminal", () => {
     "src/lib/secrets/fast-resolver.ts",
     "src/lib/compression.ts",
     "src/lib/timing.ts",
+    "src/lib/bun-cli-contract-probes.ts",
+    "src/lib/bun-cli-env-probes.ts",
+    "src/lib/bun-cli-bun-test-probes.ts",
+    "src/lib/bun-cli-run-test-probes.ts",
+    "src/lib/bun-cli-test-changed-probes.ts",
+    "src/lib/bun-cli-markdown-probes.ts",
+    "src/lib/bun-cli-fixture.ts",
+    "src/lib/workflow-effects.ts",
+    "src/lib/workflow/loop.ts",
+    "src/lib/workflow/effects.ts",
+    "src/lib/restore-baseline.ts",
     "src/lib/memory/governor.ts",
   ]);
 

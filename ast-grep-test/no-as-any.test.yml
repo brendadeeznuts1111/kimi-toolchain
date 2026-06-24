@@ -1,0 +1,7 @@
+id: no-as-any
+valid:
+  - const x = value
+  - const n = count as number
+invalid:
+  - const x = value as any
+  - (row as any).field

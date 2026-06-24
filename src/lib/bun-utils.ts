@@ -705,6 +705,7 @@ export {
   computeReleaseDiffVersions,
   formatBreakingCell,
   measureReleaseHistoryRows,
+  ReleaseRegistryError,
   commitHashFromUrl,
   releaseRoleForVersion,
   releaseCommitUrl,
@@ -722,6 +723,7 @@ export {
 } from "./bun-release-registry.ts";
 
 export {
+  formatReleaseHistoryMarkdown,
   formatReleaseHistoryTable,
   RELEASE_BREAKING_PROPERTIES,
   RELEASE_HISTORY_FULL_PROPERTIES,

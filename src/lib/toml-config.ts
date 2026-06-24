@@ -115,5 +115,7 @@ export function stringFieldsSchema<K extends string>(
   ...fields: K[]
 ): TomlSchema<Record<K, string>> {
   return (v: unknown): v is Record<K, string> =>
-    typeof v === "object" && v !== null && fields.every((f) => typeof (v as any)[f] === "string");
+    typeof v === "object" &&
+    v !== null &&
+    fields.every((f) => typeof (v as Record<string, unknown>)[f] === "string");
 }

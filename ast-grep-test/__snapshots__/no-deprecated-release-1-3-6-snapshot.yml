@@ -1,0 +1,14 @@
+id: no-deprecated-release-1-3-6
+snapshots:
+  const tag = BUN_RELEASE_1_3_6_TAG:
+    labels:
+      - source: BUN_RELEASE_1_3_6_TAG
+        style: primary
+        start: 12
+        end: 33
+  const url = BUN_RELEASE_1_3_6_URL:
+    labels:
+      - source: BUN_RELEASE_1_3_6_URL
+        style: primary
+        start: 12
+        end: 33

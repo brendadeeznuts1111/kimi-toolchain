@@ -27,12 +27,20 @@ import {
 } from "./bun-release-registry.ts";
 
 export { BUN_BINARY_DATA_CONVERSION_DOC_URL };
-import { pathExists } from "./bun-io.ts";
+import { pathExists, readJsonFile } from "./bun-io.ts";
+import { readPackageManifest } from "./utils.ts";
 import { spawnBun } from "./tool-runner.ts";
 import { join } from "path";
 import { TOML } from "bun";
 import { SecretKeys } from "./secrets-constants.ts";
 import { readSecretFromEnv } from "./secrets-env.ts";
+import {
+  readMachineInstallSsot,
+  ssotEntry,
+  suppressInheritedSsotWarning,
+  type MachineSsotEntry,
+  type MachineSsotKey,
+} from "./machine-bun-ssot.ts";
 
 export const BUN_INSTALL_DOC_URL = "https://bun.com/docs/pm/cli/install";
 /** @see https://bun.com/docs/pm/cli/update */
@@ -1289,6 +1297,10 @@ interface PackageJsonInstallMeta {
   };
 }
 
+function isPackageJsonInstallMeta(value: unknown): value is PackageJsonInstallMeta {
+  return typeof value === "object" && value !== null;
+}
+
 /** Transparent runtime speedups — doctor human output only; not inventory-gated. */
 export interface BunInstallInternalOptimizations {
   readonly informational: true;
@@ -2019,9 +2031,15 @@ async function readProjectInstallMeta(projectDir: string): Promise<{
   }
 
   const pkgPath = join(projectDir, "package.json");
-  const packageMeta = pathExists(pkgPath)
-    ? ((await Bun.file(pkgPath).json()) as PackageJsonInstallMeta)
-    : null;
+  let packageMeta: PackageJsonInstallMeta | null = null;
+  if (pathExists(pkgPath)) {
+    try {
+      const raw = await readJsonFile(pkgPath);
+      packageMeta = isPackageJsonInstallMeta(raw) ? raw : null;
+    } catch {
+      packageMeta = null;
+    }
+  }
 
   return {
     bunfigPath: pathExists(bunfigPath) ? bunfigPath : null,
@@ -2060,10 +2078,8 @@ async function resolveWorkspaceCurrent(
     const dashboardPkg = join(projectDir, "examples/dashboard/package.json");
     if (!pathExists(dashboardPkg)) return null;
     try {
-      const parsed = (await Bun.file(dashboardPkg).json()) as {
-        dependencies?: Record<string, string>;
-      };
-      return parsed.dependencies?.["kimi-toolchain"] ?? null;
+      const parsed = await readPackageManifest(join(projectDir, "examples/dashboard"));
+      return parsed?.dependencies?.["kimi-toolchain"] ?? null;
     } catch {
       return null;
     }
@@ -2817,6 +2833,19 @@ function runtimeEnvironmentAdvisories(runtimeEnvironment: BunInstallRuntimeEnvir
   return advisories;
 }
 
+const MACHINE_SSOT_POLICY_KEYS = new Set<MachineSsotKey>(["linker", "globalStore", "cacheDir"]);
+
+function applyMachineSsotToPolicyRows(rows: BunInstallPolicyRow[], ssot: MachineSsotEntry[]): void {
+  for (const row of rows) {
+    if (!MACHINE_SSOT_POLICY_KEYS.has(row.key as MachineSsotKey)) continue;
+    const entry = ssotEntry(ssot, row.key as MachineSsotKey);
+    if (!entry?.effective) continue;
+    if (entry.status !== "inherited" && entry.status !== "project") continue;
+    row.current = entry.effective;
+    row.status = comparePolicyStatus(row, entry.effective);
+  }
+}
+
 function rowWarnings(row: BunInstallPolicyRow): string[] {
   if (row.status === "ok" || row.status === "n/a") return [];
   if (row.status === "missing") {
@@ -2869,6 +2898,8 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
         docsUrl: bunInstallDocAnchor(def.docsAnchor),
       }));
   const bunfigRows = buildPolicyRows(BUN_INSTALL_BUNFIG_POLICY, install, cacheDir, packageMeta);
+  const machineSsot = await readMachineInstallSsot(install);
+  applyMachineSsotToPolicyRows(bunfigRows, machineSsot);
   const packageRows = buildPolicyRows(BUN_INSTALL_PACKAGE_POLICY, install, cacheDir, packageMeta);
   const platformRows = buildPolicyRows(BUN_INSTALL_PLATFORM_POLICY, install, cacheDir, packageMeta);
   const envRows = buildEnvRows();
@@ -2886,20 +2917,23 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
       diagnostic: row.diagnostic === true,
     }));
 
-  const warnings: string[] = [];
+  const rawWarnings: string[] = [];
   for (const row of envOverrides) {
     if (row.risky) {
-      warnings.push(
+      rawWarnings.push(
         `${row.name} is set — overrides bunfig.toml and can break guardian lockfile baselines`
       );
     }
   }
   if (!install) {
-    warnings.push("missing bunfig.toml [install] — using Bun defaults (weaker than secure policy)");
+    rawWarnings.push(
+      "missing bunfig.toml [install] — using Bun defaults (weaker than secure policy)"
+    );
   }
   for (const row of [...bunfigRows, ...packageRows, ...workspaceRows]) {
-    warnings.push(...rowWarnings(row));
+    rawWarnings.push(...rowWarnings(row));
   }
+  const warnings = rawWarnings.filter((w) => !suppressInheritedSsotWarning(w, machineSsot));
 
   const tables: BunInstallConfigAudit["tables"] = {
     "dependency-scope": bunfigRows.filter((r) => r.group === "dependency-scope"),

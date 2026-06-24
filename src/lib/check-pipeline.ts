@@ -524,13 +524,20 @@ export async function runCheckPipeline(
   const gateQuiet = (!options.verbose && shouldSilentOnSuccess()) || options.jsonSummary;
 
   const testStep = steps.find((step) => step.name === "test" || step.name === "test:fast");
-  const formatStep = steps.find((step) => step.name === "format:check");
-  const independentSteps = steps.filter((step) => step !== testStep && step !== formatStep);
+  const serialStepNames = new Set([
+    "format:check",
+    ...(options.fast ? ["verify:bun-features"] : []),
+  ]);
+  const serialSteps = steps.filter((step) => serialStepNames.has(step.name));
+  const independentSteps = steps.filter(
+    (step) => step !== testStep && !serialStepNames.has(step.name)
+  );
 
   const allResults: GateResult[] = [];
-  if (formatStep) {
-    allResults.push(await runStepTracked(projectRoot, formatStep, gateQuiet));
-    if (options.failFast && allResults[0]?.exitCode !== 0) {
+  for (const step of serialSteps) {
+    const result = await runStepTracked(projectRoot, step, gateQuiet);
+    allResults.push(result);
+    if (options.failFast && result.exitCode !== 0) {
       return { ...buildCheckResult(allResults), scopedGatesRecorded: 0 };
     }
   }

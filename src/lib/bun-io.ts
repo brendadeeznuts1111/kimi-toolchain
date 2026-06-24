@@ -131,9 +131,48 @@ export async function readBytesAsync(path: string): Promise<Uint8Array> {
   return Bun.file(path).bytes();
 }
 
-/** Bun-native async JSON read (`Bun.file(path).json()`). */
+export type JsonValidator<T> = (value: unknown) => value is T;
+
+/** Raw Bun JSON read — returns `unknown` (no type assertion). */
+export async function readJsonFile(path: string): Promise<unknown> {
+  return Bun.file(path).json();
+}
+
+/** Validate parsed JSON with a type guard; throws on mismatch. */
+export function parseJsonValue<T>(raw: unknown, validate: JsonValidator<T>, label = "JSON"): T {
+  if (!validate(raw)) {
+    throw new Error(`Invalid ${label}`);
+  }
+  return raw;
+}
+
+/** Read JSON file and validate; throws on parse or validation failure. */
+export async function readJsonValidated<T>(path: string, validate: JsonValidator<T>): Promise<T> {
+  const raw = await readJsonFile(path);
+  return parseJsonValue(raw, validate, path);
+}
+
+/** Read JSON with validation; returns fallback when missing, unparseable, or invalid. */
+export async function readJsonFileOr<T>(
+  path: string,
+  fallback: T,
+  validate: JsonValidator<T>
+): Promise<T> {
+  if (!pathExists(path)) return fallback;
+  try {
+    const raw = await readJsonFile(path);
+    return validate(raw) ? raw : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Bun-native async JSON read.
+ * @deprecated Prefer `readJsonFile` + `parseJsonValue`, or `readJsonValidated`.
+ */
 export async function readJsonAsync<T = unknown>(path: string): Promise<T> {
-  return (await Bun.file(path).json()) as T;
+  return (await readJsonFile(path)) as T;
 }
 
 /** Bun-native async write — prefer in new async code. */

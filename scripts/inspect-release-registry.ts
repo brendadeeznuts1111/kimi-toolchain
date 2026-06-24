@@ -10,6 +10,7 @@
 
 import { inspect } from "bun";
 import {
+  formatReleaseHistoryMarkdown,
   formatReleaseHistoryTable,
   RELEASE_HISTORY_FULL_PROPERTIES,
   resolveReleaseTableProperties,
@@ -36,7 +37,7 @@ const INSPECT_OPTS = {
 };
 
 interface CliOptions {
-  format: "table" | "json" | "inspect" | "metrics";
+  format: "table" | "json" | "inspect" | "metrics" | "md";
   colors: boolean;
   sorted: boolean;
   properties?: readonly string[];
@@ -58,7 +59,13 @@ function parseCli(argv: string[]): CliOptions {
     const arg = argv[i];
     if (arg === "--format") {
       const next = argv[i + 1];
-      if (next === "table" || next === "json" || next === "inspect" || next === "metrics") {
+      if (
+        next === "table" ||
+        next === "json" ||
+        next === "inspect" ||
+        next === "metrics" ||
+        next === "md"
+      ) {
         format = next;
       }
     } else if (arg === "--colors") {
@@ -123,7 +130,7 @@ async function main(): Promise<void> {
   const cli = parseCli(Bun.argv.slice(2));
   const rows = buildReleaseHistoryRows(BUN_RELEASE_HISTORY);
   const metrics = measureReleaseHistoryRows(rows);
-  const showFootnote = cli.format === "table";
+  const showFootnote = cli.format === "table" || cli.format === "md";
 
   if (cli.format === "json") {
     console.log(
@@ -150,6 +157,19 @@ async function main(): Promise<void> {
 
   if (cli.format === "metrics") {
     printMetrics(metrics);
+    return;
+  }
+
+  if (cli.format === "md") {
+    const md = formatReleaseHistoryMarkdown(
+      rows,
+      cli.properties ?? RELEASE_HISTORY_FULL_PROPERTIES
+    );
+    console.log(md);
+    if (!cli.quiet) {
+      printReleaseFootnote(rows, !cli.quiet);
+      printMetrics(metrics);
+    }
     return;
   }
 

@@ -547,13 +547,33 @@ export function stableStringify(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
+function isConstantsManifest(value: unknown): value is ConstantsManifest {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const domains = v.domains;
+  const parity = v.parity;
+  return (
+    typeof v.schemaVersion === "number" &&
+    typeof v.generatedAt === "string" &&
+    typeof v.repo === "string" &&
+    typeof v.tuningSetVersion === "string" &&
+    typeof domains === "object" &&
+    domains !== null &&
+    !Array.isArray(domains) &&
+    typeof parity === "object" &&
+    parity !== null &&
+    !Array.isArray(parity)
+  );
+}
+
 export async function readConstantsManifest(
   projectRoot: string
 ): Promise<ConstantsManifest | null> {
   const path = join(projectRoot, "constants-manifest.json");
   if (!pathExists(path)) return null;
   try {
-    return (await Bun.file(path).json()) as ConstantsManifest;
+    const raw = await Bun.file(path).json();
+    return isConstantsManifest(raw) ? raw : null;
   } catch {
     return null;
   }

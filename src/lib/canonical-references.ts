@@ -6,7 +6,7 @@
 import { join } from "path";
 import { pathExists, readText } from "./bun-io.ts";
 import { canonicalReferencesPath, homeDir } from "./paths.ts";
-import { safeParse } from "./utils.ts";
+import { readPackageManifest, safeParse } from "./utils.ts";
 import { TOOLCHAIN_VERSION } from "./version.ts";
 import { stableStringify } from "./build-constants-registry.ts";
 import {
@@ -338,10 +338,12 @@ export async function auditCanonicalReferencesHealth(
   const pkgPath = join(projectRoot, "package.json");
   if (pathExists(pkgPath)) {
     try {
-      const pkg = (await Bun.file(pkgPath).json()) as {
-        kimi?: { canonicalReferences?: string };
-      };
-      const pointer = pkg.kimi?.canonicalReferences;
+      const pkg = await readPackageManifest(projectRoot);
+      const kimi = pkg?.kimi;
+      const pointer =
+        kimi && typeof kimi === "object" && !Array.isArray(kimi)
+          ? (kimi as { canonicalReferences?: string }).canonicalReferences
+          : undefined;
       if (pointer === CANONICAL_REFERENCES_FILENAME) {
         checks.push({
           name: "package-pointer",

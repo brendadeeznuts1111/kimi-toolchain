@@ -11,8 +11,8 @@
 
 import { $ } from "bun";
 import { join } from "path";
-import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
+import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import {
   parseGhStatusCheckRollup,
   summarizePrChecks,
@@ -101,13 +101,13 @@ async function runLocalCi(): Promise<boolean> {
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [stdout, exitCode] = await Promise.all([readableStreamToText(proc.stdout), proc.exited]);
+  const exitCode = await proc.exited;
   if (exitCode !== 0) return false;
   try {
-    const payload = JSON.parse(stdout) as { ok?: boolean };
+    const payload = JSON.parse(await readableStreamToText(proc.stdout)) as { ok?: boolean };
     return payload.ok === true;
   } catch {
-    return exitCode === 0;
+    return false;
   }
 }
 

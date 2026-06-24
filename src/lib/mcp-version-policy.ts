@@ -5,6 +5,7 @@
 
 import { join } from "path";
 import { pathExists } from "./bun-io.ts";
+import { readPackageManifest } from "./utils.ts";
 import {
   auditBunInstallConfig,
   BUN_SEMVER_DOC_URL,
@@ -35,12 +36,9 @@ export async function buildMcpVersionPolicyReport(
   let packageManager: string | null = null;
 
   if (pathExists(pkgPath)) {
-    const pkg = (await Bun.file(pkgPath).json()) as {
-      engines?: { bun?: string };
-      packageManager?: string;
-    };
-    enginesBun = pkg.engines?.bun ?? null;
-    packageManager = pkg.packageManager ?? null;
+    const pkg = await readPackageManifest(projectRoot);
+    enginesBun = (pkg?.engines?.bun as string | undefined) ?? null;
+    packageManager = (pkg?.packageManager as string | undefined) ?? null;
   }
 
   const policy = describeBunVersionPolicy({ enginesBun, packageManager });

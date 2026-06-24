@@ -2,8 +2,9 @@
  * Agent-facing doc hygiene — broken links, stale paths, CONTEXT placeholders.
  */
 
-import { readableStreamToText } from "./bun-utils.ts";
+import { $ } from "bun";
 import { pathExists } from "./bun-io.ts";
+import { readPackageManifest } from "./utils.ts";
 
 import { dirname, join, resolve } from "path";
 
@@ -442,15 +443,10 @@ export function findPackageBinDrift(
 }
 
 export async function listTrackedBackupFiles(projectRoot: string): Promise<string[]> {
-  const proc = Bun.spawn(["git", "ls-files", "*.bak", "CONTEXT.md.bak"], {
-    cwd: projectRoot,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const exitCode = await proc.exited;
-  if (exitCode !== 0) return [];
-  const stdout = await readableStreamToText(proc.stdout);
-  return stdout
+  const result = await $`git ls-files *.bak CONTEXT.md.bak`.cwd(projectRoot).nothrow().quiet();
+  if (result.exitCode !== 0) return [];
+  return result.stdout
+    .toString()
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
@@ -511,18 +507,19 @@ export async function auditContextBloat(projectRoot: string): Promise<ContextBlo
 
   const srcBinFiles = await listSrcBinFiles(projectRoot);
   const packagePath = join(projectRoot, "package.json");
-  const pkg = pathExists(packagePath)
-    ? ((await Bun.file(packagePath).json()) as { bin?: Record<string, string> })
-    : undefined;
+  const pkg = pathExists(packagePath) ? await readPackageManifest(projectRoot) : null;
+  const bin = pkg?.bin;
   const agentsPath = join(projectRoot, "AGENTS.md");
   if (pathExists(agentsPath)) {
     const agentsText = await Bun.file(agentsPath).text();
-    const registeredCount = pkg?.bin ? Object.keys(pkg.bin).length : srcBinFiles.length;
+    const registeredCount =
+      bin && typeof bin === "object" && !Array.isArray(bin)
+        ? Object.keys(bin).length
+        : srcBinFiles.length;
     issues.push(...findBinCountDrift(agentsText, registeredCount));
   }
-
-  if (pkg?.bin) {
-    issues.push(...findPackageBinDrift(pkg.bin, srcBinFiles));
+  if (bin && typeof bin === "object" && !Array.isArray(bin)) {
+    issues.push(...findPackageBinDrift(bin as Record<string, string>, srcBinFiles));
   }
 
   for (const tracked of await listTrackedBackupFiles(projectRoot)) {

@@ -10,9 +10,14 @@
 
 import { $ } from "bun";
 import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
-import { pathExists } from "../lib/bun-io.ts";
+import { pathExists, readJsonFile, readJsonFileOr } from "../lib/bun-io.ts";
 import { join } from "path";
-import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import {
+  ensureDir,
+  getProjectName,
+  readPackageManifest,
+  resolveProjectRoot,
+} from "../lib/utils.ts";
 import { runTool } from "../lib/tool-runner.ts";
 import { aggregateChecks } from "../lib/health-check.ts";
 import { Effect } from "effect";
@@ -38,6 +43,11 @@ import { auditEcosystemHealth } from "../lib/ecosystem-health.ts";
 import { isKimiToolchainRepo } from "../lib/workspace-health.ts";
 import { governorDir } from "../lib/paths.ts";
 import { checkGovernance } from "../lib/governance-check.ts";
+import {
+  isCoverageHistoryEntryArray,
+  isRScoreArray,
+  type CoverageHistoryEntry,
+} from "../lib/governance.ts";
 import {
   generateReadme,
   generateContributing,
@@ -88,10 +98,9 @@ interface CoverageReport {
 async function checkCoverage(projectDir: string, _threshold = 70): Promise<CoverageReport> {
   const report: CoverageReport = { covered: 0, total: 0, percentage: 0, files: [] };
 
-  const pkgPath = join(projectDir, "package.json");
-  if (!pathExists(pkgPath)) return report;
+  const pkg = await readPackageManifest(projectDir);
+  if (!pkg) return report;
 
-  const pkg = (await Bun.file(pkgPath).json()) as any;
   const hasTests =
     pkg.scripts?.test ||
     pathExists(join(projectDir, "test")) ||
@@ -246,19 +255,13 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
 
 const COVERAGE_HISTORY = join(GOVERNANCE_DIR, "coverage-history.json");
 
-interface CoverageHistoryEntry {
-  project: string;
-  timestamp: string;
-  percentage: number;
-  covered: number;
-  total: number;
-}
-
 async function latestCoverageHistory(projectDir: string): Promise<CoverageReport | null> {
   if (!pathExists(COVERAGE_HISTORY)) return null;
   let history: CoverageHistoryEntry[];
   try {
-    history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
+    const raw = await readJsonFile(COVERAGE_HISTORY);
+    if (!isCoverageHistoryEntryArray(raw)) return null;
+    history = raw;
   } catch {
     return null;
   }
@@ -279,14 +282,7 @@ export { loadCachedCoverage } from "../lib/governance.ts";
 
 async function storeCoverageHistory(projectDir: string, report: CoverageReport) {
   ensureDir(GOVERNANCE_DIR);
-  let history: CoverageHistoryEntry[] = [];
-  if (pathExists(COVERAGE_HISTORY)) {
-    try {
-      history = (await Bun.file(COVERAGE_HISTORY).json()) as CoverageHistoryEntry[];
-    } catch {
-      history = [];
-    }
-  }
+  const history = await readJsonFileOr(COVERAGE_HISTORY, [], isCoverageHistoryEntryArray);
 
   const project = await getProjectName(projectDir);
   history.push({
@@ -384,14 +380,7 @@ async function computeRScore(
   };
 
   ensureDir(GOVERNANCE_DIR);
-  let history: RScore[] = [];
-  if (pathExists(SCORE_HISTORY)) {
-    try {
-      history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
-    } catch {
-      history = [];
-    }
-  }
+  let history = await readJsonFileOr(SCORE_HISTORY, [], isRScoreArray);
   history.push(score);
   if (history.length > 50) history = history.slice(-50);
   await Bun.write(SCORE_HISTORY, JSON.stringify(history, null, 2));
@@ -870,7 +859,7 @@ async function main(): Promise<number> {
     }
 
     if (pathExists(SCORE_HISTORY)) {
-      const history = (await Bun.file(SCORE_HISTORY).json()) as RScore[];
+      const history = await readJsonFileOr(SCORE_HISTORY, [], isRScoreArray);
       if (history.length > 1) {
         const prev = history[history.length - 2];
         const delta = score.total - prev.total;

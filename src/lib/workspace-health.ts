@@ -12,7 +12,7 @@ import {
   resolveRealPath,
 } from "./bun-io.ts";
 import { homeDir } from "./paths.ts";
-import { readPackageJson, safeParse } from "./utils.ts";
+import { readPackageJson, readPackageManifest, safeParse } from "./utils.ts";
 
 import {
   archiveLegacyKimiSessions,
@@ -242,8 +242,8 @@ export async function isKimiToolchainRepo(projectRoot: string): Promise<boolean>
   const pkgPath = join(projectRoot, "package.json");
   if (!(await pathExistsAsync(pkgPath))) return false;
   try {
-    const pkg = (await Bun.file(pkgPath).json()) as { name?: string };
-    return pkg.name === CANONICAL_REPO_NAME;
+    const pkg = await readPackageManifest(projectRoot);
+    return pkg?.name === CANONICAL_REPO_NAME;
   } catch {
     return false;
   }

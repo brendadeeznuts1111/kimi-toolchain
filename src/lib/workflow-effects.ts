@@ -14,7 +14,7 @@
  */
 
 import { registerEffectBenchmark } from "./effect-benchmark.ts";
-import { readableStreamToText } from "./bun-utils.ts";
+import { $ } from "bun";
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -301,21 +301,20 @@ export async function fixEffect(
       }
 
       try {
-        const proc = Bun.spawn(["bun", "add", `${issue.package}@${targetVersion}`], {
-          cwd: projectDir,
-          stdout: "pipe",
-          stderr: "pipe",
-        });
-        const exitCode = await proc.exited;
+        const result = await $`bun add ${issue.package}@${targetVersion}`
+          .cwd(projectDir)
+          .nothrow()
+          .quiet();
 
-        const ok = exitCode === 0;
+        const ok = result.exitCode === 0;
         if (ok) {
           console.error(
             `[${ctx.domainId}] Fixed ${issue.package}: ${issue.currentVersion ?? "?"} → ${targetVersion}`
           );
         } else {
-          const stderr = await readableStreamToText(proc.stderr);
-          console.error(`[${ctx.domainId}] Fix failed for ${issue.package}: ${stderr.trim()}`);
+          console.error(
+            `[${ctx.domainId}] Fix failed for ${issue.package}: ${result.stderr.toString().trim()}`
+          );
         }
 
         results.push({
@@ -323,7 +322,7 @@ export async function fixEffect(
           fromVersion: issue.currentVersion ?? "unknown",
           toVersion: targetVersion,
           success: ok,
-          error: ok ? undefined : `bun add exited ${exitCode}`,
+          error: ok ? undefined : `bun add exited ${result.exitCode}`,
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

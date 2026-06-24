@@ -3,6 +3,7 @@
  * validate-processes-panel.ts — Smoke validation for processes UI + API contract.
  */
 
+import { $ } from "bun";
 import { join } from "path";
 import { readText } from "../src/lib/bun-io.ts";
 import { fetchHttp, fetchJsonBody, readableStreamToText } from "../src/lib/bun-utils.ts";
@@ -82,13 +83,9 @@ const stagingPanes: PaneInfo[] = [
 const js = readText(join(REPO_ROOT, "templates/herdr-dashboard.js"));
 const css = readText(join(REPO_ROOT, "templates/herdr-dashboard.css"));
 
-await Bun.spawn(["bun", "run", "scripts/sync-to-desktop.ts"], { cwd: REPO_ROOT }).exited;
-const syncProc = Bun.spawn(["bun", "run", "scripts/sync-verify.ts"], {
-  stdout: "pipe",
-  stderr: "pipe",
-  cwd: REPO_ROOT,
-});
-const syncExit = await syncProc.exited;
+await $`bun run scripts/sync-to-desktop.ts`.cwd(REPO_ROOT).nothrow();
+const syncResult = await $`bun run scripts/sync-verify.ts`.cwd(REPO_ROOT).nothrow().quiet();
+const syncExit = syncResult.exitCode;
 record(
   "Dashboard restart / `bun run sync`",
   syncExit === 0 ? "Pass" : "Fail",

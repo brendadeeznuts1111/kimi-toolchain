@@ -1,4 +1,5 @@
 import { pathExists } from "./bun-io.ts";
+import { readPackageManifest } from "./utils.ts";
 import { join } from "path";
 import { $ } from "bun";
 
@@ -11,10 +12,8 @@ export async function ensureQualityTooling(
   const pkgPath = join(project, "package.json");
   if (!pathExists(pkgPath)) return;
 
-  const pkg = (await Bun.file(pkgPath).json()) as {
-    scripts?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
+  const pkg = await readPackageManifest(project);
+  if (!pkg) return;
   const scripts = pkg.scripts || {};
   const additions: Record<string, string> = {
     test: "bun run scripts/run-tests.ts",
@@ -82,9 +81,8 @@ export async function injectMissingScripts(
   if (profile === "toolchain") {
     const pkgPath = join(project, "package.json");
     if (!pathExists(pkgPath)) return;
-    const pkg = (await Bun.file(pkgPath).json()) as {
-      scripts?: Record<string, string>;
-    };
+    const pkg = await readPackageManifest(project);
+    if (!pkg) return;
     if (!pkg.scripts?.["finish-work"]) {
       logger("package.json", "adding finish-work script...");
       if (!dryRun) {

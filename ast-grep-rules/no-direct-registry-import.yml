@@ -1,0 +1,8 @@
+id: no-direct-registry-import
+language: TypeScript
+rule:
+  any:
+    - pattern: import { $$$IMPORTS } from "./bun-release-registry.ts"
+    - pattern: import type { $$$IMPORTS } from "./bun-release-registry.ts"
+message: "Import from bun-utils.ts instead of bun-release-registry.ts directly"
+severity: warning

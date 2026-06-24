@@ -4,6 +4,7 @@
 
 import { join } from "path";
 import { pathExists } from "./bun-io.ts";
+import { readPackageManifest } from "./utils.ts";
 import { ArtifactStore } from "./artifact-store.ts";
 import { fetchDashboardArtifactContext, fetchDashboardGateGraph } from "./herdr-dashboard-data.ts";
 
@@ -42,8 +43,8 @@ async function isKimiToolchainRoot(projectRoot: string): Promise<boolean> {
   const packagePath = join(projectRoot, "package.json");
   if (!(await pathExists(packagePath))) return false;
   try {
-    const meta = (await Bun.file(packagePath).json()) as { name?: string };
-    return meta.name === "kimi-toolchain";
+    const meta = await readPackageManifest(projectRoot);
+    return meta?.name === "kimi-toolchain";
   } catch {
     return false;
   }

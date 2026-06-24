@@ -1,0 +1,9 @@
+id: no-manual-feature-url
+language: TypeScript
+rule:
+  pattern: "`${$BLOG}#${$SLUG}`"
+constraints:
+  BLOG:
+    regex: (?i)blogUrl|BUN_RELEASE\.blogUrl
+message: "Use releaseFeatureUrl() instead of manual blogUrl#slug template literals"
+severity: warning

@@ -38,7 +38,7 @@ export class WorkflowLoop {
 
   async loadSeed(): Promise<void> {
     if (!this.options.seedPath) return;
-    this.seedState = await readSeed(this.options.seedPath);
+    this.seedState = readSeed(this.options.seedPath);
   }
 
   async runScanners(): Promise<ScannerResult[]> {
@@ -112,7 +112,7 @@ export class WorkflowLoop {
     }
 
     if (this.options.seedWritePath && !this.options.dryRun) {
-      await writeSeedFile(this.options.seedWritePath, this.domain.id, results);
+      writeSeedFile(this.options.seedWritePath, this.domain.id, results);
     }
 
     if (!this.options.dryRun) {

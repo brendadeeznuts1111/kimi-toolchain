@@ -159,7 +159,7 @@ export interface ToolchainManifest {
 }
 
 /** Structured manifest validator — no external deps. */
-function isToolchainManifest(val: unknown): val is ToolchainManifest {
+export function isToolchainManifest(val: unknown): val is ToolchainManifest {
   if (typeof val !== "object" || val === null) return false;
   const v = val as Record<string, unknown>;
 

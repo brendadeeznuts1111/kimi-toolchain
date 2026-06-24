@@ -10,6 +10,7 @@
  */
 
 import { join } from "path";
+import { readPackageManifest } from "./utils.ts";
 
 export interface TrustedDepsAudit {
   dimension: 11;
@@ -38,10 +39,7 @@ async function checkLockfileFresh(projectRoot: string): Promise<boolean> {
 export async function auditTrustedDeps(
   projectRoot: string = process.cwd()
 ): Promise<TrustedDepsAudit> {
-  const pkg = (await Bun.file(join(projectRoot, "package.json")).json()) as {
-    trustedDependencies?: unknown;
-    scripts?: { postinstall?: string };
-  };
+  const pkg = (await readPackageManifest(projectRoot)) ?? {};
   const bunfigText = await Bun.file(join(projectRoot, "bunfig.toml")).text();
 
   const checks = {

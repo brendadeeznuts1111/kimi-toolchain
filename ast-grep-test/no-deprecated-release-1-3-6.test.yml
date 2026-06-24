@@ -1,0 +1,7 @@
+id: no-deprecated-release-1-3-6
+valid:
+  - "const url = BUN_RELEASE.blogUrl"
+  - "const anchors = BUN_RELEASE_1_3_6_FEATURE_ANCHORS"
+invalid:
+  - "const url = BUN_RELEASE_1_3_6_URL"
+  - "const tag = BUN_RELEASE_1_3_6_TAG"

@@ -1,0 +1,6 @@
+id: no-direct-registry-import
+valid:
+  - 'import { BUN_RELEASE } from "./bun-utils.ts"'
+invalid:
+  - 'import { BUN_RELEASE_HISTORY } from "./bun-release-registry.ts"'
+  - 'import type { ReleaseHistoryRow } from "./bun-release-registry.ts"'

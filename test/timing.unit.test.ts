@@ -1,16 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { elapsedMs, isExpired, MIN_PERF_NOW_MS, nowMs, nowNs, nsToMs } from "../src/lib/timing.ts";
 import {
   benchAsync,
   benchSync,
-  elapsedMs,
   formatBenchLine,
-  isExpired,
-  MIN_PERF_NOW_MS,
-  nowMs,
-  nowNs,
-  nsToMs,
   summarizeBenchSamples,
-} from "../src/lib/timing.ts";
+} from "../bench/lib/timing.ts";
 import { BUN_MEASURING_TIME_DOC_URL } from "../src/lib/bun-install-config.ts";
 
 describe("timing", () => {
@@ -33,7 +28,9 @@ describe("timing", () => {
     expect(MIN_PERF_NOW_MS).toBe(1);
     expect(BUN_MEASURING_TIME_DOC_URL).toContain("benchmarking#measuring-time");
   });
+});
 
+describe("bench-timing", () => {
   test("benchSync warms up and returns aggregate stats", () => {
     let count = 0;
     const sample = benchSync(() => {

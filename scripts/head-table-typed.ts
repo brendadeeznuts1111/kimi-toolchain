@@ -409,6 +409,7 @@ export function buildContentRows(html: string, md: string): TypedRow[] {
   rows.push(
     row("Source", "BUN_RELEASE.version", BUN_RELEASE.version, "semver", BUN_RELEASE.blogUrl)
   );
+  rows.push(row("Source", "BUN_RELEASE.author", BUN_RELEASE.author, "string", BUN_RELEASE.blogUrl));
 
   return rows;
 }

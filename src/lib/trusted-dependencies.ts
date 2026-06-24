@@ -1,4 +1,4 @@
-import { pathExists } from "./bun-io.ts";
+import { pathExists, readJsonFile, readJsonValidated } from "./bun-io.ts";
 
 import { join } from "path";
 import { TOML } from "bun";
@@ -15,6 +15,44 @@ interface PackageJsonTrusted {
   };
 }
 
+function recordField(obj: unknown, key: string): unknown {
+  return typeof obj === "object" && obj !== null
+    ? (obj as Record<string, unknown>)[key]
+    : undefined;
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every((v) => typeof v === "string")
+  );
+}
+
+function isPackageJsonTrusted(value: unknown): value is PackageJsonTrusted {
+  if (typeof value !== "object" || value === null) return false;
+  const trusted = recordField(value, "trustedDependencies");
+  const scripts = recordField(value, "scripts");
+  return (
+    (trusted === undefined ||
+      (Array.isArray(trusted) && trusted.every((d) => typeof d === "string"))) &&
+    (recordField(value, "dependencies") === undefined ||
+      isStringRecord(recordField(value, "dependencies"))) &&
+    (recordField(value, "devDependencies") === undefined ||
+      isStringRecord(recordField(value, "devDependencies"))) &&
+    (recordField(value, "optionalDependencies") === undefined ||
+      isStringRecord(recordField(value, "optionalDependencies"))) &&
+    (scripts === undefined ||
+      (typeof scripts === "object" &&
+        scripts !== null &&
+        ["postinstall", "preinstall", "install"].every(
+          (k) =>
+            recordField(scripts, k) === undefined || typeof recordField(scripts, k) === "string"
+        )))
+  );
+}
+
 interface BunfigTrustedConfig {
   install?: {
     trustedDependencies?: string[];
@@ -26,6 +64,15 @@ export interface TrustedDependencyScan {
   untrusted: string[];
   trusted: string[];
   legacyBunfigTrusted: string[];
+}
+
+async function readPackageJsonTrusted(path: string): Promise<PackageJsonTrusted | null> {
+  try {
+    const raw = await readJsonFile(path);
+    return isPackageJsonTrusted(raw) ? raw : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseTrustedList(raw: string | undefined): string[] {
@@ -47,8 +94,8 @@ export async function readTrustedDependencies(projectDir: string): Promise<{
   let legacyBunfigTrusted: string[] = [];
 
   if (pathExists(pkgPath)) {
-    const pkg = (await Bun.file(pkgPath).json()) as PackageJsonTrusted;
-    if (Array.isArray(pkg.trustedDependencies)) {
+    const pkg = await readPackageJsonTrusted(pkgPath);
+    if (pkg && Array.isArray(pkg.trustedDependencies)) {
       trusted = new Set(pkg.trustedDependencies);
     }
   }
@@ -81,7 +128,10 @@ export async function scanUntrustedInstallScripts(
   }
 
   const { trusted, legacyBunfigTrusted } = await readTrustedDependencies(projectDir);
-  const pkg = (await Bun.file(pkgPath).json()) as PackageJsonTrusted;
+  const pkg = await readPackageJsonTrusted(pkgPath);
+  if (!pkg) {
+    return { untrusted: [], trusted: [], legacyBunfigTrusted };
+  }
   const allDeps = [
     ...Object.keys(pkg.dependencies || {}),
     ...Object.keys(pkg.devDependencies || {}),
@@ -95,7 +145,8 @@ export async function scanUntrustedInstallScripts(
     const depPkgPath = join(projectDir, "node_modules", dep, "package.json");
     if (!pathExists(depPkgPath)) continue;
 
-    const depPkg = (await Bun.file(depPkgPath).json()) as PackageJsonTrusted;
+    const depPkg = await readPackageJsonTrusted(depPkgPath);
+    if (!depPkg) continue;
     const scripts = depPkg.scripts || {};
     if (scripts.postinstall || scripts.preinstall || scripts.install) {
       if (trusted.has(dep)) {
@@ -122,7 +173,7 @@ export async function addTrustedDependencies(
     return { added: [], migratedFromBunfig: false };
   }
 
-  const pkg = (await Bun.file(pkgPath).json()) as PackageJsonTrusted;
+  const pkg = await readJsonValidated(pkgPath, isPackageJsonTrusted);
   const existing = Array.isArray(pkg.trustedDependencies) ? pkg.trustedDependencies : [];
   const { legacyBunfigTrusted } = await readTrustedDependencies(projectDir);
   const combined = [...new Set([...existing, ...legacyBunfigTrusted, ...deps])];

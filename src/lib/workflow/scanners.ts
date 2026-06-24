@@ -4,6 +4,7 @@
 
 import { join } from "path";
 import { pathExists } from "../bun-io.ts";
+import { readPackageManifest } from "../utils.ts";
 import type { ScannerFn, ScannerIssue } from "./types.ts";
 
 const SEMVER_PKG_RE = /^(.+?)@(.+?)\s/;
@@ -27,11 +28,8 @@ export const semverScanner: ScannerFn = async ({ projectRoot }) => {
     };
   }
 
-  const pkg = (await Bun.file(pkgPath).json()) as {
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
-  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  const pkg = await readPackageManifest(projectRoot);
+  const deps = { ...pkg?.dependencies, ...pkg?.devDependencies };
 
   for (const [name, range] of Object.entries(deps ?? {})) {
     if (range.startsWith("workspace:") || range.startsWith("file:")) continue;

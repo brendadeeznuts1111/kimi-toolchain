@@ -12,7 +12,7 @@
 
 import { join, relative, resolve } from "path";
 import { tmpdir } from "os";
-import { pathExists, readJsonAsync } from "./bun-io.ts";
+import { pathExists, readJsonValidated } from "./bun-io.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -64,6 +64,15 @@ export interface BundleMetafileOutput {
 export interface BundleMetafile {
   inputs: Record<string, BundleMetafileInput>;
   outputs: Record<string, BundleMetafileOutput>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function isBundleMetafile(value: unknown): value is BundleMetafile {
+  if (!isRecord(value)) return false;
+  return isRecord(value.inputs) && isRecord(value.outputs);
 }
 
 export interface BundleGateReport {
@@ -516,7 +525,7 @@ async function buildProjectBundle(
   if (!(await Bun.file(metafilePath).exists())) {
     return { error: `metafile not written: ${metafilePath}` };
   }
-  const metafile = await readJsonAsync<BundleMetafile>(metafilePath);
+  const metafile = await readJsonValidated(metafilePath, isBundleMetafile);
   if (!(await Bun.file(markdownPath).exists())) {
     const summary = summarizeMetafile(metafile);
     const largest = largestModulesFromMetafile(metafile);

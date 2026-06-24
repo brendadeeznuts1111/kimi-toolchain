@@ -114,6 +114,7 @@ export const UNIT_TEST_FILES = [
   "test/audit-release-blogs.unit.test.ts",
   "test/validate-release-ssot.unit.test.ts",
   "test/artifact-store.unit.test.ts",
+  "test/ast-grep-gate.unit.test.ts",
   "test/graph-to-mermaid.unit.test.ts",
   "test/bunfig-policy-gate.unit.test.ts",
   "test/bunfig-redundancy.unit.test.ts",

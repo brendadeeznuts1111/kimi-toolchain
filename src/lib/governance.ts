@@ -5,11 +5,11 @@
  * Extracted from src/bin/kimi-governance.ts for reuse.
  */
 
-import { pathExists } from "./bun-io.ts";
+import { pathExists, readJsonFile, readJsonFileOr } from "./bun-io.ts";
 import { join } from "path";
 import { $ } from "bun";
 import { readableStreamToText } from "./bun-utils.ts";
-import { ensureDir, getProjectName } from "./utils.ts";
+import { ensureDir, getProjectName, readPackageManifest } from "./utils.ts";
 import { buildBunTestArgs } from "./test-runtime.ts";
 import { useFastUnitCoverage } from "./test-gates.ts";
 import { governorDir } from "./paths.ts";
@@ -42,7 +42,7 @@ export interface CoverageReport {
   files: Array<{ path: string; covered: number; total: number; percentage: number }>;
 }
 
-interface CoverageHistoryEntry {
+export interface CoverageHistoryEntry {
   project: string;
   timestamp: string;
   percentage: number;
@@ -50,15 +50,56 @@ interface CoverageHistoryEntry {
   total: number;
 }
 
+function recordField(obj: unknown, key: string): unknown {
+  return typeof obj === "object" && obj !== null
+    ? (obj as Record<string, unknown>)[key]
+    : undefined;
+}
+
+export function isCoverageHistoryEntry(value: unknown): value is CoverageHistoryEntry {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof recordField(value, "project") === "string" &&
+    typeof recordField(value, "timestamp") === "string" &&
+    typeof recordField(value, "percentage") === "number" &&
+    typeof recordField(value, "covered") === "number" &&
+    typeof recordField(value, "total") === "number"
+  );
+}
+
+export function isCoverageHistoryEntryArray(value: unknown): value is CoverageHistoryEntry[] {
+  return Array.isArray(value) && value.every(isCoverageHistoryEntry);
+}
+
+export function isRScoreRecord(value: unknown): value is RScore {
+  const breakdown = recordField(value, "breakdown");
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof recordField(value, "project") === "string" &&
+    typeof recordField(value, "timestamp") === "string" &&
+    typeof recordField(value, "total") === "number" &&
+    typeof recordField(value, "max") === "number" &&
+    typeof recordField(value, "grade") === "string" &&
+    typeof breakdown === "object" &&
+    breakdown !== null &&
+    !Array.isArray(breakdown)
+  );
+}
+
+export function isRScoreArray(value: unknown): value is RScore[] {
+  return Array.isArray(value) && value.every(isRScoreRecord);
+}
+
 // ── Test Coverage Gate ─────────────────────────────────────────────────
 
 export async function checkCoverage(projectDir: string, _threshold = 70): Promise<CoverageReport> {
   const report: CoverageReport = { covered: 0, total: 0, percentage: 0, files: [] };
 
-  const pkgPath = join(projectDir, "package.json");
-  if (!pathExists(pkgPath)) return report;
+  const pkg = await readPackageManifest(projectDir);
+  if (!pkg) return report;
 
-  const pkg = (await Bun.file(pkgPath).json()) as any;
   const hasTests =
     pkg.scripts?.test ||
     pathExists(join(projectDir, "test")) ||
@@ -214,14 +255,7 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
 export async function storeCoverageHistory(projectDir: string, report: CoverageReport) {
   const historyPath = coverageHistoryPath();
   ensureDir(governanceDir());
-  let history: CoverageHistoryEntry[] = [];
-  if (pathExists(historyPath)) {
-    try {
-      history = (await Bun.file(historyPath).json()) as CoverageHistoryEntry[];
-    } catch {
-      history = [];
-    }
-  }
+  const history = await readJsonFileOr(historyPath, [], isCoverageHistoryEntryArray);
 
   const project = await getProjectName(projectDir);
   history.push({
@@ -251,7 +285,9 @@ export async function loadCachedCoverage(projectDir: string): Promise<CoverageRe
   if (!pathExists(historyPath)) return null;
   let history: CoverageHistoryEntry[];
   try {
-    history = (await Bun.file(historyPath).json()) as CoverageHistoryEntry[];
+    const raw = await readJsonFile(historyPath);
+    if (!isCoverageHistoryEntryArray(raw)) return null;
+    history = raw;
   } catch {
     return null;
   }

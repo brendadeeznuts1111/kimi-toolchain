@@ -186,12 +186,8 @@ function printFiles(report: PrDiffReport): void {
 }
 
 async function printFull(baseRef: string): Promise<void> {
-  const proc = Bun.spawn(["git", "diff", `${baseRef}...HEAD`], {
-    cwd: REPO_ROOT,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  process.exit(await proc.exited);
+  const result = await $`git diff ${baseRef}...HEAD`.cwd(REPO_ROOT).nothrow();
+  process.exit(result.exitCode);
 }
 
 async function main(): Promise<number> {

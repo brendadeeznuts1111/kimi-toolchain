@@ -8,6 +8,7 @@
  * Bun constants cannot route live traffic, so real mutations stay behind --yes.
  */
 
+import { $ } from "bun";
 import { pathExists } from "./bun-io.ts";
 
 import { join } from "path";
@@ -545,17 +546,11 @@ function rewriteDefineValue(
 
 async function isBunfigDirty(projectRoot: string): Promise<boolean> {
   if (!pathExists(join(projectRoot, ".git"))) return false;
-  const unstaged = Bun.spawn(["git", "diff", "--quiet", "--", "bunfig.toml"], {
-    cwd: projectRoot,
-    stdout: "ignore",
-    stderr: "ignore",
-  });
-  const staged = Bun.spawn(["git", "diff", "--cached", "--quiet", "--", "bunfig.toml"], {
-    cwd: projectRoot,
-    stdout: "ignore",
-    stderr: "ignore",
-  });
-  return (await unstaged.exited) !== 0 || (await staged.exited) !== 0;
+  const [unstaged, staged] = await Promise.all([
+    $`git diff --quiet -- bunfig.toml`.cwd(projectRoot).nothrow().quiet(),
+    $`git diff --cached --quiet -- bunfig.toml`.cwd(projectRoot).nothrow().quiet(),
+  ]);
+  return unstaged.exitCode !== 0 || staged.exitCode !== 0;
 }
 
 export async function applyLifecycleProposal(input: {

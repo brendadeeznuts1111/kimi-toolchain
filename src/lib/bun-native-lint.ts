@@ -28,8 +28,12 @@ export interface RuleDefinition {
 
 export interface ScanContext {
   rel: string;
+  /** Original source lines (block comments NOT stripped) — use for snippets. */
   lines: string[];
-  lineHasExemption: (line: string) => boolean;
+  /** Source with line and block comments blanked (newlines preserved) — use for detection. */
+  codeLines: string[];
+  /** True when the line carries `@bun-native-exempt` (all rules) or `@bun-native-exempt:<ruleId>`. */
+  lineHasExemption: (line: string, ruleId?: string) => boolean;
 }
 
 export interface BunNativeLintConfig {
@@ -38,6 +42,12 @@ export interface BunNativeLintConfig {
   rules: Record<string, RuleMode>;
   /** Files skipped by import/require rules (central sync boundary). */
   exemptFiles?: string[];
+  /**
+   * Per-scope rule-mode overrides. Key = ruleId; value = map of path-prefix → mode.
+   * The longest matching prefix wins. Lets `scripts/` relax `process-env` to `report`
+   * while `src/` stays `enforce`, so coverage can broaden without breaking the gate.
+   */
+  scopeOverrides?: Record<string, Record<string, RuleMode>>;
 }
 
 export interface BaselineEntry {
@@ -82,6 +92,23 @@ const BANNED_IMPORTS: Record<string, string> = {
   which: "Bun.which",
 };
 
+/** Advisory-only imports — defaultMode off; prefer Bun / web-standard equivalents. */
+const SOFT_BANNED_IMPORTS: Record<string, string> = {
+  path: "path.join only at boundaries; prefer Bun.file paths",
+  "node:path": "path.join only at boundaries; prefer Bun.file paths",
+  os: "Bun.env / process.platform at boundaries",
+  "node:os": "Bun.env / process.platform at boundaries",
+  util: "Bun.inspect / structured helpers",
+  "node:util": "Bun.inspect / structured helpers",
+  buffer: "Uint8Array / web-standard Buffer",
+  "node:buffer": "Uint8Array / web-standard Buffer",
+};
+
+const BUFFER_FROM = /\bBuffer\.from\s*\(/;
+
+const SHELL_TEMPLATE_TARGET =
+  /Bun\.spawn(?:Sync)?\s*\(\s*\[\s*["'](?:sh|bash|zsh)["']\s*,\s*["']-c["']/;
+
 const SYNC_FS_API =
   /\b(readFileSync|writeFileSync|appendFileSync|readdirSync|mkdirSync|rmSync|statSync|copyFileSync|unlinkSync)\s*\(/;
 
@@ -105,6 +132,57 @@ function stripStringLiterals(line: string): string {
     .replace(/"(?:\\.|[^"\\])*"/g, '""')
     .replace(/'(?:\\.|[^'\\])*'/g, "''")
     .replace(/`(?:\\.|[^`\\])*`/g, "``");
+}
+
+/**
+ * Blank `//` line comments and slash-star block comments while preserving
+ * newlines and string literals, so multi-line block comments stop triggering
+ * line-based rules and inline `// test` tails no longer mask detection.
+ */
+function stripComments(text: string): string {
+  let out = "";
+  let i = 0;
+  const n = text.length;
+  let str: '"' | "'" | "`" | null = null;
+  while (i < n) {
+    const c = text[i] ?? "";
+    const next = text[i + 1] ?? "";
+    if (str) {
+      out += c;
+      if (c === "\\") {
+        out += next;
+        i += 2;
+        continue;
+      }
+      if (c === str) str = null;
+      i++;
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      let j = i + 2;
+      while (j < n && !(text[j] === "*" && text[j + 1] === "/")) j++;
+      const end = j < n ? j + 2 : n;
+      for (let k = i; k < end; k++) out += text[k] === "\n" ? "\n" : " ";
+      i = end;
+      continue;
+    }
+    if (c === "/" && next === "/") {
+      let j = i;
+      while (j < n && text[j] !== "\n") j++;
+      for (let k = i; k < j; k++) out += " ";
+      i = j;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      str = c;
+      out += c;
+      i++;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
 }
 
 function inScope(rel: string, scope: string[] | undefined): boolean {
@@ -138,16 +216,18 @@ function scanLineMatches(
   message: string,
   replacement: string,
   regex: RegExp,
-  scope?: string[]
+  scope?: string[],
+  stripStrings = true
 ): Violation[] {
   if (!inScope(ctx.rel, scope)) return [];
   const out: Violation[] = [];
   for (let i = 0; i < ctx.lines.length; i++) {
     const line = ctx.lines[i] ?? "";
+    const codeLine = ctx.codeLines[i] ?? "";
     const lineNo = i + 1;
-    if (line.trim().startsWith("//")) continue;
-    if (ctx.lineHasExemption(line)) continue;
-    const code = stripStringLiterals(line);
+    if (codeLine.trim() === "") continue;
+    if (ctx.lineHasExemption(line, ruleId)) continue;
+    const code = stripStrings ? stripStringLiterals(codeLine) : codeLine;
     if (!regex.test(code)) continue;
     regex.lastIndex = 0;
     out.push(...lineViolations(ctx, ruleId, message, replacement, lineNo, line));
@@ -157,6 +237,10 @@ function scanLineMatches(
 
 const bannedImportRegex = new RegExp(
   `from\\s+["'](${Object.keys(BANNED_IMPORTS).map(escapeRegExp).join("|")})["']`,
+  "g"
+);
+const softBannedImportRegex = new RegExp(
+  `from\\s+["'](${Object.keys(SOFT_BANNED_IMPORTS).map(escapeRegExp).join("|")})["']`,
   "g"
 );
 const requireRegex = /require\s*\(\s*["']([^"']+)["']\s*\)/g;
@@ -174,9 +258,10 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
       const out: Violation[] = [];
       for (let i = 0; i < ctx.lines.length; i++) {
         const line = ctx.lines[i] ?? "";
+        const codeLine = ctx.codeLines[i] ?? "";
         const lineNo = i + 1;
-        if (line.trim().startsWith("//") || ctx.lineHasExemption(line)) continue;
-        for (const match of line.matchAll(bannedImportRegex)) {
+        if (codeLine.trim() === "" || ctx.lineHasExemption(line, "banned-import")) continue;
+        for (const match of codeLine.matchAll(bannedImportRegex)) {
           const name = match[1]!;
           out.push({
             ruleId: "banned-import",
@@ -200,9 +285,10 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
       const out: Violation[] = [];
       for (let i = 0; i < ctx.lines.length; i++) {
         const line = ctx.lines[i] ?? "";
+        const codeLine = ctx.codeLines[i] ?? "";
         const lineNo = i + 1;
-        if (line.trim().startsWith("//") || ctx.lineHasExemption(line)) continue;
-        for (const match of line.matchAll(requireRegex)) {
+        if (codeLine.trim() === "" || ctx.lineHasExemption(line, "banned-require")) continue;
+        for (const match of codeLine.matchAll(requireRegex)) {
           const name = match[1]!;
           const replacement = BANNED_IMPORTS[name];
           if (!replacement) continue;
@@ -320,9 +406,10 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
       const out: Violation[] = [];
       for (let i = 0; i < ctx.lines.length; i++) {
         const line = ctx.lines[i] ?? "";
+        const codeLine = ctx.codeLines[i] ?? "";
         const lineNo = i + 1;
-        if (line.trim().startsWith("//") || ctx.lineHasExemption(line)) continue;
-        const code = stripStringLiterals(line);
+        if (codeLine.trim() === "" || ctx.lineHasExemption(line, "spawn-no-orphans")) continue;
+        const code = stripStringLiterals(codeLine);
         const rawBun = RAW_BUN_SPAWN.test(code);
         RAW_BUN_SPAWN.lastIndex = 0;
         const rawExecPath = RAW_BUN_EXECPATH_SPAWN.test(code);
@@ -344,6 +431,65 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
         );
       }
       return out;
+    },
+  },
+  {
+    id: "soft-banned-import",
+    message: "Soft-banned import — prefer Bun / web-standard equivalent",
+    replacement: "see SOFT_BANNED_IMPORTS catalog",
+    defaultMode: "off",
+    detect(ctx) {
+      const out: Violation[] = [];
+      for (let i = 0; i < ctx.lines.length; i++) {
+        const line = ctx.lines[i] ?? "";
+        const codeLine = ctx.codeLines[i] ?? "";
+        const lineNo = i + 1;
+        if (codeLine.trim() === "" || ctx.lineHasExemption(line, "soft-banned-import")) continue;
+        for (const match of codeLine.matchAll(softBannedImportRegex)) {
+          const name = match[1]!;
+          out.push({
+            ruleId: "soft-banned-import",
+            file: ctx.rel,
+            line: lineNo,
+            message: `soft-banned import: ${name}`,
+            snippet: line.trim().slice(0, 120),
+            replacement: SOFT_BANNED_IMPORTS[name] ?? "Bun / web-standard equivalent",
+          });
+        }
+      }
+      return out;
+    },
+  },
+  {
+    id: "buffer-from",
+    message: "Prefer Uint8Array / TextEncoder or Bun helpers over Buffer.from",
+    replacement: "new Uint8Array(...) / TextEncoder / Bun helpers",
+    defaultMode: "off",
+    detect(ctx) {
+      return scanLineMatches(
+        ctx,
+        "buffer-from",
+        "Buffer.from() allocation",
+        "Uint8Array / TextEncoder / Bun helpers",
+        BUFFER_FROM
+      );
+    },
+  },
+  {
+    id: "shell-template-opportunity",
+    message: 'Shell command via Bun.spawn(["sh","-c",…]) — consider Bun `$` template',
+    replacement: 'import { $ } from "bun"; $`cmd`',
+    defaultMode: "off",
+    detect(ctx) {
+      return scanLineMatches(
+        ctx,
+        "shell-template-opportunity",
+        "Bun.spawn sh -c shell invocation",
+        '$`...` template (import { $ } from "bun")',
+        SHELL_TEMPLATE_TARGET,
+        undefined,
+        false
+      );
     },
   },
 ];
@@ -377,11 +523,34 @@ export function mergeConfig(parsed: Partial<BunNativeLintConfig> | null): BunNat
     gateMode: parsed.gateMode ?? base.gateMode,
     rules: { ...base.rules, ...parsed.rules },
     exemptFiles: parsed.exemptFiles ?? base.exemptFiles,
+    scopeOverrides: parsed.scopeOverrides ?? base.scopeOverrides,
   };
 }
 
 export function ruleMode(config: BunNativeLintConfig, ruleId: string): RuleMode {
   return config.rules[ruleId] ?? "off";
+}
+
+/**
+ * Resolve the effective mode for a violation by applying the longest matching
+ * scope override. A rule whose base mode is `off` stays off (overrides cannot
+ * turn a rule on — only relax an active rule for a given scope).
+ */
+export function effectiveRuleMode(
+  config: BunNativeLintConfig,
+  ruleId: string,
+  rel: string
+): RuleMode {
+  const base = ruleMode(config, ruleId);
+  if (base === "off") return "off";
+  const overrides = config.scopeOverrides?.[ruleId];
+  if (!overrides) return base;
+  let best: { prefix: string; mode: RuleMode } | null = null;
+  for (const [prefix, mode] of Object.entries(overrides)) {
+    if (!rel.startsWith(prefix)) continue;
+    if (!best || prefix.length > best.prefix.length) best = { prefix, mode };
+  }
+  return best ? best.mode : base;
 }
 
 export function activeRules(config: BunNativeLintConfig): RuleDefinition[] {
@@ -403,7 +572,7 @@ export function evaluateViolations(
     byRule[v.ruleId] ??= [];
     byRule[v.ruleId]!.push(v);
 
-    const mode = ruleMode(config, v.ruleId);
+    const mode = effectiveRuleMode(config, v.ruleId, v.file);
     if (mode === "off") continue;
 
     if (mode === "enforce") {
@@ -436,7 +605,9 @@ export function buildBaselineFromViolations(
   existing: BaselineFile | null,
   ruleFilter?: string
 ): BaselineFile {
-  const reportViolations = violations.filter((v) => ruleMode(config, v.ruleId) === "report");
+  const reportViolations = violations.filter(
+    (v) => effectiveRuleMode(config, v.ruleId, v.file) === "report"
+  );
   const filtered = ruleFilter
     ? reportViolations.filter((v) => v.ruleId === ruleFilter)
     : reportViolations;
@@ -472,10 +643,19 @@ export function buildBaselineFromViolations(
   };
 }
 
+/** Rules that the configured central sync-boundary files may violate. */
+const EXEMPT_RULE_IDS = new Set<string>([
+  "banned-import",
+  "banned-require",
+  "sync-fs-api",
+  "buffer-from",
+  "soft-banned-import",
+]);
+
 function isRuleExempt(rel: string, ruleId: string, config: BunNativeLintConfig): boolean {
   const exempt = config.exemptFiles ?? [];
   if (!exempt.includes(rel)) return false;
-  return ruleId === "banned-import" || ruleId === "banned-require" || ruleId === "sync-fs-api";
+  return EXEMPT_RULE_IDS.has(ruleId);
 }
 
 export async function scanFile(
@@ -492,10 +672,18 @@ export async function scanFile(
     return [];
   }
 
+  const lines = text.split("\n");
   const ctx: ScanContext = {
     rel,
-    lines: text.split("\n"),
-    lineHasExemption: (line) => line.includes("@bun-native-exempt"),
+    lines,
+    codeLines: stripComments(text).split("\n"),
+    lineHasExemption: (line, ruleId) => {
+      if (!line.includes("@bun-native-exempt")) return false;
+      if (!ruleId) return true;
+      const tagged = `@bun-native-exempt:${ruleId}`;
+      if (line.includes(tagged)) return true;
+      return !/@bun-native-exempt:[\w-]+/.test(line);
+    },
   };
 
   const violations: Violation[] = [];
@@ -510,7 +698,7 @@ export async function scanRepo(
   repoRoot: string,
   config: BunNativeLintConfig
 ): Promise<Violation[]> {
-  return scanGlobPatterns(repoRoot, ["src/**/*.ts"], config);
+  return scanGlobPatterns(repoRoot, ["src/**/*.ts", "scripts/**/*.ts", "examples/**/*.ts"], config);
 }
 
 export async function scanGlobPatterns(
@@ -543,6 +731,7 @@ export function parseConfigToml(text: string): BunNativeLintConfig {
     gate?: { mode?: "check" | "report" };
     rules?: Record<string, RuleMode>;
     exemptFiles?: string[];
+    scopeOverrides?: Record<string, Record<string, RuleMode>>;
   };
   const exemptFiles =
     parsed.exemptFiles ?? (parsed as { exemptFiles?: { paths?: string[] } }).exemptFiles?.paths;
@@ -551,6 +740,7 @@ export function parseConfigToml(text: string): BunNativeLintConfig {
     gateMode: parsed.gate?.mode,
     rules: parsed.rules,
     exemptFiles,
+    scopeOverrides: parsed.scopeOverrides,
   });
 }
 

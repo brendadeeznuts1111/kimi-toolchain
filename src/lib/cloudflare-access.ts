@@ -5,7 +5,7 @@
  * Moved from src/bin/kimi-cloudflare-access.ts
  */
 
-import { readableStreamToText } from "./bun-utils.ts";
+import { gitRemoteUrl } from "./git-helpers.ts";
 import { fetchWithTimeout } from "./utils.ts";
 import { pathExists } from "./bun-io.ts";
 import { join } from "path";
@@ -507,19 +507,7 @@ export async function discoverLocalProject(app: AccessApplication): Promise<{
         repoUrl = pkg.repository.url;
       }
       if (!repoUrl) {
-        try {
-          const proc = Bun.spawn(["git", "remote", "get-url", "origin"], {
-            cwd: dir,
-            stdout: "pipe",
-            stderr: "pipe",
-          });
-          const exit = await proc.exited;
-          if (exit === 0) {
-            repoUrl = (await readableStreamToText(proc.stdout)).trim() || undefined;
-          }
-        } catch {
-          /* ignore */
-        }
+        repoUrl = (await gitRemoteUrl(dir)) ?? undefined;
       }
       return {
         localPath: dir,
@@ -605,19 +593,7 @@ export async function discoverLocalProject(app: AccessApplication): Promise<{
 
     // Try git remote as fallback
     if (!repoUrl) {
-      try {
-        const proc = Bun.spawn(["git", "remote", "get-url", "origin"], {
-          cwd: dir,
-          stdout: "pipe",
-          stderr: "pipe",
-        });
-        const exit = await proc.exited;
-        if (exit === 0) {
-          repoUrl = (await readableStreamToText(proc.stdout)).trim() || undefined;
-        }
-      } catch {
-        /* ignore */
-      }
+      repoUrl = (await gitRemoteUrl(dir)) ?? undefined;
     }
 
     // Require strong name match for root-level dirs; subdirs can match by name alone

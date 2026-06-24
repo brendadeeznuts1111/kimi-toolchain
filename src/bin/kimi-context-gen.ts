@@ -7,11 +7,17 @@
  *   kimi-context-gen [scan|freshness|update|doctor|fix]
  */
 
-import { $, TOML } from "bun";
+import { $ } from "bun";
 import { bunVersion, isDirectRun } from "../lib/bun-utils.ts";
-import { pathExists } from "../lib/bun-io.ts";
+import { pathExists, readJsonFile } from "../lib/bun-io.ts";
 import { join } from "path";
-import { ensureDir, getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import {
+  ensureDir,
+  getProjectName,
+  readPackageManifest,
+  resolveProjectRoot,
+  safeToml,
+} from "../lib/utils.ts";
 
 import { checkDocDrift } from "../lib/readme-sync.ts";
 import { guardianDir } from "../lib/paths.ts";
@@ -47,6 +53,35 @@ interface ContextMeta {
   freshnessScore: number;
 }
 
+function recordField(obj: unknown, key: string): unknown {
+  return typeof obj === "object" && obj !== null
+    ? (obj as Record<string, unknown>)[key]
+    : undefined;
+}
+
+function isConfigHash(value: unknown): value is ConfigHash {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof recordField(value, "file") === "string" &&
+    typeof recordField(value, "hash") === "string" &&
+    typeof recordField(value, "mtime") === "number"
+  );
+}
+
+function isContextMeta(value: unknown): value is ContextMeta {
+  const hashes = recordField(value, "configHashes");
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof recordField(value, "project") === "string" &&
+    typeof recordField(value, "generatedAt") === "string" &&
+    typeof recordField(value, "freshnessScore") === "number" &&
+    Array.isArray(hashes) &&
+    hashes.every(isConfigHash)
+  );
+}
+
 // ── Tech Stack Inference ─────────────────────────────────────────────
 
 async function inferTechStack(projectDir: string): Promise<TechStack> {
@@ -60,21 +95,22 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
   if (pathExists(bunfigPath) || pathExists(join(projectDir, "bun.lock"))) {
     stack.runtime = "Bun >=1.3.14";
     if (pathExists(bunfigPath)) {
-      try {
-        const config = TOML.parse(await Bun.file(bunfigPath).text()) as any;
-        if (config.install?.registry) {
-          stack.runtime += ` (registry: ${config.install.registry})`;
-        }
-      } catch {
-        /* ignore */
+      const config = safeToml<{ install?: { registry?: string } }>(
+        await Bun.file(bunfigPath).text(),
+        {},
+        (v): v is { install?: { registry?: string } } => typeof v === "object" && v !== null
+      );
+      const registry = config.install?.registry;
+      if (typeof registry === "string" && registry.trim()) {
+        stack.runtime += ` (registry: ${registry})`;
       }
     }
   } else if (pathExists(pkgPath)) {
     stack.runtime = "Node.js";
   }
 
-  if (pathExists(pkgPath)) {
-    const pkg = (await Bun.file(pkgPath).json()) as any;
+  const pkg = await readPackageManifest(projectDir);
+  if (pkg) {
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
 
     if (deps.hono) stack.framework = "Hono";
@@ -215,7 +251,8 @@ async function computeFreshness(
   let meta: ContextMeta | null = null;
   if (pathExists(CONTEXT_META)) {
     try {
-      meta = (await Bun.file(CONTEXT_META).json()) as ContextMeta;
+      const raw = await readJsonFile(CONTEXT_META);
+      meta = isContextMeta(raw) ? raw : null;
     } catch {
       meta = null;
     }
@@ -277,11 +314,10 @@ async function generateContext(projectDir: string): Promise<string> {
     structure.push(file);
   }
 
-  const pkgPath = join(projectDir, "package.json");
   let commands = "";
-  if (pathExists(pkgPath)) {
-    const pkg = (await Bun.file(pkgPath).json()) as any;
-    const scripts = pkg.scripts || {};
+  const pkgForScripts = await readPackageManifest(projectDir);
+  if (pkgForScripts) {
+    const scripts = pkgForScripts.scripts ?? {};
     const relevant = Object.entries(scripts)
       .filter(([k]) =>
         ["dev", "test", "build", "lint", "typecheck", "start"].some((s) => k.includes(s))

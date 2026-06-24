@@ -8,7 +8,7 @@
 
 import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
-import { getProjectName, resolveProjectRoot } from "../lib/utils.ts";
+import { getProjectName, readPackageManifest, resolveProjectRoot } from "../lib/utils.ts";
 import { runTool } from "../lib/tool-runner.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";
@@ -152,12 +152,9 @@ async function main(): Promise<number> {
     const bump = determineBump(commits);
     logger.info(`Semver bump: ${bump}`);
 
-    const pkgPath = join(projectDir, "package.json");
     let currentVersion = "0.0.0";
-    if (pathExists(pkgPath)) {
-      const pkg = (await Bun.file(pkgPath).json()) as any;
-      currentVersion = pkg.version || "0.0.0";
-    }
+    const pkg = await readPackageManifest(projectDir);
+    if (pkg?.version) currentVersion = pkg.version;
 
     const newVersion = bump === "none" ? currentVersion : bumpVersion(currentVersion, bump);
     logger.info(`Version: ${currentVersion} → ${newVersion}`);

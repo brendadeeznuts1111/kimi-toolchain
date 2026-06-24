@@ -12,9 +12,9 @@ import { dirname, join } from "path";
 
 /** @see {@link BUN_ARCHIVE_RELEASE_URL} */
 export { BUN_ARCHIVE_RELEASE_URL };
-import { makeDir } from "./bun-io.ts";
+import { makeDir, parseJsonValue, readJsonFile } from "./bun-io.ts";
 import { scanTreeSync } from "./globs.ts";
-import type { ToolchainManifest } from "./version.ts";
+import { isToolchainManifest, type ToolchainManifest } from "./version.ts";
 
 /** @see https://bun.com/docs/runtime/archive */
 export const BUN_ARCHIVE_DOC_URL = "https://bun.com/docs/runtime/archive";
@@ -41,6 +41,34 @@ export interface SnapshotArchiveMeta {
   gitHead: string | null;
   bunVersion: string;
   fileCount: number;
+}
+
+function recordField(obj: unknown, key: string): unknown {
+  return typeof obj === "object" && obj !== null
+    ? (obj as Record<string, unknown>)[key]
+    : undefined;
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.values(value).every((v) => typeof v === "string")
+  );
+}
+
+function isSnapshotArchiveMeta(value: unknown): value is SnapshotArchiveMeta {
+  const gitHead = recordField(value, "gitHead");
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof recordField(value, "createdAt") === "string" &&
+    typeof recordField(value, "toolchainVersion") === "string" &&
+    (gitHead === null || typeof gitHead === "string") &&
+    typeof recordField(value, "bunVersion") === "string" &&
+    typeof recordField(value, "fileCount") === "number"
+  );
 }
 
 export interface SyncSnapshotArchive {
@@ -189,9 +217,21 @@ export async function extractSyncSnapshotArchive(
   const archiveFiles = options.glob ? await archive.files(options.glob) : await archive.files();
   await archive.extract(outDir, options.glob ? { glob: options.glob } : undefined);
 
-  const manifest = (await Bun.file(join(outDir, "manifest.json")).json()) as ToolchainManifest;
-  const meta = (await Bun.file(join(outDir, "meta.json")).json()) as SnapshotArchiveMeta;
-  const fileHashes = (await Bun.file(join(outDir, "files.json")).json()) as Record<string, string>;
+  const manifest = parseJsonValue(
+    await readJsonFile(join(outDir, "manifest.json")),
+    isToolchainManifest,
+    "manifest.json"
+  );
+  const meta = parseJsonValue(
+    await readJsonFile(join(outDir, "meta.json")),
+    isSnapshotArchiveMeta,
+    "meta.json"
+  );
+  const fileHashes = parseJsonValue(
+    await readJsonFile(join(outDir, "files.json")),
+    isStringRecord,
+    "files.json"
+  );
   const files = [...archiveFiles.keys()]
     .filter((file) => file !== "manifest.json" && file !== "meta.json" && file !== "files.json")
     .sort();

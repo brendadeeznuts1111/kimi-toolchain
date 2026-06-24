@@ -68,6 +68,116 @@ export { safeParse, safeToml, safeJson5, safeJsonc, jsoncSupported } from "./saf
 
 // ── Project Info ─────────────────────────────────────────────────────
 
+/** Minimal package.json shape for governance, release, and context scans. */
+export interface PackageJsonManifest {
+  [key: string]: unknown;
+  name?: string;
+  version?: string;
+  scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  engines?: Record<string, string>;
+}
+
+export function isPackageJsonManifest(value: unknown): value is PackageJsonManifest {
+  return typeof value === "object" && value !== null;
+}
+
+function isRecordOfStrings(value: unknown): value is Record<string, string> {
+  if (typeof value !== "object" || value === null) return false;
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof k !== "string" || typeof v !== "string") return false;
+  }
+  return true;
+}
+
+function isOptionalRecordOfStrings(value: unknown): boolean {
+  return value === undefined || isRecordOfStrings(value);
+}
+
+/** Validator for package.json reads that only need `{ name?: string }`. */
+export function isPackageJsonWithName(value: unknown): value is { name?: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (!("name" in value) || typeof (value as { name?: unknown }).name === "string")
+  );
+}
+
+/** Validator for package.json reads that only need `{ scripts?: Record<string, string> }`. */
+export function isPackageJsonWithScripts(
+  value: unknown
+): value is { scripts?: Record<string, string> } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    isOptionalRecordOfStrings((value as { scripts?: unknown }).scripts)
+  );
+}
+
+/** Validator for package.json reads that need scripts + devDependencies. */
+export function isPackageJsonWithScriptsAndDevDeps(
+  value: unknown
+): value is { scripts?: Record<string, string>; devDependencies?: Record<string, string> } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    isOptionalRecordOfStrings((value as { scripts?: unknown }).scripts) &&
+    isOptionalRecordOfStrings((value as { devDependencies?: unknown }).devDependencies)
+  );
+}
+
+/** Validator for package.json reads that need `{ trustedDependencies?: unknown[] }`. */
+export function isPackageJsonWithTrustedDeps(
+  value: unknown
+): value is { trustedDependencies?: unknown[] } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (!("trustedDependencies" in value) ||
+      Array.isArray((value as { trustedDependencies?: unknown }).trustedDependencies))
+  );
+}
+
+/** Validator for package.json reads that need `{ bin?: Record<string, string> }`. */
+export function isPackageJsonWithBin(value: unknown): value is { bin?: Record<string, string> } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    isOptionalRecordOfStrings((value as { bin?: unknown }).bin)
+  );
+}
+
+/** Validator for package.json reads that need `{ engines?: { bun?: string }; packageManager?: string }`. */
+export function isPackageJsonWithEnginesAndPackageManager(
+  value: unknown
+): value is { engines?: { bun?: string }; packageManager?: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (!("engines" in value) ||
+      (typeof (value as { engines?: unknown }).engines === "object" &&
+        (value as { engines?: unknown }).engines !== null &&
+        (!("bun" in ((value as { engines?: unknown }).engines as object)) ||
+          typeof ((value as { engines?: { bun?: unknown } }).engines as { bun?: unknown }).bun ===
+            "string"))) &&
+    (!("packageManager" in value) ||
+      typeof (value as { packageManager?: unknown }).packageManager === "string")
+  );
+}
+
+/** Validator for package.json reads that need `{ dependencies?: Record<string, string>; devDependencies?: Record<string, string> }`. */
+export function isPackageJsonWithDeps(
+  value: unknown
+): value is { dependencies?: Record<string, string>; devDependencies?: Record<string, string> } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    isOptionalRecordOfStrings((value as { dependencies?: unknown }).dependencies) &&
+    isOptionalRecordOfStrings((value as { devDependencies?: unknown }).devDependencies)
+  );
+}
+
 /** Read and parse package.json from a project directory with type-safe fallback. */
 export async function readPackageJson<T extends Record<string, unknown>>(
   projectDir: string,
@@ -77,11 +187,16 @@ export async function readPackageJson<T extends Record<string, unknown>>(
   if (!pathExists(pkgPath)) return null;
   try {
     const pkg: unknown = await Bun.file(pkgPath).json();
-    if (validator && !validator(pkg)) return null;
-    return pkg as T;
+    if (validator) return validator(pkg) ? pkg : null;
+    return isPackageJsonManifest(pkg) ? (pkg as T) : null;
   } catch {
     return null;
   }
+}
+
+/** Typed package.json read for common kimi-toolchain scans. */
+export async function readPackageManifest(projectDir: string): Promise<PackageJsonManifest | null> {
+  return readPackageJson(projectDir, isPackageJsonManifest);
 }
 
 /** Get the project name from package.json, falling back to the directory name. */

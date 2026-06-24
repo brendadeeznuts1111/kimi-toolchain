@@ -22,6 +22,7 @@ import {
   isKimiToolchainRepo,
   type WorkspaceCheck,
 } from "./workspace-health.ts";
+import { readPackageManifest } from "./utils.ts";
 
 export interface EcosystemCheck {
   name: string;
@@ -67,8 +68,8 @@ async function checkQualityScripts(projectRoot: string): Promise<EcosystemCheck[
   const required = ["format:check", "lint", "typecheck", "check", "test"] as const;
 
   try {
-    const pkg = (await Bun.file(pkgPath).json()) as { scripts?: Record<string, string> };
-    const scripts = pkg.scripts || {};
+    const pkg = await readPackageManifest(projectRoot);
+    const scripts = pkg?.scripts || {};
     for (const name of required) {
       checks.push(
         scripts[name]

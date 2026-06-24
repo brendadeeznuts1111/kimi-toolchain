@@ -8,6 +8,7 @@
  *   bun run lint --files <...>    # scoped lint: oxlint + banned-terms + patterns + test-names + doc-links
  */
 
+import { $ } from "bun";
 import { join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
 import { filterLintPaths } from "../src/lib/check-changed.ts";
@@ -35,12 +36,8 @@ function parseArgs(): { files: string[]; namesOnly: boolean } {
 }
 
 async function runOxlint(paths: string[]): Promise<number> {
-  const proc = Bun.spawn(["oxlint", ...paths], {
-    cwd: REPO_ROOT,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  return await proc.exited;
+  const result = await $`oxlint ${paths}`.cwd(REPO_ROOT).nothrow();
+  return result.exitCode;
 }
 
 async function runScopedLint(files: string[]): Promise<void> {
@@ -86,12 +83,8 @@ async function runScopedLint(files: string[]): Promise<void> {
 
   const skillFiles = files.filter((f) => /^skills\/.*\/SKILL\.md$/.test(f));
   if (skillFiles.length > 0) {
-    const skillProc = Bun.spawn(["bun", "run", "scripts/lint-skill-frontmatter.ts"], {
-      cwd: REPO_ROOT,
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    if ((await skillProc.exited) !== 0) process.exit(1);
+    const skillResult = await $`bun run scripts/lint-skill-frontmatter.ts`.cwd(REPO_ROOT).nothrow();
+    if (skillResult.exitCode !== 0) process.exit(1);
   }
 
   if (!pathExists(join(REPO_ROOT, ".oxlintrc.json"))) {
@@ -147,15 +140,10 @@ async function runFullLint(namesOnly: boolean): Promise<void> {
   ];
 
   for (const { cmd, label } of subScripts) {
-    const proc = Bun.spawn(cmd, {
-      cwd: REPO_ROOT,
-      stdout: "inherit",
-      stderr: "inherit",
-    });
-    const code = await proc.exited;
-    if (code !== 0) {
-      console.error(`\u2717 ${label} failed (exit ${code})`);
-      process.exit(code);
+    const result = await $`${cmd}`.cwd(REPO_ROOT).nothrow();
+    if (result.exitCode !== 0) {
+      console.error(`\u2717 ${label} failed (exit ${result.exitCode})`);
+      process.exit(result.exitCode);
     }
   }
 }

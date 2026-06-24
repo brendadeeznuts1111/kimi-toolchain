@@ -11,16 +11,16 @@
 import {
   BUN_RELEASE_HISTORY,
   sortReleaseVersions,
+  verifyReleaseMetadata,
   type BunReleaseRecord,
   type BunReleaseVersion,
 } from "../src/lib/bun-release-registry.ts";
-import { verifyReleaseMeta, type ReleaseMetaDrift } from "./head-table-typed.ts";
 
 export interface ReleaseBlogAuditResult {
   version: string;
   ok: boolean;
   blogUrl: string;
-  drifts: ReleaseMetaDrift[];
+  drifts: import("../src/lib/bun-release-registry.ts").ReleaseMetadataDrift[];
   error?: string;
 }
 
@@ -79,9 +79,51 @@ async function fetchBlogAssets(
   return { md, html };
 }
 
+function countFeatureCommits(md: string): number {
+  return [...md.matchAll(/<!--\s*https:\/\/github\.com\/oven-sh\/bun\/commit\/[a-f0-9]+\s*-->/g)]
+    .length;
+}
+
+function parseBlogReleaseMetadata(
+  md: string
+): { version: string; tag: string; hash?: string; featureCommitCount: number } | null {
+  const fm = md.match(/^---\n([\s\S]*?)\n---/);
+  const title = fm?.[1]?.match(/^title:\s*(.+)$/m)?.[1] ?? "";
+  const versionMatch = title.match(/\bv?(\d+\.\d+\.\d+)\b/);
+  const version = versionMatch?.[1] ?? "";
+
+  const commits = [
+    ...md.matchAll(/<!--\s*(https:\/\/github\.com\/oven-sh\/bun\/commit\/[a-f0-9]+)\s*-->/g),
+  ];
+  const lastCommit = commits.at(-1)?.[1];
+  const hash = lastCommit
+    ? lastCommit.replace(/^https:\/\/github\.com\/oven-sh\/bun\/commit\//, "").trim()
+    : undefined;
+
+  if (!version) return null;
+
+  return {
+    version,
+    tag: `bun-v${version}`,
+    hash,
+    featureCommitCount: countFeatureCommits(md),
+  };
+}
+
 /** Verify one registry record against blog markdown (exported for tests). */
-export function auditReleaseBlog(md: string, record: BunReleaseRecord): ReleaseMetaDrift[] {
-  return verifyReleaseMeta(md, record);
+export function auditReleaseBlog(
+  md: string,
+  record: BunReleaseRecord
+): import("../src/lib/bun-release-registry.ts").ReleaseMetadataDrift[] {
+  const blogMeta = parseBlogReleaseMetadata(md);
+  if (!blogMeta) return [];
+  const result = verifyReleaseMetadata(blogMeta, {
+    version: record.version,
+    tag: record.tag,
+    hash: record.hash,
+    featureCommitCount: record.featureCommitCount,
+  });
+  return result.drifts;
 }
 
 export async function auditReleaseVersion(

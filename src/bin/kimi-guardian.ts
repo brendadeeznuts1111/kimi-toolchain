@@ -12,13 +12,15 @@
 import { $, TOML } from "bun";
 import { Database } from "bun:sqlite";
 import { isDirectRun } from "../lib/bun-utils.ts";
-import { makeDir, pathExists } from "../lib/bun-io.ts";
+import { makeDir, pathExists, readJsonFile } from "../lib/bun-io.ts";
 import { join } from "path";
 import {
   ensureDir,
   sha256File,
   fetchWithTimeout,
   getProjectName,
+  isPackageJsonManifest,
+  readPackageJson,
   resolveProjectRoot,
 } from "../lib/utils.ts";
 
@@ -83,21 +85,6 @@ interface BunfigInstallConfig {
     trustedDependencies?: string[];
   };
   trustedDependencies?: string[];
-}
-
-interface PackageJson {
-  name?: string;
-  version?: string;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-  optionalDependencies?: Record<string, string>;
-  trustedDependencies?: string[];
-  scripts?: {
-    postinstall?: string;
-    preinstall?: string;
-    install?: string;
-  };
-  repository?: { url?: string } | string;
 }
 
 // ── Database ─────────────────────────────────────────────────────────
@@ -360,7 +347,8 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
   if (!pathExists(pkgPath)) return [];
 
   // Primary source: package.json (Bun canonical location)
-  const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
+  const pkg = await readPackageJson(projectDir, isPackageJsonManifest);
+  if (!pkg) return [];
   const pkgTrusted = Array.isArray(pkg.trustedDependencies) ? pkg.trustedDependencies : [];
   let allowed = new Set<string>(pkgTrusted);
 
@@ -389,7 +377,11 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
     const depPkgPath = join(projectDir, "node_modules", dep, "package.json");
     if (!pathExists(depPkgPath)) continue;
 
-    const depPkg = (await Bun.file(depPkgPath).json()) as PackageJson;
+    const depPkg = await readPackageJson(
+      join(projectDir, "node_modules", dep),
+      isPackageJsonManifest
+    );
+    if (!depPkg) continue;
     const scripts = depPkg.scripts || {};
     if (scripts.postinstall || scripts.preinstall || scripts.install) {
       if (!allowed.has(dep)) {
@@ -405,7 +397,8 @@ async function addTrustedDeps(projectDir: string, deps: string[]) {
   const pkgPath = join(projectDir, "package.json");
   if (!pathExists(pkgPath)) return;
 
-  const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
+  const pkg = await readPackageJson(projectDir, isPackageJsonManifest);
+  if (!pkg) return;
   const existing = Array.isArray(pkg.trustedDependencies) ? pkg.trustedDependencies : [];
   const combined = [...new Set([...existing, ...deps])];
 
@@ -429,7 +422,9 @@ async function checkProvenance(
 
   for await (const file of glob.scan({ cwd: nmPath, absolute: true })) {
     try {
-      const pkg = (await Bun.file(file).json()) as PackageJson;
+      const raw = await readJsonFile(file);
+      if (!isPackageJsonManifest(raw)) continue;
+      const pkg = raw;
       const scripts = pkg.scripts || {};
       const installScript = scripts.postinstall || scripts.preinstall || scripts.install;
       if (installScript) {
@@ -626,24 +621,28 @@ async function main(): Promise<number> {
   if (!pathExists(pkgPath)) {
     logger.warn("No package.json — skipping trusted dependency check");
   } else {
-    const pkg = (await Bun.file(pkgPath).json()) as PackageJson;
-    const depCount =
-      Object.keys(pkg.dependencies || {}).length + Object.keys(pkg.devDependencies || {}).length;
-    if (depCount === 0) {
-      logger.info("No dependencies — nothing to check");
+    const pkg = await readPackageJson(projectDir, isPackageJsonManifest);
+    if (!pkg) {
+      logger.warn("Invalid package.json — skipping trusted dependency check");
     } else {
-      const untrusted = await checkTrustedDeps(projectDir);
-      if (untrusted.length === 0) {
-        logger.info("All install scripts trusted");
+      const depCount =
+        Object.keys(pkg.dependencies || {}).length + Object.keys(pkg.devDependencies || {}).length;
+      if (depCount === 0) {
+        logger.info("No dependencies — nothing to check");
       } else {
-        for (const dep of untrusted) {
-          logger.error(`${dep}: postinstall script NOT in trustedDependencies`);
+        const untrusted = await checkTrustedDeps(projectDir);
+        if (untrusted.length === 0) {
+          logger.info("All install scripts trusted");
+        } else {
+          for (const dep of untrusted) {
+            logger.error(`${dep}: postinstall script NOT in trustedDependencies`);
+          }
+          logger.warn(
+            "Add to package.json: trustedDependencies = [" +
+              untrusted.map((d) => `"${d}"`).join(", ") +
+              "]"
+          );
         }
-        logger.warn(
-          "Add to package.json: trustedDependencies = [" +
-            untrusted.map((d) => `"${d}"`).join(", ") +
-            "]"
-        );
       }
     }
   }

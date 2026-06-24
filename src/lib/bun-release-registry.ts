@@ -3,6 +3,8 @@
  * Zero-dep module; re-exported from bun-utils.ts for the public API.
  */
 
+import { semver } from "bun";
+
 export interface BunReleaseRecord {
   readonly version: string;
   readonly tag: string;
@@ -10,7 +12,11 @@ export interface BunReleaseRecord {
   readonly url: string;
   readonly blogUrl: string;
   readonly blogPublished: string;
+  /** Blog author (full name as shown on bun.com). */
+  readonly author: string;
   readonly breaking: readonly string[];
+  /** Number of feature commit links expected in the blog markdown (0 when none are embedded). */
+  readonly featureCommitCount: number;
 }
 
 export const BUN_RELEASE_HISTORY = {
@@ -21,7 +27,9 @@ export const BUN_RELEASE_HISTORY = {
     url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.5",
     blogUrl: "https://bun.com/blog/bun-v1.3.5",
     blogPublished: "2025-12-17T16:55:00.000Z",
+    author: "Jarred Sumner",
     breaking: ["none"],
+    featureCommitCount: 0,
   },
   "1.3.6": {
     version: "1.3.6",
@@ -30,7 +38,9 @@ export const BUN_RELEASE_HISTORY = {
     url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.6",
     blogUrl: "https://bun.com/blog/bun-v1.3.6",
     blogPublished: "2026-01-13T01:12:07.484Z",
+    author: "Jarred Sumner",
     breaking: ["bun build --compile NAPI regression"],
+    featureCommitCount: 16,
   },
   "1.3.7": {
     version: "1.3.7",
@@ -39,7 +49,9 @@ export const BUN_RELEASE_HISTORY = {
     url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.7",
     blogUrl: "https://bun.com/blog/bun-v1.3.7",
     blogPublished: "2026-01-27T07:04:03.000Z",
+    author: "Jarred Sumner",
     breaking: ["none"],
+    featureCommitCount: 0,
   },
 } as const satisfies Record<string, BunReleaseRecord>;
 
@@ -124,6 +136,7 @@ export interface ReleaseHistoryRow {
   url: string;
   blogUrl: string;
   blogPublished: string;
+  author: string;
   breaking: string;
   breakingCount: number;
 }
@@ -153,6 +166,7 @@ export function buildReleaseHistoryRows(
       url: record.url,
       blogUrl: record.blogUrl,
       blogPublished: record.blogPublished,
+      author: record.author,
       breaking: formatBreakingCell(record.breaking),
       breakingCount: breakingChangeCount(record.breaking),
     };
@@ -243,6 +257,98 @@ export const BUN_S3_CONTENT_ENCODING_RELEASE_URL = releaseFeatureUrl(
 export const BUN_FFI_NIXOS_RELEASE_URL = releaseFeatureUrl(BUN_RELEASE_FEATURE_ANCHORS.ffiNixOS);
 
 // ---------------------------------------------------------------------------
+// Error handling
+// ---------------------------------------------------------------------------
+
+/** Structured error for release registry operations. Zero-dep — no Effect. */
+export class ReleaseRegistryError extends Error {
+  readonly code: string;
+  readonly suggestion?: string;
+
+  constructor(code: string, message: string, suggestion?: string) {
+    super(message);
+    this.name = "ReleaseRegistryError";
+    this.code = code;
+    this.suggestion = suggestion;
+  }
+}
+
+/** Validate a release record has all required fields with correct types. */
+export function validateReleaseRecord(
+  record: unknown,
+  label = "record"
+): asserts record is BunReleaseRecord {
+  if (!record || record === null || typeof record !== "object") {
+    throw new ReleaseRegistryError(
+      "INVALID_RECORD",
+      `${label}: expected an object, got ${record === null ? "null" : typeof record}`,
+      "Check that BUN_RELEASE_HISTORY entries match the BunReleaseRecord interface."
+    );
+  }
+  const r = record as Record<string, unknown>;
+  const required = [
+    "version",
+    "tag",
+    "hash",
+    "url",
+    "blogUrl",
+    "blogPublished",
+    "author",
+    "breaking",
+  ];
+  for (const field of required) {
+    if (!(field in r)) {
+      throw new ReleaseRegistryError(
+        "MISSING_FIELD",
+        `${label}.${field}: missing required field`,
+        `Add "${field}" to the release record matching BunReleaseRecord.`
+      );
+    }
+  }
+  if (!Array.isArray(r.breaking)) {
+    throw new ReleaseRegistryError(
+      "INVALID_BREAKING",
+      `${label}.breaking: expected an array, got ${typeof r.breaking}`,
+      'The breaking field must be a string array, e.g. ["none"].'
+    );
+  }
+}
+
+/** Validate a blog URL is a bun.com blog post. */
+export function validateBlogUrl(url: string, label = "blogUrl"): void {
+  if (!url || typeof url !== "string") {
+    throw new ReleaseRegistryError(
+      "INVALID_BLOG_URL",
+      `${label}: expected a string URL, got ${typeof url}`
+    );
+  }
+  if (!url.startsWith("https://bun.com/blog/")) {
+    throw new ReleaseRegistryError(
+      "INVALID_BLOG_URL",
+      `${label}: "${url}" is not a bun.com/blog URL`,
+      "Blog URLs must start with https://bun.com/blog/."
+    );
+  }
+}
+
+/** Validate a semver string. */
+export function validateSemver(version: string, label = "version"): void {
+  if (!version || typeof version !== "string") {
+    throw new ReleaseRegistryError(
+      "INVALID_SEMVER",
+      `${label}: expected a semver string, got ${typeof version}`
+    );
+  }
+  if (!/^\d+\.\d+\.\d+/.test(version)) {
+    throw new ReleaseRegistryError(
+      "INVALID_SEMVER",
+      `${label}: "${version}" is not a valid semver`,
+      "Version must be in X.Y.Z format, e.g. 1.3.7."
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Release diff — current vs previous
 // ---------------------------------------------------------------------------
 
@@ -265,12 +371,24 @@ export function computeReleaseDiff(
   current: BunReleaseRecord = BUN_RELEASE,
   previous: BunReleaseRecord = BUN_RELEASE_PREVIOUS
 ): ReleaseDiff {
+  validateReleaseRecord(current, "current");
+  validateReleaseRecord(previous, "previous");
+  validateSemver(current.version, "current.version");
+  validateSemver(previous.version, "previous.version");
+
   const prevSet = new Set(previous.breaking.filter((b) => b !== "none"));
   const currSet = new Set(current.breaking.filter((b) => b !== "none"));
   const breakingAdded = [...currSet].filter((b) => !prevSet.has(b));
   const breakingRemoved = [...prevSet].filter((b) => !currSet.has(b));
   const prevDate = new Date(previous.blogPublished).getTime();
   const currDate = new Date(current.blogPublished).getTime();
+  if (isNaN(prevDate) || isNaN(currDate)) {
+    throw new ReleaseRegistryError(
+      "INVALID_DATE",
+      `Invalid blogPublished date: previous=${previous.blogPublished}, current=${current.blogPublished}`,
+      "Dates must be ISO 8601 strings, e.g. 2026-01-27T07:04:03.000Z."
+    );
+  }
   const publishedDeltaDays = Math.round((currDate - prevDate) / 86_400_000);
   return {
     current,
@@ -289,14 +407,23 @@ export function computeReleaseDiffVersions(
   to: string,
   history: typeof BUN_RELEASE_HISTORY = BUN_RELEASE_HISTORY
 ): ReleaseDiff {
+  validateSemver(from, "from");
+  validateSemver(to, "to");
+  const known = sortedReleaseVersions(history);
   const prev = history[from as BunReleaseVersion];
   const curr = history[to as BunReleaseVersion];
   if (!prev)
-    throw new Error(
-      `Unknown version: ${from}. Known: ${sortedReleaseVersions(history).join(", ")}`
+    throw new ReleaseRegistryError(
+      "UNKNOWN_VERSION",
+      `Unknown version: ${from}. Known: ${known.join(", ")}`,
+      "Use bun run release:diff --list to see available versions."
     );
   if (!curr)
-    throw new Error(`Unknown version: ${to}. Known: ${sortedReleaseVersions(history).join(", ")}`);
+    throw new ReleaseRegistryError(
+      "UNKNOWN_VERSION",
+      `Unknown version: ${to}. Known: ${known.join(", ")}`,
+      "Use bun run release:diff --list to see available versions."
+    );
   return computeReleaseDiff(curr, prev);
 }
 
@@ -305,4 +432,88 @@ export function sortedReleaseVersions(
   history: typeof BUN_RELEASE_HISTORY = BUN_RELEASE_HISTORY
 ): string[] {
   return sortReleaseVersions(Object.keys(history));
+}
+
+// ---------------------------------------------------------------------------
+// SSOT verification
+// ---------------------------------------------------------------------------
+
+/** Minimal release metadata shape used for SSOT drift checks. */
+export interface ReleaseMetadataSummary {
+  version: string;
+  tag: string;
+  /** Commit hash when discoverable in the blog source; omitted when absent. */
+  hash?: string;
+  /** Number of feature commit links embedded in the blog source; omitted when absent. */
+  featureCommitCount?: number;
+}
+
+/** One drift row — maps to columns: Field | Expected | Actual | Message. */
+export interface ReleaseMetadataDrift {
+  field: "hash" | "version" | "tag" | "featureCommitCount";
+  expected: string;
+  actual: string;
+  message: string;
+}
+
+/** Result of comparing blog-discovered metadata against the registry SSOT. */
+export interface ReleaseMetadataVerificationResult {
+  ok: boolean;
+  drifts: ReleaseMetadataDrift[];
+}
+
+/**
+ * Compare release metadata discovered in a blog post against the registry SSOT.
+ * Returns ok=true when version (semver), tag, commit hash, and feature commit count all agree.
+ */
+export function verifyReleaseMetadata(
+  fromBlog: ReleaseMetadataSummary,
+  fromRegistry: ReleaseMetadataSummary
+): ReleaseMetadataVerificationResult {
+  const drifts: ReleaseMetadataDrift[] = [];
+
+  if (fromBlog.hash && fromRegistry.hash && fromBlog.hash !== fromRegistry.hash) {
+    drifts.push({
+      field: "hash",
+      expected: fromRegistry.hash,
+      actual: fromBlog.hash,
+      message: `hash mismatch: blog has ${fromBlog.hash.slice(0, 12)}…, registry has ${fromRegistry.hash.slice(0, 12)}…`,
+    });
+  }
+
+  const blogVersion = fromBlog.version.replace(/^v/, "");
+  const registryVersion = fromRegistry.version.replace(/^v/, "");
+  if (semver.order(blogVersion, registryVersion) !== 0) {
+    drifts.push({
+      field: "version",
+      expected: registryVersion,
+      actual: blogVersion,
+      message: `version mismatch: blog has v${blogVersion}, registry has v${registryVersion}`,
+    });
+  }
+
+  const blogTag = fromBlog.tag || `bun-v${blogVersion}`;
+  if (blogTag !== fromRegistry.tag) {
+    drifts.push({
+      field: "tag",
+      expected: fromRegistry.tag,
+      actual: blogTag,
+      message: `tag mismatch: blog derives ${blogTag}, registry has ${fromRegistry.tag}`,
+    });
+  }
+
+  if (
+    fromBlog.featureCommitCount !== undefined &&
+    fromRegistry.featureCommitCount !== undefined &&
+    fromBlog.featureCommitCount !== fromRegistry.featureCommitCount
+  ) {
+    drifts.push({
+      field: "featureCommitCount",
+      expected: String(fromRegistry.featureCommitCount),
+      actual: String(fromBlog.featureCommitCount),
+      message: `feature commit count mismatch: blog has ${fromBlog.featureCommitCount}, registry has ${fromRegistry.featureCommitCount}`,
+    });
+  }
+
+  return { ok: drifts.length === 0, drifts };
 }

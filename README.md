@@ -74,6 +74,10 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 
 | Command                                 | Description                            |
 | --------------------------------------- | -------------------------------------- |
+| `bun run ast-grep:scan`                 | scripts/ast-grep-scan.ts               |
+| `bun run ast-grep:scan:json`            | scripts/ast-grep-scan.ts               |
+| `bun run ast-grep:test`                 | See package.json scripts               |
+| `bun run ast-grep:test:update`          | See package.json scripts               |
 | `bun run audit`                         | Audit script                           |
 | `bun run audit:all`                     | Audit script                           |
 | `bun run audit:config`                  | Audit script                           |
@@ -97,6 +101,8 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run build:portal:json`             | Artifact Portal publish script         |
 | `bun run build:portal:local`            | Artifact Portal publish script         |
 | `bun run build:portal:local:json`       | Artifact Portal publish script         |
+| `bun run bun-hygiene:audit`             | scripts/bun-hygiene-scan.ts            |
+| `bun run bun-hygiene:scan`              | scripts/bun-hygiene-scan.ts            |
 | `bun run bun-install:status`            | scripts/bun-install-status.ts          |
 | `bun run canvas:generate`               | scripts/generate-canvas-companions.ts  |
 | `bun run capabilities`                  | Run kimi-capabilities from repo        |
@@ -158,6 +164,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run format`                        | See package.json scripts               |
 | `bun run format:check`                  | See package.json scripts               |
 | `bun run format:check:ci`               | See package.json scripts               |
+| `bun run gate-report`                   | scripts/ast-grep-scan.ts               |
 | `bun run governance`                    | Run kimi-governance from repo          |
 | `bun run heal`                          | Run kimi-heal from repo                |
 | `bun run inspect:bun-upstream-refs`     | scripts/inspect-bun-upstream-refs.ts   |
@@ -172,6 +179,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run lint:links`                    | Lint script                            |
 | `bun run lint:links:full`               | Lint script                            |
 | `bun run lint:links:online`             | Lint script                            |
+| `bun run lint:names`                    | Lint script                            |
 | `bun run lint:parallel`                 | Lint script                            |
 | `bun run lint:skills`                   | Lint script                            |
 | `bun run lint:taxonomy-coverage`        | Lint script                            |

@@ -6,6 +6,7 @@
 
 import { join } from "path";
 import { makeDir, pathExists } from "./bun-io.ts";
+import { readPackageManifest } from "./utils.ts";
 
 /** Modules scaffolded when KIMI_MODULES is unset. */
 export const DEFAULT_KIMI_MODULES = ["doctor"] as const;
@@ -143,7 +144,8 @@ async function mergePackageScripts(
 ): Promise<void> {
   const pkgPath = join(project, "package.json");
   if (!pathExists(pkgPath)) return;
-  const pkg = (await Bun.file(pkgPath).json()) as { scripts?: Record<string, string> };
+  const pkg = await readPackageManifest(project);
+  if (!pkg) return;
   pkg.scripts = { ...pkg.scripts, ...scripts };
   if (!dryRun) await Bun.write(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
 }

@@ -71,7 +71,7 @@ import {
 } from "../lib/kimi-config-audit.ts";
 import { getOrphanProcesses, runOrphanKill } from "../lib/process-utils.ts";
 import { isAgentContext } from "../lib/tool-runner.ts";
-import { resolveProjectRoot, getProjectName } from "../lib/utils.ts";
+import { resolveProjectRoot, getProjectName, readPackageManifest } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 import { auditAgentReady } from "../lib/agent-ready.ts";
 import { auditSecretsStorage } from "../lib/secrets-probe.ts";
@@ -505,8 +505,8 @@ async function runQualityChecks(projectRoot: string): Promise<CheckResult[]> {
       : warn("scripts/check.ts", "missing — run kimi-fix")
   );
 
-  const pkg = (await Bun.file(pkgPath).json()) as { scripts?: Record<string, string> };
-  const scripts = pkg.scripts || {};
+  const pkg = await readPackageManifest(projectRoot);
+  const scripts = pkg?.scripts || {};
 
   if (!QUICK) {
     const qualityPromises: Promise<CheckResult>[] = [];

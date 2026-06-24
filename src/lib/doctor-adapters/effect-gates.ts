@@ -2,7 +2,7 @@
  * doctor-adapters/effect-gates.ts — Adapter wrapping the Effect discipline scanner.
  */
 
-import { readableStreamToText } from "../bun-utils.ts";
+import { gitRevParse } from "../git-helpers.ts";
 import type { AdapterOutput, ExternalToolAdapter } from "../doctor-adapter-types.ts";
 import type { EffectGatesReport, EffectGatesViolation } from "../effect-gates.ts";
 import {
@@ -18,22 +18,6 @@ interface EffectGatesJsonEnvelope {
     current?: EffectGatesReport;
     regressions?: EffectGatesViolation[];
   };
-}
-
-async function resolveGitHead(projectRoot: string): Promise<string | undefined> {
-  try {
-    const proc = Bun.spawn(["git", "rev-parse", "HEAD"], {
-      cwd: projectRoot,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) return undefined;
-    const out = await readableStreamToText(proc.stdout);
-    return out.trim() || undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 /**
@@ -156,7 +140,7 @@ export const effectGatesAdapter: ExternalToolAdapter = {
 /** Run the Effect-gates adapter by building the report directly. */
 export async function runEffectGatesAdapter(projectRoot: string): Promise<AdapterOutput> {
   const start = nowNs();
-  const gitHead = await resolveGitHead(projectRoot);
+  const gitHead = (await gitRevParse(projectRoot, "HEAD")) ?? undefined;
   const [previous] = await readEffectGatesSnapshots(projectRoot, 1);
   const report = await buildEffectGatesReport({ projectRoot, tool: "kimi-doctor", gitHead });
   const regressions = detectRegressions(report, previous ?? null);

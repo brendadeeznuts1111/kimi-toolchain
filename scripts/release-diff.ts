@@ -13,6 +13,7 @@ import {
   BUN_RELEASE_PREVIOUS,
   computeReleaseDiff,
   computeReleaseDiffVersions,
+  ReleaseRegistryError,
   sortedReleaseVersions,
   type ReleaseDiff,
 } from "../src/lib/bun-release-registry.ts";
@@ -84,7 +85,12 @@ function main(): void {
           )
         : computeReleaseDiff(BUN_RELEASE, BUN_RELEASE_PREVIOUS);
   } catch (err) {
-    console.error(String(err));
+    if (err instanceof ReleaseRegistryError) {
+      console.error(`✗ ${err.code}: ${err.message}`);
+      if (err.suggestion) console.error(`  → ${err.suggestion}`);
+    } else {
+      console.error(String(err));
+    }
     process.exit(1);
   }
 

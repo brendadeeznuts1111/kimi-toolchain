@@ -2,7 +2,7 @@
  * Template policy audit — install parity, tsconfig contract, bun-native, typecheck.
  */
 
-import { basename, join } from "path";
+import { basename, dirname, join } from "path";
 import { absoluteScanOpts, GLOBS, repoRoot } from "./globs.ts";
 import {
   evaluateViolations,
@@ -10,11 +10,12 @@ import {
   type BunNativeLintConfig,
   type Violation,
 } from "./bun-native-lint.ts";
-import { readableStreamToText } from "./bun-utils.ts";
+import { $ } from "bun";
 import { auditHardcodedSecretsInGlob } from "./hardcoded-secret-audit.ts";
 import { auditSecretLeaksInGlob } from "../doctor/secret-audit.ts";
 import { TEMPLATE_MARKERS } from "./scaffold-templates.ts";
-import { safeJsonc } from "./utils.ts";
+import { readJsonFile, readJsonValidated } from "./bun-io.ts";
+import { readPackageManifest, safeJsonc } from "./utils.ts";
 
 export interface TemplatePolicyViolation {
   file: string;
@@ -263,7 +264,7 @@ export async function auditTemplateInstallPolicy(root: string): Promise<Template
   const templates = collectTemplateBunfigs(root);
 
   const pkgPath = join(root, "package.json");
-  const pkg = (await Bun.file(pkgPath).json()) as { trustedDependencies?: unknown };
+  const pkg = (await readPackageManifest(root)) ?? {};
   if (!("trustedDependencies" in pkg)) {
     violations.push({
       file: pkgPath,
@@ -280,7 +281,7 @@ export async function auditTemplateInstallPolicy(root: string): Promise<Template
 
   const templatePkgGlob = new Bun.Glob("templates/bun-create/*/package.json");
   for (const path of templatePkgGlob.scanSync({ cwd: root, absolute: true, onlyFiles: true })) {
-    const templatePkg = (await Bun.file(path).json()) as { trustedDependencies?: unknown };
+    const templatePkg = (await readPackageManifest(dirname(path))) ?? {};
     if (!("trustedDependencies" in templatePkg)) {
       violations.push({
         file: rel(root, path),
@@ -415,8 +416,22 @@ function templateDir(entry: TemplateRegistryEntry): string {
   return entry.path ?? entry.name;
 }
 
+function isTemplateRegistry(value: unknown): value is TemplateRegistry {
+  const templates =
+    typeof value === "object" && value !== null ? (value as TemplateRegistry).templates : undefined;
+  return (
+    Array.isArray(templates) &&
+    templates.every(
+      (entry) =>
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof (entry as TemplateRegistryEntry).name === "string"
+    )
+  );
+}
+
 async function readTemplateRegistry(root: string): Promise<TemplateRegistry> {
-  return (await Bun.file(join(root, REGISTRY_PATH)).json()) as TemplateRegistry;
+  return readJsonValidated(join(root, REGISTRY_PATH), isTemplateRegistry);
 }
 
 export async function auditTemplateRegistry(root: string): Promise<TemplatePolicyViolation[]> {
@@ -448,7 +463,9 @@ export async function auditTemplateRegistry(root: string): Promise<TemplatePolic
 
   for (const path of packages) {
     const relPath = rel(root, path);
-    const pkg = (await Bun.file(path).json()) as {
+    const raw = await readJsonFile(path);
+    if (typeof raw !== "object" || raw === null) continue;
+    const pkg = raw as {
       name?: string;
       type?: string;
       dependencies?: Record<string, unknown>;
@@ -605,22 +622,16 @@ export async function auditTemplateModulesTypecheck(
       },
     ];
   }
-  const proc = Bun.spawn({
-    cmd: ["bunx", "tsc", "--noEmit", "-p", tsconfigPath],
-    cwd: root,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const exit = await proc.exited;
-  if (exit === 0) return [];
-  const out = await readableStreamToText(proc.stdout);
-  const err = await readableStreamToText(proc.stderr);
+  const result = await $`bunx tsc --noEmit -p ${tsconfigPath}`.cwd(root).nothrow().quiet();
+  if (result.exitCode === 0) return [];
+  const out = result.stdout.toString();
+  const err = result.stderr.toString();
   const detail = (err || out).trim().split("\n").slice(0, 4).join(" · ");
   return [
     {
       file: MODULES_TSCONFIG,
       field: "typecheck",
-      message: detail || `modules tsc failed (exit ${exit})`,
+      message: detail || `modules tsc failed (exit ${result.exitCode})`,
     },
   ];
 }
@@ -642,21 +653,15 @@ export async function auditTemplateTests(root: string): Promise<TemplatePolicyVi
   const violations: TemplatePolicyViolation[] = [];
   for (const projectDir of collectTemplateTestProjects(root)) {
     const relProject = rel(root, projectDir);
-    const proc = Bun.spawn({
-      cmd: ["bun", "test", "--parallel", "--isolate"],
-      cwd: projectDir,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const exit = await proc.exited;
-    if (exit === 0) continue;
-    const out = await readableStreamToText(proc.stdout);
-    const err = await readableStreamToText(proc.stderr);
+    const result = await $`bun test --parallel --isolate`.cwd(projectDir).nothrow().quiet();
+    if (result.exitCode === 0) continue;
+    const out = result.stdout.toString();
+    const err = result.stderr.toString();
     const detail = (err || out).trim().split("\n").slice(-4).join(" · ");
     violations.push({
       file: relProject,
       field: "bun-test",
-      message: detail || `bun test failed (exit ${exit})`,
+      message: detail || `bun test failed (exit ${result.exitCode})`,
     });
   }
   return violations;
@@ -967,22 +972,16 @@ export async function auditTemplateModuleSlice(root: string): Promise<TemplatePo
 }
 
 export async function auditTemplateOxlint(root: string): Promise<TemplatePolicyViolation[]> {
-  const proc = Bun.spawn({
-    cmd: ["bunx", "oxlint", "templates"],
-    cwd: root,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const exit = await proc.exited;
-  if (exit === 0) return [];
-  const out = await readableStreamToText(proc.stdout);
-  const err = await readableStreamToText(proc.stderr);
+  const result = await $`bunx oxlint templates`.cwd(root).nothrow().quiet();
+  if (result.exitCode === 0) return [];
+  const out = result.stdout.toString();
+  const err = result.stderr.toString();
   const detail = (err || out).trim().split("\n").slice(0, 6).join(" · ");
   return [
     {
       file: "templates/",
       field: "oxlint",
-      message: detail || `oxlint templates failed (exit ${exit})`,
+      message: detail || `oxlint templates failed (exit ${result.exitCode})`,
     },
   ];
 }
@@ -998,22 +997,19 @@ export async function auditTemplateOxfmt(root: string): Promise<TemplatePolicyVi
       },
     ];
   }
-  const proc = Bun.spawn({
-    cmd: ["bunx", "oxfmt", "--check", "-c", ".oxfmtrc.json", "templates/"],
-    cwd: root,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const exit = await proc.exited;
-  if (exit === 0) return [];
-  const out = await readableStreamToText(proc.stdout);
-  const err = await readableStreamToText(proc.stderr);
+  const result = await $`bunx oxfmt --check -c .oxfmtrc.json templates/`
+    .cwd(root)
+    .nothrow()
+    .quiet();
+  if (result.exitCode === 0) return [];
+  const out = result.stdout.toString();
+  const err = result.stderr.toString();
   const detail = (err || out).trim().split("\n").slice(0, 6).join(" · ");
   return [
     {
       file: "templates/",
       field: "oxfmt",
-      message: detail || `oxfmt --check templates/ failed (exit ${exit})`,
+      message: detail || `oxfmt --check templates/ failed (exit ${result.exitCode})`,
     },
   ];
 }
@@ -1294,21 +1290,15 @@ export async function auditTemplateTypecheck(root: string): Promise<TemplatePoli
   for (const tsconfigPath of collectTemplateTsconfigs(root)) {
     const projectDir = join(tsconfigPath, "..");
     const relPath = rel(root, tsconfigPath);
-    const proc = Bun.spawn({
-      cmd: ["bunx", "tsc", "--noEmit", "-p", tsconfigPath],
-      cwd: projectDir,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const exit = await proc.exited;
-    if (exit === 0) continue;
-    const out = await readableStreamToText(proc.stdout);
-    const err = await readableStreamToText(proc.stderr);
+    const result = await $`bunx tsc --noEmit -p ${tsconfigPath}`.cwd(projectDir).nothrow().quiet();
+    if (result.exitCode === 0) continue;
+    const out = result.stdout.toString();
+    const err = result.stderr.toString();
     const detail = (err || out).trim().split("\n").slice(0, 4).join(" · ");
     violations.push({
       file: relPath,
       field: "typecheck",
-      message: detail || `tsc --noEmit failed (exit ${exit})`,
+      message: detail || `tsc --noEmit failed (exit ${result.exitCode})`,
     });
   }
   return violations;

@@ -26,3 +26,17 @@ sync-fs-api = "enforce"
 sleep-settimeout = "enforce"
 process-argv = "enforce"
 response-stream-text = "enforce"
+spawn-no-orphans = "report"
+soft-banned-import = "report"
+buffer-from = "report"
+shell-template-opportunity = "report"
+
+# Per-scope overrides: relax enforce rules to report for scripts/ and examples/
+# so broader coverage doesn't break the gate while those directories are migrated.
+[scopeOverrides]
+"process-env" = { "scripts/" = "report", "examples/" = "report" }
+"process-argv" = { "scripts/" = "report", "examples/" = "report" }
+"sync-fs-api" = { "scripts/" = "report", "examples/" = "report" }
+"sleep-settimeout" = { "scripts/" = "report", "examples/" = "report" }
+"banned-import" = { "scripts/" = "report", "examples/" = "report" }
+"response-stream-text" = { "examples/" = "report" }

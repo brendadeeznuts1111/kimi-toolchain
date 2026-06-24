@@ -6,6 +6,7 @@
  * Usage: bun run scripts/lint-changed.ts <files...>
  */
 
+import { $ } from "bun";
 import { join } from "path";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -16,11 +17,5 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-const proc = Bun.spawn(["bun", "run", "scripts/lint.ts", "--files", ...files], {
-  cwd: REPO_ROOT,
-  stdout: "inherit",
-  stderr: "inherit",
-});
-
-const code = await proc.exited;
-process.exit(code);
+const result = await $`bun run scripts/lint.ts --files ${files}`.cwd(REPO_ROOT).nothrow();
+process.exit(result.exitCode);

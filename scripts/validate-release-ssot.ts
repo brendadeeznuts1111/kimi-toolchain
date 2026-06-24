@@ -11,6 +11,7 @@
 import { Glob, semver } from "bun";
 import { join } from "path";
 import { auditReleaseVersion, type ReleaseBlogAuditResult } from "./audit-release-blogs.ts";
+import { formatTable } from "../src/lib/inspect.ts";
 import {
   BUN_RELEASE,
   BUN_RELEASE_HISTORY,
@@ -124,11 +125,24 @@ async function main(): Promise<void> {
   const failed = collectFailedBlogAudits(results);
 
   if (failed.length > 0) {
-    console.error("❌ Historical blog drift detected:");
+    console.error("❌ Historical blog drift detected:\n");
     for (const entry of failed) {
-      const detail =
-        entry.error ?? (entry.drifts.map((drift) => drift.message).join("; ") || "unknown drift");
-      console.error(`  - ${entry.version}: ${detail}`);
+      if (entry.error) {
+        console.error(`  ${entry.version}: ${entry.error}`);
+        continue;
+      }
+      if (entry.drifts.length > 0) {
+        console.error(`  ${entry.version} — ${entry.blogUrl}`);
+        console.error(
+          formatTable(entry.drifts as unknown as Record<string, unknown>[], [
+            "field",
+            "expected",
+            "actual",
+            "message",
+          ])
+        );
+        console.error("");
+      }
     }
     process.exit(1);
   }

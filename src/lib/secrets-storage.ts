@@ -7,7 +7,7 @@
  * @see docs/identity/secrets-registry.md for the platform matrix
  */
 
-import { readableStreamToText } from "./bun-utils.ts";
+import { $ } from "bun";
 import type { SecretPolicyEntry, StorageBackend, StorageSecurityLevel } from "./secrets-types.ts";
 
 export const STORAGE_TIERS: readonly StorageBackend[] = [
@@ -47,18 +47,11 @@ async function isLibsecretAvailable(): Promise<boolean> {
   if (!secretTool) return false;
 
   try {
-    const versionProc = Bun.spawn([secretTool, "--version"], {
-      stdout: "ignore",
-      stderr: "pipe",
-    });
-    if ((await versionProc.exited) !== 0) return false;
+    const versionResult = await $`${secretTool} --version`.nothrow().quiet();
+    if (versionResult.exitCode !== 0) return false;
 
-    const probeProc = Bun.spawn([secretTool, "search", "--all", "x", "y"], {
-      stdout: "ignore",
-      stderr: "pipe",
-    });
-    await probeProc.exited;
-    const stderr = await readableStreamToText(probeProc.stderr);
+    const probeResult = await $`${secretTool} search --all x y`.nothrow().quiet();
+    const stderr = probeResult.stderr.toString();
     if (
       stderr.includes("Cannot autolaunch") ||
       stderr.includes("Error communicating with daemon") ||

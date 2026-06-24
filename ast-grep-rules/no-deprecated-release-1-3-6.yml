@@ -1,0 +1,7 @@
+id: no-deprecated-release-1-3-6
+language: TypeScript
+rule:
+  kind: identifier
+  regex: ^BUN_RELEASE_1_3_6_(URL|TAG|COMMIT_HASH|COMMIT_URL|MARKDOWN_ALT|OG_IMAGE|PUBLISHED)$
+message: "BUN_RELEASE_1_3_6_* flat aliases were removed — use BUN_RELEASE fields instead"
+severity: error

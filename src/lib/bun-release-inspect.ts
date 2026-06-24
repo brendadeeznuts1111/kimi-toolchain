@@ -22,6 +22,7 @@ export const RELEASE_HISTORY_SUMMARY_PROPERTIES = [
   "role",
   "tag",
   "hashShort",
+  "author",
   "breaking",
   "blogUrl",
 ] as const;
@@ -37,6 +38,7 @@ export const RELEASE_HISTORY_FULL_PROPERTIES = [
   "url",
   "blogUrl",
   "blogPublished",
+  "author",
   "breaking",
   "breakingCount",
 ] as const;
@@ -130,4 +132,27 @@ export function formatReleaseHistoryTable(
 ): string {
   if (!isTableInput(rows)) return "";
   return renderReleaseTable(rows, properties, opts);
+}
+
+/**
+ * Format release history rows as a GitHub-flavored markdown table.
+ * Returns `""` for empty or non-tabular inputs.
+ */
+export function formatReleaseHistoryMarkdown(
+  rows: ReleaseHistoryRow[] | null | undefined,
+  properties?: readonly string[]
+): string {
+  if (!isTableInput(rows)) return "";
+  const keys = properties ?? Object.keys(rows[0]);
+  const header = `| ${keys.join(" | ")} |`;
+  const sep = `| ${keys.map(() => "---").join(" | ")} |`;
+  const body = rows.map((row) => {
+    const cells = keys.map((k) => {
+      const v = (row as unknown as Record<string, unknown>)[k];
+      if (v === undefined || v === null) return "";
+      return String(v).replace(/\|/g, "\\|");
+    });
+    return `| ${cells.join(" | ")} |`;
+  });
+  return [header, sep, ...body].join("\n");
 }

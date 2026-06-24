@@ -8,8 +8,8 @@
  * @see {@link BUN_PUNYCODE_DECODE_DOC_URL} — Punycode body → Unicode label.
  */
 
-import { decode, encode, toASCII } from "node:punycode";
-import { domainToUnicode } from "node:url";
+import { decode, encode, toASCII } from "node:punycode"; // @bun-native-exempt:banned-import — Bun docs reference punycode shim
+import { domainToUnicode } from "node:url"; // @bun-native-exempt:banned-import — Bun docs reference punycode encode/decode hooks
 import { emptyToEmDash, type MarkdownTableColumnSpec } from "./markdown-table.ts";
 
 export const BUN_PUNYCODE_TO_ASCII_DOC_URL =

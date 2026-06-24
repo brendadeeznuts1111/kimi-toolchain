@@ -13,6 +13,7 @@ import { Database } from "bun:sqlite";
 import { sha256String } from "../utils.ts";
 import { homeDir } from "../paths.ts";
 import { loadMcpRegistry } from "../mcp-registry.ts";
+import { makeDir } from "../bun-io.ts";
 
 export interface JsonRpcError {
   code: number;
@@ -216,11 +217,7 @@ interface PersistentCacheStore {
 function openCacheDb(dbPath: string): Database {
   // Ensure parent directory exists (idempotent).
   const parent = dbPath.substring(0, dbPath.lastIndexOf("/"));
-  try {
-    Bun.spawnSync(["mkdir", "-p", parent]);
-  } catch {
-    // ignore — may already exist
-  }
+  makeDir(parent, { recursive: true });
 
   const db = new Database(dbPath);
   db.run("PRAGMA journal_mode=WAL");

@@ -6,7 +6,7 @@ import { pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { REQUIRED_PACKAGE_SCRIPTS } from "./scaffold-templates.ts";
 import type { HealthCheck as DoctorCheck } from "./health-check.ts";
-import { safeToml } from "./utils.ts";
+import { readPackageManifest, safeToml } from "./utils.ts";
 
 const DEFAULT_WORKFLOW_PATH = ".github/workflows/ci.yml";
 const CI_DISABLED_MESSAGE =
@@ -120,8 +120,8 @@ export async function checkScaffold(projectDir: string): Promise<DoctorCheck[]> 
   }
 
   try {
-    const pkg = (await Bun.file(pkgPath).json()) as { scripts?: Record<string, string> };
-    const scripts = pkg.scripts || {};
+    const pkg = await readPackageManifest(projectDir);
+    const scripts = pkg?.scripts || {};
     const missingScripts = REQUIRED_PACKAGE_SCRIPTS.filter((s) => !scripts[s]);
     checks.push({
       name: "package-scripts",

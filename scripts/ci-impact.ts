@@ -6,6 +6,7 @@
  * to full validation so change-based selection cannot silently skip coverage.
  */
 
+import { $ } from "bun";
 import { join } from "path";
 import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import {
@@ -85,20 +86,11 @@ async function main() {
 }
 
 async function getTrackedFiles(): Promise<string[]> {
-  const proc = Bun.spawn(["git", "ls-files"], {
-    cwd: REPO_ROOT,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    Bun.readableStreamToText(proc.stderr),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(stderr.trim() || `git ls-files exited ${exitCode}`);
+  const result = await $`git ls-files`.cwd(REPO_ROOT).nothrow().quiet();
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr.toString().trim() || `git ls-files exited ${result.exitCode}`);
   }
-  return splitList(stdout);
+  return splitList(result.stdout.toString());
 }
 
 async function getChangedFiles(options: CliOptions): Promise<string[]> {
@@ -117,24 +109,16 @@ function defaultBase(): string {
 }
 
 async function gitDiffFiles(base: string, head: string): Promise<string[]> {
-  const proc = Bun.spawn(
-    ["git", "diff", "--name-only", "--diff-filter=ACMR", `${base}...${head}`],
-    {
-      cwd: REPO_ROOT,
-      stdout: "pipe",
-      stderr: "pipe",
-    }
-  );
-  const [stdout, stderr, exitCode] = await Promise.all([
-    Bun.readableStreamToText(proc.stdout),
-    Bun.readableStreamToText(proc.stderr),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    if (stderr.trim()) console.error(stderr.trim());
+  const result = await $`git diff --name-only --diff-filter=ACMR ${base}...${head}`
+    .cwd(REPO_ROOT)
+    .nothrow()
+    .quiet();
+  if (result.exitCode !== 0) {
+    const stderr = result.stderr.toString().trim();
+    if (stderr) console.error(stderr);
     return [];
   }
-  return splitList(stdout);
+  return splitList(result.stdout.toString());
 }
 
 async function writeGithubOutputs(result: ImpactResult): Promise<void> {

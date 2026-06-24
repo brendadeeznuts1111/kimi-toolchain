@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { $ } from "bun";
 import { resolve } from "path";
 
 interface BunRelease {
@@ -39,36 +40,12 @@ interface DiscoveryReport {
 type LayerResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 async function runJson<T>(cmd: string[], cwd: string): Promise<T> {
-  const proc = Bun.spawn(cmd, {
-    cwd,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`${cmd.join(" ")} failed (${exitCode}): ${stderr.trim()}`);
-  }
+  const stdout = await $`${cmd}`.cwd(cwd).text();
   return JSON.parse(stdout) as T;
 }
 
 async function runText(cmd: string[], cwd: string): Promise<string> {
-  const proc = Bun.spawn(cmd, {
-    cwd,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`${cmd.join(" ")} failed (${exitCode}): ${stderr.trim()}`);
-  }
+  const stdout = await $`${cmd}`.cwd(cwd).text();
   return stdout.trim();
 }
 

@@ -1,0 +1,6 @@
+id: no-double-cast
+valid:
+  - const x = value as string
+invalid:
+  - const x = value as unknown as string
+  - return data as unknown as Response

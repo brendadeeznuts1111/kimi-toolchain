@@ -1,0 +1,22 @@
+# ast-grep rules for kimi-toolchain release registry hygiene
+# Run: ast-grep scan -c sgconfig.yml
+#      bun run ast-grep:scan   (gate with JSON+HTML report)
+#
+# Rule files live in ast-grep-rules/. Per-rule file exemptions are applied by
+# scripts/ast-grep-scan.ts (see EXEMPT_FILES below) since sgconfig.yml's ignore
+# key is global across all rules.
+
+ruleDirs:
+  - ast-grep-rules
+
+testConfigs:
+  - testDir: ast-grep-test
+    snapshotDir: __snapshots__
+
+# Ignore vendored fixtures and generated files (applies to all rules)
+ignore:
+  - "test/fixtures/**"
+  - "node_modules/**"
+  - ".git/**"
+  - "dist/**"
+  - "build/**"

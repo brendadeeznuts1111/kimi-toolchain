@@ -90,6 +90,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "verify-bun-features-runner": "src/lib/verify-bun-features-runner.ts",
   "template-policy-audit": "src/lib/template-policy-audit.ts",
   "audit-endpoints-metadata": "src/lib/audit-endpoints-metadata.ts",
+  "ast-grep-gate": "src/lib/ast-grep-gate.ts",
   "bun-docs-mcp": "src/lib/bun-docs-mcp.ts",
   "bun-runtime-utils-coverage": "src/lib/bun-runtime-utils-coverage.ts",
   "bun-binary-portability": "src/lib/bun-binary-portability.ts",
