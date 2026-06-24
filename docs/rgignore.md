@@ -11,22 +11,99 @@ or system directories.
 **Purpose:** ignore artifacts _generated inside this repo_.
 
 ```ignore
-.kimi-artifacts/
-.kimi/
-.tmp-*/
-~/.bun/
-.bun/install/cache/
-coverage/
+# Dependencies
+node_modules/
+
+# Generated lockfiles & manifests
+bun.lock
+canonical-references.json
+constants-manifest.json
+
+# Generated documentation
+CHANGELOG.md
+
+# Build artifacts & caches
+/.cache/
+/dist/
+*.bun-build
 *.log
+
+# Coverage & test reports
+/coverage/
+/reports/
+
+# Machine profiles & baselines
+/profiles/
+.bun-native-baseline.json
+/thresholds.json
+*.cpuprofile
+
+# Runtime / local state
+/.kimi/
+/.kimi-artifacts/
+/.kimi-code/
+/.kimi-test-locks/
+/memory/
+/var/
+/guardian/
+/governor/
+/.bun-create/
+/.cursor/
+/.codex/
+/.reasonix/
+/.ast-grep/
+/.tmp/
+/.tmp-*/
+/.tmp-kimi-test-home/
+
+# SQLite databases
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Compiled binaries
+*.executable
+cli
+out.js
 *.tar.gz
 *.zip
 *.wasm
 *.node
+
+# Compile-smoke temp
+*.tmp-compile-smoke.ts
+test-define-tmp.ts
+
+# Stray home-dir snapshots (accidentally created inside repo root)
+~/
+Users/
+~/.bun/
+/.bun/install/cache/
+
+# OS
+.DS_Store
 ```
 
-These paths are not necessarily tracked by Git, but they can be present locally
-after running tests, sync, or build steps. Keeping them out of `rg` results speeds
-up AI-assisted discovery and avoids surfacing irrelevant matches.
+These paths are either generated locally (build artifacts, caches, test reports)
+or tracked but noisy for search (lockfiles, generated manifests, changelogs).
+Keeping them out of `rg` results speeds up AI-assisted discovery and avoids
+surfacing irrelevant matches.
+
+### Why root-relative directory patterns?
+
+Directory patterns in `.rgignore` use a leading slash (`/memory/`, `/var/`,
+`/guardian/`, `/governor/`, `/reports/`, `/profiles/`, etc.). A leading slash
+matches only the directory at the repo root, so ripgrep still indexes tracked
+source directories that share the same name elsewhere in the tree, such as:
+
+- `src/lib/memory/governor.ts`
+- `src/guardian/perf-gate.ts`
+- `test/guardian/`
+- `examples/trading-workspace/var/`
+
+Without the leading slash, `memory/` or `guardian/` would suppress matches at
+any depth. Root-relative patterns keep the ignore list precise without hiding
+tracked source code.
 
 ## Layer 2 — Global `~/.rgignore`
 
@@ -87,6 +164,9 @@ rg --files --no-ignore | wc -l
 
 # Confirm no system/app paths leaked in
 rg --files | rg -i '/Applications/' && echo "LEAK" || echo "clean"
+
+# Confirm tracked source directories that share ignore names are still indexed
+rg --files | rg '^(src|test|examples)(/[^/]+)*/(memory|var|guardian|governor|reports|profiles)/' | sort
 ```
 
 ## Adding new ignores
@@ -95,3 +175,10 @@ rg --files | rg -i '/Applications/' && echo "LEAK" || echo "clean"
 2. **System/user-wide cache** → `~/.rgignore`
 3. **Formatter-only noise** → `.oxfmtrc.json` `ignorePatterns`
 4. **Should not be committed** → `.gitignore`
+
+When adding a new directory ignore to `.rgignore`, ask:
+
+- Is the directory only generated at the repo root? If yes, use a leading slash
+  (`/dirname/`) so nested source directories with the same name remain searchable.
+- Is it a generic name that might also be a tracked package or module? If yes,
+  root-relative is almost always the safer choice.

@@ -41,7 +41,7 @@ out.js
 *.executable
 
 # Machine-trained perf thresholds (portable baseline is thresholds.baseline.json)
-thresholds.json
+/thresholds.json
 
 # Local toolchain / editor runtime (repo root only)
 .kimi/

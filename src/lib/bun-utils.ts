@@ -22,9 +22,6 @@ import {
 import { elapsedMs, nowNs } from "./timing.ts";
 import { safeToml } from "./safe-parse.ts";
 
-/** Monotonic UUID v7 — prefer for session/db ids (see Bun.randomUUIDv7). */
-export { randomUUIDv7 } from "bun";
-
 /**
  * Generate a time-sortable trace ID (UUIDv7, 32 hex chars, no dashes).
  * Use for correlating log entries to a TraceEvent in trace-ledger.
@@ -292,7 +289,7 @@ export async function readableStreamToBlob(
 }
 
 /** Read a ReadableStream and parse it as JSON (ReadableStream.json — replaces deprecated Bun.readableStreamToJSON). */
-export async function readableStreamToJSON<T>(
+export async function readableStreamToJson<T>(
   stream: ReadableStream<Uint8Array> | null | undefined
 ): Promise<T> {
   if (!stream) return undefined as unknown as T;

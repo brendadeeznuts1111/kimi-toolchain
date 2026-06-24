@@ -14,9 +14,11 @@
     ".cache",
     ".kimi-artifacts",
     ".kimi/",
+    ".ast-grep/",
     "coverage/",
     "*.log",
     "canonical-references.json",
+    "constants-manifest.json",
     "examples/dashboard-urls.md",
     "scripts/.fmt-*",
     ".kimi-test-execve-child.ts"

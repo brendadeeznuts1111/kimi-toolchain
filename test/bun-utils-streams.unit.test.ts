@@ -4,7 +4,7 @@ import {
   readableStreamToArrayBuffer,
   readableStreamToBlob,
   readableStreamToBytes,
-  readableStreamToJSON,
+  readableStreamToJson,
   readableStreamToText,
 } from "../src/lib/bun-utils.ts";
 
@@ -55,10 +55,10 @@ describe("bun-utils-streams", () => {
     expect(await blob.text()).toBe("xy");
   });
 
-  test("readableStreamToJSON parses JSON stream", async () => {
+  test("readableStreamToJson parses JSON stream", async () => {
     const encoder = new TextEncoder();
     const stream = makeStream([encoder.encode('{"a":1,"b":['), encoder.encode("2,3]}")]);
-    expect(await readableStreamToJSON<{ a: number; b: number[] }>(stream)).toEqual({
+    expect(await readableStreamToJson<{ a: number; b: number[] }>(stream)).toEqual({
       a: 1,
       b: [2, 3],
     });

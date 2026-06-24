@@ -1,15 +1,91 @@
 # Project-level ripgrep ignores — search/AI discovery only, not Git
-# Keeps build artifacts, caches, and temp dirs out of rg results.
-.kimi-artifacts/
-.kimi/
-.tmp-*/
-~/.bun/
-.bun/install/cache/
-coverage/
+# Keeps build artifacts, caches, generated files, and temp dirs out of rg results.
+# Keep in sync with .gitignore and .oxfmtrc.json when adding new artifact paths.
+# Directory patterns use a leading slash to match only the repo root, so tracked
+# source directories with the same name elsewhere remain searchable.
+
+# Dependencies
+node_modules/
+
+# Generated lockfiles & manifests
+bun.lock
+canonical-references.json
+constants-manifest.json
+
+# Generated documentation
+CHANGELOG.md
+
+# Build artifacts & caches
+/.cache/
+/dist/
+*.bun-build
+*.bun-build*
 *.log
 
-# Generated binaries and archives
+# Coverage & test reports
+/coverage/
+/reports/
+
+# Machine profiles & baselines
+/profiles/
+.bun-native-baseline.json
+/thresholds.json
+*.cpuprofile
+
+# Runtime / local state
+/.kimi/
+/.kimi-artifacts/
+/.kimi-code/
+/.kimi-test-locks/
+/.devin/
+/memory/
+/var/
+/guardian/
+/governor/
+/.bun-create/
+/.cursor/
+/.codex/
+/.reasonix/
+/.ast-grep/
+/.tmp/
+/.tmp-*/
+/.tmp-kimi-test-home/
+
+# SQLite databases
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Compiled binaries
+*.executable
+cli
+out.js
 *.tar.gz
 *.zip
 *.wasm
 *.node
+
+# Compile-smoke temp
+*.tmp-compile-smoke.ts
+test-define-tmp.ts
+
+# Formatter temp
+scripts/.fmt-*
+
+# Editor-specific agent rules (AGENTS.md is the canonical source)
+CLAUDE.md
+
+# Secrets / local env (excluded from Git; also hide from search)
+.env
+.env.local
+.env.*.local
+.env.test
+
+# Stray home-dir snapshots (accidentally created inside repo root)
+~/
+Users/
+~/.bun/
+/.bun/install/cache/
+
+# OS
+.DS_Store

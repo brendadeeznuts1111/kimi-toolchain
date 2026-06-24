@@ -2,7 +2,7 @@
  * Bun Docs MCP doctor gate — health check for the Bun docs MCP server.
  */
 
-import { loadMCPClient } from "../lib/mcp/sse.ts";
+import { loadMcpClient } from "../lib/mcp/sse.ts";
 
 export interface BunDocsAuditResult {
   dimension: 12;
@@ -20,7 +20,7 @@ export interface BunDocsAuditResult {
  */
 export async function auditBunDocs(query = "latest Bun version"): Promise<BunDocsAuditResult> {
   try {
-    const client = await loadMCPClient("bun-docs");
+    const client = await loadMcpClient("bun-docs");
     const tools = await client.listTools();
     const toolName = selectBunDocsTool(tools);
     const args =
