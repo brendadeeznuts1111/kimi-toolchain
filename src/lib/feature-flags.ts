@@ -35,18 +35,8 @@ export {
   type FeatureFlagKind,
 };
 
-/** True when an env escape hatch is set to `1`. */
-export function isEnvEscapeEnabled(key: EnvEscapeFlagKey): boolean {
-  return Bun.env[key] === "1";
-}
-
-/** True when an env opt-in flag is set to `1`. */
-export function isEnvOptInEnabled(key: EnvOptInFlagKey): boolean {
-  return Bun.env[key] === "1";
-}
-
-/** True when any registered env flag (escape or opt-in) is set to `1`. */
-export function isEnvFlagEnabled(key: EnvFlagKey): boolean {
+/** True when a known env flag is set to `1`. */
+export function isEnvFlagEnabled(key: string): boolean {
   return Bun.env[key] === "1";
 }
 

@@ -4,7 +4,7 @@
 
 import { makeDir, pathExists } from "./bun-io.ts";
 import { readableStreamToText } from "./bun-utils.ts";
-import { isEnvEscapeEnabled } from "./feature-flags.ts";
+import { isEnvFlagEnabled } from "./feature-flags.ts";
 import { formatErrorColored } from "./error-format.ts";
 
 import { join } from "path";
@@ -357,7 +357,7 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
     },
   ];
 
-  const skipFlaky = isEnvEscapeEnabled("KIMI_SKIP_FLAKY_TESTS");
+  const skipFlaky = isEnvFlagEnabled("KIMI_SKIP_FLAKY_TESTS");
   for (const run of gates) {
     const result = await run();
     if (!result) continue;
@@ -424,7 +424,7 @@ async function runGuardianGate(projectRoot: string): Promise<GateResult> {
 }
 
 export async function runConstantDriftGate(projectRoot: string): Promise<GateResult> {
-  if (isEnvEscapeEnabled("KIMI_SKIP_CONSTANT_DRIFT_GATE")) {
+  if (isEnvFlagEnabled("KIMI_SKIP_CONSTANT_DRIFT_GATE")) {
     return {
       name: "constant-drift",
       exitCode: 0,
@@ -546,7 +546,7 @@ async function runRScoreGate(projectRoot: string): Promise<GateResult> {
     "--quick",
     "--hook",
   ]);
-  if (result.exitCode !== 0 && isEnvEscapeEnabled("KIMI_SKIP_FLAKY_TESTS")) {
+  if (result.exitCode !== 0 && isEnvFlagEnabled("KIMI_SKIP_FLAKY_TESTS")) {
     const combined = `${result.stdout}\n${result.stderr}`;
     if (/EPERM|EACCES|sandbox/i.test(combined)) {
       gateWarn("⚠ r-score failed with sandbox/EPERM — tolerated (KIMI_SKIP_FLAKY_TESTS=1)");
@@ -566,7 +566,7 @@ async function runRScoreGate(projectRoot: string): Promise<GateResult> {
 }
 
 async function runEffectGatesGate(projectRoot: string): Promise<GateResult> {
-  if (isEnvEscapeEnabled("KIMI_SKIP_EFFECT_GATES")) {
+  if (isEnvFlagEnabled("KIMI_SKIP_EFFECT_GATES")) {
     return {
       name: "effect-gates",
       exitCode: 0,
@@ -607,7 +607,7 @@ function changedTouchesDashboardHarness(changed: readonly string[]): boolean {
 }
 
 async function shouldRunPerfChangedGate(projectRoot: string): Promise<boolean> {
-  if (isEnvEscapeEnabled("KIMI_SKIP_PERF_GATES")) return false;
+  if (isEnvFlagEnabled("KIMI_SKIP_PERF_GATES")) return false;
   if (!pathExists(join(projectRoot, "examples/dashboard/src/bin/perf-doctor.ts"))) {
     return false;
   }
@@ -649,7 +649,7 @@ async function runPerfChangedGate(projectRoot: string): Promise<GateResult> {
 }
 
 async function shouldRunPortalConvergenceGate(projectRoot: string): Promise<boolean> {
-  if (isEnvEscapeEnabled("KIMI_SKIP_PORTAL_GATE")) return false;
+  if (isEnvFlagEnabled("KIMI_SKIP_PORTAL_GATE")) return false;
   if (!(await isKimiToolchainRepo(projectRoot))) return false;
   if (!pathExists(join(projectRoot, "scripts/build-portal.ts"))) return false;
   if (Bun.env.KIMI_PORTAL_GATE_ALWAYS === "1" || Bun.env.KIMI_PRE_PUSH_FULL === "1") {
@@ -763,7 +763,7 @@ async function runCheckFastGate(projectRoot: string): Promise<GateResult> {
     "run",
     script,
   ]);
-  if (result.exitCode !== 0 && isEnvEscapeEnabled("KIMI_SKIP_FLAKY_TESTS")) {
+  if (result.exitCode !== 0 && isEnvFlagEnabled("KIMI_SKIP_FLAKY_TESTS")) {
     const combined = `${result.stdout}\n${result.stderr}`;
     if (/EPERM|EACCES|sandbox/i.test(combined)) {
       gateWarn(`⚠ ${script} failed with sandbox/EPERM — tolerated (KIMI_SKIP_FLAKY_TESTS=1)`);
@@ -1178,7 +1178,7 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
       name: "constant-drift",
       cmd: ["constant-drift", "(internal gate)"],
       skipped:
-        isEnvEscapeEnabled("KIMI_SKIP_CONSTANT_DRIFT_GATE") ||
+        isEnvFlagEnabled("KIMI_SKIP_CONSTANT_DRIFT_GATE") ||
         (await shouldSkipGate(projectRoot, "constant-drift")),
     });
   }
@@ -1218,7 +1218,7 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
       name: "effect-gates",
       cmd: ["bun", "run", doctor, "--effect-gates", "--hook"],
       skipped:
-        isEnvEscapeEnabled("KIMI_SKIP_EFFECT_GATES") ||
+        isEnvFlagEnabled("KIMI_SKIP_EFFECT_GATES") ||
         (await shouldSkipGate(projectRoot, "effect-gates")),
     });
   }
@@ -1228,7 +1228,7 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
       name: "perf:gates:changed",
       cmd: ["bun", "run", "--cwd", "examples/dashboard", "perf:gates:changed"],
       skipped:
-        isEnvEscapeEnabled("KIMI_SKIP_PERF_GATES") ||
+        isEnvFlagEnabled("KIMI_SKIP_PERF_GATES") ||
         (await shouldSkipGate(projectRoot, "perf:gates:changed")),
     });
   }
@@ -1241,7 +1241,7 @@ export async function planPrePushGates(projectRoot: string): Promise<PlannedGate
       name: "portal:gate",
       cmd: portalCmd,
       skipped:
-        isEnvEscapeEnabled("KIMI_SKIP_PORTAL_GATE") ||
+        isEnvFlagEnabled("KIMI_SKIP_PORTAL_GATE") ||
         (await shouldSkipGate(projectRoot, "portal:gate")),
     });
   }
