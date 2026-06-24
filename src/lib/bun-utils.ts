@@ -243,14 +243,9 @@ export function elapsedMsSince(startNanos: number): number {
   return Math.round(elapsedMs(startNanos));
 }
 
-/** SHA-256 hasher (Bun.CryptoHasher). */
-export function sha256Hasher(): InstanceType<typeof Bun.CryptoHasher> {
-  return new Bun.CryptoHasher("sha256");
-}
-
 /** Stable short key for in-flight dedup maps (JSON payload → hex prefix). */
 export function hashInflightPayload(payload: unknown): string {
-  const hasher = sha256Hasher();
+  const hasher = new Bun.CryptoHasher("sha256");
   hasher.update(JSON.stringify(payload));
   return hasher.digest("hex").slice(0, 16);
 }
@@ -335,26 +330,19 @@ export async function fetchJsonBody<T>(
 /** @see https://bun.com/guides/util/gzip */
 export const BUN_GZIP_DOC_URL = "https://bun.com/guides/util/gzip";
 
-function gzipInput(data: string | Uint8Array): Uint8Array<ArrayBuffer> {
-  if (typeof data === "string") {
-    return new TextEncoder().encode(data) as Uint8Array<ArrayBuffer>;
-  }
-  return Uint8Array.from(data) as Uint8Array<ArrayBuffer>;
-}
-
 /** Gzip bytes with Bun.gzipSync. Accepts UTF-8 string or Uint8Array input. */
 export function gzipBytes(data: string | Uint8Array): Uint8Array {
-  return Bun.gzipSync(gzipInput(data));
+  return Bun.gzipSync(typeof data === "string" ? new TextEncoder().encode(data) : data);
 }
 
 /** Gunzip bytes with Bun.gunzipSync. */
 export function gunzipBytes(data: Uint8Array): Uint8Array {
-  return Bun.gunzipSync(Uint8Array.from(data) as Uint8Array<ArrayBuffer>);
+  return Bun.gunzipSync(data);
 }
 
 /** Gunzip to UTF-8 text. */
 export function gunzipText(data: Uint8Array): string {
-  return new TextDecoder().decode(Bun.gunzipSync(Uint8Array.from(data) as Uint8Array<ArrayBuffer>));
+  return new TextDecoder().decode(Bun.gunzipSync(data));
 }
 
 export interface ExecArgvOptions {
