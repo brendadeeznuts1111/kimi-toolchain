@@ -324,7 +324,6 @@ The **performance control loop** lives in `examples/dashboard/src/bin/perf-docto
 ```bash
 bun run perf:gates              # perf-doctor --perf-gates
 bun run perf:train              # train thresholds.json (actualMs × 1.1)
-bun run perf:watch              # fs.watch src/harness + src/lib/isolation
 bun run src/bin/perf-doctor.ts --report --out=.
 ```
 

@@ -4,10 +4,10 @@
  * Usage: bun run scripts/migrate-sync-fs-api.ts [--dry-run]
  */
 
-import { dirname, join, relative } from "path";
+import { dirname, relative } from "path";
 
-const REPO_ROOT = join(import.meta.dir, "..");
-const BUN_IO = join(REPO_ROOT, "src/lib/bun-io.ts");
+const REPO_ROOT = new URL("..", import.meta.url).pathname;
+const BUN_IO = new URL("../src/lib/bun-io.ts", import.meta.url).pathname;
 const SKIP = new Set(["src/lib/bun-io.ts"]);
 const dryRun = Bun.argv.includes("--dry-run");
 
@@ -27,7 +27,6 @@ const SYNC_NAMES = new Set([
   "readlinkSync",
   "cpSync",
   "realpathSync",
-  "watch",
 ]);
 
 const BUN_IO_NAMES = [
@@ -46,7 +45,6 @@ const BUN_IO_NAMES = [
   "readLink",
   "copyTree",
   "resolveRealPath",
-  "watchPath",
 ] as const;
 
 const CALL_REPLACEMENTS: Array<[RegExp, string]> = [
@@ -67,7 +65,6 @@ const CALL_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\breadlinkSync\s*\(/g, "readLink("],
   [/\bcpSync\s*\(/g, "copyTree("],
   [/\brealpathSync\s*\(/g, "resolveRealPath("],
-  [/\bwatch\s*\(/g, "watchPath("],
 ];
 
 const IMPORT_BLOCK = /import\s+(type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["'];?\s*\n?/g;

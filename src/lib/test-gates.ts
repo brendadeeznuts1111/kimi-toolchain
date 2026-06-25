@@ -341,7 +341,7 @@ export const UNIT_TEST_FILES = [
   "test/check-env-drift.unit.test.ts",
   "test/check-lint-scoped.unit.test.ts",
   "test/check-pipeline.unit.test.ts",
-  "test/check-result-cache.unit.test.ts",
+
   "test/ci-impact.unit.test.ts",
   "test/ci-pipeline.unit.test.ts",
   "test/cli-contract.unit.test.ts",

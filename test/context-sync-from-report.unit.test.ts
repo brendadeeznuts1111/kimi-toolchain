@@ -8,7 +8,7 @@ import {
   enrichHandoffMessage,
   formatFinishWorkBrief,
   isFinishWorkHandoffCondition,
-} from "../src/lib/context-sync-from-report.ts";
+} from "../src/lib/finish-work-herdr.ts";
 import { FINISH_WORK_REPORT_PUBLIC_SCHEMA_VERSION } from "../src/lib/finish-work-report-schema.ts";
 
 function writeV11Report(root: string): void {

@@ -14,11 +14,11 @@
  *   bun run scripts/migrate-tests.ts --write
  */
 
-import { dirname, join, relative } from "path";
+import { dirname, relative } from "path";
 
-const REPO_ROOT = join(import.meta.dir, "..");
-const BUN_IO = join(REPO_ROOT, "src/lib/bun-io.ts");
-const HELPERS = join(REPO_ROOT, "test/helpers.ts");
+const REPO_ROOT = new URL("..", import.meta.url).pathname;
+const BUN_IO = new URL("../src/lib/bun-io.ts", import.meta.url).pathname;
+const HELPERS = new URL("../test/helpers.ts", import.meta.url).pathname;
 const dryRun = Bun.argv.includes("--dry-run");
 const shouldWrite = Bun.argv.includes("--write") || Bun.argv.includes("--fix");
 
@@ -38,7 +38,6 @@ const SYNC_FS_NAMES = new Set([
   "readlinkSync",
   "cpSync",
   "realpathSync",
-  "watch",
 ]);
 
 const BUN_IO_REPLACEMENTS: Array<[RegExp, string]> = [
@@ -59,7 +58,6 @@ const BUN_IO_REPLACEMENTS: Array<[RegExp, string]> = [
   [/\breadlinkSync\s*\(/g, "readLink("],
   [/\bcpSync\s*\(/g, "copyTree("],
   [/\brealpathSync\s*\(/g, "resolveRealPath("],
-  [/\bwatch\s*\(/g, "watchPath("],
 ];
 
 const IMPORT_BLOCK = /import\s+(type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["'];?\s*\n?/g;
@@ -101,7 +99,6 @@ function collectUsedBunIo(text: string): Set<string> {
     "readLink",
     "copyTree",
     "resolveRealPath",
-    "watchPath",
   ];
   for (const name of names) {
     if (new RegExp(`\\b${name}\\s*\\(`).test(text)) used.add(name);

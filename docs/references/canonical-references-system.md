@@ -230,7 +230,6 @@ Online ecosystem checks are **not** part of `bun run check` — use in scheduled
 | Herdr orchestrator                  | `probe:canonical-references:*`          | Handoff gates before workflows that need current refs                                                              |
 | `formatCanonicalReferencesMarkdown` | `ECOSYSTEM_REFERENCES` etc. (from data) | CONTEXT.md / README ecosystem tables                                                                               |
 | `references:inspect`                | Generated arrays                        | Terminal tables (`--plain`, `--json`)                                                                              |
-| `references:inspect --watch`        | TOML + `data.ts` + JSON file watchers   | Live dashboard; `bun run references:inspect:watch` for HMR                                                         |
 | Canvas companion sync               | `LOCAL_DOC_REFERENCES` + `cursorCanvas` | Regenerates canvas companion files on generate                                                                     |
 | Doc-link lint                       | Ecosystem URLs in markdown              | Cross-check against manifest rows                                                                                  |
 | Dashboard thumbnails                | `src/lib/bun-image.ts`                  | WebView PNG → `Bun.Image.metadata()` → `/api/thumbnail` (see [dashboard-thumbnails.md](./dashboard-thumbnails.md)) |
@@ -245,8 +244,6 @@ Online ecosystem checks are **not** part of `bun run check` — use in scheduled
 | Verify committed artifacts | `bun run references:generate --check`                     |
 | Lint TOML without regen    | `bun run references:lint`                                 |
 | Inspect tables             | `bun run references:inspect`                              |
-| Live inspect dashboard     | `bun run references:inspect --watch`                      |
-| HMR-aware watch            | `bun run references:inspect:watch`                        |
 | Plain terminal output      | `bun run references:inspect --plain --section all`        |
 | JSON export                | `bun run references:inspect --json`                       |
 | Live ecosystem URL check   | `bun run references:lint-online`                          |
@@ -320,7 +317,6 @@ flowchart TB
 | Full lint bundle  | `bun run lint`                           | Includes `--check` above                             |
 | Health / handoff  | `probe:canonical-references:*`           | `repo-fresh`, `runtime-aligned`, `runtime-cache`     |
 | Unit tests        | `test/canonical-references.unit.test.ts` | 59 pass (includes `--plain` snapshot)                |
-| Watch CLI         | `bun run references:inspect:watch`       | `references-inspect-watch.ts` + 7 unit tests         |
 | Install policy    | `test/bun-install-config.unit.test.ts`   | 54+ pass (`runtimeApiDocs`, profiling, benchmarking) |
 | Runtime inventory | `auditRuntimeCapabilitiesHealth`         | `runtimeApiDocs` (5 URLs) + 17 capability keys       |
 | Config layers     | `bun run config:status`                  | `bun-install-runtime` gate (inline audit)            |

@@ -1,6 +1,6 @@
 import { execArgvSync } from "./bun-utils.ts";
 import { pathExists, writeText } from "./bun-io.ts";
-import { buildContextSyncFromReport, enrichHandoffMessage } from "./context-sync-from-report.ts";
+import { buildContextSyncFromReport, enrichHandoffMessage } from "./finish-work-herdr.ts";
 import type { HerdrAgentsTabPane, HerdrProjectConfig } from "./herdr-project-config.ts";
 import { herdrCliRun, resolveHerdrPanePath } from "./herdr-project-cli.ts";
 import { findWorkspaceForProject, resolveWorkspaceAgentPaneId } from "./herdr-workspace-match.ts";

@@ -278,10 +278,6 @@ bun run check:dry-run
 # Branch-scoped iterate: only changed files vs main
 bun run check:fast:changed
 
-# TDD loops (debounced file watcher)
-bun run check:watch
-bun run check:watch:tests
-
 # TypeScript (no emit)
 bun run typecheck
 

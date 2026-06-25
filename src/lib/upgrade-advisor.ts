@@ -233,7 +233,7 @@ function scanSourceFile(
             rel,
             i + 1,
             "Legacy file watcher or polling pattern",
-            "Prefer fs.watch(path, { recursive: true }) or Bun's native watch APIs",
+            "Delete DX watch loops; keep only direct Bun.sleep runtime polling where removal breaks infra",
             line
           )
         );

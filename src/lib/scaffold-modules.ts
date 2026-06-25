@@ -56,7 +56,6 @@ const DOCTOR_PACKAGE_SCRIPTS: Record<string, string> = {
   "perf:gates:changed":
     "bun run src/bin/perf-doctor.ts --perf-gates --changed-only --base=origin/main",
   "perf:train": "bun run src/bin/perf-doctor.ts --perf-gates --train --out=.",
-  "perf:watch": "bun run src/bin/perf-doctor.ts --watch --perf-gates --report",
   "perf:nightly": "bun run src/bin/perf-doctor.ts --perf-gates --train --report --out=.",
 };
 

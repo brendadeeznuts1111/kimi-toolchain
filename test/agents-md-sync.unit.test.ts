@@ -19,7 +19,7 @@ import {
   readDxEndpoints,
   readLibDomainRows,
   readPackageBins,
-} from "../src/lib/agents-md-sync-sources.ts";
+} from "../src/lib/agents-md-sync.ts";
 
 const SAMPLE_AGENTS = `## Architecture
 

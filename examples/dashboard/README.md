@@ -273,15 +273,12 @@ Self-calibrating control loop (`src/harness/`):
 cd examples/dashboard
 bun run perf              # --perf-gates + HTML report
 bun run perf:train        # update thresholds.json in project root
-bun run perf:watch        # fs.watch src/harness + src/lib/isolation → re-benchmark
 # API: /api/perf-registry, /api/perf-report, /api/perf-train
 ```
 
-CLI: `src/bin/perf-doctor.ts` — `--perf-gates`, `--report`, `--train`, `--watch`.
+CLI: `src/bin/perf-doctor.ts` — `--perf-gates`, `--report`, `--train`.
 
 **HTTP protocol benchmarks** (`http.fetch-h1` / `h2` / `h3`): local echo servers + `fetch({ protocol })`. H2/H3 skip gracefully when the runtime lacks client or QUIC serve support.
-
-**Watch split:** `perf-doctor --watch` uses `node:fs.watch` (file-triggered). Main `kimi-doctor --watch` polls effect-gates every 5s (not perf).
 
 ## Scaffold with bun create
 

@@ -4,7 +4,7 @@ import {
   buildProposedActions,
   computeConfidenceBreakdown,
   computeOverallConfidence,
-} from "../src/lib/agent-utils.ts";
+} from "../src/lib/agent-diagnosis.ts";
 import { generateAgentDiagnosisReport } from "../src/lib/agent-diagnosis.ts";
 import type {
   ErrorCoverageAudit,

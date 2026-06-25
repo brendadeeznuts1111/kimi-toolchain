@@ -86,8 +86,8 @@ const FEATURES = [
   {
     area: "Perf harness",
     files: "examples/dashboard/src/harness/ · perf-doctor.ts",
-    detail: "--watch (fs.watch), HTTP h1/h2/h3 benchmarks, isolation factory",
-    cmd: "bun run perf:gates · perf:watch",
+    detail: "HTTP h1/h2/h3 benchmarks, isolation factory",
+    cmd: "bun run perf:gates",
   },
   {
     area: "Hook gate",
