@@ -26,6 +26,7 @@ export const EXEMPT_FILES: Record<string, string[]> = {
     "src/lib/bun-utils.ts",
   ],
   "node-fs-in-bun": ["src/lib/bun-io.ts"],
+  "prefer-bun-serve-routes": ["src/lib/herdr-dashboard/server/router.ts"],
 };
 
 /** Bun hygiene profile — mirrors Projects ast-grep `bun` scan profile. */

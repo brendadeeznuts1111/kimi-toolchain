@@ -1,0 +1,8 @@
+id: prefer-bun-serve-routes
+valid:
+  - 'const m = DASHBOARD_RUN_MANIFEST.exec(url); if (m) return handle(m);'
+  - 'if (request.method === "OPTIONS" && path.startsWith("/api/")) return cors();'
+invalid:
+  - 'if (path === "/api/tasks") { return jsonResponse({}); }'
+  - 'if (path === "/api/foo" && request.method === "GET") { return ok(); }'
+  - 'if (path === "/" || path === "/index.html") { return html(); }'

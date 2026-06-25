@@ -354,6 +354,20 @@ export async function runPreCommitGates(projectRoot: string): Promise<number> {
         "--staged",
       ]);
     },
+    async () => {
+      const script = join(projectRoot, "scripts/lint-serve-routes-staged.ts");
+      if (!pathExists(script)) return null;
+      const router = "src/lib/herdr-dashboard/server/router.ts";
+      if (!staged.some((p) => p === router || p.endsWith(`/${router}`))) {
+        return skippedGateResult("serve-routes-staged");
+      }
+      if (!summary) printVerboseBanner("Serve routes staged");
+      return runGateVisible(projectRoot, "serve-routes-staged", [
+        "bun",
+        "run",
+        "scripts/lint-serve-routes-staged.ts",
+      ]);
+    },
   ];
 
   const skipFlaky = isEnvFlagEnabled("KIMI_SKIP_FLAKY_TESTS");

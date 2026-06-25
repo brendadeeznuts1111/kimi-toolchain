@@ -1,0 +1,12 @@
+# prefer-bun-serve-routes — nudge static paths toward Bun.serve({ routes })
+id: prefer-bun-serve-routes
+language: TypeScript
+severity: warning
+message: >-
+  Prefer Bun.serve({ routes }) for static paths or URLPattern exec
+  (src/lib/dashboard-route-patterns.ts) over manual if (path === ...) dispatch.
+rule:
+  any:
+    - pattern: if (path === $ROUTE) { $$$BODY }
+    - pattern: if (path === $ROUTE && $COND) { $$$BODY }
+    - pattern: if (path === $ROUTE || path === $ROUTE2) { $$$BODY }

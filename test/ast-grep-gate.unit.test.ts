@@ -131,5 +131,23 @@ describe("ast-grep-gate", () => {
   test("EXEMPT_FILES covers the legitimate source files", () => {
     expect(EXEMPT_FILES["no-direct-registry-import"]).toContain("src/lib/bun-utils.ts");
     expect(EXEMPT_FILES["no-manual-feature-url"]).toContain("src/lib/bun-release-registry.ts");
+    expect(EXEMPT_FILES["prefer-bun-serve-routes"]).toContain(
+      "src/lib/herdr-dashboard/server/router.ts",
+    );
+  });
+
+  test("evaluateHits exempts prefer-bun-serve-routes in legacy router.ts", () => {
+    const hits = [
+      makeHit(
+        "prefer-bun-serve-routes",
+        `${PROJECT_ROOT}/src/lib/herdr-dashboard/server/router.ts`,
+        196,
+      ),
+      makeHit("prefer-bun-serve-routes", `${PROJECT_ROOT}/src/lib/card-probe-server.ts`, 12),
+    ];
+    const { violations, exempted } = evaluateHits(hits, PROJECT_ROOT);
+    expect(exempted).toHaveLength(1);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe("src/lib/card-probe-server.ts");
   });
 });
