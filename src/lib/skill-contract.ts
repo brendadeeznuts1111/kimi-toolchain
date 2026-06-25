@@ -224,12 +224,10 @@ export async function readFirstExisting(
   paths: string[]
 ): Promise<{ path: string; text: string } | null> {
   for (const path of paths) {
-    try {
-      const text = await Bun.file(path).text();
-      return { path, text };
-    } catch {
-      // try next candidate
-    }
+    const file = Bun.file(path);
+    if (!(await file.exists())) continue;
+    const text = await file.text();
+    return { path, text };
   }
   return null;
 }
@@ -987,10 +985,8 @@ export async function auditSkillFrontmatter(repoRoot: string): Promise<SkillCont
 
   for await (const rel of skillsGlob.scan({ cwd: join(repoRoot, "skills"), onlyFiles: true })) {
     const skillRel = `skills/${rel}`;
-    let text: string;
-    try {
-      text = await Bun.file(join(repoRoot, skillRel)).text();
-    } catch {
+    const skillPath = join(repoRoot, skillRel);
+    if (!(await Bun.file(skillPath).exists())) {
       issues.push({
         skill: skillRel,
         rule: "skill-load-failed",
@@ -998,6 +994,7 @@ export async function auditSkillFrontmatter(repoRoot: string): Promise<SkillCont
       });
       continue;
     }
+    const text = await Bun.file(skillPath).text();
     if (text.trim().length < 40) {
       issues.push({
         skill: skillRel,

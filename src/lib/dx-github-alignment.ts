@@ -166,33 +166,34 @@ function error(name: string, message: string): DxGithubAlignmentCheck {
 }
 
 async function readToml(path: string): Promise<UnknownRecord | null> {
+  if (!pathExists(path)) return null;
+  const text = await Bun.file(path).text();
   try {
-    return record(Bun.TOML.parse(await Bun.file(path).text()));
+    return record(Bun.TOML.parse(text));
   } catch {
     return null;
   }
 }
 
 async function readYaml(path: string): Promise<UnknownRecord | null> {
+  if (!pathExists(path)) return null;
+  const text = await Bun.file(path).text();
   try {
-    return record(YAML.load(await Bun.file(path).text()));
+    return record(YAML.load(text));
   } catch {
     return null;
   }
 }
 
 async function readPackage(path: string): Promise<PackageManifest | null> {
-  try {
-    const pkg = record(await Bun.file(path).json());
-    const scriptsSource = record(pkg.scripts);
-    const scripts: Record<string, string> = {};
-    for (const [key, value] of Object.entries(scriptsSource)) {
-      if (typeof value === "string" && value.trim() !== "") scripts[key] = value;
-    }
-    return { scripts, packageManager: stringValue(pkg.packageManager) };
-  } catch {
-    return null;
+  if (!pathExists(path)) return null;
+  const pkg = record(await Bun.file(path).json());
+  const scriptsSource = record(pkg.scripts);
+  const scripts: Record<string, string> = {};
+  for (const [key, value] of Object.entries(scriptsSource)) {
+    if (typeof value === "string" && value.trim() !== "") scripts[key] = value;
   }
+  return { scripts, packageManager: stringValue(pkg.packageManager) };
 }
 
 function collectRunCommands(value: unknown, commands: string[] = []): string[] {

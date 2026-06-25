@@ -97,12 +97,9 @@ export interface ScaffoldModulesResult {
 }
 
 async function isDirectory(path: string): Promise<boolean> {
-  try {
-    const stat = await Bun.file(path).stat();
-    return stat.isDirectory();
-  } catch {
-    return false;
-  }
+  if (!pathExists(path)) return false;
+  const stat = await Bun.file(path).stat();
+  return stat.isDirectory();
 }
 
 async function copyTree(

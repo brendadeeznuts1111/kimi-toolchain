@@ -84,12 +84,8 @@ export async function loadGovernorDefaults(): Promise<GovernorDefaults> {
   let merged: GovernorDefaults = { ...BUILTIN };
 
   if (pathExists(CONFIG_PATH)) {
-    try {
-      const text = await Bun.file(CONFIG_PATH).text();
-      merged = { ...merged, ...parseGovernorToml(text) };
-    } catch {
-      /* use builtin */
-    }
+    const text = await Bun.file(CONFIG_PATH).text();
+    merged = { ...merged, ...parseGovernorToml(text) };
   }
 
   try {
