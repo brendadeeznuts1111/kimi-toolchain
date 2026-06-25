@@ -7,7 +7,7 @@
  * @see secrets-audit.ts for audit trail
  */
 
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { createLogger } from "./logger.ts";
 import { secretsPolicyPath, secretsAuditPath } from "./paths.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
@@ -638,6 +638,33 @@ export class SecretsManager {
     this.policyCache = null;
   }
 }
+
+/** Effect-facing API for {@link SecretsManager} — consumed via Context.Tag in Effect pipelines. */
+export interface SecretsService {
+  readonly get: (
+    key: AnySecretKey,
+    consumer: string
+  ) => Effect.Effect<string | null, SecretNotFound | SecretPolicyViolation>;
+  readonly set: (key: AnySecretKey, value: string) => Effect.Effect<void, SecretPolicyViolation>;
+  readonly delete: (key: AnySecretKey) => Effect.Effect<boolean>;
+  readonly rotate: (
+    key: AnySecretKey,
+    newValue?: string
+  ) => Effect.Effect<
+    { version: number; lastRotated: string },
+    SecretNotFound | SecretPolicyViolation
+  >;
+  readonly list: () => Effect.Effect<SecretListResult[]>;
+  readonly check: () => Effect.Effect<SecretCheckResult[], SecretRotationRequired>;
+  readonly audit: (query: AuditQuery) => Effect.Effect<SecretAuditRecord[]>;
+  readonly storageBackend: () => Effect.Effect<StorageBackend>;
+  readonly storageStatus: () => Effect.Effect<StorageStatus>;
+}
+
+export class Secrets extends Context.Tag("Secrets")<Secrets, SecretsService>() {}
+
+/** Layer factories: {@link SecretsLive} and {@link SecretsTest} in effect/secrets-service.ts */
+export type SecretsLayer = Layer.Layer<Secrets>;
 
 export const SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY = "secrets_storage_tier_mismatch";
 
