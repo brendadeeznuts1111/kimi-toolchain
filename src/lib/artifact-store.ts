@@ -16,22 +16,20 @@ import { generateArtifactLineageMermaid, generateRunLineageMermaid } from "./gra
 import { safeParse } from "./utils.ts";
 import {
   ARTIFACT_SCHEMA_VERSION,
-  type ArtifactDependencyQuery,
-  type ArtifactEnvelope,
-  type ArtifactMetadata,
-  type ArtifactRunLineage,
-  type ArtifactRunStatus,
-  type ArtifactSaveMeta,
-  type ArtifactSessionContext,
-} from "./artifact-types.ts";
-import {
   ArtifactIndex,
   computeArtifactContentHash,
+  type ArtifactDependencyQuery,
+  type ArtifactEnvelope,
   type ArtifactIndexDistinct,
   type ArtifactIndexQuery,
   type ArtifactIndexRow,
   type ArtifactIndexStats,
+  type ArtifactMetadata,
   type ArtifactMetadataCollectionEntry,
+  type ArtifactRunLineage,
+  type ArtifactRunStatus,
+  type ArtifactSaveMeta,
+  type ArtifactSessionContext,
 } from "./artifact-index.ts";
 
 export type {

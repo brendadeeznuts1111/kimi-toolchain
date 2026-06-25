@@ -58,8 +58,8 @@ export interface ErrorCluster {
   members: ClusterMember[];
 }
 
-import { type ClusterSummary } from "./error-types.ts";
-export { type ClusterSummary } from "./error-types.ts";
+import { type ClusterSummary } from "./failure-ledger.ts";
+export { type ClusterSummary } from "./failure-ledger.ts";
 
 export interface ErrorClusterReport {
   schemaVersion: 1;

@@ -9,20 +9,14 @@ import { ensureProcessTrace } from "./effect/trace-context.ts";
 import { buildTraceGraph, type TraceGraph } from "./trace-ledger.ts";
 import { appendNdjsonRecord, readNdjsonFile, rewriteNdjsonFile } from "./ndjson.ts";
 import { buildDecisionRationale, buildDecisionRationaleEffect } from "./decision-rationale.ts";
-import {
-  type AlternativeFeasibility,
-  type DecisionEvidence,
-  type DecisionRationaleBlock,
-  type RationaleBuildContext,
-} from "./decision-types.ts";
-
 export {
+  buildDecisionRationale,
+  buildDecisionRationaleEffect,
   type AlternativeFeasibility,
   type DecisionEvidence,
   type DecisionRationaleBlock,
   type RationaleBuildContext,
-};
-export { buildDecisionRationale, buildDecisionRationaleEffect } from "./decision-rationale.ts";
+} from "./decision-rationale.ts";
 export { buildDecisionGraph } from "./decision-graph.ts";
 
 /** Backward-compatible aliases for legacy callers. */

@@ -15,11 +15,7 @@ import {
   patchGateNames,
   syncAgentsMd,
 } from "../src/lib/agents-md-sync.ts";
-import {
-  readDxEndpoints,
-  readLibDomainRows,
-  readPackageBins,
-} from "../src/lib/agents-md-sync.ts";
+import { readDxEndpoints, readLibDomainRows, readPackageBins } from "../src/lib/agents-md-sync.ts";
 
 const SAMPLE_AGENTS = `## Architecture
 

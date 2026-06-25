@@ -2,7 +2,7 @@
  * doctor-adapters/oxlint.ts — Adapter for oxlint JSON output.
  */
 
-import type { AdapterOutput, ExternalToolAdapter } from "../doctor-adapter-types.ts";
+import type { AdapterOutput, ExternalToolAdapter } from "../health-check.ts";
 import type { HealthCheck } from "../health-check.ts";
 import { safeParse } from "../utils.ts";
 

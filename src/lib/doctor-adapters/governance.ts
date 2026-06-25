@@ -2,7 +2,7 @@
  * doctor-adapters/governance.ts — Adapter wrapping kimi-governance score.
  */
 
-import type { AdapterOutput, ExternalToolAdapter } from "../doctor-adapter-types.ts";
+import type { AdapterOutput, ExternalToolAdapter } from "../health-check.ts";
 import { safeParse } from "../utils.ts";
 
 interface GovernanceScoreJson {

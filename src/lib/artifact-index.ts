@@ -8,7 +8,55 @@
 import { Database } from "bun:sqlite";
 import { join } from "path";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
-import type { ArtifactEnvelope, ArtifactSessionContext } from "./artifact-types.ts";
+
+export const ARTIFACT_SCHEMA_VERSION = 1;
+
+export interface ArtifactDependencyQuery {
+  gate: string;
+  since?: string;
+  limit?: number;
+  paths?: string[];
+}
+
+export interface ArtifactRunLineage {
+  dependencies: string[];
+  upstreamArtifacts: string[];
+}
+
+export interface ArtifactSessionContext {
+  sessionId?: string;
+  workspaceId?: string;
+  paneId?: string;
+  agentId?: string;
+  runId?: string;
+  parentRunId?: string;
+}
+
+export type ArtifactRunStatus = "pass" | "warn" | "fail";
+
+export interface ArtifactSaveMeta extends ArtifactSessionContext {
+  level?: 1 | 2 | 3;
+  dependsOn?: ArtifactDependencyQuery[];
+  lineageMermaid?: string;
+  lineage?: ArtifactRunLineage;
+  [key: string]: unknown;
+}
+
+export interface ArtifactMetadata extends ArtifactSaveMeta {
+  hostname: string;
+  pid: number;
+  bunVersion: string;
+  resultSize: number;
+}
+
+export interface ArtifactEnvelope {
+  schemaVersion: typeof ARTIFACT_SCHEMA_VERSION;
+  gate: string;
+  savedAt: string;
+  size: number;
+  metadata?: ArtifactMetadata;
+  payload: unknown;
+}
 
 const SCHEMA_VERSION = 1;
 const DB_FILENAME = ".index.sqlite";

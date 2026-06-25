@@ -341,7 +341,7 @@ Use this pattern when extending `kimi-doctor` with new agent-facing diagnostics.
 ### External-tool adapters
 
 - Define the adapter in `src/lib/doctor-adapters/{name}.ts`.
-- Implement `ExternalToolAdapter` from `src/lib/doctor-adapter-types.ts`:
+- Implement `ExternalToolAdapter` from `src/lib/health-check.ts`:
   - `name`: stable kebab-case identifier.
   - `command`: `["executable", ...args]`; the runner resolves the executable
     from `PATH` or `{projectRoot}/node_modules/.bin` automatically.

@@ -2,7 +2,7 @@
  * doctor-adapters/dashboard-automation.ts — Gate for Herdr dashboard WebView smoke + /api/thumbnail.
  */
 
-import type { AdapterOutput, ExternalToolAdapter } from "../doctor-adapter-types.ts";
+import type { AdapterOutput, ExternalToolAdapter } from "../health-check.ts";
 import {
   dashboardAutomationChecksFromResult,
   type DashboardAutomationJsonEnvelope,

@@ -293,6 +293,7 @@ interface CheckResult {
   name: string;
   status: "ok" | "warn" | "error";
   message: string;
+  fixable: boolean;
   category?: string;
   autoFix?: string;
   taxonomyId?: string;

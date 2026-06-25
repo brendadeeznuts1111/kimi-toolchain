@@ -6,7 +6,21 @@ import { errorClustersPath, failureLedgerPath } from "./paths.ts";
 import { safeParse } from "./utils.ts";
 import { appendNdjsonRecord, writeNdjsonFile } from "./ndjson.ts";
 import { deriveErrorId, readFailureTraceRecords, type FailureTraceRecord } from "./trace-ledger.ts";
-import type { ClusterSummary } from "./error-types.ts";
+
+export interface ClusterSummary {
+  clusterId: string;
+  count: number;
+  representativeError: {
+    summary: string;
+    traceId?: string;
+    errorId?: string;
+  };
+  topTaxonomy: string | null;
+  hasPlaybook: boolean;
+  confidence?: number;
+  suggestedFix?: string;
+  autoFix?: string;
+}
 
 export type { FailureTraceRecord };
 

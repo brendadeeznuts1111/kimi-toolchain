@@ -2,8 +2,7 @@
  * doctor-adapters/dashboard-meta.ts — Gate for Herdr dashboard /api/meta discovery contract.
  */
 
-import type { AdapterOutput } from "../doctor-adapter-types.ts";
-import type { ExternalToolAdapter } from "../doctor-adapter-types.ts";
+import type { AdapterOutput, ExternalToolAdapter } from "../health-check.ts";
 import {
   formatDashboardMetaDiscoveryStatusLine,
   resolveRemoteHostsConfigured,

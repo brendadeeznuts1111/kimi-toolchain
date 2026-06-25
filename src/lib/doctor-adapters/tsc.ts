@@ -2,7 +2,7 @@
  * doctor-adapters/tsc.ts — Adapter for `tsc --noEmit` output.
  */
 
-import type { AdapterOutput, ExternalToolAdapter } from "../doctor-adapter-types.ts";
+import type { AdapterOutput, ExternalToolAdapter } from "../health-check.ts";
 
 function buildOutput(
   result: { durationMs: number },

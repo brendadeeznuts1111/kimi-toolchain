@@ -4,8 +4,23 @@
 
 import { resolve } from "path";
 import { openFileInEditor } from "./bun-utils.ts";
+import type { ToolInvocation } from "./tool-runner.ts";
 
 export type CheckStatus = "ok" | "warn" | "error";
+
+export interface AdapterOutput {
+  adapterName: string;
+  durationMs: number;
+  checks: HealthCheck[];
+  rawOutput?: string;
+}
+
+export interface ExternalToolAdapter {
+  name: string;
+  command: string[];
+  env?: Record<string, string | undefined>;
+  parse(result: ToolInvocation): AdapterOutput;
+}
 
 export interface WorkspaceKnownContext {
   clusterId: string;

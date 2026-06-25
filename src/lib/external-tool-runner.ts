@@ -11,7 +11,7 @@ import { pathExists } from "./bun-io.ts";
 
 import { Effect } from "effect";
 import { join } from "path";
-import type { AdapterOutput, ExternalToolAdapter } from "./doctor-adapter-types.ts";
+import type { AdapterOutput, ExternalToolAdapter } from "./health-check.ts";
 import { invokeCommandEffect } from "./effect/tool-runner-effect.ts";
 import { oxlintAdapter } from "./doctor-adapters/oxlint.ts";
 import { tscAdapter } from "./doctor-adapters/tsc.ts";

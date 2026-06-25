@@ -17,12 +17,11 @@
  * - No mkdtempSync / readFileSync / writeFileSync
  */
 
-import { parseArgs } from "util";
 import { basename, join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
 import { UNIT_TEST_FILES } from "../src/lib/test-gates.ts";
 
-const REPO_ROOT = join(import.meta.dir, "..");
+const REPO_ROOT = new URL("..", import.meta.url).pathname;
 
 /** Unit test stems that intentionally target a non-default source path. */
 const UNIT_STEM_SOURCE: Record<string, string> = {
@@ -580,20 +579,29 @@ export function parseLintTestNamesCli(argv: string[]): {
   namesOnly: boolean;
   targets: string[];
 } {
-  const { values, positionals } = parseArgs({
-    args: argv,
-    options: {
-      json: { type: "boolean", default: false },
-      "names-only": { type: "boolean", default: false },
-    },
-    strict: true,
-    allowPositionals: true,
-  });
+  let json = false;
+  let namesOnly = false;
+  const targets: string[] = [];
+
+  for (const arg of argv) {
+    if (arg === "--json") {
+      json = true;
+      continue;
+    }
+    if (arg === "--names-only") {
+      namesOnly = true;
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      throw new Error(`Unknown option '${arg}'`);
+    }
+    targets.push(arg);
+  }
 
   return {
-    json: values.json ?? false,
-    namesOnly: values["names-only"] ?? false,
-    targets: positionals,
+    json,
+    namesOnly,
+    targets,
   };
 }
 

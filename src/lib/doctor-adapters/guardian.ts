@@ -2,7 +2,7 @@
  * doctor-adapters/guardian.ts — Adapter wrapping kimi-guardian.
  */
 
-import type { AdapterOutput, ExternalToolAdapter } from "../doctor-adapter-types.ts";
+import type { AdapterOutput, ExternalToolAdapter } from "../health-check.ts";
 import { safeParse } from "../utils.ts";
 
 interface GuardianLogEntry {

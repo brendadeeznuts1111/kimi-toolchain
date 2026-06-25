@@ -3,7 +3,7 @@
  */
 
 import { gitRevParse } from "../git-helpers.ts";
-import type { AdapterOutput, ExternalToolAdapter } from "../doctor-adapter-types.ts";
+import type { AdapterOutput, ExternalToolAdapter } from "../health-check.ts";
 import type { EffectGatesReport, EffectGatesViolation } from "../effect-gates.ts";
 import {
   buildEffectGatesReport,
