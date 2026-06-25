@@ -20,7 +20,11 @@ import {
 
 export const PATH_HYGIENE_REPORT_SCHEMA_VERSION = 1;
 
-export type PathHygieneKind = "literal-tilde-dir" | "test-bun-artifact" | RootHygieneItem["kind"];
+export type PathHygieneKind =
+  | "literal-tilde-dir"
+  | "literal-dollar-home-dir"
+  | "test-bun-artifact"
+  | RootHygieneItem["kind"];
 
 export interface PathHygieneItem {
   /** Path relative to scan root. */
@@ -68,7 +72,11 @@ export const PATH_HYGIENE_SKIP_DIRS = new Set([
 ]);
 
 const DEFAULT_MAX_DEPTH = 6;
-const DEFAULT_KINDS: PathHygieneKind[] = ["literal-tilde-dir", "test-bun-artifact"];
+const DEFAULT_KINDS: PathHygieneKind[] = [
+  "literal-tilde-dir",
+  "literal-dollar-home-dir",
+  "test-bun-artifact",
+];
 
 function makeItem(
   scanRoot: string,
@@ -121,6 +129,18 @@ function walkForPathHygiene(
           full,
           "literal-tilde-dir",
           "Bun 1.4.0 literal tilde cache dir — remove and fix BUN_INSTALL_CACHE_DIR / bunfig [install.cache].dir"
+        )
+      );
+      continue;
+    }
+
+    if (name === "$HOME" && kinds.has("literal-dollar-home-dir")) {
+      items.push(
+        makeItem(
+          scanRoot,
+          full,
+          "literal-dollar-home-dir",
+          "Literal $HOME directory (unexpanded env) — Bun cache misconfig; safe to delete"
         )
       );
       continue;

@@ -18,7 +18,14 @@ export interface DeepInventoryEntry {
   relPath: string;
   absolutePath: string;
   bytes: number;
-  kind: "codex-worktree" | "grok-worktree" | "herdr-worktrees" | "archive" | "experimental";
+  kind:
+    | "codex-worktree"
+    | "grok-worktree"
+    | "herdr-worktrees"
+    | "archive"
+    | "experimental"
+    | "ide-cache"
+    | "stale-pack";
   advisory: string;
 }
 
@@ -149,6 +156,55 @@ export function collectDeepInventory(home = homeDir()): DeepInventoryEntry[] {
         bytes: dirBytes(full),
         kind: "grok-worktree",
         advisory: "Grok worktree — review before rm",
+      });
+    }
+  }
+
+  for (const [sub, label, minBytes] of [
+    [
+      join(home, ".codex", "logs_2.sqlite"),
+      "Codex logs DB — vacuum or archive if stale",
+      200_000_000,
+    ],
+    [join(home, ".codex", "sqlite"), "Codex sqlite dir — review session DB size", 200_000_000],
+    [join(home, ".codex", "sessions"), "Codex sessions — prune old sessions in app", 100_000_000],
+    [join(home, ".grok", "sessions"), "Grok sessions — prune old sessions in app", 200_000_000],
+    [
+      join(home, ".grok", "downloads"),
+      "Grok installer downloads — safe to delete after install",
+      50_000_000,
+    ],
+  ] as const) {
+    if (!pathExists(sub)) continue;
+    const bytes = dirBytes(sub);
+    if (bytes < minBytes) continue;
+    entries.push({
+      relPath: relative(home, sub) || sub,
+      absolutePath: sub,
+      bytes,
+      kind: "ide-cache",
+      advisory: label,
+    });
+  }
+
+  const activeDev = join(home, "Projects", "projects", "active", "development");
+  if (pathExists(activeDev)) {
+    for (const name of listDir(activeDev)) {
+      if (!name.endsWith(".tgz")) continue;
+      const full = join(activeDev, name);
+      try {
+        if (!pathStat(full).isFile()) continue;
+      } catch {
+        continue;
+      }
+      const bytes = pathStat(full).size;
+      if (bytes < 10_000_000) continue;
+      entries.push({
+        relPath: relative(home, full) || full,
+        absolutePath: full,
+        bytes,
+        kind: "stale-pack",
+        advisory: "Stale pack tarball in development/ — safe to delete if published elsewhere",
       });
     }
   }

@@ -19,6 +19,16 @@ describe("path-hygiene", () => {
     });
   });
 
+  test("collectPathHygieneItems finds literal \$HOME directories", () => {
+    withTempDir("path-hygiene-dollar-", (dir) => {
+      makeDir(join(dir, "$HOME", ".bun"), { recursive: true });
+      writeText(join(dir, "$HOME", "cache"), "x");
+      const items = collectPathHygieneItems({ scanRoot: dir, maxDepth: 3 });
+      const hit = items.find((i) => i.kind === "literal-dollar-home-dir");
+      expect(hit?.fileCount).toBe(1);
+    });
+  });
+
   test("collectPathHygieneItems finds test-bun artifacts", () => {
     withTempDir("path-hygiene-bun-", (dir) => {
       makeDir(join(dir, "app", "test-bun-build"), { recursive: true });

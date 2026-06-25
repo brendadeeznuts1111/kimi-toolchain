@@ -34,7 +34,11 @@ import { resolveEffectiveWorkspaceRoot } from "./workspace-health.ts";
 
 export type HygieneMode = "path" | "root" | "all" | "artifacts";
 
-const VALID_PATH_KINDS: PathHygieneKind[] = ["literal-tilde-dir", "test-bun-artifact"];
+const VALID_PATH_KINDS: PathHygieneKind[] = [
+  "literal-tilde-dir",
+  "literal-dollar-home-dir",
+  "test-bun-artifact",
+];
 
 export interface HygieneCliOptions {
   mode: HygieneMode;
@@ -218,7 +222,11 @@ export function parseHygieneArgs(argv: string[]): HygieneCliOptions {
   let deep = false;
   const paths: string[] = [];
   let maxDepth: number | undefined;
-  let kinds: PathHygieneKind[] = ["literal-tilde-dir", "test-bun-artifact"];
+  let kinds: PathHygieneKind[] = [
+    "literal-tilde-dir",
+    "literal-dollar-home-dir",
+    "test-bun-artifact",
+  ];
   let root: string | undefined;
 
   const args = [...argv];
