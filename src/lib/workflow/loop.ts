@@ -138,24 +138,15 @@ export class WorkflowLoop {
     };
   }
 
+  startWatchLoop(intervalMs: number, tick: () => void | Promise<void>): void {
+    this.watchLoop = startDelayedIntervalLoop(intervalMs, tick);
+  }
+
   async runAll(): Promise<number> {
     const summary = await this.runOnce();
     if (summary.failed) return 1;
-
     if (!this.options.watch) return 0;
-
-    const intervalMs = this.options.intervalMs ?? 60_000;
-    const watchExit = await new Promise<number>((resolve) => {
-      this.watchLoop = startDelayedIntervalLoop(intervalMs, async () => {
-        const next = await this.runOnce();
-        if (next.failed) {
-          this.stop();
-          resolve(1);
-        }
-      });
-    });
-    if (watchExit === 1) return 1;
-    return 0;
+    throw new Error("WorkflowLoop.runAll() with --watch requires workflowRunAllEffect() at the CLI boundary");
   }
 
   stop(): void {

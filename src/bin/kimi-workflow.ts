@@ -8,12 +8,14 @@
  *   kimi-workflow start --domain com.example.app --fix --report reports/latest.md
  */
 
+import { Effect } from "effect";
 import { isDirectRun } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import { createLogger } from "../lib/logger.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 import { defaultSeedPath } from "../lib/workflow/seed.ts";
 import { WorkflowLoop } from "../lib/workflow/loop.ts";
+import { workflowRunAllEffect } from "../lib/workflow/run-all-effect.ts";
 import type { IssueSeverity, WorkflowEffects, WorkflowOptions } from "../lib/workflow/types.ts";
 
 const logger = createLogger(Bun.argv, "kimi-workflow");
@@ -120,7 +122,8 @@ async function workflowStart(args: string[]): Promise<number> {
     buildOptions(args, projectRoot, domainId)
   );
 
-  return loop.runAll();
+  if (!loop.options.watch) return loop.runAll();
+  return Effect.runPromise(workflowRunAllEffect(loop));
 }
 
 async function main(): Promise<number> {

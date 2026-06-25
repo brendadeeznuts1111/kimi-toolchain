@@ -225,10 +225,14 @@ export function runWorkflowEffectsDetached(
   projectRoot: string,
   deps: EffectDeps = {}
 ): void {
-  void runWorkflowEffects(domain, results, drift, effects, projectRoot, deps).catch((err) => {
-    const log = deps.log ?? defaultLog;
-    log(
-      `[${domain.id}] Effect handler failed: ${err instanceof Error ? err.message : String(err)}`
-    );
-  });
+  void (async () => {
+    try {
+      await runWorkflowEffects(domain, results, drift, effects, projectRoot, deps);
+    } catch (err) {
+      const log = deps.log ?? defaultLog;
+      log(
+        `[${domain.id}] Effect handler failed: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  })();
 }
