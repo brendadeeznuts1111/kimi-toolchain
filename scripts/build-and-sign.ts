@@ -17,7 +17,7 @@
  */
 
 import { $ } from "bun";
-import { existsSync, rmSync } from "node:fs";
+import { pathExists, removePath } from "../src/lib/bun-io.ts";
 import { BUN_RELEASE } from "../src/lib/bun-utils.ts";
 
 // ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ console.log(`📦 Building Bun ${VERSION} (tag: ${BUN_RELEASE.tag})`);
 // 2. Prepare Bun source (clone if not already present)
 // ---------------------------------------------------------------------------
 const BUN_SRC_DIR = "./.bun-build/bun-src";
-if (!existsSync(BUN_SRC_DIR)) {
+if (!pathExists(BUN_SRC_DIR)) {
   console.log("📥 Cloning Bun repository (shallow)...");
   await $`git clone --depth 1 --branch ${BUN_RELEASE.tag} https://github.com/oven-sh/bun.git ${BUN_SRC_DIR}`;
 } else {
@@ -46,7 +46,7 @@ console.log("🔨 Building Bun...");
 await $`cd ${BUN_SRC_DIR} && bun run build:release`; // replace with actual build command
 // Assuming the output binary is at ${BUN_SRC_DIR}/build/bun
 const UNSIGNED_BINARY = `${BUN_SRC_DIR}/build/bun`;
-if (!existsSync(UNSIGNED_BINARY)) {
+if (!pathExists(UNSIGNED_BINARY)) {
   console.error("❌ Build failed – binary not found.");
   process.exit(1);
 }
@@ -54,7 +54,7 @@ if (!existsSync(UNSIGNED_BINARY)) {
 // ---------------------------------------------------------------------------
 // 4. Sign the binary
 // ---------------------------------------------------------------------------
-const SIGNING_KEY = process.env.BUN_RELEASE_SIGNING_KEY;
+const SIGNING_KEY = Bun.env.BUN_RELEASE_SIGNING_KEY;
 if (!SIGNING_KEY) {
   console.error(
     "❌ BUN_RELEASE_SIGNING_KEY not set. Set the environment variable or provide a key file."
@@ -72,7 +72,7 @@ try {
   // Adjust the command: -s = sign, -m = output file, -S = secret key file
   await $`minisign -S -s ${keyFile} -m ${UNSIGNED_BINARY} -x ${SIGNED_BINARY}`;
 } finally {
-  rmSync(keyFile); // secret never touches disk after this
+  removePath(keyFile); // secret never touches disk after this
 }
 
 // ---------------------------------------------------------------------------

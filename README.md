@@ -115,6 +115,11 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run bun-hygiene:gate`              | scripts/bun-hygiene-scan.ts            |
 | `bun run bun-hygiene:scan`              | scripts/bun-hygiene-scan.ts            |
 | `bun run bun-install:status`            | scripts/bun-install-status.ts          |
+| `bun run bun-native:baseline`           | scripts/lint-bun-native.ts             |
+| `bun run bun-native:batch`              | scripts/lint-bun-native.ts             |
+| `bun run bun-native:check`              | scripts/lint-bun-native.ts             |
+| `bun run bun-native:report`             | scripts/lint-bun-native.ts             |
+| `bun run bun-native:rules`              | scripts/lint-bun-native.ts             |
 | `bun run canvas:generate`               | scripts/generate-canvas-companions.ts  |
 | `bun run capabilities`                  | Run kimi-capabilities from repo        |
 | `bun run check`                         | scripts/check.ts                       |

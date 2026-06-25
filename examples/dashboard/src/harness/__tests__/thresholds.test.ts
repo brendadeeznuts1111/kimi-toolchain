@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
-import { rmSync } from "fs";
+import { removePath } from "../../../../../src/lib/bun-io.ts";
 import {
   loadThresholds,
   loadBunfigThresholds,
@@ -16,13 +16,13 @@ import { DEFAULT_THRESHOLDS } from "../module-registry.ts";
 const tmpDir = join(import.meta.dir, ".tmp-thresholds");
 
 beforeEach(() => {
-  rmSync(tmpDir, { recursive: true, force: true });
+  removePath(tmpDir, { recursive: true, force: true });
   resetThresholdCache(tmpDir);
   setThresholdsPath(tmpDir);
 });
 
 afterEach(() => {
-  rmSync(tmpDir, { recursive: true, force: true });
+  removePath(tmpDir, { recursive: true, force: true });
   resetThresholdCache();
 });
 

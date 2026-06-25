@@ -112,8 +112,8 @@ function renderTable(report: FinishWorkReport): void {
 }
 
 async function reportAgentState(report: FinishWorkReport): Promise<void> {
-  const paneId = process.env.HERDR_PANE_ID;
-  if (!paneId || process.env.HERDR_ENV !== "1") return;
+  const paneId = Bun.env.HERDR_PANE_ID;
+  if (!paneId || Bun.env.HERDR_ENV !== "1") return;
 
   const state = report.tree.clean ? "idle" : "blocked";
   const message = report.tree.clean
@@ -158,7 +158,7 @@ async function main(): Promise<number> {
   await appendReviewerFeedback(projectRoot, {
     message: feedbackMessage,
     resolved: report.tree.clean,
-    reviewerPane: process.env.HERDR_PANE_ID,
+    reviewerPane: Bun.env.HERDR_PANE_ID,
   });
 
   await reportAgentState(report);

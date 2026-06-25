@@ -12,7 +12,11 @@
 
 schemaVersion = 1
 
-exemptFiles = ["src/lib/bun-io.ts", "src/lib/http-client.ts"]
+exemptFiles = [
+  "src/lib/bun-io.ts",
+  "src/lib/http-client.ts",
+  "examples/trading-workspace/src/trading/lib/bun-io.ts",
+]
 
 [gate]
 mode = "check" # check | report

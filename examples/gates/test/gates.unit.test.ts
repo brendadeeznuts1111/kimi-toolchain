@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
+import { readableStreamToText } from "../../../src/lib/bun-utils.ts";
 import { listGates, getGate, resolveGateClosure } from "../src/gates/registry.ts";
 
 const PROJECT_ROOT = join(import.meta.dir, "..");
@@ -55,8 +56,8 @@ describe("gates-example", () => {
       stdout: "pipe",
       stderr: "pipe",
     });
-    const stdout = await new Response(proc.stdout).text();
-    const stderr = await new Response(proc.stderr).text();
+    const stdout = await readableStreamToText(proc.stdout);
+    const stderr = await readableStreamToText(proc.stderr);
     const exitCode = await proc.exited;
     if (exitCode !== 0) console.error("dry-run failed:", stderr);
     expect(exitCode).toBe(0);

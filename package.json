@@ -141,6 +141,11 @@
     "machine:bun": "bun run src/bin/machine-bun.ts",
     "secret": "bun run scripts/bun-secret.ts",
     "deep-native:scan": "bun run scripts/deep-native-scan.ts",
+    "bun-native:check": "bun run scripts/lint-bun-native.ts",
+    "bun-native:report": "bun run scripts/lint-bun-native.ts --report",
+    "bun-native:rules": "bun run scripts/lint-bun-native.ts --list-rules",
+    "bun-native:batch": "bun run scripts/lint-bun-native.ts --batch",
+    "bun-native:baseline": "bun run scripts/lint-bun-native.ts --update-baseline",
     "migrate:setinterval:v2": "bun run scripts/migrate-setinterval-v2.ts",
     "ci:pipeline": "bun run scripts/ci-pipeline.ts",
     "ci:impact": "bun run scripts/ci-impact.ts",
@@ -312,14 +317,14 @@
     "scope:run": "bun run scripts/scope-run.ts"
   },
   "dependencies": {
-    "effect": "3.21.3",
+    "effect": "3.21.4",
     "js-yaml": "4.2.0"
   },
   "devDependencies": {
     "@types/js-yaml": "4.0.9",
     "bun-types": "file:../bun/packages/bun-types",
     "oxfmt": "0.53.0",
-    "oxlint": "1.68.0",
+    "oxlint": "1.70.0",
     "ts-morph": "25.0.1",
     "typescript": "5.9.3"
   },

@@ -162,7 +162,7 @@ async function main() {
   const options = parseCli();
   const forwarded = parseForwardedBunTestArgs(Bun.argv.slice(2));
   await ensureArtifactDirs();
-  process.env.KIMI_TEST_HOME = artifactPath(REPO_ROOT, "test-home");
+  Bun.env.KIMI_TEST_HOME = artifactPath(REPO_ROOT, "test-home");
 
   if (options.files.length > 0) {
     process.exit(await runFiles(options));

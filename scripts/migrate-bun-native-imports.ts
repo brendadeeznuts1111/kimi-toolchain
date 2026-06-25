@@ -107,7 +107,7 @@ function rewriteResponseStream(text: string): string | null {
   const next = text.replace(RESPONSE_STREAM_RE, (_, arg: string, method: string) => {
     const reader =
       method === "text"
-        ? "Bun.readableStreamToText"
+        ? "readableStreamToText"
         : method === "arrayBuffer"
           ? "Bun.readableStreamToArrayBuffer"
           : "Bun.readableStreamToJSON";
