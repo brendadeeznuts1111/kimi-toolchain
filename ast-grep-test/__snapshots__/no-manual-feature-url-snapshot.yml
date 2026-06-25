@@ -2,7 +2,7 @@ id: no-manual-feature-url
 snapshots:
   const url = `${BUN_RELEASE.blogUrl}#${slug}`:
     labels:
-      - source: "`${BUN_RELEASE.blogUrl}#${slug}`"
-        style: primary
-        start: 12
-        end: 44
+    - source: '`${BUN_RELEASE.blogUrl}#${slug}`'
+      style: primary
+      start: 12
+      end: 44
