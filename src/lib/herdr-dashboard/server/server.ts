@@ -125,11 +125,21 @@ export function startHerdrDashboardServer(
     transport,
   };
 
+  const dashboardRoutes = {
+    "/": { GET: (req: Request) => handleDashboardRequest(req, routeCtx) },
+    "/index.html": { GET: (req: Request) => handleDashboardRequest(req, routeCtx) },
+    "/api/health": { GET: (req: Request) => handleDashboardRequest(req, routeCtx) },
+    "/api/meta": { GET: (req: Request) => handleDashboardRequest(req, routeCtx) },
+    "/api/agents": { GET: (req: Request) => handleDashboardRequest(req, routeCtx) },
+    "/api/metrics": { GET: (req: Request) => handleDashboardRequest(req, routeCtx) },
+  };
+
   const server = Bun.serve({
     hostname,
     port,
     idleTimeout: 120,
     ...serveOptions,
+    routes: dashboardRoutes,
     fetch: (req) => handleDashboardRequest(req, routeCtx),
   });
 
