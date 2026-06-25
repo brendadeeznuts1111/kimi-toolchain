@@ -1,17 +1,15 @@
 /**
- * Bun-native NDJSON (JSONL) helpers using FileSink for appends.
+ * Bun-native NDJSON (JSONL) helpers.
  *
  * @see https://bun.com/docs/runtime/jsonl
- * @see https://bun.com/docs/runtime/bun-file#filesink
  *
  * - `readNdjsonFile` — full-file `parseChunk` drain with error recovery
  * - `streamNdjsonRecords` — `file.stream()` + `Bun.JSONL.parseChunk` (lazy)
- * - `appendNdjsonRecord` — `Bun.file(path).writer()` (FileSink)
+ * - `appendNdjsonRecord` — `Bun.write` with append mode (probed at first call)
  */
 
 import { appendText, makeDir } from "./bun-io.ts";
 import { dirname, join } from "path";
-import { tmpdir } from "os";
 import { safeParse } from "./safe-parse.ts";
 
 /** Serialize one JSONL/NDJSON record (includes trailing newline). */
@@ -161,7 +159,8 @@ export async function appendNdjsonRecord(path: string, record: unknown): Promise
 
 async function probeBunAppend(): Promise<void> {
   _appendProbed = true;
-  const tmp = join(tmpdir(), `.kimi-append-${Bun.hash(String(process.pid)).toString(16)}.tmp`);
+  const tmpBase = Bun.env.TMPDIR ?? "/tmp";
+  const tmp = join(tmpBase, `.kimi-append-${Bun.hash(String(process.pid)).toString(16)}.tmp`);
   try {
     await Bun.write(tmp, "a\n", { create: true } as Parameters<typeof Bun.write>[2]);
     await Bun.write(tmp, "b\n", { create: true, append: true } as Parameters<typeof Bun.write>[2]);

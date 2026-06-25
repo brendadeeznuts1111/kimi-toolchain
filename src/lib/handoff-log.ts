@@ -1,13 +1,4 @@
-import {
-  listDir,
-  makeDir,
-  pathExists,
-  pathStat,
-  readBytes,
-  readText,
-  writeBytes,
-  writeText,
-} from "./bun-io.ts";
+import { listDir, makeDir, pathExists, pathStat, readText, writeText } from "./bun-io.ts";
 import { appendNdjsonRecordSync, parseNdjsonText } from "./ndjson.ts";
 
 import { homeDir } from "./paths.ts";
@@ -78,7 +69,7 @@ function sha256(data: string): string {
 
 // ── Rotation ─────────────────────────────────────────────────────────────
 
-function rotateIfNeeded() {
+async function rotateIfNeeded() {
   if (!pathExists(logPath)) return;
   const stat = pathStat(logPath);
   if (stat.size < maxLogBytes) return;
@@ -89,18 +80,20 @@ function rotateIfNeeded() {
   const archiveName = `handoff-history.${date}.${time}.jsonl.gz`;
   const archivePath = `${logPath.slice(0, logPath.lastIndexOf("/"))}/${archiveName}`;
 
-  const raw = new Uint8Array(readBytes(logPath)) as Uint8Array<ArrayBuffer>;
-  writeBytes(archivePath, Bun.gzipSync(raw));
+  const raw = new Uint8Array(await Bun.file(logPath).arrayBuffer()) as Uint8Array<ArrayBuffer>;
+  await Bun.write(archivePath, Bun.gzipSync(raw));
   writeText(logPath, "");
 }
 
 // ── Write ────────────────────────────────────────────────────────────────
 
-export function logHandoff(entry: Omit<HandoffLogEntry, "timestamp" | "seq" | "checksum">) {
+export async function logHandoff(
+  entry: Omit<HandoffLogEntry, "timestamp" | "seq" | "checksum">
+): Promise<void> {
   if (!enabled) return;
   try {
     ensureLogDir();
-    rotateIfNeeded();
+    await rotateIfNeeded();
 
     seq++;
     const line: HandoffLogEntry = {
@@ -145,7 +138,7 @@ export function resetHandoffSeq(value = 0) {
 
 // ── Read ────────────────────────────────────────────────────────────────
 
-export function getHandoffHistory(limit = 20): HandoffLogEntry[] {
+export async function getHandoffHistory(limit = 20): Promise<HandoffLogEntry[]> {
   const allEntries = readLogFile(logPath);
 
   // Also check archives for older entries
@@ -157,8 +150,8 @@ export function getHandoffHistory(limit = 20): HandoffLogEntry[] {
       if (!archivePattern.test(file)) continue;
       try {
         const archivePath = `${logDir}/${file}`;
-        const compressed = readBytes(archivePath);
-        const raw = new TextDecoder().decode(Bun.gunzipSync(new Uint8Array(compressed)));
+        const compressed = new Uint8Array(await Bun.file(archivePath).arrayBuffer());
+        const raw = new TextDecoder().decode(Bun.gunzipSync(compressed));
         allEntries.push(...readLogLines(raw));
       } catch {
         // Skip unreadable archives
@@ -273,9 +266,11 @@ export function entryMatchesHandoffQuery(
 }
 
 /** Filter and limit handoff history (live log + rotation archives). */
-export function queryHandoffHistory(query: HandoffHistoryQuery = {}): HandoffLogEntry[] {
+export async function queryHandoffHistory(
+  query: HandoffHistoryQuery = {}
+): Promise<HandoffLogEntry[]> {
   const limit = query.limit ?? 20;
-  const entries = getHandoffHistory(Number.MAX_SAFE_INTEGER).filter((entry) =>
+  const entries = (await getHandoffHistory(Number.MAX_SAFE_INTEGER)).filter((entry) =>
     entryMatchesHandoffQuery(entry, query)
   );
   return entries.slice(0, limit);
@@ -303,7 +298,7 @@ export function inferHandoffLogAction(
   return "handoff";
 }
 
-export function recordHandoffRuleEvaluation(options: {
+export async function recordHandoffRuleEvaluation(options: {
   rule: {
     fromWorkspace: string;
     fromAgent: string;
@@ -322,10 +317,10 @@ export function recordHandoffRuleEvaluation(options: {
   dryRun?: boolean;
   context?: Record<string, unknown>;
   durationMs?: number;
-}) {
+}): Promise<void> {
   const fromSess = options.fromSession || options.rule.fromSession || "default";
   const toSess = options.toSession || options.rule.toSession || fromSess;
-  logHandoff({
+  await logHandoff({
     workspace: options.rule.fromWorkspace,
     agent: options.rule.fromAgent,
     rule: options.ruleIndex,
