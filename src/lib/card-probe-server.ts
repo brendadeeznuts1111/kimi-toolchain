@@ -199,7 +199,8 @@ export async function startProbeServer(
   const port = Number(Bun.env[PROBE_SERVER_PORT_ENV] ?? options.port ?? DEFAULT_PROBE_SERVER_PORT);
   const refreshIntervalMs = Math.max(0, Number(options.refreshIntervalMs ?? 0));
   const probeConfig: CardProbeConfig = {
-    examplesDashboardUrl: options.probeConfig?.examplesDashboardUrl ?? Bun.env.EXAMPLES_DASHBOARD_URL,
+    examplesDashboardUrl:
+      options.probeConfig?.examplesDashboardUrl ?? Bun.env.EXAMPLES_DASHBOARD_URL,
     herdrDashboardUrl: options.probeConfig?.herdrDashboardUrl ?? Bun.env.HERDR_DASHBOARD_URL,
     timeoutMs: options.probeConfig?.timeoutMs,
   };

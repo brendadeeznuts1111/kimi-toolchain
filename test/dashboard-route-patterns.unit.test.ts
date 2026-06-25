@@ -6,7 +6,6 @@ import {
   DASHBOARD_ARTIFACT_LINEAGE,
   DASHBOARD_RUN_MANIFEST,
   DASHBOARD_SESSION_RUNS,
-  decodePathParam,
   isDashboardArtifactNamespace,
   matchProbeArtifactsRoute,
   pathnameGroup,
@@ -51,8 +50,9 @@ describe("dashboard-route-patterns", () => {
     expect(pathnameGroup(diff, "gate")).toBe("model-drift");
   });
 
-  test("decodePathParam decodes encoded segments", () => {
-    expect(decodePathParam("run%2Fnested")).toBe("run/nested");
+  test("pathnameGroup decodes encoded segments", () => {
+    const match = DASHBOARD_RUN_MANIFEST.exec(new URL("http://localhost/api/runs/run%2Fnested"));
+    expect(pathnameGroup(match, "runId")).toBe("run/nested");
   });
 
   test("isDashboardArtifactNamespace covers artifact/run/session trees", () => {

@@ -11,7 +11,7 @@ import { gateSpawnEnv as buildGateSpawnEnv, scrubEphemeralBunNodeDirs } from "./
 
 import { join } from "path";
 import { $ } from "bun";
-import { isHookSummaryMode, parseBunTestSummary } from "./quiet-mode.ts";
+import { parseBunTestSummary } from "./quiet-mode.ts";
 import { safeParse } from "./utils.ts";
 
 export interface GateCacheFile {
@@ -303,8 +303,4 @@ export function formatTestSummaryLine(output: string): string | null {
   if (!summary) return null;
   const sec = summary.ms > 0 ? ` [${(summary.ms / 1000).toFixed(1)}s]` : "";
   return `✓ tests (${summary.pass} passed, ${summary.fail} failed${summary.files ? `, ${summary.files} files` : ""})${sec}`;
-}
-
-export function hookUsesSummary(): boolean {
-  return isHookSummaryMode();
 }

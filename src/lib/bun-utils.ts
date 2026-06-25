@@ -148,8 +148,6 @@ export const BUN_HEX_DOC_URL =
 /** @see https://bun.com/reference/bun/randomUUIDv7#bun.randomUUIDv7 */
 export const BUN_RANDOM_UUIDV7_DOC_URL = "https://bun.com/reference/bun/randomUUIDv7";
 
-export type PeekStatus = "fulfilled" | "pending" | "rejected";
-
 /** Stable short key for in-flight dedup maps (JSON payload → hex prefix). */
 export function hashInflightPayload(payload: unknown): string {
   const hasher = new Bun.CryptoHasher("sha256");
@@ -310,16 +308,6 @@ export function formatEditorRuntimeSnapshot(snap: EditorRuntimeSnapshot): string
   return lines.join("\n");
 }
 
-/** Read a settled promise synchronously; pending promises pass through. */
-export function peekPromise<T>(promise: Promise<T>): T | Promise<T> {
-  return peek(promise);
-}
-
-/** Non-throwing status probe for a promise (or non-promise value). */
-export function peekPromiseStatus(value: unknown): PeekStatus {
-  return peek.status(value) as PeekStatus;
-}
-
 /** Join concurrent callers on one in-flight promise; peek when already fulfilled. */
 export async function dedupInflight<T>(
   map: Map<string, Promise<T>>,
@@ -328,9 +316,9 @@ export async function dedupInflight<T>(
 ): Promise<T> {
   const existing = map.get(key);
   if (existing) {
-    if (peekPromiseStatus(existing) === "fulfilled") {
+    if (peek.status(existing) === "fulfilled") {
       try {
-        return peekPromise(existing) as T;
+        return peek(existing) as T;
       } catch {
         return await existing;
       }
@@ -358,7 +346,7 @@ export type InflightCoalescer = (run: () => Promise<void>) => void;
 export function createInflightCoalescer(): InflightCoalescer {
   let current: Promise<void> | null = null;
   return (run) => {
-    if (current !== null && peekPromiseStatus(current) === "pending") {
+    if (current !== null && peek.status(current) === "pending") {
       return;
     }
     const promise = run().finally(() => {

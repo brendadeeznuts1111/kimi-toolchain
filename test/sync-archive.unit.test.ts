@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createSyncSnapshotArchive } from "../src/lib/archive-persistence.ts";
 import { syncDesktop } from "../src/lib/desktop-sync.ts";
 import { syncBaselineCacheArchivePath } from "../src/lib/paths.ts";
-import { detectSyncDrift, finalizeSyncArchive, restoreSyncBaseline } from "../src/lib/desktop-sync.ts";
+import {
+  detectSyncDrift,
+  finalizeSyncArchive,
+  restoreSyncBaseline,
+} from "../src/lib/desktop-sync.ts";
 import { cleanupPath, REPO_ROOT, testTempDir } from "./helpers.ts";
 
 describe.serial("sync-archive", () => {

@@ -26,7 +26,12 @@ async function syncBunCreateMirror(repoRoot: string, result: SyncRunResult): Pro
       .catch(() => null);
     if (srcText === null) continue;
     const dstPath = `${dstDir}/${rel}`;
-    if (srcText !== (await Bun.file(dstPath).text().catch(() => null))) {
+    if (
+      srcText !==
+      (await Bun.file(dstPath)
+        .text()
+        .catch(() => null))
+    ) {
       await Bun.write(dstPath, srcText);
       result.updated.push(`.bun-create/${rel}`);
     } else result.skipped++;

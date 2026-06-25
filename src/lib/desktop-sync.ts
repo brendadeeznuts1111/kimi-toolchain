@@ -312,13 +312,7 @@ export async function syncDesktop(
   }
 
   for (const file of SYNC_ROOT_INFRA) {
-    await copyTextIfChanged(
-      join(repoRoot, file),
-      join(desktopRoot(), file),
-      file,
-      force,
-      result
-    );
+    await copyTextIfChanged(join(repoRoot, file), join(desktopRoot(), file), file, force, result);
   }
 
   for (const file of OPTIONAL_CONFIG_FILES) {

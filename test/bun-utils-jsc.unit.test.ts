@@ -24,6 +24,8 @@ describe("bun-utils-jsc", () => {
   test("estimateShallowMemoryUsageOf reports larger size for larger buffers", () => {
     const small = Buffer.alloc(16);
     const large = Buffer.alloc(1024 * 1024);
-    expect(estimateShallowMemoryUsageOf(large)).toBeGreaterThan(estimateShallowMemoryUsageOf(small));
+    expect(estimateShallowMemoryUsageOf(large)).toBeGreaterThan(
+      estimateShallowMemoryUsageOf(small)
+    );
   });
 });

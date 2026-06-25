@@ -5,16 +5,11 @@
  * @see https://bun.com/blog/bun-v1.3.12 — URLPattern.test/exec performance
  */
 
-/** Decode a pathname capture group (handles `%2F` etc.). */
-export function decodePathParam(value: string): string {
-  return decodeURIComponent(value);
-}
-
 /** Read a named pathname group from a URLPattern exec result. */
 export function pathnameGroup(match: URLPatternResult | null, key: string): string | undefined {
   const raw = match?.pathname.groups[key];
   if (raw === undefined) return undefined;
-  return decodePathParam(raw);
+  return decodeURIComponent(raw);
 }
 
 // ── Herdr / examples dashboard artifact nervous system ─────────────────

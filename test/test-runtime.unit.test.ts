@@ -143,16 +143,26 @@ test("probe", () => {
   expect(Bun.env.NODE_ENV).toBe("development");
 });`
       );
-      writeText(join(dir, "bunfig.toml"), "[test]\n");
+      writeText(join(dir, "bunfig.toml"), "[test]\npreload = []\n");
 
-      const proc = Bun.spawn(["bun", "test", testPath], {
+      const proc = Bun.spawn(["bun", "--config=./bunfig.toml", "test", "node-env.probe.test.ts"], {
         cwd: dir,
-        env: { ...Bun.env, NODE_ENV: "development" },
+        env: {
+          HOME: Bun.env.HOME ?? "",
+          NODE_ENV: "development",
+          PATH: Bun.env.PATH ?? "",
+          TMPDIR: Bun.env.TMPDIR ?? "/tmp",
+        },
         stdout: "pipe",
         stderr: "pipe",
       });
-      const code = await proc.exited;
-      expect(code).toBe(0);
+      const [stdout, stderr, code] = await Promise.all([
+        proc.stdout ? readableStreamToText(proc.stdout) : Promise.resolve(""),
+        proc.stderr ? readableStreamToText(proc.stderr) : Promise.resolve(""),
+        proc.exited,
+      ]);
+      if (code !== 0)
+        throw new Error(`native bun test failed\nstdout:\n${stdout}\nstderr:\n${stderr}`);
     }, 15_000);
 
     test("kimi wrappers override explicit NODE_ENV before spawn", () => {

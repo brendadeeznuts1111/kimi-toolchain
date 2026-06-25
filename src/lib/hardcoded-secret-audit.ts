@@ -34,7 +34,7 @@ export interface HardcodedSecretAuditResult {
 }
 
 const NAMED_SECRET_RE =
-  /(?:const|let|var)\s+([A-Z_0-9]*(?:SECRET|TOKEN|KEY|PASSWORD|PASS|CREDENTIAL|AUTH|BEARER)[A-Z_0-9]*)\s*=\s*["']([^"']{8 })["']/gi;
+  /(?:const|let|var)\s+([A-Z_0-9]*(?:SECRET|TOKEN|KEY|PASSWORD|PASS|CREDENTIAL|AUTH|BEARER)[A-Z_0-9]*)\s*=\s*["']([^"']{8,})["']/gi;
 
 const JWT_RE = /["'](eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*)["']/g;
 
@@ -44,14 +44,14 @@ const PRIVATE_KEY_END_RE = /-----END (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----
 const DEV_SECRET_RE = /["']([^"']*?(?:dev-secret|dev-token|dev-key)[^"']*?)["']/gi;
 
 const KNOWN_SECRET_PREFIX_RE =
-  /["']((?:sk-|ghp_|glpat-|pat-|AKIA|ASIA|GOOG|AIza|xoxb-|xoxa-|xapp-|rp_|live_)[A-Za-z0-9_\-/+]{16 })["']/g;
+  /["']((?:sk-|ghp_|glpat-|pat-|AKIA|ASIA|GOOG|AIza|xoxb-|xoxa-|xapp-|rp_|live_)[A-Za-z0-9_\-/+]{16,})["']/g;
 
 const URL_WITH_CREDENTIALS_RE = /["'](https?:\/\/[^"':\s]+:[^"'@\s]+@[^"'\s]+)["']/g;
 
 const BEARER_HEADER_RE =
-  /(?:Authorization\s*:\s*Bearer|Bearer\s+)["']?([A-Za-z0-9_\-.+/]{16 })["']?/gi;
+  /(?:Authorization\s*:\s*Bearer|Bearer\s+)["']?([A-Za-z0-9_\-.+/]{16,})["']?/gi;
 
-const HIGH_ENTROPY_CANDIDATE_RE = /["']([A-Za-z0-9+/=_-]{32 })["']/g;
+const HIGH_ENTROPY_CANDIDATE_RE = /["']([A-Za-z0-9+/=_-]{32,})["']/g;
 
 const BASE64_IMAGE_PREFIXES = new Set([
   "iVBORw0KGgo", // png

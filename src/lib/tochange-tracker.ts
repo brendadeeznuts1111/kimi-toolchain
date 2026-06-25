@@ -56,12 +56,12 @@ const MARKER_RE = /\/\/\s*\.(tochange|implemented):([a-z0-9-]+)/;
 /** Canonical Bun.peek adoption registry — single source of truth. */
 export const PEEK_ADOPTION_REGISTRY: TochangeRegistryEntry[] = [
   {
-    id: "peek-wrapper",
+    id: "peek-direct",
     file: "src/lib/bun-utils.ts",
     tier: "required",
     status: "implemented",
-    summary: "peekPromise / peekPromiseStatus / dedupInflight over Bun.peek",
-    probe: "export function peekPromise",
+    summary: "dedupInflight uses Bun.peek / peek.status directly",
+    probe: "peek.status",
   },
   {
     id: "peek-tests",

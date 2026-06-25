@@ -14,14 +14,13 @@ import {
   emitGateFailureBrief,
   emitHookSummary,
   formatTestSummaryLine,
-  hookUsesSummary,
   runGate,
   appendGateCache,
   shouldSkipGate,
   fastGateTimeoutBudgetMs,
   type GateResult,
 } from "./gate-runner.ts";
-import { isQuietMode } from "./quiet-mode.ts";
+import { isHookSummaryMode, isQuietMode } from "./quiet-mode.ts";
 import { isKimiToolchainRepo } from "./workspace-health.ts";
 import { acquireTestGateLock } from "./test-run-guard.ts";
 import { sha256File } from "./utils.ts";
@@ -167,7 +166,7 @@ async function runGateVisible(
   cmd: string[]
 ): Promise<GateResult> {
   const start = Bun.nanoseconds();
-  if (!hookUsesSummary()) {
+  if (!isHookSummaryMode()) {
     const result = await runGate(name, cmd, { cwd: projectRoot });
     if (result.stdout) gateOut(result.stdout);
     if (result.stderr) gateErr(result.stderr);
@@ -259,7 +258,7 @@ async function runPreCommitTestsGate(
 }
 
 export async function runPreCommitGates(projectRoot: string): Promise<number> {
-  const summary = hookUsesSummary();
+  const summary = isHookSummaryMode();
   const results: GateResult[] = [];
   const staged = await listStagedPaths(projectRoot);
 
@@ -961,7 +960,7 @@ async function qualityGatesCached(projectRoot: string): Promise<boolean> {
 }
 
 export async function runPrePushGates(projectRoot: string): Promise<number> {
-  const summary = hookUsesSummary();
+  const summary = isHookSummaryMode();
   const results: GateResult[] = [];
   const isToolchain = await isKimiToolchainRepo(projectRoot);
   const parallel = prePushRunsInParallel();

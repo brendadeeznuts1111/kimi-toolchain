@@ -44,12 +44,12 @@ async function main() {
 
   // Full mode: check for outdated packages via bun pm
   if (!QUICK) {
-      const result = await $`bun pm ls`.cwd(cwd).nothrow().quiet();
-      const output = result.stdout.toString();
-      // Basic heuristic: if bun pm ls reports anything suspicious
-      if (output.includes("extraneous") || output.includes("unmet")) {
-        issues.push({ type: "unused", package: "(see bun pm ls output)" });
-      }
+    const result = await $`bun pm ls`.cwd(cwd).nothrow().quiet();
+    const output = result.stdout.toString();
+    // Basic heuristic: if bun pm ls reports anything suspicious
+    if (output.includes("extraneous") || output.includes("unmet")) {
+      issues.push({ type: "unused", package: "(see bun pm ls output)" });
+    }
   }
 
   if (issues.length > 0) {

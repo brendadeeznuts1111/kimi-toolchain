@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { dedupInflight, peekPromise, peekPromiseStatus } from "../src/lib/bun-utils.ts";
+import { peek } from "bun";
+import { dedupInflight } from "../src/lib/bun-utils.ts";
 import { cachedDoctor, clearGovernorCacheInflight } from "../src/lib/governor-cache.ts";
 import { clearProcessCache, getCachedCommandOutputAsync } from "../src/lib/proc-cache.ts";
 import { clearInvokeCommandInflight, invokeCommand } from "../src/lib/tool-runner.ts";
@@ -14,27 +15,27 @@ import {
 } from "../src/lib/tochange-tracker.ts";
 
 describe("tochange-tracker", () => {
-  describe("peek wrappers", () => {
-    test("peekPromise returns fulfilled value without await", () => {
-      const value = peekPromise(Promise.resolve({ ok: true }));
+  describe("Bun.peek", () => {
+    test("peek returns fulfilled value without await", () => {
+      const value = peek(Promise.resolve({ ok: true }));
       expect(value).toEqual({ ok: true });
     });
 
-    test("peekPromise passes through pending promise", () => {
+    test("peek passes through pending promise", () => {
       const pending = new Promise(() => {});
-      expect(peekPromise(pending)).toBe(pending);
-      expect(peekPromiseStatus(pending)).toBe("pending");
+      expect(peek(pending)).toBe(pending);
+      expect(peek.status(pending)).toBe("pending");
     });
 
-    test("peekPromiseStatus reports fulfilled", () => {
-      expect(peekPromiseStatus(Promise.resolve(1))).toBe("fulfilled");
+    test("peek.status reports fulfilled", () => {
+      expect(peek.status(Promise.resolve(1))).toBe("fulfilled");
     });
 
-    test("peekPromise throws on rejected promise", () => {
+    test("peek throws on rejected promise", () => {
       const rejected = Promise.reject(new Error("peek test"));
       rejected.catch(() => {});
-      expect(() => peekPromise(rejected)).toThrow("peek test");
-      expect(peekPromiseStatus(rejected)).toBe("rejected");
+      expect(() => peek(rejected)).toThrow("peek test");
+      expect(peek.status(rejected)).toBe("rejected");
     });
 
     test("dedupInflight runs once for concurrent callers", async () => {
