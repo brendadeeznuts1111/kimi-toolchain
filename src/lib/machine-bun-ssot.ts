@@ -2,7 +2,7 @@
  * Machine ~/.bunfig.toml SSOT — project keys unset inherit from machine layer.
  */
 
-import type { BunfigInstallSection } from "./bun-install-config.ts";
+import type { BunfigInstallSection } from "./bun-install-types.ts";
 import { readUserBunfigInstall } from "./bunfig-redundancy.ts";
 
 export type MachineSsotKey = "linker" | "globalStore" | "cacheDir";

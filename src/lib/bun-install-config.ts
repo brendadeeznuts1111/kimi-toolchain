@@ -1255,27 +1255,8 @@ export const BUN_INSTALL_OFFICIAL_ENV_VAR_NAMES = [
   "BUN_CONFIG_SKIP_INSTALL_PACKAGES",
 ] as const;
 
-export interface BunfigInstallSection {
-  optional?: boolean;
-  dev?: boolean;
-  peer?: boolean;
-  production?: boolean;
-  saveTextLockfile?: boolean;
-  frozenLockfile?: boolean;
-  dryRun?: boolean;
-  exact?: boolean;
-  concurrentScripts?: number;
-  ignoreScripts?: boolean;
-  linker?: string;
-  globalDir?: string;
-  globalBinDir?: string;
-  minimumReleaseAge?: number;
-  minimumReleaseAgeExcludes?: string[];
-  globalStore?: boolean;
-  cache?: { dir?: string; disable?: boolean; disableManifest?: boolean };
-  registry?: string | { url?: string };
-  scopes?: Record<string, string | { url?: string }>;
-}
+export type { BunfigInstallSection } from "./bun-install-types.ts";
+import type { BunfigInstallSection } from "./bun-install-types.ts";
 
 export interface FrozenLockfileScopeRegistryFallback {
   packageName: string;

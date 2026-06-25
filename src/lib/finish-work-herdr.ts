@@ -20,6 +20,10 @@ import {
 } from "./finish-work-report-schema.ts";
 
 export { FINISH_WORK_REPORT_FILENAME, finishWorkReportPath } from "./finish-work-report-schema.ts";
+import {
+  buildContextSyncFromReport,
+  type ContextSyncPayload,
+} from "./finish-work-context.ts";
 import { gitBranch, gitRevParse } from "./git-helpers.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
@@ -1192,156 +1196,15 @@ export async function escalateFinishWorkToReviewer(
   return report;
 }
 
-export interface ContextSyncReviewNotes {
-  feedback: string;
-  lastFeedbackAt: string;
-  resolved?: boolean;
-  reviewerPane?: string | null;
-}
-
-export interface ContextSyncPayload {
-  summary: string;
-  handoffCandidate?: {
-    targetPane: string;
-    targetAgent: string;
-    reason: string;
-  };
-  outcome: string;
-  lastCommit: string | null;
-  gatesSummary: string;
-  reviewNotes?: ContextSyncReviewNotes;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function gatesSummaryFromReport(
-  gates: Record<string, FinishWorkPublicGateEntry | FinishWorkGateStatus>
-): string {
-  return Object.entries(gates)
-    .map(([name, gate]) => `${name}:${gateStatusFromPublicEntry(gate)}`)
-    .join(" ");
-}
-
-function reviewNotesFromRaw(raw: Record<string, unknown>): ContextSyncReviewNotes | undefined {
-  const review = raw.review;
-  if (!isRecord(review) || typeof review.feedback !== "string" || !review.feedback.trim()) {
-    return undefined;
-  }
-  const lastFeedbackAt =
-    (typeof review.lastFeedbackAt === "string" ? review.lastFeedbackAt : undefined) ??
-    (typeof review.feedbackAt === "string" ? review.feedbackAt : undefined) ??
-    "";
-  return {
-    feedback: review.feedback,
-    lastFeedbackAt,
-    resolved: typeof review.resolved === "boolean" ? review.resolved : undefined,
-    reviewerPane:
-      typeof review.reviewerPane === "string"
-        ? review.reviewerPane
-        : review.reviewerPane === null
-          ? null
-          : undefined,
-  };
-}
-
-function handoffCandidateFromRaw(
-  raw: Record<string, unknown>
-): ContextSyncPayload["handoffCandidate"] {
-  const candidate = raw.handoffCandidate;
-  if (!isRecord(candidate) || candidate.shouldHandoff !== true) return undefined;
-  if (typeof candidate.targetPane !== "string" || typeof candidate.targetAgent !== "string") {
-    return undefined;
-  }
-  return {
-    targetPane: candidate.targetPane,
-    targetAgent: candidate.targetAgent,
-    reason: typeof candidate.reason === "string" ? candidate.reason : "clean finish-work close",
-  };
-}
+export {
+  buildContextSyncFromReport,
+  enrichHandoffMessage,
+  formatFinishWorkBrief,
+  type ContextSyncPayload,
+  type ContextSyncReviewNotes,
+} from "./finish-work-context.ts";
 
 export function isFinishWorkHandoffCondition(condition: string): boolean {
   const trimmed = condition.trim();
   return trimmed.startsWith("finish-work:") || trimmed.startsWith("probe:finish-work:");
-}
-
-export function buildContextSyncFromReport(
-  projectRoot: string,
-  reportPath?: string
-): ContextSyncPayload | null {
-  const path = reportPath ?? finishWorkReportPath(projectRoot);
-  if (!pathExists(path)) return null;
-
-  try {
-    const raw = JSON.parse(readText(path)) as Record<string, unknown>;
-    const summary = typeof raw.summary === "string" ? raw.summary : "";
-    const outcome = typeof raw.outcome === "string" ? raw.outcome : "unknown";
-    const gates = raw.gates;
-    if (!isRecord(gates)) return null;
-
-    const git = isRecord(raw.git) ? raw.git : null;
-    const lastCommit = typeof git?.hash === "string" ? git.hash : null;
-
-    if (raw.schemaVersion !== FINISH_WORK_REPORT_PUBLIC_SCHEMA_VERSION && !summary && !outcome) {
-      return null;
-    }
-
-    return {
-      summary: summary || `finish-work ${outcome}`,
-      handoffCandidate: handoffCandidateFromRaw(raw),
-      outcome,
-      lastCommit,
-      gatesSummary: gatesSummaryFromReport(gates as FinishWorkReportV11["gates"]),
-      reviewNotes: reviewNotesFromRaw(raw),
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function enrichHandoffMessage(
-  baseMessage: string,
-  payload: ContextSyncPayload | null
-): string {
-  if (!payload) return baseMessage;
-
-  const lines = [
-    baseMessage.trim(),
-    "",
-    "=== Latest finish-work report ===",
-    payload.summary,
-    `Outcome: ${payload.outcome} | Gates: ${payload.gatesSummary}`,
-  ];
-
-  if (payload.lastCommit) {
-    lines.push(`Last commit: ${payload.lastCommit}`);
-  }
-
-  if (payload.handoffCandidate) {
-    lines.push(
-      `Handoff target: ${payload.handoffCandidate.targetAgent} (${payload.handoffCandidate.targetPane})`,
-      `Reason: ${payload.handoffCandidate.reason}`
-    );
-  }
-
-  if (payload.reviewNotes) {
-    lines.push("", "=== Review notes ===", payload.reviewNotes.feedback);
-    if (payload.reviewNotes.lastFeedbackAt) {
-      lines.push(`Reviewed at: ${payload.reviewNotes.lastFeedbackAt}`);
-    }
-    if (payload.reviewNotes.resolved !== undefined) {
-      lines.push(`Resolved: ${payload.reviewNotes.resolved ? "yes" : "no"}`);
-    }
-    if (payload.reviewNotes.reviewerPane) {
-      lines.push(`Reviewer pane: ${payload.reviewNotes.reviewerPane}`);
-    }
-  }
-
-  lines.push("=== End report ===");
-  return lines.join("\n");
-}
-
-export function formatFinishWorkBrief(payload: ContextSyncPayload): string {
-  return enrichHandoffMessage("", payload).replace(/^\s*\n/, "");
 }

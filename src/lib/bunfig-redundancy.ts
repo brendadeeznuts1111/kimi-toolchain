@@ -6,7 +6,7 @@
 import { join } from "path";
 import { TOML } from "bun";
 import { pathExists } from "./bun-io.ts";
-import type { BunfigInstallSection } from "./bun-install-config.ts";
+import type { BunfigInstallSection } from "./bun-install-types.ts";
 
 export interface BunfigRedundancyHit {
   bunfigPath: string;

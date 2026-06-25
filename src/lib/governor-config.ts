@@ -4,7 +4,7 @@
 
 import { pathExists } from "./bun-io.ts";
 import { join } from "path";
-import { getFreeMemoryMB } from "./memory-budget.ts";
+import { getFreeMemoryMB } from "./system-memory.ts";
 import { governorDir } from "./paths.ts";
 
 export interface GovernorDefaults {
