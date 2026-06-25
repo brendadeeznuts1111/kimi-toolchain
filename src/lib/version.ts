@@ -59,12 +59,12 @@ export const MCP_BRIDGE_VERSION = TOOLCHAIN_VERSION;
 export const BUILD_TIME =
   typeof KIMI_BUILD_TIME === "string" && KIMI_BUILD_TIME.length > 0 ? KIMI_BUILD_TIME : null;
 
-/** Git commit hash — from macros at bundle time, or define constant at dev time. */
+/** Git commit hash — compile-time define wins, then runtime build info. */
 export const GIT_COMMIT =
-  buildInfo.gitHash !== "unknown"
-    ? buildInfo.gitHash
-    : typeof KIMI_GIT_COMMIT === "string" && KIMI_GIT_COMMIT.length > 0
-      ? KIMI_GIT_COMMIT
+  typeof KIMI_GIT_COMMIT === "string" && KIMI_GIT_COMMIT.length > 0
+    ? KIMI_GIT_COMMIT
+    : buildInfo.gitHash !== "unknown"
+      ? buildInfo.gitHash
       : null;
 
 /** Build channel baked in at compile time (e.g. "release"). */

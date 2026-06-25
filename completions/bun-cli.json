@@ -1626,135 +1626,228 @@
   "runtimeApis": [
     {
       "topic": "HTTP Server",
-      "apis": ["Bun.serve"]
+      "apis": [
+        "Bun.serve"
+      ]
     },
     {
       "topic": "Shell",
-      "apis": ["$"]
+      "apis": [
+        "$"
+      ]
     },
     {
       "topic": "Bundler",
-      "apis": ["Bun.build"]
+      "apis": [
+        "Bun.build"
+      ]
     },
     {
       "topic": "File I/O",
-      "apis": ["Bun.file", "Bun.write", "Bun.stdin", "Bun.stdout", "Bun.stderr"]
+      "apis": [
+        "Bun.file",
+        "Bun.write",
+        "Bun.stdin",
+        "Bun.stdout",
+        "Bun.stderr"
+      ]
     },
     {
       "topic": "Child Processes",
-      "apis": ["Bun.spawn", "Bun.spawnSync"]
+      "apis": [
+        "Bun.spawn",
+        "Bun.spawnSync"
+      ]
     },
     {
       "topic": "TCP Sockets",
-      "apis": ["Bun.listen", "Bun.connect"]
+      "apis": [
+        "Bun.listen",
+        "Bun.connect"
+      ]
     },
     {
       "topic": "UDP Sockets",
-      "apis": ["Bun.udpSocket"]
+      "apis": [
+        "Bun.udpSocket"
+      ]
     },
     {
       "topic": "WebSockets",
-      "apis": ["new WebSocket()", "Bun.serve"]
+      "apis": [
+        "new WebSocket()",
+        "Bun.serve"
+      ]
     },
     {
       "topic": "Transpiler",
-      "apis": ["Bun.Transpiler"]
+      "apis": [
+        "Bun.Transpiler"
+      ]
     },
     {
       "topic": "Routing",
-      "apis": ["Bun.FileSystemRouter"]
+      "apis": [
+        "Bun.FileSystemRouter"
+      ]
     },
     {
       "topic": "Streaming HTML",
-      "apis": ["HTMLRewriter"]
+      "apis": [
+        "HTMLRewriter"
+      ]
     },
     {
       "topic": "Headless Browser",
-      "apis": ["Bun.WebView"]
+      "apis": [
+        "Bun.WebView"
+      ]
     },
     {
       "topic": "Hashing",
-      "apis": ["Bun.password", "Bun.hash", "Bun.CryptoHasher", "Bun.sha"]
+      "apis": [
+        "Bun.password",
+        "Bun.hash",
+        "Bun.CryptoHasher",
+        "Bun.sha"
+      ]
     },
     {
       "topic": "CSRF Protection",
-      "apis": ["Bun.CSRF.generate", "Bun.CSRF.verify"]
+      "apis": [
+        "Bun.CSRF.generate",
+        "Bun.CSRF.verify"
+      ]
     },
     {
       "topic": "SQLite",
-      "apis": ["bun:sqlite"]
+      "apis": [
+        "bun:sqlite"
+      ]
     },
     {
       "topic": "PostgreSQL Client",
-      "apis": ["Bun.SQL", "Bun.sql"]
+      "apis": [
+        "Bun.SQL",
+        "Bun.sql"
+      ]
     },
     {
       "topic": "Redis (Valkey) Client",
-      "apis": ["Bun.RedisClient", "Bun.redis"]
+      "apis": [
+        "Bun.RedisClient",
+        "Bun.redis"
+      ]
     },
     {
       "topic": "FFI (Foreign Function Interface)",
-      "apis": ["bun:ffi"]
+      "apis": [
+        "bun:ffi"
+      ]
     },
     {
       "topic": "DNS",
-      "apis": ["Bun.dns.lookup", "Bun.dns.prefetch", "Bun.dns.getCacheStats"]
+      "apis": [
+        "Bun.dns.lookup",
+        "Bun.dns.prefetch",
+        "Bun.dns.getCacheStats"
+      ]
     },
     {
       "topic": "Testing",
-      "apis": ["bun:test"]
+      "apis": [
+        "bun:test"
+      ]
     },
     {
       "topic": "Workers",
-      "apis": ["new Worker()"]
+      "apis": [
+        "new Worker()"
+      ]
     },
     {
       "topic": "Module Loaders",
-      "apis": ["Bun.plugin"]
+      "apis": [
+        "Bun.plugin"
+      ]
     },
     {
       "topic": "Glob",
-      "apis": ["Bun.Glob"]
+      "apis": [
+        "Bun.Glob"
+      ]
     },
     {
       "topic": "Cookies",
-      "apis": ["Bun.Cookie", "Bun.CookieMap"]
+      "apis": [
+        "Bun.Cookie",
+        "Bun.CookieMap"
+      ]
     },
     {
       "topic": "Node-API",
-      "apis": ["Node-API"]
+      "apis": [
+        "Node-API"
+      ]
     },
     {
       "topic": "`import.meta`",
-      "apis": ["import.meta"]
+      "apis": [
+        "import.meta"
+      ]
     },
     {
       "topic": "Utilities",
-      "apis": ["Bun.version", "Bun.revision", "Bun.env", "Bun.main"]
+      "apis": [
+        "Bun.version",
+        "Bun.revision",
+        "Bun.env",
+        "Bun.main"
+      ]
     },
     {
       "topic": "Sleep & Timing",
-      "apis": ["Bun.sleep()", "Bun.sleepSync()", "Bun.nanoseconds()"]
+      "apis": [
+        "Bun.sleep()",
+        "Bun.sleepSync()",
+        "Bun.nanoseconds()"
+      ]
     },
     {
       "topic": "Random & UUID",
-      "apis": ["Bun.randomUUIDv7()"]
+      "apis": [
+        "Bun.randomUUIDv7()"
+      ]
     },
     {
       "topic": "System & Environment",
-      "apis": ["Bun.which()"]
+      "apis": [
+        "Bun.which()"
+      ]
     },
     {
       "topic": "Comparison & Inspection",
-      "apis": ["Bun.peek()", "Bun.deepEquals()", "Bun.deepMatch", "Bun.inspect()"]
+      "apis": [
+        "Bun.peek()",
+        "Bun.deepEquals()",
+        "Bun.deepMatch",
+        "Bun.inspect()"
+      ]
     },
     {
       "topic": "String & Text Processing",
-      "apis": ["Bun.escapeHTML()", "Bun.stringWidth()", "Bun.indexOfLine"]
+      "apis": [
+        "Bun.escapeHTML()",
+        "Bun.stringWidth()",
+        "Bun.indexOfLine"
+      ]
     },
     {
       "topic": "URL & Path Utilities",
-      "apis": ["Bun.fileURLToPath()", "Bun.pathToFileURL()"]
+      "apis": [
+        "Bun.fileURLToPath()",
+        "Bun.pathToFileURL()"
+      ]
     },
     {
       "topic": "Compression",
@@ -1782,19 +1875,36 @@
     },
     {
       "topic": "Memory & Buffer Management",
-      "apis": ["Bun.ArrayBufferSink", "Bun.allocUnsafe", "Bun.concatArrayBuffers"]
+      "apis": [
+        "Bun.ArrayBufferSink",
+        "Bun.allocUnsafe",
+        "Bun.concatArrayBuffers"
+      ]
     },
     {
       "topic": "Module Resolution",
-      "apis": ["Bun.resolveSync()"]
+      "apis": [
+        "Bun.resolveSync()"
+      ]
     },
     {
       "topic": "Parsing & Formatting",
-      "apis": ["Bun.semver", "Bun.TOML.parse", "Bun.markdown", "Bun.color", "Bun.Image"]
+      "apis": [
+        "Bun.semver",
+        "Bun.TOML.parse",
+        "Bun.markdown",
+        "Bun.color",
+        "Bun.Image"
+      ]
     },
     {
       "topic": "Low-level / Internals",
-      "apis": ["Bun.mmap", "Bun.gc", "Bun.generateHeapSnapshot", "bun:jsc"]
+      "apis": [
+        "Bun.mmap",
+        "Bun.gc",
+        "Bun.generateHeapSnapshot",
+        "bun:jsc"
+      ]
     }
   ],
   "commands": {
@@ -2043,7 +2153,9 @@
           "description": "Configure auto-install behavior. One of \"auto\" (default, auto-installs when no node_modules), \"fallback\" (missing packages only), \"force\" (always).",
           "hasValue": true,
           "valueType": "val",
-          "choices": ["auto"],
+          "choices": [
+            "auto"
+          ],
           "required": false,
           "multiple": false
         },
@@ -2139,7 +2251,12 @@
           "description": "Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first",
           "hasValue": true,
           "valueType": "val",
-          "choices": ["verbatim", "(default)", "ipv4first", "ipv6first"],
+          "choices": [
+            "verbatim",
+            "(default)",
+            "ipv4first",
+            "ipv6first"
+          ],
           "required": false,
           "multiple": false
         },
@@ -2233,7 +2350,9 @@
           "description": "One of \"strict\", \"throw\", \"warn\", \"none\", or \"warn-with-error-code\"",
           "hasValue": true,
           "valueType": "val",
-          "choices": ["strict"],
+          "choices": [
+            "strict"
+          ],
           "required": false,
           "multiple": false
         },
@@ -2454,7 +2573,12 @@
           "completionType": "javascript_files"
         }
       ],
-      "examples": ["bun run ./index.js", "bun run ./index.tsx", "bun run dev", "bun run lint"],
+      "examples": [
+        "bun run ./index.js",
+        "bun run ./index.tsx",
+        "bun run dev",
+        "bun run lint"
+      ],
       "usage": "Usage: bun run [flags] <file or script>",
       "documentationUrl": "https://bun.com/docs/cli/run",
       "dynamicCompletions": {
@@ -2704,7 +2828,11 @@
           "completionType": "test_files"
         }
       ],
-      "examples": ["bun test", "bun test foo bar", "bun test --test-name-pattern baz"],
+      "examples": [
+        "bun test",
+        "bun test foo bar",
+        "bun test --test-name-pattern baz"
+      ],
       "usage": "Usage: bun test [flags] [<patterns>]",
       "documentationUrl": "https://bun.com/docs/cli/test",
       "dynamicCompletions": {
@@ -2776,7 +2904,9 @@
       "examples": [],
       "usage": "Usage: bunx [flags] <package><@version> [flags and arguments for the package]",
       "dynamicCompletions": {},
-      "aliases": ["bunx"]
+      "aliases": [
+        "bunx"
+      ]
     },
     "repl": {
       "name": "repl",
@@ -3023,7 +3153,9 @@
           "description": "Configure auto-install behavior. One of \"auto\" (default, auto-installs when no node_modules), \"fallback\" (missing packages only), \"force\" (always).",
           "hasValue": true,
           "valueType": "val",
-          "choices": ["auto"],
+          "choices": [
+            "auto"
+          ],
           "required": false,
           "multiple": false
         },
@@ -3119,7 +3251,12 @@
           "description": "Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first",
           "hasValue": true,
           "valueType": "val",
-          "choices": ["verbatim", "(default)", "ipv4first", "ipv6first"],
+          "choices": [
+            "verbatim",
+            "(default)",
+            "ipv4first",
+            "ipv6first"
+          ],
           "required": false,
           "multiple": false
         },
@@ -3213,7 +3350,9 @@
           "description": "One of \"strict\", \"throw\", \"warn\", \"none\", or \"warn-with-error-code\"",
           "hasValue": true,
           "valueType": "val",
-          "choices": ["strict"],
+          "choices": [
+            "strict"
+          ],
           "required": false,
           "multiple": false
         },
@@ -3434,7 +3573,12 @@
           "completionType": "file"
         }
       ],
-      "examples": ["bun run ./index.js", "bun run ./index.tsx", "bun run dev", "bun run lint"],
+      "examples": [
+        "bun run ./index.js",
+        "bun run ./index.tsx",
+        "bun run dev",
+        "bun run lint"
+      ],
       "usage": "Usage: bun run [flags] <file or script>",
       "documentationUrl": "https://bun.com/docs/cli/run",
       "dynamicCompletions": {}
@@ -3452,7 +3596,10 @@
           "completionType": "script"
         }
       ],
-      "examples": ["bun exec \"echo hi\"", "bun exec \"echo \\\"hey friends\\\"!\""],
+      "examples": [
+        "bun exec \"echo hi\"",
+        "bun exec \"echo \\\"hey friends\\\"!\""
+      ],
       "usage": "Usage: bun exec <script>",
       "dynamicCompletions": {}
     },
@@ -3781,9 +3928,14 @@
           "type": "string"
         }
       ],
-      "examples": ["bun install", "bun install --production"],
+      "examples": [
+        "bun install",
+        "bun install --production"
+      ],
       "usage": "Usage: bun install [flags] @",
-      "aliases": ["i"],
+      "aliases": [
+        "i"
+      ],
       "documentationUrl": "https://bun.com/docs/cli/install",
       "dynamicCompletions": {},
       "docUrl": "https://bun.com/docs/pm/cli/install.md",
@@ -4347,7 +4499,9 @@
         "bun add --peer esbuild"
       ],
       "usage": "Usage: bun add [flags]",
-      "aliases": ["a"],
+      "aliases": [
+        "a"
+      ],
       "documentationUrl": "https://bun.com/docs/cli/add",
       "dynamicCompletions": {
         "packages": true
@@ -4719,9 +4873,13 @@
           "type": "string"
         }
       ],
-      "examples": ["bun remove ts-node"],
+      "examples": [
+        "bun remove ts-node"
+      ],
       "usage": "Usage: bun remove [flags] []",
-      "aliases": ["rm"],
+      "aliases": [
+        "rm"
+      ],
       "documentationUrl": "https://bun.com/docs/cli/remove",
       "dynamicCompletions": {
         "packages": true
@@ -5104,7 +5262,12 @@
           "type": "string"
         }
       ],
-      "examples": ["bun update", "bun update --latest", "bun update -i", "bun update zod jquery@3"],
+      "examples": [
+        "bun update",
+        "bun update --latest",
+        "bun update -i",
+        "bun update zod jquery@3"
+      ],
       "usage": "Usage: bun update [flags] @",
       "documentationUrl": "https://bun.com/docs/cli/update",
       "dynamicCompletions": {},
@@ -5234,7 +5397,10 @@
           "type": "string"
         }
       ],
-      "examples": ["bun audit", "bun audit --json"],
+      "examples": [
+        "bun audit",
+        "bun audit --json"
+      ],
       "usage": "Usage: bun audit [flags]",
       "documentationUrl": "https://bun.com/docs/install/audit",
       "dynamicCompletions": {},
@@ -5902,7 +6068,10 @@
           "type": "string"
         }
       ],
-      "examples": ["bun link", "bun link"],
+      "examples": [
+        "bun link",
+        "bun link"
+      ],
       "usage": "Usage: bun link [flags] []",
       "documentationUrl": "https://bun.com/docs/cli/link",
       "dynamicCompletions": {},
@@ -6243,7 +6412,9 @@
           "type": "string"
         }
       ],
-      "examples": ["bun unlink"],
+      "examples": [
+        "bun unlink"
+      ],
       "usage": "Usage: bun unlink [flags]",
       "documentationUrl": "https://bun.com/docs/cli/unlink",
       "dynamicCompletions": {}
@@ -7559,7 +7730,11 @@
           "type": "string"
         }
       ],
-      "examples": ["bun info react", "bun info react@18.0.0", "bun info react version --json"],
+      "examples": [
+        "bun info react",
+        "bun info react@18.0.0",
+        "bun info react version --json"
+      ],
       "usage": "Usage: bun info [flags] [@]",
       "documentationUrl": "https://bun.com/docs/cli/info",
       "dynamicCompletions": {},
@@ -8236,7 +8411,9 @@
       "usage": "Usage:",
       "documentationUrl": "https://bun.com/docs/cli/bun-create",
       "dynamicCompletions": {},
-      "aliases": ["c"],
+      "aliases": [
+        "c"
+      ],
       "docUrl": "https://bun.com/docs/runtime/templating/create.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun create\n\n> Create a new Bun project from a React component, a `create-<template>` npm package, a GitHub repo, or a local template\n\n<Note>\n  `bun create` is optional — Bun works without any configuration. This command exists to make getting started faster.\n</Note>\n\n***\n\nTemplate a new Bun project with `bun create`. This is a flexible command that can be used to create a new project from a React component, a `create-<template>` npm package, a GitHub repo, or a local template.\n\nIf you're looking to create a brand new empty project, use [`bun init`](/runtime/templating/init).\n\n## From a React component\n\n`bun create ./MyComponent.tsx` turns an existing React component into a complete dev environment with hot reload and production builds in one command.\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun create ./MyComponent.jsx # .tsx also supported\n```\n\n<Frame>\n  <video style={{ aspectRatio: \"2062 / 1344\", width: \"100%\", height: \"100%\", objectFit: \"contain\" }} loop autoPlay muted playsInline>\n    <source src=\"https://mintcdn.com/bun-1dd33a4e/q61zoUYDXrVRu-tH/images/bun-create-shadcn.mp4?fit=max&auto=format&n=q61zoUYDXrVRu-tH&q=85&s=92fcea5a9d403b155e943508fbb40a21\" style={{ width: \"100%\", height: \"100%\", objectFit: \"contain\" }} type=\"video/mp4\" data-path=\"images/bun-create-shadcn.mp4\" />\n  </video>\n</Frame>\n\n<Note>\n  🚀 **Create React App Successor** — `bun create <component>` provides everything developers loved about Create React App, but with modern tooling, faster builds, and backend support.\n</Note>\n\n#### How this works\n\nWhen you run `bun create <component>`, Bun:\n\n1. Uses [Bun's JavaScript bundler](/bundler) to analyze your module graph.\n2. Collects all the dependencies needed to run the component.\n3. Scans the exports of the entry point for a React component.\n4. Generates a `package.json` file with the dependencies and scripts needed to run the component.\n5. Installs any missing dependencies using [`bun install --only-missing`](/pm/cli/install).\n6. Generates the following files:\n   * `${component}.html`\n   * `${component}.client.tsx` (entry point for the frontend)\n   * `${component}.css` (css file)\n7. Starts a frontend dev server automatically.\n\n### Using TailwindCSS with Bun\n\n[TailwindCSS](https://tailwindcss.com/) is an extremely popular utility-first CSS framework used to style web applications.\n\nWhen you run `bun create <component>`, Bun scans your JSX/TSX file for TailwindCSS class names (and any files it imports). If it detects TailwindCSS class names, it will add the following dependencies to your `package.json`:\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"dependencies\": {\n    \"tailwindcss\": \"^4\",\n    \"bun-plugin-tailwind\": \"latest\"\n  }\n}\n```\n\nWe also configure `bunfig.toml` to use Bun's TailwindCSS plugin with `Bun.serve()`\n\n```toml bunfig.toml icon=\"settings\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n[serve.static]\nplugins = [\"bun-plugin-tailwind\"]\n```\n\nAnd a `${component}.css` file with `@import \"tailwindcss\";` at the top:\n\n```css MyComponent.css icon=\"file-code\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n@import \"tailwindcss\";\n```\n\n### Using `shadcn/ui` with Bun\n\n[`shadcn/ui`](https://ui.shadcn.com/) is an extremely popular component library tool for building web applications.\n\n`bun create <component>` scans for any shadcn/ui components imported from `@/components/ui`.\n\nIf it finds any, it runs:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n# Assuming bun detected imports to @/components/ui/accordion and @/components/ui/button\nbunx shadcn@canary add accordion button # and any other components\n```\n\nSince `shadcn/ui` itself uses TailwindCSS, `bun create` also adds the necessary TailwindCSS dependencies to your `package.json` and configures `bunfig.toml` to use Bun's TailwindCSS plugin with `Bun.serve()` as described above.\n\nAdditionally, we setup the following:\n\n* `tsconfig.json` to alias `\"@/*\"` to `\"src/*\"` or `.` (depending on if there is a `src/` directory)\n* `components.json` so that shadcn/ui knows its a shadcn/ui project\n* `styles/globals.css` file that configures Tailwind v4 in the way that shadcn/ui expects\n* `${component}.build.ts` file that builds the component for production with `bun-plugin-tailwind` configured\n\n`bun create ./MyComponent.jsx` is one of the easiest ways to run code generated from LLMs like [Claude](https://claude.ai) or ChatGPT locally.\n\n## From `npm`\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun create <template> [<destination>]\n```\n\nAssuming you don't have a [local template](#from-a-local-template) with the same name, this command will download and execute the `create-<template>` package from npm. The following two commands will behave identically:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun create remix\nbunx create-remix\n```\n\nRefer to the documentation of the associated `create-<template>` package for complete documentation and usage instructions.\n\n## From GitHub\n\nThis will download the contents of the GitHub repo to disk.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun create <user>/<repo>\nbun create github.com/<user>/<repo>\n```\n\nOptionally specify a name for the destination folder. If no destination is specified, the repo name will be used.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun create <user>/<repo> mydir\nbun create github.com/<user>/<repo> mydir\n```\n\nBun will perform the following steps:\n\n* Download the template\n* Copy all template files into the destination folder\n* Install dependencies with `bun install`.\n* Initialize a fresh Git repo. Opt out with the `--no-git` flag.\n* Run the template's configured `start` script, if defined.\n\n<Note>By default Bun will *not overwrite* any existing files. Use the `--force` flag to overwrite existing files.</Note>\n\n## From a local template\n\n<Warning>\n  Unlike remote templates, running `bun create` with a local template will delete the entire destination folder if it\n  already exists! Be careful.\n</Warning>\n\nBun's templater can be extended to support custom templates defined on your local file system. These templates should live in one of the following directories:\n\n* `$HOME/.bun-create/<name>`: global templates\n* `<project root>/.bun-create/<name>`: project-specific templates\n\n<Note>You can customize the global template path by setting the `BUN_CREATE_DIR` environment variable.</Note>\n\nTo create a local template, navigate to `$HOME/.bun-create` and create a new directory with the desired name of your template.\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\ncd $HOME/.bun-create\nmkdir foo\ncd foo\n```\n\nThen, create a `package.json` file in that directory with the following contents:\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"name\": \"foo\"\n}\n```\n\nYou can run `bun create foo` elsewhere on your file system to verify that Bun is correctly finding your local template.\n\n#### Setup logic\n\nYou can specify pre- and post-install setup scripts in the `\"bun-create\"` section of your local template's `package.json`.\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"name\": \"@bun-examples/simplereact\",\n  \"version\": \"0.0.1\",\n  \"main\": \"index.js\",\n  \"dependencies\": {\n    \"react\": \"^17.0.2\",\n    \"react-dom\": \"^17.0.2\"\n  },\n  \"bun-create\": {\n    \"preinstall\": \"echo 'Installing...'\", // a single command\n    \"postinstall\": [\"echo 'Done!'\"], // an array of commands\n    \"start\": \"bun run echo 'Hello world!'\"\n  }\n}\n```\n\nThe following fields are supported. Each of these can correspond to a string or array of strings. An array of commands will be executed in order.\n\n| Field         | Description                         |\n| ------------- | ----------------------------------- |\n| `postinstall` | runs after installing dependencies  |\n| `preinstall`  | runs before installing dependencies |\n\nAfter cloning a template, `bun create` will automatically remove the `\"bun-create\"` section from `package.json` before writing it to the destination folder.\n\n## Reference\n\n### CLI flags\n\n| Flag           | Description                            |\n| -------------- | -------------------------------------- |\n| `--force`      | Overwrite existing files               |\n| `--no-install` | Skip installing `node_modules` & tasks |\n| `--no-git`     | Don't initialize a git repository      |\n| `--open`       | Start & open in-browser after finish   |\n\n### Environment variables\n\n| Name                                      | Description                                                                                                                                          |\n| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |\n| `GITHUB_API_DOMAIN`                       | If you're using a GitHub enterprise or a proxy, you can customize the GitHub domain Bun pings for downloads                                          |\n| `GITHUB_TOKEN` (or `GITHUB_ACCESS_TOKEN`) | This lets `bun create` work with private repositories or if you get rate-limited. `GITHUB_TOKEN` is chosen over `GITHUB_ACCESS_TOKEN` if both exist. |\n\n<Accordion title={<span>How <code>bun create</code> works</span>}>\n  When you run `bun create ${template} ${destination}`, here’s what happens:\n\n  IF remote template\n\n  1. GET `registry.npmjs.org/@bun-examples/${template}/latest` and parse it\n  2. GET `registry.npmjs.org/@bun-examples/${template}/-/${template}-${latestVersion}.tgz`\n  3. Decompress & extract `${template}-${latestVersion}.tgz` into `${destination}`\n     * If there are files that would overwrite, warn and exit unless `--force` is passed\n\n  IF GitHub repo\n\n  1. Download the tarball from GitHub’s API\n  2. Decompress & extract into `${destination}`\n     * If there are files that would overwrite, warn and exit unless `--force` is passed\n\n  ELSE IF local template\n\n  1. Open local template folder\n\n  2. Delete destination directory recursively\n\n  3. Copy files recursively using the fastest system calls available (on macOS `fcopyfile` and Linux, `copy_file_range`). Do not copy or traverse into `node_modules` folder if exists (this alone makes it faster than `cp`)\n\n  4. Parse the `package.json` (again!), update `name` to be `${basename(destination)}`, remove the `bun-create` section from the `package.json` and save the updated `package.json` to disk.\n     * IF Next.js is detected, add `bun-framework-next` to the list of dependencies\n     * IF Create React App is detected, add the entry point in `/src/index.{js,jsx,ts,tsx}` to `public/index.html`\n     * IF Relay is detected, add `bun-macro-relay` so that Relay works\n\n  5. Auto-detect the npm client, preferring `pnpm`, `yarn` (v1), and lastly `npm`\n\n  6. Run any tasks defined in `\"bun-create\": { \"preinstall\" }` with the npm client\n\n  7. Run `${npmClient} install` unless `--no-install` is passed OR no dependencies are in package.json\n\n  8. Run any tasks defined in `\"bun-create\": { \"postinstall\" }` with the npm client\n\n  9. Run `git init; git add -A .; git commit -am \"Initial Commit\";`\n     * Rename `gitignore` to `.gitignore`. NPM automatically removes `.gitignore` files from appearing in packages.\n     * If there are dependencies, this runs in a separate thread concurrently while node\\_modules are being installed\n     * Using libgit2 if available was tested and performed 3x slower in microbenchmarks\n</Accordion>\n",
       "sections": [
@@ -8309,7 +8486,10 @@
           "type": "string"
         }
       ],
-      "examples": ["bun upgrade", "bun upgrade --stable"],
+      "examples": [
+        "bun upgrade",
+        "bun upgrade --stable"
+      ],
       "usage": "Usage: bun upgrade [flags]",
       "documentationUrl": "https://bun.com/docs/installation#upgrading",
       "dynamicCompletions": {}
@@ -8580,7 +8760,9 @@
       "description": "Configure auto-install behavior. One of \"auto\" (default, auto-installs when no node_modules), \"fallback\" (missing packages only), \"force\" (always).",
       "hasValue": true,
       "valueType": "val",
-      "choices": ["auto"],
+      "choices": [
+        "auto"
+      ],
       "required": false,
       "multiple": false
     },
@@ -8676,7 +8858,12 @@
       "description": "Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first",
       "hasValue": true,
       "valueType": "val",
-      "choices": ["verbatim", "(default)", "ipv4first", "ipv6first"],
+      "choices": [
+        "verbatim",
+        "(default)",
+        "ipv4first",
+        "ipv6first"
+      ],
       "required": false,
       "multiple": false
     },
@@ -8770,7 +8957,9 @@
       "description": "One of \"strict\", \"throw\", \"warn\", \"none\", or \"warn-with-error-code\"",
       "hasValue": true,
       "valueType": "val",
-      "choices": ["strict"],
+      "choices": [
+        "strict"
+      ],
       "required": false,
       "multiple": false
     },

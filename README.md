@@ -123,6 +123,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run canvas:generate`               | scripts/generate-canvas-companions.ts  |
 | `bun run capabilities`                  | Run kimi-capabilities from repo        |
 | `bun run check`                         | scripts/check.ts                       |
+| `bun run check:completions`             | Quality gate                           |
 | `bun run check:deletion-metric`         | Quality gate                           |
 | `bun run check:dry-run`                 | Quality gate                           |
 | `bun run check:env-drift`               | Quality gate                           |
@@ -151,6 +152,8 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run cleanup:root`                  | Workspace / artifact cleanup           |
 | `bun run cleanup:root:dry-run`          | Workspace / artifact cleanup           |
 | `bun run cleanup:root:fix`              | Workspace / artifact cleanup           |
+| `bun run completions:generate`          | scripts/generate-cli-completions.ts    |
+| `bun run completions:matrix`            | scripts/make-completion-matrix.ts      |
 | `bun run config:status`                 | scripts/config-status.ts               |
 | `bun run contract`                      | Run kimi-contract from repo            |
 | `bun run cron:health`                   | scripts/cron-health.ts                 |

@@ -27,7 +27,6 @@
  */
 
 import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
-import { join } from "path";
 
 interface FlagInfo {
   name: string;
@@ -171,10 +170,7 @@ class TempDir extends String {
 }
 
 function createTempDir(basename: string): TempDir {
-  const base = join(
-    Bun.env.TMPDIR || "/tmp",
-    `${basename}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  );
+  const base = `${Bun.env.TMPDIR || "/tmp"}/${basename}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   makeDir(base, { recursive: true });
   return new TempDir(base);
 }
@@ -471,7 +467,7 @@ function parseUsage(usage: string): {
       let completionType: string | undefined;
 
       // Clean up the argument name
-      name = name.replace(/[\[\]<>]/g, "");
+      name = name.replace(/[[\]<>]/g, "");
 
       if (part.startsWith("<")) {
         required = true;
@@ -843,7 +839,7 @@ function addCommandAliases(commands: Record<string, CommandInfo>): void {
 async function generateCompletions(): Promise<void> {
   using tmpDir = createTempDir("bun-completion");
   writeText(
-    join(String(tmpDir), "package.json"),
+    `${tmpDir}/package.json`,
     JSON.stringify({
       name: "test",
       version: "1.0.0",
@@ -973,11 +969,11 @@ async function generateCompletions(): Promise<void> {
   }
 
   // Ensure completions directory exists
-  const completionsDir = join(Bun.cwd, "completions");
+  const completionsDir = `${Bun.cwd}/completions`;
   makeDir(completionsDir, { recursive: true });
 
   // Write the JSON file
-  const outputPath = join(completionsDir, "bun-cli.json");
+  const outputPath = `${completionsDir}/bun-cli.json`;
   const jsonData = JSON.stringify(completionData, null, 2);
 
   writeText(outputPath, jsonData);
@@ -1272,7 +1268,6 @@ function generateFishCompletion(data: CompletionData): string {
 
   // Global flags
   for (const flag of data.globalFlags) {
-    const long = `--${flag.name}`;
     const short = flag.shortName ? ` -s ${flag.shortName}` : "";
     const desc = flag.description.replace(/'/g, "'\\''");
     lines.push(`complete -c bun -n '__fish_use_subcommand'${short} -l ${flag.name} -d '${desc}'`);
@@ -1309,9 +1304,9 @@ function generateFishCompletion(data: CompletionData): string {
  * Write shell completion scripts alongside the JSON manifest.
  */
 function writeShellCompletions(data: CompletionData, completionsDir: string): void {
-  const bashPath = join(completionsDir, "bun.bash");
-  const fishPath = join(completionsDir, "bun.fish");
-  const zshPath = join(completionsDir, "bun.zsh");
+  const bashPath = `${completionsDir}/bun.bash`;
+  const fishPath = `${completionsDir}/bun.fish`;
+  const zshPath = `${completionsDir}/bun.zsh`;
 
   writeText(bashPath, generateBashCompletion(data));
   writeText(fishPath, generateFishCompletion(data));

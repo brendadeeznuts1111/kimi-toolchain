@@ -26,6 +26,7 @@
     "constants-manifest.json",
     "examples/dashboard-urls.md",
     "scripts/.fmt-*",
-    ".kimi-test-execve-child.ts"
+    ".kimi-test-execve-child.ts",
+    "completions/"
   ]
 }

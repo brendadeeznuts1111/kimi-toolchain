@@ -6,19 +6,60 @@
  *   - completions/COMPLETION_MATRIX.md   (human-readable flag taxonomy)
  *   - completions/DYNAMIC_SOURCES.json   (machine-readable dynamic completion contract)
  *
+ * Enhanced with Bun-native APIs throughout:
+ *   Bun.file / Bun.write / Bun.sha256 / Bun.inspect.table / Bun.stringWidth
+ *   Bun.which / Bun.$ / Bun.main / Bun.version / Bun.gzip
+ *   Bun.deepEquals / Bun.env
+ *
  * Run via:
  *   bun run scripts/make-completion-matrix.ts
  *   bun run completions:matrix
+ *   BUN_COMPLETION_BACKUP=1 bun run completions:matrix   (with gzip backup)
  */
 
-import { join } from "path";
-import { createHash } from "crypto";
-import { readText, writeText } from "../src/lib/bun-io.ts";
+import { $ } from "bun";
 
-interface FlagInfo {
+// ── Constants ───────────────────────────────────────────────────
+const JSON_PATH = "completions/bun-cli.json";
+const MATRIX_PATH = "completions/COMPLETION_MATRIX.md";
+const DYNAMIC_SOURCES_PATH = "completions/DYNAMIC_SOURCES.json";
+
+// ── Bun-native guard: only run as main module ───────────────────
+if (!Bun.main) {
+  console.error("❌ Must be run as main module");
+  process.exit(1);
+}
+
+// ── Verify bun binary in PATH ───────────────────────────────────
+const bunPath = Bun.which("bun");
+if (!bunPath) {
+  console.error("❌ bun not found in PATH");
+  process.exit(1);
+}
+
+// ── Fetch live Bun version via Bun.$ ────────────────────────────
+let liveBunVersion = Bun.version;
+try {
+  const versionProc = await $`bun --version`.quiet();
+  liveBunVersion = versionProc.text().trim();
+} catch {
+  // Fallback to Bun.version constant
+}
+
+// ── Bun-native file read ────────────────────────────────────────
+const rawJson = await Bun.file(JSON_PATH).text();
+
+// ── Bun-native SHA-256 ──────────────────────────────────────────
+const jsonHash = Bun.SHA256.hash(rawJson, "hex").slice(0, 8);
+
+// ── Parse ───────────────────────────────────────────────────────
+const data = JSON.parse(rawJson);
+
+// ── Type definitions ────────────────────────────────────────────
+interface FlagEntry {
   name: string;
   shortName?: string;
-  description: string;
+  description?: string;
   hasValue: boolean;
   valueType?: string;
   defaultValue?: string;
@@ -27,51 +68,49 @@ interface FlagInfo {
   multiple?: boolean;
 }
 
-interface PositionalArg {
+interface PositionalArgEntry {
   name: string;
   description?: string;
   required: boolean;
   multiple: boolean;
   type?: string;
   completionType?: string;
+  choices?: string[];
 }
 
-interface SubcommandInfo {
-  name: string;
-  description: string;
-  flags?: FlagInfo[];
-  subcommands?: Record<string, SubcommandInfo>;
-  positionalArgs?: PositionalArg[];
-}
-
-interface CommandInfo {
+interface CommandEntry {
   name: string;
   aliases?: string[];
-  description: string;
+  description?: string;
   usage?: string;
-  flags: FlagInfo[];
-  positionalArgs: PositionalArg[];
+  flags: FlagEntry[];
+  positionalArgs: PositionalArgEntry[];
   examples: string[];
-  subcommands?: Record<string, SubcommandInfo>;
+  subcommands?: Record<string, CommandEntry>;
+  dynamicCompletions?: Record<string, boolean>;
   documentationUrl?: string;
   docUrl?: string;
   docContent?: string;
   sections?: { title: string; anchor: string; url: string }[];
-  dynamicCompletions?: {
-    scripts?: boolean;
-    packages?: boolean;
-    files?: boolean;
-    binaries?: boolean;
-  };
 }
 
 interface CompletionData {
   version: string;
-  referenceUrl: string;
-  apiModules: { name: string; url: string }[];
-  docs: { title: string; url: string; description?: string }[];
-  commands: Record<string, CommandInfo>;
-  globalFlags: FlagInfo[];
+  bunVersion?: string;
+  referenceUrl?: string;
+  apiModules?: { name: string; url: string }[];
+  docs?: { title: string; url: string; description?: string }[];
+  commands: Record<string, CommandEntry>;
+  globalFlags: FlagEntry[];
+  bunGetCompletes: {
+    available: boolean;
+    commands?: {
+      scripts: string;
+      binaries: string;
+      packages: string;
+      files: string;
+    };
+  };
   specialHandling: {
     bareCommand: {
       description: string;
@@ -83,23 +122,12 @@ interface CompletionData {
       };
     };
   };
-  bunGetCompletes: {
-    available: boolean;
-    commands: {
-      scripts: string;
-      binaries: string;
-      packages: string;
-      files: string;
-    };
-  };
 }
 
-const ROOT = import.meta.dir.endsWith("scripts") ? join(import.meta.dir, "..") : import.meta.dir;
-const JSON_PATH = join(ROOT, "completions", "bun-cli.json");
-const MATRIX_PATH = join(ROOT, "completions", "COMPLETION_MATRIX.md");
-const DYNAMIC_SOURCES_PATH = join(ROOT, "completions", "DYNAMIC_SOURCES.json");
+const typedData = data as CompletionData;
 
-const FLAG_CATEGORIES: Record<string, Set<string>> = {
+// ── Flag taxonomy ───────────────────────────────────────────────
+const FLAG_CATEGORIES = {
   fileIO: new Set([
     "outfile",
     "outdir",
@@ -110,6 +138,15 @@ const FLAG_CATEGORIES: Record<string, Set<string>> = {
     "public-dir",
     "assets",
     "loader",
+    "tsconfig-override",
+    "cwd",
+    "config",
+    "env-file",
+    "cafile",
+    "cache-dir",
+    "public",
+    "routes",
+    "app",
     "external",
     "packages",
     "target",
@@ -117,68 +154,90 @@ const FLAG_CATEGORIES: Record<string, Set<string>> = {
     "minify",
     "splitting",
     "format",
-    "env-file",
-    "config",
-    "cwd",
-    "tsconfig-override",
   ]),
   pm: new Set([
     "frozen-lockfile",
     "production",
     "development",
     "dev",
-    "optional",
-    "peer",
     "no-save",
     "save",
     "global",
     "trust",
+    "no-trust",
     "exact",
-    "yarn",
+    "optional",
+    "peer",
+    "resolutions",
+    "hoist",
+    "no-hoist",
+    "linker",
+    "omit",
+    "backend",
+    "concurrent-scripts",
+    "network-concurrency",
+    "registry",
+    "auth-type",
+    "tag",
+    "access",
+    "dry-run",
+    "no-cache",
+    "prefer-offline",
     "no-verify",
     "ignore-scripts",
+    "no-summary",
+    "no-progress",
+    "no-install",
     "save-text-lockfile",
     "lockfile-only",
-    "linker",
     "minimum-release-age",
-    "backend",
-    "cache-dir",
-    "no-cache",
-    "omit",
-    "registry",
     "force",
-    "dry-run",
     "only-missing",
+    "yarn",
   ]),
   runtime: new Set([
     "watch",
     "hot",
     "preload",
-    "require",
-    "import",
-    "env-file",
-    "shell",
-    "bun",
-    "no-orphans",
+    "import-meta-url",
     "smol",
+    "no-deprecation",
+    "throw-deprecation",
+    "env-file",
+    "cwd",
+    "port",
+    "hostname",
+    "conditions",
+    "main-fields",
+    "extensions",
+    "target",
+    "format",
+    "packages",
+    "no-orphans",
     "no-clear-screen",
     "parallel",
     "sequential",
     "no-exit-on-error",
     "workspaces",
     "filter",
+    "bun",
   ]),
   debug: new Set([
     "sourcemap",
     "inspect",
     "inspect-wait",
     "inspect-brk",
-    "cpu-prof",
+    "inspect-publish-port",
     "verbose",
     "silent",
     "quiet",
     "no-progress",
     "no-summary",
+    "only-failures",
+    "coverage",
+    "coverage-reporter",
+    "coverage-dir",
+    "cpu-prof",
     "revision",
     "version",
   ]),
@@ -190,212 +249,438 @@ const FLAG_CATEGORIES: Record<string, Set<string>> = {
     "cert",
     "ca",
     "cafile",
+    "auth-type",
+    "proxy",
     "network-concurrency",
     "no-verify",
+    "tls-min-version",
+    "tls-max-version",
+    "no-deprecation",
   ]),
-};
+} as const;
 
-function classifyFlag(flagName: string): string[] {
-  const categories: string[] = [];
+function classifyFlag(name: string): (keyof typeof FLAG_CATEGORIES | "uncategorized")[] {
+  const categories: (keyof typeof FLAG_CATEGORIES | "uncategorized")[] = [];
   for (const [cat, flags] of Object.entries(FLAG_CATEGORIES)) {
-    if (flags.has(flagName)) categories.push(cat);
+    if (flags.has(name)) categories.push(cat as keyof typeof FLAG_CATEGORIES);
   }
   return categories.length ? categories : ["uncategorized"];
 }
 
-function countFlagsByCategory(flags: FlagInfo[]): Record<string, number> {
-  const counts: Record<string, number> = {
-    fileIO: 0,
-    pm: 0,
-    runtime: 0,
-    debug: 0,
-    network: 0,
-    uncategorized: 0,
-  };
-  for (const flag of flags) {
-    const categories = classifyFlag(flag.name);
-    for (const cat of categories) {
-      counts[cat] = (counts[cat] ?? 0) + 1;
+function countCategory(
+  flags: FlagEntry[],
+  category: keyof typeof FLAG_CATEGORIES | "uncategorized"
+): number {
+  return flags.filter((f) => classifyFlag(f.name).includes(category)).length;
+}
+
+function bool(x: unknown) {
+  return x ? "Yes" : "No";
+}
+
+function flagsWithValues(flags: FlagEntry[]) {
+  return flags.filter((f) => f.hasValue).length;
+}
+
+function flagsWithDefaults(flags: FlagEntry[]) {
+  return flags.filter((f) => f.defaultValue !== undefined).length;
+}
+
+function flagsWithChoices(flags: FlagEntry[]) {
+  return flags.filter((f) => f.choices?.length).length;
+}
+
+function defaultList(flags: FlagEntry[]): string {
+  const defs = flags
+    .filter((f) => f.defaultValue !== undefined)
+    .map((f) => `${f.shortName ? `-${f.shortName}/` : ""}--${f.name}=${f.defaultValue}`);
+  return defs.join(", ") || "—";
+}
+
+function choiceList(flags: FlagEntry[]): string {
+  const choices = flags
+    .filter((f) => f.choices?.length)
+    .map((f) => `${f.shortName ? `-${f.shortName}/` : ""}--${f.name}={${f.choices!.join(", ")}}`);
+  return choices.join(", ") || "—";
+}
+
+function subcommandCount(cmd: CommandEntry) {
+  return cmd.subcommands ? Object.keys(cmd.subcommands).length : 0;
+}
+
+function dynamicList(cmd: CommandEntry) {
+  if (!cmd.dynamicCompletions) return "";
+  const keys = Object.keys(cmd.dynamicCompletions);
+  return keys.length ? keys.join(", ") : "";
+}
+
+function collectPmRows(cmd: CommandEntry): { name: string; path: string }[] {
+  const rows: { name: string; path: string }[] = [];
+  if (cmd.subcommands) {
+    for (const [subName, sub] of Object.entries(cmd.subcommands)) {
+      rows.push({ name: subName, path: `pm ${subName}` });
+      if (sub.subcommands) {
+        for (const nestedName of Object.keys(sub.subcommands)) {
+          rows.push({ name: nestedName, path: `pm ${subName} ${nestedName}` });
+        }
+      }
     }
   }
-  return counts;
+  return rows;
 }
 
-function countSubcommandsRecursively(subcommands?: Record<string, SubcommandInfo>): number {
-  if (!subcommands) return 0;
-  let count = Object.keys(subcommands).length;
-  for (const sub of Object.values(subcommands)) {
-    count += countSubcommandsRecursively(sub.subcommands);
+function resolvePmPath(path: string): CommandEntry | undefined {
+  const parts = path.split(" ");
+  let target: CommandEntry | undefined = typedData.commands.pm;
+  for (let i = 1; i < parts.length; i++) {
+    target = target?.subcommands?.[parts[i]];
   }
-  return count;
+  return target;
 }
 
-function cleanAliases(aliases?: string[]): string[] {
-  const cleaned = (aliases ?? []).filter((a) => a.length > 0 && a !== "bun" && a !== "bunx");
+// ── Clean parser artifacts ──────────────────────────────────────
+function cleanAliases(aliases: string[] | undefined): string[] {
+  if (!aliases) return [];
+  const cleaned = aliases.filter((a) => a !== "bun" && a !== "bunx" && a.length > 0);
   if (cleaned.some((a) => a === "bun")) {
     throw new Error('Parser leak: "bun" cannot be an alias of itself');
   }
   return cleaned;
 }
 
-function dynamicSource(command: CommandInfo): string {
-  const sources: string[] = [];
-  if (command.dynamicCompletions?.scripts) sources.push("scripts");
-  if (command.dynamicCompletions?.packages) sources.push("packages");
-  if (command.dynamicCompletions?.files) sources.push("files");
-  if (command.dynamicCompletions?.binaries) sources.push("binaries");
-  return sources.join(", ") || "—";
+function aliasText(cmd: CommandEntry) {
+  const aliases = cleanAliases(cmd.aliases);
+  return aliases.length ? ` (${aliases.join(", ")})` : "";
 }
 
-function sha256Short(input: string): string {
-  return createHash("sha256").update(input).digest("hex").slice(0, 8);
+// ── Global flag inheritance ─────────────────────────────────────
+const PM_TOP_COMMANDS = new Set(["pm"]);
+
+function inheritsGlobals(cmdName: string): boolean {
+  return !PM_TOP_COMMANDS.has(cmdName);
 }
 
-function generateMatrix(data: CompletionData, jsonHash: string): string {
-  const lines: string[] = [
-    "# Bun CLI Completion Matrix",
-    "",
-    `Generated from "completions/bun-cli.json" (sha256: \`${jsonHash}\`).`,
-    "",
-    "## Command surface",
-    "",
-    "| Command | Aliases | Flags | Value flags | Defaults | Choices | Positional args | Req pos | Opt pos | File I/O | PM | Runtime | Debug | Network | Subcommands | Dynamic source |",
-    "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
-  ];
+function totalSurface(cmd: CommandEntry): number {
+  return cmd.flags.length + typedData.globalFlags.length;
+}
 
-  for (const [name, cmd] of Object.entries(data.commands)) {
-    const aliases = cleanAliases(cmd.aliases).join(", ") || "—";
-    const valueFlags = cmd.flags.filter((f) => f.hasValue).length;
-    const defaults = cmd.flags.filter((f) => f.defaultValue).length;
-    const choices = cmd.flags.filter((f) => f.choices && f.choices.length > 0).length;
+function criticalInheritedFlags(cmdName: string): string {
+  const globalFlagNames = new Set(typedData.globalFlags.map((f) => f.name));
+  const ownFlagNames = new Set((typedData.commands[cmdName]?.flags || []).map((f) => f.name));
+
+  const critical = [
+    "watch",
+    "hot",
+    "env-file",
+    "preload",
+    "inspect",
+    "sourcemap",
+    "outfile",
+    "minify",
+    "timeout",
+    "bail",
+    "coverage",
+    "global",
+    "development",
+    "exact",
+    "optional",
+  ].filter((name) => globalFlagNames.has(name) && !ownFlagNames.has(name));
+
+  return critical.length ? "`" + critical.slice(0, 6).join("`, `") + "`" : "—";
+}
+
+// ── Table builder ───────────────────────────────────────────────
+function makeTable<T extends Record<string, string | number>>(rows: T[]): string {
+  if (rows.length === 0) return "";
+  const cols = Object.keys(rows[0]);
+  const header = "| " + cols.join(" | ") + " |";
+  const sep = "|" + cols.map(() => " --- ").join("|") + "|";
+  const body = rows.map((r) => "| " + cols.map((c) => String(r[c])).join(" | ") + " |").join("\n");
+  return [header, sep, body].join("\n");
+}
+
+// ── Bun.inspect.table for terminal diagnostics ──────────────────
+function logDiagnosticsTable(label: string, rows: Record<string, unknown>[]) {
+  console.log(`\n📊 ${label}`);
+  console.log(
+    Bun.inspect.table(rows, {
+      colors: true,
+    })
+  );
+}
+
+function positionalArgsTable(cmd: CommandEntry | undefined): string {
+  if (!cmd?.positionalArgs?.length) return "*No positional arguments.*";
+  const rows = cmd.positionalArgs.map((a) => ({
+    Name: a.name,
+    Required: a.required ? "Yes" : "No",
+    Multiple: a.multiple ? "Yes" : "No",
+    Type: a.type || "—",
+    "Completion type": a.completionType || "—",
+    Choices: a.choices?.length ? a.choices.join(", ") : "—",
+    Description: (a.description || "").replace(/\|/g, "\\|"),
+  }));
+  return makeTable(rows);
+}
+
+function flagsTable(cmd: CommandEntry | undefined): string {
+  if (!cmd?.flags?.length) return "*No flags.*";
+  const rows = cmd.flags.map((f) => ({
+    Flag: `${f.shortName ? `-${f.shortName}, ` : ""}--${f.name}`,
+    "Has value": f.hasValue ? "Yes" : "No",
+    "Value type": f.valueType || "—",
+    Default: f.defaultValue || "—",
+    Choices: f.choices?.length ? f.choices.join(", ") : "—",
+    Categories: classifyFlag(f.name).join(", ") || "—",
+    Description: (f.description || "").replace(/\|/g, "\\|"),
+  }));
+  return makeTable(rows);
+}
+
+// ── Build top-level rows ────────────────────────────────────────
+const topLevelRows = Object.entries(typedData.commands)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([name, cmd]) => {
     const reqPos = cmd.positionalArgs.filter((a) => a.required).length;
-    const optPos = cmd.positionalArgs.filter((a) => !a.required).length;
-    const cats = countFlagsByCategory(cmd.flags);
-    const subcommands = countSubcommandsRecursively(cmd.subcommands);
+    const optPos = cmd.positionalArgs.length - reqPos;
+    return {
+      Command: name + aliasText(cmd),
+      Flags: cmd.flags.length,
+      "Value flags": flagsWithValues(cmd.flags),
+      "Positional args": cmd.positionalArgs.length,
+      "Req pos": reqPos,
+      "Opt pos": optPos,
+      "File I/O": countCategory(cmd.flags, "fileIO"),
+      PM: countCategory(cmd.flags, "pm"),
+      Runtime: countCategory(cmd.flags, "runtime"),
+      Debug: countCategory(cmd.flags, "debug"),
+      Network: countCategory(cmd.flags, "network"),
+      Subcommands: subcommandCount(cmd),
+      Dynamic: dynamicList(cmd) || "—",
+      Examples: cmd.examples.length,
+      "Defaults (#)": flagsWithDefaults(cmd.flags),
+      "Default values": defaultList(cmd.flags),
+      "Choices (#)": flagsWithChoices(cmd.flags),
+      "Choice values": choiceList(cmd.flags),
+      "Drift hash": jsonHash,
+    };
+  });
 
-    lines.push(
-      `| ${name} | ${aliases} | ${cmd.flags.length} | ${valueFlags} | ${defaults} | ${choices} | ${cmd.positionalArgs.length} | ${reqPos} | ${optPos} | ${cats.fileIO} | ${cats.pm} | ${cats.runtime} | ${cats.debug} | ${cats.network} | ${subcommands} | ${dynamicSource(cmd)} |`
-    );
-  }
-
-  lines.push("");
-  lines.push("## Global flag inheritance by command");
-  lines.push("");
-  lines.push("| Command | Inherits global | Own flags | Total surface | Critical inherited |");
-  lines.push("|---|---:|---:|---:|---|");
-
-  const globalCount = data.globalFlags.length;
-  const criticalGlobal = ["--watch", "--hot", "--env-file", "--preload", "--inspect"];
-
-  for (const [name, cmd] of Object.entries(data.commands)) {
-    const inherits = name === "pm" ? 0 : globalCount;
-    const own = cmd.flags.length;
-    const total = name === "pm" ? own : own + globalCount;
-    const inherited = name === "pm" ? "— (pm is isolated)" : criticalGlobal.join(", ");
-    lines.push(`| ${name} | ${inherits} | ${own} | ${total} | ${inherited} |`);
-  }
-
-  lines.push("");
-  lines.push("## Dynamic completion sources");
-  lines.push("");
-  lines.push("| Source | Provider | Args | Commands |");
-  lines.push("|---|---|---|---|");
-  lines.push(`| scripts | bun getcompletes | s | run |`);
-  lines.push(`| binaries | bun getcompletes | b | run |`);
-  lines.push(`| files | bun getcompletes | j | run, test, build |`);
-  lines.push(`| installed packages | bun getcompletes | a | remove |`);
-  lines.push(`| registry packages | — | — | add |`);
-  lines.push("");
-  lines.push("## Global flags");
-  lines.push("");
-  lines.push(`Total: ${data.globalFlags.length}`);
-  lines.push("");
-  lines.push("| Flag | Short | Has value | Description |");
-  lines.push("|---|---|---|---|");
-  for (const flag of data.globalFlags) {
-    const short = flag.shortName ? `-${flag.shortName}` : "—";
-    lines.push(
-      `| --${flag.name} | ${short} | ${flag.hasValue ? "yes" : "no"} | ${flag.description} |`
-    );
-  }
-
-  lines.push("");
-  return lines.join("\n");
-}
-
-function generateDynamicSources(data: CompletionData): Record<string, unknown> {
-  const sources: Record<string, Record<string, unknown>> = {};
-
-  sources.bare_bun = {
-    completes: ["files", "scripts", "binaries"],
-    provider: null,
-  };
-
-  for (const [name, cmd] of Object.entries(data.commands)) {
-    const completes: string[] = [];
-    const providerArgs: string[] = [];
-
-    if (cmd.dynamicCompletions?.scripts) {
-      completes.push("scripts");
-      providerArgs.push("s");
-    }
-    if (cmd.dynamicCompletions?.binaries) {
-      completes.push("binaries");
-      providerArgs.push("b");
-    }
-    if (cmd.dynamicCompletions?.packages) {
-      completes.push(name === "remove" ? "installed_packages" : "registry_packages");
-      providerArgs.push("a");
-    }
-    if (cmd.dynamicCompletions?.files) {
-      completes.push("files");
-      providerArgs.push("j");
-    }
-
-    if (completes.length === 0) continue;
-
-    const entry: Record<string, unknown> = { completes };
-    if (providerArgs.length > 0) {
-      entry.provider = "getcompletes";
-      entry.providerArgs = providerArgs;
-    } else {
-      entry.provider = null;
-    }
-
-    if (name === "create") {
-      entry.templateDir = "$BUN_INSTALL/install/create";
-    }
-
-    sources[name] = entry;
-  }
-
+// ── Build PM rows ───────────────────────────────────────────────
+const pmRows = collectPmRows(typedData.commands.pm).map((row) => {
+  const target = resolvePmPath(row.path);
+  const reqPos = (target?.positionalArgs || []).filter((a) => a.required).length;
+  const optPos = (target?.positionalArgs || []).length - reqPos;
+  const subCount = target?.subcommands ? Object.keys(target.subcommands).length : 0;
   return {
-    schema: "v1.1.0",
-    sources,
+    Path: row.path,
+    Flags: target?.flags?.length || 0,
+    "Value flags": flagsWithValues(target?.flags || []),
+    "Positional args": target?.positionalArgs?.length || 0,
+    "Req pos": reqPos,
+    "Opt pos": optPos,
+    "File I/O": countCategory(target?.flags || [], "fileIO"),
+    PM: countCategory(target?.flags || [], "pm"),
+    Runtime: countCategory(target?.flags || [], "runtime"),
+    Debug: countCategory(target?.flags || [], "debug"),
+    Network: countCategory(target?.flags || [], "network"),
+    Subcommands: subCount,
+    Examples: target?.examples?.length || 0,
+    "Defaults (#)": flagsWithDefaults(target?.flags || []),
+    "Default values": defaultList(target?.flags || []),
+    "Choices (#)": flagsWithChoices(target?.flags || []),
+    "Choice values": choiceList(target?.flags || []),
+    Isolated: "Yes",
+    "Drift hash": jsonHash,
   };
+});
+
+// ── Terminal diagnostics via Bun.inspect.table ──────────────────
+logDiagnosticsTable("Top-level command summary", topLevelRows.slice(0, 6));
+logDiagnosticsTable("PM subcommand summary", pmRows.slice(0, 6));
+
+// ── Assemble markdown ───────────────────────────────────────────
+const output = [
+  "# Bun CLI Completion Behavior Matrix",
+  "",
+  `Generated from \`completions/bun-cli.json\` (schema v${typedData.version}, Bun ${liveBunVersion}, hash \`${jsonHash}\`).`,
+  "",
+  "## Top-level commands",
+  "",
+  makeTable(topLevelRows),
+  "",
+  "## `bun pm` subcommands",
+  "",
+  makeTable(pmRows),
+  "",
+  "## Global flag inheritance by command",
+  "",
+  "| Command | Inherits global | Own flags | Total surface | Isolated | Critical inherited |",
+  "| --- | --- | --- | --- | --- | --- |",
+  ...Object.entries(typedData.commands)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, cmd]) => {
+      const isolated = !inheritsGlobals(name);
+      return `| ${name} | ${isolated ? "—" : typedData.globalFlags.length} | ${cmd.flags.length} | ${isolated ? cmd.flags.length : totalSurface(cmd)} | ${isolated ? "Yes" : "No"} | ${isolated ? "—" : criticalInheritedFlags(name)} |`;
+    }),
+  "",
+  "## Global flags",
+  "",
+  `- Total: ${typedData.globalFlags.length}`,
+  `- With values: ${flagsWithValues(typedData.globalFlags)}`,
+  `- With defaults: ${flagsWithDefaults(typedData.globalFlags)}`,
+  `- With choices: ${flagsWithChoices(typedData.globalFlags)}`,
+  "",
+  "## Special handling",
+  "",
+  "| Scenario | Behavior |",
+  "| --- | --- |",
+  "| Bare `bun` | Runs files, scripts, and binaries |",
+  "| `bun run` | Completes scripts, files, and binaries |",
+  "| `bun add` | Completes registry packages |",
+  "| `bun remove` | Completes installed packages |",
+  "| `bun create` | Completes templates |",
+  "| `bun test` / `bun build` | Completes files |",
+  "",
+  "## `bun getcompletes`",
+  "",
+  `Available: ${bool(typedData.bunGetCompletes.available)}`,
+];
+
+if (typedData.bunGetCompletes.available) {
+  const cmds = typedData.bunGetCompletes.commands;
+  if (cmds) {
+    output.push(
+      "",
+      "| Provider | Command |",
+      "| --- | --- |",
+      `| Scripts | \`${cmds.scripts}\` |`,
+      `| Binaries | \`${cmds.binaries}\` |`,
+      `| Packages | \`${cmds.packages}\` |`,
+      `| Files | \`${cmds.files}\` |`
+    );
+  }
 }
 
-function main(): void {
-  console.log("📊 Reading completions/bun-cli.json...");
-  const raw = readText(JSON_PATH);
-  const data: CompletionData = JSON.parse(raw);
-  const jsonHash = sha256Short(raw);
+// Detailed breakdowns
+output.push(
+  "",
+  "## Detailed command breakdowns",
+  "",
+  "### `bun pm version`",
+  "",
+  positionalArgsTable(resolvePmPath("pm version")),
+  "",
+  "### `bun pm pkg set`",
+  "",
+  positionalArgsTable(resolvePmPath("pm pkg set")),
+  "",
+  "### `bun pm pkg get`",
+  "",
+  positionalArgsTable(resolvePmPath("pm pkg get")),
+  "",
+  "### `bun pm pkg delete`",
+  "",
+  positionalArgsTable(resolvePmPath("pm pkg delete")),
+  "",
+  "### `bun install` flag defaults",
+  "",
+  flagsTable(typedData.commands.install),
+  "",
+  "### `bun add` flag defaults",
+  "",
+  flagsTable(typedData.commands.add),
+  "",
+  "### `bun test` flag defaults",
+  "",
+  flagsTable(typedData.commands.test),
+  "",
+  "### `bun build` flag defaults",
+  "",
+  flagsTable(typedData.commands.build)
+);
 
-  console.log("📝 Writing COMPLETION_MATRIX.md...");
-  const matrix = generateMatrix(data, jsonHash);
-  writeText(MATRIX_PATH, matrix);
+// ── Bun-native write ────────────────────────────────────────────
+await Bun.write(MATRIX_PATH, output.join("\n"));
+console.log(`✅ Wrote ${MATRIX_PATH} (${await Bun.file(MATRIX_PATH).size} bytes)`);
 
-  console.log("📝 Writing DYNAMIC_SOURCES.json...");
-  const dynamicSources = generateDynamicSources(data);
-  writeText(DYNAMIC_SOURCES_PATH, JSON.stringify(dynamicSources, null, 2));
+// ── Dynamic source contract ─────────────────────────────────────
+const dynamicSources = {
+  schema: typedData.version,
+  bunVersion: liveBunVersion,
+  jsonHash,
+  generatedAt: new Date().toISOString(),
+  sources: {
+    bare_bun: {
+      completes: ["files", "scripts", "binaries"],
+      provider: null,
+      providerArgs: null,
+    },
+    run: {
+      completes: ["scripts", "files", "binaries"],
+      provider: "getcompletes",
+      providerArgs: ["s", "b", "j"],
+    },
+    add: {
+      completes: ["registry_packages"],
+      provider: "getcompletes",
+      providerArgs: ["a"],
+    },
+    remove: {
+      completes: ["installed_packages"],
+      provider: "getcompletes",
+      providerArgs: ["a"],
+    },
+    create: {
+      completes: ["templates"],
+      provider: null,
+      templateDir: "$BUN_INSTALL/create",
+    },
+    test: {
+      completes: ["files"],
+      provider: "getcompletes",
+      providerArgs: ["j"],
+    },
+    build: {
+      completes: ["files"],
+      provider: "getcompletes",
+      providerArgs: ["j"],
+    },
+  },
+};
 
-  console.log(`✅ Matrix written to ${MATRIX_PATH}`);
-  console.log(`✅ Dynamic sources written to ${DYNAMIC_SOURCES_PATH}`);
-  console.log(`   - Commands: ${Object.keys(data.commands).length}`);
-  console.log(`   - Global flags: ${data.globalFlags.length}`);
-  console.log(`   - JSON drift hash: ${jsonHash}`);
+// ── Bun-native JSON write ───────────────────────────────────────
+await Bun.write(DYNAMIC_SOURCES_PATH, JSON.stringify(dynamicSources, null, 2));
+console.log(`✅ Wrote ${DYNAMIC_SOURCES_PATH}`);
+
+// ── Optional: Bun.gzip compressed backup ────────────────────────
+if (Bun.env.BUN_COMPLETION_BACKUP === "1") {
+  const backupPath = `${JSON_PATH}.gz`;
+  const compressed = Bun.gzipSync(new TextEncoder().encode(rawJson));
+  await Bun.write(backupPath, compressed);
+  console.log(`📦 Compressed backup: ${backupPath} (${compressed.length} bytes)`);
 }
 
-if (import.meta.main) {
-  main();
+// ── Validation: round-trip sanity check ─────────────────────────
+const roundTrip = JSON.parse(await Bun.file(DYNAMIC_SOURCES_PATH).text());
+const expectedKeys = ["schema", "bunVersion", "jsonHash", "generatedAt", "sources"];
+const actualSorted = Object.keys(roundTrip).sort();
+const expectedSorted = expectedKeys.slice().sort();
+if (!Bun.deepEquals(actualSorted, expectedSorted)) {
+  console.warn(
+    `⚠️ Round-trip keys mismatch: got [${actualSorted.join(", ")}], expected [${expectedSorted.join(", ")}]`
+  );
 }
+
+// ── Final status via Bun.inspect.table ──────────────────────────
+console.log(
+  "\n" +
+    Bun.inspect.table(
+      [
+        { Artifact: "Matrix", Path: MATRIX_PATH, Hash: jsonHash },
+        { Artifact: "Dynamic sources", Path: DYNAMIC_SOURCES_PATH, Hash: "—" },
+        { Artifact: "Bun version", Path: bunPath ?? "—", Hash: liveBunVersion },
+      ],
+      { colors: true }
+    )
+);

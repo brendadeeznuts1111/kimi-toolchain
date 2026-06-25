@@ -456,6 +456,7 @@ export const INTEGRATION_TEST_FILES = [
   "test/cleanup-legacy.integration.test.ts",
   "test/config-status.integration.test.ts",
   "test/generate-canonical-references.integration.test.ts",
+  "test/generate-cli-completions.integration.test.ts",
   "test/decision-scoring.integration.test.ts",
   "test/effect-gates.integration.test.ts",
   "test/error-clustering.integration.test.ts",
