@@ -156,26 +156,6 @@ export function decodeHex(hex: string): Uint8Array {
   return Uint8Array.fromHex(hex);
 }
 
-/**
- * UTF-8 encode a string to bytes (`TextEncoder`).
- *
- * @see {@link BUN_BINARY_DATA_CONVERSION_DOC_URL}
- */
-export function encodeUtf8(text: string): Uint8Array {
-  return new TextEncoder().encode(text);
-}
-
-/**
- * UTF-8 decode bytes to string (`TextDecoder`).
- * Accepts `Uint8Array`, `ArrayBuffer`, and `DataView` per binary conversion guides.
- *
- * @see {@link BUN_BINARY_DATA_CONVERSION_DOC_URL}
- * @see https://bun.com/guides/binary/dataview-to-string
- */
-export function decodeUtf8(bytes: Uint8Array): string {
-  return new TextDecoder().decode(bytes);
-}
-
 /** UTF-8 byte length for a string (`TextEncoder`). */
 export function utf8ByteLength(text: string): number {
   return new TextEncoder().encode(text).byteLength;
@@ -477,14 +457,18 @@ export function startDelayedIntervalLoop(
         await sleepAbortable(intervalMs, signal);
       } catch (error) {
         if (signal.aborted || isAbortError(error)) return;
-        console.error("[startDelayedIntervalLoop] sleep error:", error);
+        process.stderr.write(
+          `[startDelayedIntervalLoop] sleep error: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`
+        );
         return;
       }
       if (signal.aborted) return;
       try {
         await tick();
       } catch (error) {
-        console.error("[startDelayedIntervalLoop] tick error:", error);
+        process.stderr.write(
+          `[startDelayedIntervalLoop] tick error: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`
+        );
         return;
       }
     }
@@ -506,7 +490,9 @@ export function startIntervalLoop(
       try {
         await tick();
       } catch (error) {
-        console.error("[startIntervalLoop] tick error:", error);
+        process.stderr.write(
+          `[startIntervalLoop] tick error: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`
+        );
         return;
       }
       if (signal.aborted) return;
@@ -514,7 +500,9 @@ export function startIntervalLoop(
         await sleepAbortable(intervalMs, signal);
       } catch (error) {
         if (signal.aborted || isAbortError(error)) return;
-        console.error("[startIntervalLoop] sleep error:", error);
+        process.stderr.write(
+          `[startIntervalLoop] sleep error: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`
+        );
         return;
       }
     }

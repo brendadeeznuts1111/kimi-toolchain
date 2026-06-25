@@ -18,7 +18,7 @@ import type {
   VerifiedJwt,
 } from "./identity-types.ts";
 import { constantTimeEqual } from "./crypto-utils.ts";
-import { decodeBase64UrlBytes, decodeUtf8, encodeBase64UrlBytes, encodeUtf8 } from "./bun-utils.ts";
+import { decodeBase64UrlBytes, encodeBase64UrlBytes } from "./bun-utils.ts";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -82,8 +82,8 @@ export function signJwt(
   }
 
   const header: JwtHeader = { alg: algorithm, typ: "JWT" };
-  const headerB64 = encodeBase64UrlBytes(encodeUtf8(JSON.stringify(header)));
-  const payloadB64 = encodeBase64UrlBytes(encodeUtf8(JSON.stringify(fullClaims)));
+  const headerB64 = encodeBase64UrlBytes(new TextEncoder().encode(JSON.stringify(header)));
+  const payloadB64 = encodeBase64UrlBytes(new TextEncoder().encode(JSON.stringify(fullClaims)));
   const signingInput = `${headerB64}.${payloadB64}`;
 
   const signature = hmacSign(signingInput, secret, algorithm);
@@ -115,7 +115,7 @@ export function verifyJwt(token: string, secret: string, config: JwtConfig = {})
 
   let header: JwtHeader;
   try {
-    header = JSON.parse(decodeUtf8(decodeBase64UrlBytes(headerB64)));
+    header = JSON.parse(new TextDecoder().decode(decodeBase64UrlBytes(headerB64)));
   } catch {
     throw { type: "jwt_invalid_format" } as { type: JwtError };
   }
@@ -133,7 +133,7 @@ export function verifyJwt(token: string, secret: string, config: JwtConfig = {})
 
   let claims: JwtClaims;
   try {
-    claims = JSON.parse(decodeUtf8(decodeBase64UrlBytes(payloadB64)));
+    claims = JSON.parse(new TextDecoder().decode(decodeBase64UrlBytes(payloadB64)));
   } catch {
     throw { type: "jwt_invalid_format" } as { type: JwtError };
   }
@@ -171,8 +171,8 @@ export function decodeJwt(token: string): { header: JwtHeader; claims: JwtClaims
     throw { type: "jwt_invalid_format" } as { type: JwtError };
   }
 
-  const header = JSON.parse(decodeUtf8(decodeBase64UrlBytes(parts[0])));
-  const claims = JSON.parse(decodeUtf8(decodeBase64UrlBytes(parts[1])));
+  const header = JSON.parse(new TextDecoder().decode(decodeBase64UrlBytes(parts[0])));
+  const claims = JSON.parse(new TextDecoder().decode(decodeBase64UrlBytes(parts[1])));
 
   return { header, claims };
 }
