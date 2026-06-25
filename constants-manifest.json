@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-23T02:21:01.670Z",
+  "generatedAt": "2026-06-25T02:52:47.581Z",
   "repo": "kimi-toolchain",
   "tuningSetVersion": "1.4.5",
   "domains": {
@@ -9,18 +9,22 @@
         "type": "string",
         "default": ".kimi/var/contract-observations.ndjson",
         "restrictions": "must be a relative path from project root",
-        "see": ["src/lib/paths.ts contractObservationsPath"]
+        "see": [
+          "src/lib/paths.ts contractObservationsPath"
+        ]
       },
       "KIMI_CONTRACT_SCHEMA_VERSION": {
         "type": "string",
         "default": "1.0.0",
-        "restrictions": "semver string written/read by contract inference",
-        "see": ["src/lib/contract-inference.ts"]
+        "restrictions": "semver string for contract observation records",
+        "see": [
+          "src/lib/paths.ts contractObservationsPath"
+        ]
       },
       "KIMI_CONTRACT_INFERENCE_ENABLED": {
         "type": "boolean",
         "default": true,
-        "restrictions": "when false, inferContractFromObservations skips work"
+        "restrictions": "when false, contract observation ingestion is disabled"
       }
     },
     "hook-verifier": {
@@ -28,7 +32,9 @@
         "type": "number",
         "default": 32,
         "restrictions": "positive integer — max allowed hook-graph cycle length",
-        "see": ["src/lib/hook-verifier.ts"]
+        "see": [
+          "src/lib/hook-verifier.ts"
+        ]
       }
     },
     "error-embedding": {
@@ -36,7 +42,9 @@
         "type": "number",
         "default": 384,
         "restrictions": "reserved — embedding vector width (Phase 2)",
-        "see": ["src/lib/error-embedding.ts"]
+        "see": [
+          "src/lib/error-embedding.ts"
+        ]
       }
     },
     "decision-scoring": {
@@ -55,7 +63,9 @@
         "type": "number",
         "default": 30,
         "restrictions": "positive integer — linear decay window for insufficient-data confidence (Phase 3.2)",
-        "see": ["src/lib/constant-optimizer.ts"]
+        "see": [
+          "src/lib/constant-optimizer.ts"
+        ]
       }
     },
     "error-clustering": {
@@ -63,7 +73,9 @@
         "type": "number",
         "default": 0.55,
         "restrictions": "reserved — cluster merge threshold in [0, 1] (Phase 2)",
-        "see": ["src/lib/error-clustering.ts"]
+        "see": [
+          "src/lib/error-clustering.ts"
+        ]
       }
     },
     "runtime": {
@@ -90,31 +102,41 @@
         "type": "number",
         "default": 0,
         "restrictions": "zero-tolerance threshold for bare Promise usage in service code",
-        "see": ["src/lib/effect-gates.ts"]
+        "see": [
+          "src/lib/effect-gates.ts"
+        ]
       },
       "KIMI_DOMAIN_PURITY_LEVEL": {
         "type": "string",
         "default": "strict",
         "restrictions": "one of strict | gradual | off",
-        "see": ["src/lib/effect-gates.ts"]
+        "see": [
+          "src/lib/effect-gates.ts"
+        ]
       },
       "KIMI_LAYER_CIRCULARITY_TOLERANCE": {
         "type": "number",
         "default": 0,
         "restrictions": "zero-tolerance threshold for circular layer dependencies",
-        "see": ["src/lib/effect-gates.ts"]
+        "see": [
+          "src/lib/effect-gates.ts"
+        ]
       },
       "KIMI_SERVICE_TAG_REQUIRED": {
         "type": "boolean",
         "default": true,
         "restrictions": "when true, exported services must be provided through Tag + Layer",
-        "see": ["src/lib/effect-gates.ts"]
+        "see": [
+          "src/lib/effect-gates.ts"
+        ]
       },
       "KIMI_EFFECT_RUN_PROMISE_BOUNDARY_ENABLED": {
         "type": "boolean",
         "default": true,
         "restrictions": "when true, Effect.runPromise calls outside src/cli, src/entry, src/runtime.ts, or test files are flagged",
-        "see": ["src/lib/effect-gates.ts"]
+        "see": [
+          "src/lib/effect-gates.ts"
+        ]
       }
     },
     "effect-benchmark": {
@@ -122,49 +144,65 @@
         "type": "number",
         "default": 5,
         "restrictions": "positive integer — measured iterations per effect handler",
-        "see": ["src/lib/effect-benchmark.ts"]
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
       },
       "KIMI_EFFECT_BENCHMARK_WARMUP": {
         "type": "number",
         "default": 2,
         "restrictions": "non-negative integer — warmup iterations discarded before measurement",
-        "see": ["src/lib/effect-benchmark.ts"]
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
       },
       "KIMI_EFFECT_BENCHMARK_TRAIN_MARGIN": {
         "type": "number",
         "default": 1.1,
         "restrictions": "multiplier >= 1.0 — trained threshold margin over measured median",
-        "see": ["src/lib/effect-benchmark.ts"]
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
       },
       "KIMI_EFFECT_BENCHMARK_REGRESSION_TOLERANCE": {
         "type": "number",
         "default": 1.05,
         "restrictions": "multiplier >= 1.0 — regression tolerance when comparing to previous snapshot",
-        "see": ["src/lib/effect-benchmark.ts"]
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
       },
       "KIMI_EFFECT_BENCHMARK_DEFAULT_THRESHOLD_MS": {
         "type": "number",
         "default": 100,
         "restrictions": "positive number — fallback threshold (ms) for handlers without a default",
-        "see": ["src/lib/effect-benchmark.ts"]
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
       },
       "KIMI_EFFECT_BENCHMARK_SNAPSHOT_MAX_RUNS": {
         "type": "number",
         "default": 50,
         "restrictions": "positive integer — max NDJSON snapshot rows retained per project",
-        "see": ["src/lib/effect-benchmark.ts"]
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
       },
       "KIMI_EFFECT_BENCHMARK_RUN_TIMEOUT_MS": {
         "type": "number",
         "default": 10000,
         "restrictions": "positive integer — max wall-clock ms for a dashboard benchmark run",
-        "see": ["src/lib/effect-benchmark.ts"]
+        "see": [
+          "src/lib/effect-benchmark.ts"
+        ]
       },
       "KIMI_EFFECT_BENCHMARK_POST_COOLDOWN_MS": {
         "type": "number",
         "default": 8000,
         "restrictions": "positive integer — min ms between POST refresh/train requests",
-        "see": ["src/lib/effect-benchmark-resilience.ts"]
+        "see": [
+          "src/lib/effect-benchmark-resilience.ts"
+        ]
       }
     },
     "governance": {
@@ -172,7 +210,9 @@
         "type": "string",
         "default": "1.4.5",
         "restrictions": "semver — bump when any other KIMI_* define is added, changed, or removed",
-        "see": ["scripts/lint-tuning-set-version.ts"]
+        "see": [
+          "scripts/lint-tuning-set-version.ts"
+        ]
       }
     },
     "mcp-defaults": {
@@ -180,7 +220,10 @@
         "type": "string",
         "default": "'{\"callTimeoutMs\":60000,\"queryTimeoutMs\":30000,\"cardTimeoutMs\":15000,\"maxTop\":0}'",
         "restrictions": "JSON object; maxTop 0 means no default truncation",
-        "see": ["src/lib/mcp-config.ts", "src/bin/kimi-mcp.ts"]
+        "see": [
+          "src/lib/mcp-config.ts",
+          "src/bin/kimi-mcp.ts"
+        ]
       }
     }
   },
