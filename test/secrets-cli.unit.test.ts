@@ -1,12 +1,13 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { Effect } from "effect";
 import { join } from "path";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import {
-  cmdSecretsList,
   cmdSecretsStorage,
   cmdSecretsGate,
   cmdSecretsDoctor,
+  secretsListProgram,
 } from "../src/lib/secrets-cli.ts";
 import { writeText } from "./helpers.ts";
 import { repoRoot } from "../src/lib/globs.ts";
@@ -57,8 +58,8 @@ describe("secrets-cli", () => {
     rmSync(tempRoot, { recursive: true, force: true });
   });
 
-  test("cmdSecretsList exits 0 and reports policy entries", async () => {
-    const code = await cmdSecretsList({ projectRoot: tempRoot, json: true });
+  test("secretsListProgram exits 0 and reports policy entries", async () => {
+    const code = await Effect.runPromise(secretsListProgram({ projectRoot: tempRoot, json: true }));
     expect(code).toBe(0);
   });
 

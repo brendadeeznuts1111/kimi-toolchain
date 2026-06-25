@@ -48,19 +48,21 @@ export async function cmdSecretsStorage(opts: SecretsCliOptions): Promise<number
   return status.insecureSecretCount > 0 ? 1 : 0;
 }
 
-export async function cmdSecretsList(opts: SecretsCliOptions): Promise<number> {
-  const logger = resolveSecretsLogger(opts);
-  const manager = new SecretsManager({ projectRoot: opts.projectRoot, onWarn: () => {} });
-  const rows = await Effect.runPromise(manager.list());
-  if (opts.json) {
-    emitJson(rows);
+export function secretsListProgram(opts: SecretsCliOptions): Effect.Effect<number> {
+  return Effect.gen(function* () {
+    const logger = resolveSecretsLogger(opts);
+    const manager = new SecretsManager({ projectRoot: opts.projectRoot, onWarn: () => {} });
+    const rows = yield* manager.list();
+    if (opts.json) {
+      emitJson(rows);
+      return 0;
+    }
+    for (const row of rows) {
+      const via = row.resolvedVia ? ` via ${row.resolvedVia}` : "";
+      logger.line(`${row.present ? "✓" : "✗"} ${row.key.service}/${row.key.name}${via}`);
+    }
     return 0;
-  }
-  for (const row of rows) {
-    const via = row.resolvedVia ? ` via ${row.resolvedVia}` : "";
-    logger.line(`${row.present ? "✓" : "✗"} ${row.key.service}/${row.key.name}${via}`);
-  }
-  return 0;
+  });
 }
 
 function printCheckRows(logger: Logger, results: SecretCheckResult[]): void {
@@ -73,73 +75,80 @@ function printCheckRows(logger: Logger, results: SecretCheckResult[]): void {
   }
 }
 
-export async function cmdSecretsCheck(opts: SecretsCliOptions): Promise<number> {
-  const logger = resolveSecretsLogger(opts);
-  const manager = new SecretsManager({ projectRoot: opts.projectRoot });
-  const gate = await runSecretsStorageGate(opts.projectRoot);
-  const result = await Effect.runPromise(Effect.either(manager.check()));
-
-  if (opts.json) {
-    emitJson({
-      gate,
-      check: Either.isRight(result) ? result.right : { error: result.left._tag },
+export function secretsCheckProgram(opts: SecretsCliOptions): Effect.Effect<number> {
+  return Effect.gen(function* () {
+    const logger = resolveSecretsLogger(opts);
+    const manager = new SecretsManager({ projectRoot: opts.projectRoot });
+    const gate = yield* Effect.tryPromise({
+      try: () => runSecretsStorageGate(opts.projectRoot),
+      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
     });
-  } else {
-    if (!gate.ok && !gate.skipped) {
-      logger.error(
-        `gate: ${gate.message} [${gate.taxonomyId ?? SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY}]`
-      );
-    } else if (gate.skipped) {
-      logger.line(`gate: skipped (${gate.message})`);
+    const result = yield* Effect.either(manager.check());
+
+    if (opts.json) {
+      emitJson({
+        gate,
+        check: Either.isRight(result) ? result.right : { error: result.left._tag },
+      });
     } else {
-      logger.line(`gate: ${gate.message}`);
+      if (!gate.ok && !gate.skipped) {
+        logger.error(
+          `gate: ${gate.message} [${gate.taxonomyId ?? SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY}]`
+        );
+      } else if (gate.skipped) {
+        logger.line(`gate: skipped (${gate.message})`);
+      } else {
+        logger.line(`gate: ${gate.message}`);
+      }
+
+      if (Either.isRight(result)) {
+        printCheckRows(logger, result.right);
+      } else if (result.left instanceof SecretRotationRequired) {
+        logger.error(
+          `rotation required: ${result.left.service}/${result.left.name} (${result.left.daysStale ?? "?"}d stale)`
+        );
+      }
     }
 
-    if (Either.isRight(result)) {
-      printCheckRows(logger, result.right);
-    } else if (result.left instanceof SecretRotationRequired) {
-      logger.error(
-        `rotation required: ${result.left.service}/${result.left.name} (${result.left.daysStale ?? "?"}d stale)`
-      );
-    }
-  }
-
-  if (!gate.ok && !gate.skipped) return 1;
-  if (Either.isLeft(result)) return 1;
-  const mismatches = result.right.filter((r) => r.status === "storage_mismatch");
-  return mismatches.length > 0 ? 1 : 0;
+    if (!gate.ok && !gate.skipped) return 1;
+    if (Either.isLeft(result)) return 1;
+    const mismatches = result.right.filter((r) => r.status === "storage_mismatch");
+    return mismatches.length > 0 ? 1 : 0;
+  });
 }
 
-export async function cmdSecretsRotate(
+export function secretsRotateProgram(
   opts: SecretsCliOptions,
   service: string,
   name: string,
   newValue?: string
-): Promise<number> {
-  const logger = resolveSecretsLogger(opts);
-  const manager = new SecretsManager({ projectRoot: opts.projectRoot });
-  const key = parseKey(service, name);
-  const result = await Effect.runPromise(Effect.either(manager.rotate(key, newValue)));
+): Effect.Effect<number> {
+  return Effect.gen(function* () {
+    const logger = resolveSecretsLogger(opts);
+    const manager = new SecretsManager({ projectRoot: opts.projectRoot });
+    const key = parseKey(service, name);
+    const result = yield* Effect.either(manager.rotate(key, newValue));
 
-  if (Either.isLeft(result)) {
-    const err = result.left;
-    const message =
-      err instanceof SecretNotFound
-        ? `secret not found: ${service}/${name}`
-        : err instanceof SecretPolicyViolation
-          ? `policy violation: ${err.reason}`
-          : String(err);
-    if (opts.json) emitJson({ ok: false, error: message });
-    else logger.error(message);
-    return 1;
-  }
+    if (Either.isLeft(result)) {
+      const err = result.left;
+      const message =
+        err instanceof SecretNotFound
+          ? `secret not found: ${service}/${name}`
+          : err instanceof SecretPolicyViolation
+            ? `policy violation: ${err.reason}`
+            : String(err);
+      if (opts.json) emitJson({ ok: false, error: message });
+      else logger.error(message);
+      return 1;
+    }
 
-  if (opts.json) emitJson({ ok: true, ...result.right });
-  else
-    logger.line(
-      `rotated ${service}/${name} → v${result.right.version} (${result.right.lastRotated})`
-    );
-  return 0;
+    if (opts.json) emitJson({ ok: true, ...result.right });
+    else
+      logger.line(
+        `rotated ${service}/${name} → v${result.right.version} (${result.right.lastRotated})`
+      );
+    return 0;
+  });
 }
 
 export async function cmdSecretsDoctor(opts: SecretsCliOptions): Promise<number> {
