@@ -1,0 +1,167 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`Snapshot contracts DYNAMIC_SOURCES.json schema contract full schema with dynamic value matchers 1`] = `
+{
+  "bunVersion": "1.4.0",
+  "generatedAt": Any<String>,
+  "jsonHash": Any<String>,
+  "revision": "452139e36",
+  "schema": "1.2.0",
+  "sources": {
+    "add": {
+      "completes": [
+        "registry_packages",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "a",
+      ],
+    },
+    "bare_bun": {
+      "completes": [
+        "files",
+        "scripts",
+        "binaries",
+      ],
+      "provider": null,
+      "providerArgs": null,
+    },
+    "build": {
+      "completes": [
+        "files",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "j",
+      ],
+    },
+    "create": {
+      "completes": [
+        "templates",
+      ],
+      "provider": null,
+      "templateDir": "$BUN_INSTALL/create",
+    },
+    "remove": {
+      "completes": [
+        "installed_packages",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "a",
+      ],
+    },
+    "run": {
+      "completes": [
+        "scripts",
+        "files",
+        "binaries",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "s",
+        "b",
+        "j",
+      ],
+    },
+    "test": {
+      "completes": [
+        "files",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "j",
+      ],
+    },
+  },
+}
+`;
+
+exports[`Snapshot contracts COMPLETION_MATRIX.md header format header line with dynamic value matchers 1`] = `
+{
+  "header": StringMatching /^Generated from \`completions\\/bun-cli\\.json\` \\(schema v[\\d.]+, Bun [\\d.]+, revision [a-f0-9]+, hash \`[a-f0-9]{12}\`\\)\\.$/,
+}
+`;
+
+exports[`completion-matrix DYNAMIC_SOURCES.json schema contract full schema with dynamic value matchers 1`] = `
+{
+  "bunVersion": "1.4.0",
+  "generatedAt": Any<String>,
+  "jsonHash": Any<String>,
+  "revision": "452139e36",
+  "schema": "1.2.0",
+  "sources": {
+    "add": {
+      "completes": [
+        "registry_packages",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "a",
+      ],
+    },
+    "bare_bun": {
+      "completes": [
+        "files",
+        "scripts",
+        "binaries",
+      ],
+      "provider": null,
+      "providerArgs": null,
+    },
+    "build": {
+      "completes": [
+        "files",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "j",
+      ],
+    },
+    "create": {
+      "completes": [
+        "templates",
+      ],
+      "provider": null,
+      "templateDir": "$BUN_INSTALL/create",
+    },
+    "remove": {
+      "completes": [
+        "installed_packages",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "a",
+      ],
+    },
+    "run": {
+      "completes": [
+        "scripts",
+        "files",
+        "binaries",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "s",
+        "b",
+        "j",
+      ],
+    },
+    "test": {
+      "completes": [
+        "files",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "j",
+      ],
+    },
+  },
+}
+`;
+
+exports[`completion-matrix COMPLETION_MATRIX.md header format header line with dynamic value matchers 1`] = `
+{
+  "header": StringMatching /^Generated from \`completions\\/bun-cli\\.json\` \\(schema v[\\d.]+, Bun [\\d.]+, revision [a-f0-9]+, hash \`[a-f0-9]{12}\`\\)\\.$/,
+}
+`;

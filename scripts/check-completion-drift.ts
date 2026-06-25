@@ -6,7 +6,6 @@
  * completions/bun-cli.json.
  */
 
-import { createHash } from "crypto";
 import { readText } from "../src/lib/bun-io.ts";
 
 const ROOT = import.meta.dir.endsWith("scripts") ? `${import.meta.dir}/..` : import.meta.dir;
@@ -14,7 +13,7 @@ const JSON_PATH = `${ROOT}/completions/bun-cli.json`;
 const MATRIX_PATH = `${ROOT}/completions/COMPLETION_MATRIX.md`;
 
 function sha256Short(input: string): string {
-  return createHash("sha256").update(input).digest("hex").slice(0, 8);
+  return Bun.SHA256.hash(input, "hex").slice(0, 12);
 }
 
 function main(): void {

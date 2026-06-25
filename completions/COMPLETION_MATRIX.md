@@ -1,60 +1,60 @@
 # Bun CLI Completion Behavior Matrix
 
-Generated from `completions/bun-cli.json` (schema v1.2.0, Bun 1.4.0, hash `5a2cd016`).
+Generated from `completions/bun-cli.json` (schema v1.2.0, Bun 1.4.0, revision 1.4.0-canary.1+452139e36, hash `5a2cd0162582`).
 
 ## Top-level commands
 
 | Command | Flags | Value flags | Positional args | Req pos | Opt pos | File I/O | PM | Runtime | Debug | Network | Subcommands | Dynamic | Examples | Defaults (#) | Default values | Choices (#) | Choice values | Drift hash |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| add (a) | 40 | 14 | 1 | 0 | 1 | 4 | 28 | 1 | 5 | 6 | 0 | packages | 6 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd016 |
-| audit | 3 | 2 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd016 |
-| build | 57 | 27 | 0 | 0 | 0 | 13 | 1 | 6 | 1 | 0 | 0 | files | 5 | 12 | --compile-autoload-dotenv=true), --compile-autoload-bunfig=true), --compile-autoload-tsconfig=false), --compile-autoload-package-json=false), --outdir=dist, --format=esm, --allow-unresolved='*', --packages=bundle, --entry-naming=[dir]/[name], --chunk-naming=[name]-[hash], --asset-naming=[name]-[hash], --env='disable' | 0 | — | 5a2cd016 |
-| create (c) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd016 |
-| exec | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd016 |
-| feedback | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd016 |
-| info | 35 | 14 | 2 | 0 | 2 | 4 | 23 | 1 | 5 | 6 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd016 |
-| init | 6 | 0 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | — | 4 | 0 | — | 0 | — | 5a2cd016 |
-| install (i) | 41 | 15 | 1 | 0 | 1 | 4 | 28 | 2 | 5 | 6 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd016 |
-| link | 34 | 14 | 1 | 0 | 1 | 4 | 23 | 1 | 5 | 6 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd016 |
-| outdated | 36 | 15 | 2 | 0 | 2 | 4 | 23 | 2 | 5 | 6 | 0 | — | 7 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd016 |
-| patch | 36 | 15 | 1 | 0 | 1 | 4 | 23 | 1 | 5 | 6 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd016 |
-| pm | 0 | 0 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 16 | — | 0 | 0 | — | 0 | — | 5a2cd016 |
-| publish | 40 | 19 | 2 | 0 | 2 | 4 | 26 | 1 | 5 | 7 | 0 | — | 4 | 4 | --concurrent-scripts=2x, --tag=latest, --auth-type='web'), --gzip-level=9 | 0 | — | 5a2cd016 |
-| remove (rm) | 34 | 14 | 1 | 0 | 1 | 4 | 23 | 1 | 5 | 6 | 0 | packages | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd016 |
-| repl | 82 | 42 | 2 | 1 | 1 | 5 | 2 | 19 | 5 | 2 | 0 | — | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd016 |
-| run | 82 | 42 | 2 | 1 | 1 | 5 | 2 | 19 | 5 | 2 | 0 | scripts, files, binaries | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd016 |
-| test | 28 | 16 | 2 | 0 | 2 | 0 | 0 | 2 | 4 | 1 | 0 | files | 3 | 7 | --timeout=5000, --coverage-reporter='text', --coverage-dir='coverage', --bail=1, --reporter=console, --max-concurrency=20, --parallel=CPU | 0 | — | 5a2cd016 |
-| unlink | 34 | 14 | 1 | 0 | 1 | 4 | 23 | 1 | 5 | 6 | 0 | — | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd016 |
-| update | 38 | 15 | 1 | 0 | 1 | 4 | 23 | 2 | 5 | 6 | 0 | — | 4 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd016 |
-| upgrade | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd016 |
-| why | 0 | 0 | 3 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd016 |
-| x | 5 | 0 | 3 | 1 | 2 | 0 | 1 | 1 | 2 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd016 |
+| add (a) | 40 | 14 | 1 | 0 | 1 | 4 | 28 | 1 | 5 | 6 | 0 | packages | 6 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| audit | 3 | 2 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
+| build | 57 | 27 | 0 | 0 | 0 | 13 | 1 | 6 | 1 | 0 | 0 | files | 5 | 12 | --compile-autoload-dotenv=true), --compile-autoload-bunfig=true), --compile-autoload-tsconfig=false), --compile-autoload-package-json=false), --outdir=dist, --format=esm, --allow-unresolved='*', --packages=bundle, --entry-naming=[dir]/[name], --chunk-naming=[name]-[hash], --asset-naming=[name]-[hash], --env='disable' | 0 | — | 5a2cd0162582 |
+| create (c) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
+| exec | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
+| feedback | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
+| info | 35 | 14 | 2 | 0 | 2 | 4 | 23 | 1 | 5 | 6 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| init | 6 | 0 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | — | 4 | 0 | — | 0 | — | 5a2cd0162582 |
+| install (i) | 41 | 15 | 1 | 0 | 1 | 4 | 28 | 2 | 5 | 6 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| link | 34 | 14 | 1 | 0 | 1 | 4 | 23 | 1 | 5 | 6 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| outdated | 36 | 15 | 2 | 0 | 2 | 4 | 23 | 2 | 5 | 6 | 0 | — | 7 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| patch | 36 | 15 | 1 | 0 | 1 | 4 | 23 | 1 | 5 | 6 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| pm | 0 | 0 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 16 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
+| publish | 40 | 19 | 2 | 0 | 2 | 4 | 26 | 1 | 5 | 7 | 0 | — | 4 | 4 | --concurrent-scripts=2x, --tag=latest, --auth-type='web'), --gzip-level=9 | 0 | — | 5a2cd0162582 |
+| remove (rm) | 34 | 14 | 1 | 0 | 1 | 4 | 23 | 1 | 5 | 6 | 0 | packages | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| repl | 82 | 42 | 2 | 1 | 1 | 5 | 2 | 19 | 5 | 2 | 0 | — | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd0162582 |
+| run | 82 | 42 | 2 | 1 | 1 | 5 | 2 | 19 | 5 | 2 | 0 | scripts, files, binaries | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd0162582 |
+| test | 28 | 16 | 2 | 0 | 2 | 0 | 0 | 2 | 4 | 1 | 0 | files | 3 | 7 | --timeout=5000, --coverage-reporter='text', --coverage-dir='coverage', --bail=1, --reporter=console, --max-concurrency=20, --parallel=CPU | 0 | — | 5a2cd0162582 |
+| unlink | 34 | 14 | 1 | 0 | 1 | 4 | 23 | 1 | 5 | 6 | 0 | — | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| update | 38 | 15 | 1 | 0 | 1 | 4 | 23 | 2 | 5 | 6 | 0 | — | 4 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| upgrade | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
+| why | 0 | 0 | 3 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
+| x | 5 | 0 | 3 | 1 | 2 | 0 | 1 | 1 | 2 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
 
 ## `bun pm` subcommands
 
 | Path | Flags | Value flags | Positional args | Req pos | Opt pos | File I/O | PM | Runtime | Debug | Network | Subcommands | Examples | Defaults (#) | Default values | Choices (#) | Choice values | Isolated | Drift hash |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| pm scan | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm pack | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm bin | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm why | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm whoami | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm view | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm version | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm pkg | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm pkg get | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm pkg set | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm pkg delete | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm pkg fix | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm hash | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm hash-string | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm hash-print | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm cache | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm cache rm | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm migrate | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm untrusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm trust | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
-| pm default-trusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd016 |
+| pm scan | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pack | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm bin | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm why | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm whoami | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm view | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm version | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pkg | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pkg get | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pkg set | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pkg delete | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pkg fix | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm hash | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm hash-string | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm hash-print | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm cache | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm cache rm | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm migrate | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm untrusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm trust | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm default-trusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
 
 ## Global flag inheritance by command
 
@@ -87,9 +87,6 @@ Generated from `completions/bun-cli.json` (schema v1.2.0, Bun 1.4.0, hash `5a2cd
 ## Global flags
 
 - Total: 84
-- With values: 42
-- With defaults: 7
-- With choices: 3
 
 ## Special handling
 

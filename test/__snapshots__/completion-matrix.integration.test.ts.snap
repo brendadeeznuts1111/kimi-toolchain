@@ -1,81 +1,5 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`completion-matrix integration matrix and dynamic sources are generated from bun-cli.json 1`] = `
-{
-  "bunVersion": Any<String>,
-  "generatedAt": Any<String>,
-  "jsonHash": Any<String>,
-  "schema": "1.2.0",
-  "sources": {
-    "add": {
-      "completes": [
-        "registry_packages",
-      ],
-      "provider": "getcompletes",
-      "providerArgs": [
-        "a",
-      ],
-    },
-    "bare_bun": {
-      "completes": [
-        "files",
-        "scripts",
-        "binaries",
-      ],
-      "provider": null,
-      "providerArgs": null,
-    },
-    "build": {
-      "completes": [
-        "files",
-      ],
-      "provider": "getcompletes",
-      "providerArgs": [
-        "j",
-      ],
-    },
-    "create": {
-      "completes": [
-        "templates",
-      ],
-      "provider": null,
-      "templateDir": "$BUN_INSTALL/create",
-    },
-    "remove": {
-      "completes": [
-        "installed_packages",
-      ],
-      "provider": "getcompletes",
-      "providerArgs": [
-        "a",
-      ],
-    },
-    "run": {
-      "completes": [
-        "scripts",
-        "files",
-        "binaries",
-      ],
-      "provider": "getcompletes",
-      "providerArgs": [
-        "s",
-        "b",
-        "j",
-      ],
-    },
-    "test": {
-      "completes": [
-        "files",
-      ],
-      "provider": "getcompletes",
-      "providerArgs": [
-        "j",
-      ],
-    },
-  },
-}
-`;
-
 exports[`completion-matrix integration bun-cli.json command list is stable 1`] = `
 [
   "add",
@@ -191,4 +115,80 @@ exports[`completion-matrix integration global flag names are stable 1`] = `
   "workspaces",
   "zero-fill-buffers",
 ]
+`;
+
+exports[`completion-matrix integration matrix and dynamic sources are generated from bun-cli.json 1`] = `
+{
+  "bunVersion": Any<String>,
+  "generatedAt": Any<String>,
+  "jsonHash": Any<String>,
+  "schema": "1.2.0",
+  "sources": {
+    "add": {
+      "completes": [
+        "registry_packages",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "a",
+      ],
+    },
+    "bare_bun": {
+      "completes": [
+        "files",
+        "scripts",
+        "binaries",
+      ],
+      "provider": null,
+      "providerArgs": null,
+    },
+    "build": {
+      "completes": [
+        "files",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "j",
+      ],
+    },
+    "create": {
+      "completes": [
+        "templates",
+      ],
+      "provider": null,
+      "templateDir": "$BUN_INSTALL/create",
+    },
+    "remove": {
+      "completes": [
+        "installed_packages",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "a",
+      ],
+    },
+    "run": {
+      "completes": [
+        "scripts",
+        "files",
+        "binaries",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "s",
+        "b",
+        "j",
+      ],
+    },
+    "test": {
+      "completes": [
+        "files",
+      ],
+      "provider": "getcompletes",
+      "providerArgs": [
+        "j",
+      ],
+    },
+  },
+}
 `;

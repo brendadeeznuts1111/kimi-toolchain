@@ -50,6 +50,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "scaffold-agents": "src/lib/scaffold-agents.ts",
   "lint-test-names": "scripts/lint-test-names.ts",
   "lint-build-constants": "scripts/lint-build-constants.ts",
+  "completion-matrix": "src/completions/completion-matrix.ts",
   "constants-registry": "src/lib/constants-registry.ts",
   "optimizer-doctor": "src/lib/constant-optimizer.ts",
   "decision-list-diff": "src/lib/decision-ledger.ts",

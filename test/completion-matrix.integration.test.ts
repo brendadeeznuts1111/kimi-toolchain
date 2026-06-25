@@ -36,7 +36,7 @@ describe("completion-matrix integration", () => {
     expect(md).toContain("# Bun CLI Completion Behavior Matrix");
     expect(md).toContain("## Top-level commands");
     expect(md).toContain("## `bun pm` subcommands");
-    expect(md).toMatch(/hash `[a-f0-9]{8}`/);
+    expect(md).toMatch(/hash `[a-f0-9]{12}`/);
 
     const dynamic = JSON.parse(readText(DYNAMIC_PATH));
     expect(dynamic).toMatchSnapshot({
