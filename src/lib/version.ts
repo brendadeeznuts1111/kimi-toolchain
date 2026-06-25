@@ -8,6 +8,7 @@
  */
 
 import { dirname, join } from "path";
+import { buildInfo } from "./build-info.ts";
 import { $ } from "bun";
 import { makeDir, movePath, pathExists, readText } from "./bun-io.ts";
 import { manifestPath } from "./paths.ts";
@@ -57,9 +58,10 @@ export const MCP_BRIDGE_VERSION = TOOLCHAIN_VERSION;
 export const BUILD_TIME =
   typeof KIMI_BUILD_TIME === "string" && KIMI_BUILD_TIME.length > 0 ? KIMI_BUILD_TIME : null;
 
-/** Git commit hash baked in at compile time. */
-export const GIT_COMMIT =
-  typeof KIMI_GIT_COMMIT === "string" && KIMI_GIT_COMMIT.length > 0 ? KIMI_GIT_COMMIT : null;
+/** Git commit hash — from macros at bundle time, or define constant at dev time. */
+export const GIT_COMMIT = buildInfo.gitHash !== "unknown" ? buildInfo.gitHash : (
+  typeof KIMI_GIT_COMMIT === "string" && KIMI_GIT_COMMIT.length > 0 ? KIMI_GIT_COMMIT : null
+);
 
 /** Build channel baked in at compile time (e.g. "release"). */
 export const BUILD_CHANNEL =
