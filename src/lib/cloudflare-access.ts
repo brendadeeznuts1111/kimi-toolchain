@@ -253,21 +253,18 @@ export function isAuthError(err: unknown): boolean {
   return err instanceof Error && /\b40[13]\b|Authentication error/.test(err.message);
 }
 
-export async function listServiceTokens(
-  accountId: string,
-  apiToken: string
-): Promise<ServiceToken[]> {
-  return await apiGet<ServiceToken[]>(accountId, apiToken, "/access/service_tokens");
+export function listServiceTokens(accountId: string, apiToken: string): Promise<ServiceToken[]> {
+  return apiGet<ServiceToken[]>(accountId, apiToken, "/access/service_tokens");
 }
 
-export async function listApplications(
+export function listApplications(
   accountId: string,
   apiToken: string
 ): Promise<AccessApplication[]> {
-  return await apiGet<AccessApplication[]>(accountId, apiToken, "/access/apps");
+  return apiGet<AccessApplication[]>(accountId, apiToken, "/access/apps");
 }
 
-export async function rotateServiceToken(
+export function rotateServiceToken(
   accountId: string,
   apiToken: string,
   tokenId: string
@@ -325,27 +322,6 @@ export function checkTokenExpiry(
 
 // ── App Policy Audit ─────────────────────────────────────────────────
 
-export function parseSessionHours(duration?: string): number {
-  if (!duration) return 24;
-  const match = duration.match(/^(\d+)h$/);
-  if (match) return Number.parseInt(match[1], 10);
-  const dayMatch = duration.match(/^(\d+)d$/);
-  if (dayMatch) return Number.parseInt(dayMatch[1], 10) * 24;
-  return 24;
-}
-
-function hasEveryone(include: Array<Record<string, unknown>>): boolean {
-  return include.some((rule) => "everyone" in rule);
-}
-
-function hasServiceToken(include: Array<Record<string, unknown>>): boolean {
-  return include.some((rule) => "service_token" in rule);
-}
-
-function hasMfa(require: Array<Record<string, unknown>>): boolean {
-  return require.some((rule) => "auth_method" in rule || "gsuite" in rule || "azureAD" in rule);
-}
-
 export function auditApps(apps: AccessApplication[], tokens: ServiceToken[]): AppFinding[] {
   const findings: AppFinding[] = [];
   const tokenIds = new Set(tokens.map((t) => t.id));
@@ -373,7 +349,7 @@ export function auditApps(apps: AccessApplication[], tokens: ServiceToken[]): Ap
 
       if (policy.decision !== "allow") continue;
 
-      if (hasEveryone(policy.include)) {
+      if (policy.include.some((rule) => "everyone" in rule)) {
         findings.push({
           app,
           policy,
@@ -382,7 +358,7 @@ export function auditApps(apps: AccessApplication[], tokens: ServiceToken[]): Ap
         });
       }
 
-      if (!hasMfa(policy.require)) {
+      if (!policy.require.some((rule) => "auth_method" in rule || "gsuite" in rule || "azureAD" in rule)) {
         findings.push({
           app,
           policy,
@@ -391,13 +367,13 @@ export function auditApps(apps: AccessApplication[], tokens: ServiceToken[]): Ap
         });
       }
 
-      if (hasServiceToken(policy.include)) {
+      if (policy.include.some((rule) => "service_token" in rule)) {
         const tokenRule = policy.include.find((r) => "service_token" in r) as {
           service_token?: { token_id?: string };
         };
         const tokenId = tokenRule?.service_token?.token_id;
         if (tokenId && tokenIds.has(tokenId)) {
-          if (hasEveryone(policy.include)) {
+          if (policy.include.some((rule) => "everyone" in rule)) {
             findings.push({
               app,
               policy,
@@ -416,7 +392,16 @@ export function auditApps(apps: AccessApplication[], tokens: ServiceToken[]): Ap
       }
     }
 
-    const sessionHours = parseSessionHours(app.session_duration);
+    let sessionHours = 24;
+    if (app.session_duration) {
+      const hourMatch = app.session_duration.match(/^(\d+)h$/);
+      if (hourMatch) {
+        sessionHours = Number.parseInt(hourMatch[1], 10);
+      } else {
+        const dayMatch = app.session_duration.match(/^(\d+)d$/);
+        if (dayMatch) sessionHours = Number.parseInt(dayMatch[1], 10) * 24;
+      }
+    }
     if (sessionHours > 168) {
       findings.push({
         app,
@@ -441,14 +426,6 @@ export function auditApps(apps: AccessApplication[], tokens: ServiceToken[]): Ap
 }
 
 // ── Dashboard ────────────────────────────────────────────────────────
-
-export function domainToProjectName(domain?: string): string {
-  if (!domain) return "";
-  const host = domain.replace(/\/\*.*/, "").replace(/^https?:\/\//, "");
-  const parts = host.split(".");
-  if (parts.length >= 2) return parts[0];
-  return host;
-}
 
 function loadProjectRoots(): string[] {
   const defaults = [join(homeDir(), "kimi-toolchain"), join(homeDir(), "Projects")];
@@ -503,12 +480,11 @@ export async function discoverLocalProject(app: AccessApplication): Promise<{
     const dir = override;
     const pkgFile = Bun.file(`${dir}/package.json`);
     if (await pkgFile.exists()) {
-      let pkg: { name?: string; version?: string; repository?: { url?: string } | string } = {};
-      try {
-        pkg = await pkgFile.json();
-      } catch {
-        /* ignore */
-      }
+      const pkg = (await pkgFile.json()) as {
+        name?: string;
+        version?: string;
+        repository?: { url?: string } | string;
+      };
       const wranglerFile = Bun.file(`${dir}/wrangler.toml`);
       const wranglerJson = Bun.file(`${dir}/wrangler.json`);
       const wranglerJsonc = Bun.file(`${dir}/wrangler.jsonc`);
@@ -543,7 +519,10 @@ export async function discoverLocalProject(app: AccessApplication): Promise<{
   const candidates: string[] = [];
 
   // Domain-based guess
-  const projectName = domainToProjectName(app.domain || app.self_hosted_domains?.[0]);
+  const domain = app.domain || app.self_hosted_domains?.[0];
+  const host = domain ? domain.replace(/\/\*.*/, "").replace(/^https?:\/\//, "") : "";
+  const parts = host.split(".");
+  const projectName = parts.length >= 2 ? parts[0] : host;
   if (projectName) {
     for (const root of KNOWN_PROJECT_ROOTS) {
       candidates.push(`${root}/${projectName}`);
@@ -573,12 +552,11 @@ export async function discoverLocalProject(app: AccessApplication): Promise<{
     const pkgFile = Bun.file(pkgPath);
     if (!(await pkgFile.exists())) continue;
 
-    let pkg: { name?: string; version?: string; repository?: { url?: string } | string } = {};
-    try {
-      pkg = await pkgFile.json();
-    } catch {
-      continue;
-    }
+    const pkg = (await pkgFile.json()) as {
+      name?: string;
+      version?: string;
+      repository?: { url?: string } | string;
+    };
 
     // Verify this package matches the app domain or name
     const pkgName = pkg.name || "";

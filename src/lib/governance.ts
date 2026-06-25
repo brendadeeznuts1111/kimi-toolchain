@@ -275,14 +275,9 @@ export async function storeCoverageHistory(projectDir: string, report: CoverageR
 export async function loadCachedCoverage(projectDir: string): Promise<CoverageReport | null> {
   const historyPath = coverageHistoryPath();
   if (!pathExists(historyPath)) return null;
-  let history: CoverageHistoryEntry[];
-  try {
-    const raw = await Bun.file(historyPath).json();
-    if (!isCoverageHistoryEntryArray(raw)) return null;
-    history = raw;
-  } catch {
-    return null;
-  }
+  const raw = await Bun.file(historyPath).json();
+  if (!isCoverageHistoryEntryArray(raw)) return null;
+  const history = raw;
   const project = await getProjectName(projectDir);
   const latest = history
     .filter((entry) => entry.project === project)

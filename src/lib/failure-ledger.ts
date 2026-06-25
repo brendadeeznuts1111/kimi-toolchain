@@ -2,6 +2,7 @@
  * Failure ledger read/write with cluster assignment persistence.
  */
 
+import { pathExists } from "./bun-io.ts";
 import { errorClustersPath, failureLedgerPath } from "./paths.ts";
 import { safeParse } from "./utils.ts";
 import { appendNdjsonRecord, writeNdjsonFile } from "./ndjson.ts";
@@ -35,12 +36,9 @@ export interface ClusterMetadataFile {
 export async function readClusterMetadata(
   path: string = errorClustersPath()
 ): Promise<ClusterMetadataFile | null> {
-  try {
-    const text = await Bun.file(path).text();
-    return safeParse<ClusterMetadataFile | null>(text.trim(), null);
-  } catch {
-    return null;
-  }
+  if (!pathExists(path)) return null;
+  const text = await Bun.file(path).text();
+  return safeParse<ClusterMetadataFile | null>(text.trim(), null);
 }
 
 export async function readFailureRecords(

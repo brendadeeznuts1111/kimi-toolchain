@@ -239,12 +239,8 @@ async function computeFreshness(
 
   let meta: ContextMeta | null = null;
   if (pathExists(CONTEXT_META)) {
-    try {
-      const raw = await Bun.file(CONTEXT_META).json();
-      meta = isContextMeta(raw) ? raw : null;
-    } catch {
-      meta = null;
-    }
+    const raw = await Bun.file(CONTEXT_META).json();
+    meta = isContextMeta(raw) ? raw : null;
   }
 
   const changed: string[] = [];

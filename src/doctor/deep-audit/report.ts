@@ -48,21 +48,7 @@ function firstLine(text: string): string {
   return text.split("\n")[0]?.trim() ?? "";
 }
 
-async function renderReport(reportPath: string): Promise<number> {
-  const file = Bun.file(reportPath);
-  if (!(await file.exists())) {
-    console.error(`Report not found: ${reportPath}`);
-    return 1;
-  }
-
-  let report: DeepAuditReport;
-  try {
-    report = await file.json();
-  } catch (err) {
-    console.error(`Failed to parse report: ${err instanceof Error ? err.message : String(err)}`);
-    return 1;
-  }
-
+function renderReport(report: DeepAuditReport): number {
   console.log(`\n── Deep Audit Report ─────────────────────────────────────`);
   console.log(`Generated: ${report.generatedAt}`);
   console.log(`Project:   ${report.projectRoot}`);
@@ -102,8 +88,19 @@ async function renderReport(reportPath: string): Promise<number> {
 }
 
 async function main(): Promise<number> {
-  const reportPath = Bun.argv[2] ?? ".kimi-artifacts/deep-audit-report.json";
-  return renderReport(reportPath);
+  try {
+    const reportPath = Bun.argv[2] ?? ".kimi-artifacts/deep-audit-report.json";
+    const file = Bun.file(reportPath);
+    if (!(await file.exists())) {
+      console.error(`Report not found: ${reportPath}`);
+      return 1;
+    }
+    const report = (await file.json()) as DeepAuditReport;
+    return renderReport(report);
+  } catch (err) {
+    console.error("[fatal]", err instanceof Error ? err.message : err);
+    return 1;
+  }
 }
 
 if (isDirectRun(import.meta.path)) {

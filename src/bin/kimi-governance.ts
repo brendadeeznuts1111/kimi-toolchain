@@ -257,14 +257,9 @@ const COVERAGE_HISTORY = join(GOVERNANCE_DIR, "coverage-history.json");
 
 async function latestCoverageHistory(projectDir: string): Promise<CoverageReport | null> {
   if (!pathExists(COVERAGE_HISTORY)) return null;
-  let history: CoverageHistoryEntry[];
-  try {
-    const raw = await Bun.file(COVERAGE_HISTORY).json();
-    if (!isCoverageHistoryEntryArray(raw)) return null;
-    history = raw;
-  } catch {
-    return null;
-  }
+  const raw = await Bun.file(COVERAGE_HISTORY).json();
+  if (!isCoverageHistoryEntryArray(raw)) return null;
+  const history = raw;
   const project = await getProjectName(projectDir);
   const latest = history
     .filter((entry) => entry.project === project)

@@ -106,22 +106,14 @@ export function projectMcpPath(projectRoot: string): string {
 
 export async function readMcpJson(path: string): Promise<ReadMcpJsonResult> {
   if (!pathExists(path)) return { data: null };
-  try {
-    const raw = await Bun.file(path).json();
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { data: null };
-    const servers = Reflect.get(raw, "mcpServers");
-    return {
-      data: {
-        mcpServers:
-          servers && typeof servers === "object" && !Array.isArray(servers) ? servers : {},
-      },
-    };
-  } catch (e) {
-    return {
-      data: null,
-      error: e instanceof Error ? e.message : Bun.inspect(e),
-    };
-  }
+  const raw = await Bun.file(path).json();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { data: null };
+  const servers = Reflect.get(raw, "mcpServers");
+  return {
+    data: {
+      mcpServers: servers && typeof servers === "object" && !Array.isArray(servers) ? servers : {},
+    },
+  };
 }
 
 export async function writeMcpJson(path: string, data: McpJson): Promise<void> {

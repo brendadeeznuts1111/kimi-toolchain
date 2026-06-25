@@ -274,14 +274,10 @@ export async function readDebugEditorFromBunfig(cwd = process.cwd()): Promise<{
 }> {
   const bunfigPath = await resolveActiveBunfigPath(cwd);
   if (!bunfigPath) return {};
-  try {
-    const text = await Bun.file(bunfigPath).text();
-    const parsed = safeToml<BunfigDebugSection>(text, {});
-    const editor = parsed.debug?.editor?.trim();
-    return editor ? { editor, bunfigPath } : { bunfigPath };
-  } catch {
-    return { bunfigPath };
-  }
+  const text = await Bun.file(bunfigPath).text();
+  const parsed = safeToml<BunfigDebugSection>(text, {});
+  const editor = parsed.debug?.editor?.trim();
+  return editor ? { editor, bunfigPath } : { bunfigPath };
 }
 
 /** Editor detection aligned with Bun.openInEditor precedence. */

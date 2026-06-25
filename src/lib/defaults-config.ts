@@ -110,33 +110,28 @@ export async function loadDxDefaults(projectRoot: string): Promise<DefaultsConfi
     return null;
   }
 
-  try {
-    const text = await Bun.file(configPath).text();
-    const parsed = Bun.TOML.parse(text) as Record<string, unknown>;
-    const raw = (parsed.defaults as Record<string, unknown>) ?? {};
+  const text = await Bun.file(configPath).text();
+  const parsed = Bun.TOML.parse(text) as Record<string, unknown>;
+  const raw = (parsed.defaults as Record<string, unknown>) ?? {};
 
-    const config: Partial<DefaultsConfig> = {};
-    let hasAny = false;
-    for (const key of DEFAULTS_CONFIG_KEYS) {
-      const value = coerceNumber(raw[key as string]);
-      if (value !== undefined) {
-        (config as Record<string, number>)[key] = value;
-        hasAny = true;
-      }
+  const config: Partial<DefaultsConfig> = {};
+  let hasAny = false;
+  for (const key of DEFAULTS_CONFIG_KEYS) {
+    const value = coerceNumber(raw[key as string]);
+    if (value !== undefined) {
+      (config as Record<string, number>)[key] = value;
+      hasAny = true;
     }
+  }
 
-    if (!hasAny) {
-      cache.set(projectRoot, null);
-      return null;
-    }
-
-    const full = config as DefaultsConfig;
-    cache.set(projectRoot, full);
-    return full;
-  } catch {
+  if (!hasAny) {
     cache.set(projectRoot, null);
     return null;
   }
+
+  const full = config as DefaultsConfig;
+  cache.set(projectRoot, full);
+  return full;
 }
 
 /**
@@ -153,33 +148,28 @@ export function loadDxDefaultsSync(projectRoot: string): DefaultsConfig | null {
     return null;
   }
 
-  try {
-    const text = readText(configPath);
-    const parsed = Bun.TOML.parse(text) as Record<string, unknown>;
-    const raw = (parsed.defaults as Record<string, unknown>) ?? {};
+  const text = readText(configPath);
+  const parsed = Bun.TOML.parse(text) as Record<string, unknown>;
+  const raw = (parsed.defaults as Record<string, unknown>) ?? {};
 
-    const config: Partial<DefaultsConfig> = {};
-    let hasAny = false;
-    for (const key of DEFAULTS_CONFIG_KEYS) {
-      const value = coerceNumber(raw[key as string]);
-      if (value !== undefined) {
-        (config as Record<string, number>)[key] = value;
-        hasAny = true;
-      }
+  const config: Partial<DefaultsConfig> = {};
+  let hasAny = false;
+  for (const key of DEFAULTS_CONFIG_KEYS) {
+    const value = coerceNumber(raw[key as string]);
+    if (value !== undefined) {
+      (config as Record<string, number>)[key] = value;
+      hasAny = true;
     }
+  }
 
-    if (!hasAny) {
-      cache.set(projectRoot, null);
-      return null;
-    }
-
-    const full = config as DefaultsConfig;
-    cache.set(projectRoot, full);
-    return full;
-  } catch {
+  if (!hasAny) {
     cache.set(projectRoot, null);
     return null;
   }
+
+  const full = config as DefaultsConfig;
+  cache.set(projectRoot, full);
+  return full;
 }
 
 /**

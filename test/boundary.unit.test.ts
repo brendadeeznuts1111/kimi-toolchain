@@ -37,11 +37,17 @@ describe("boundary", () => {
       expect(() => parseJsonValue({}, isStringArray, "test")).toThrow(/Invalid test/);
     });
 
-    test("readJsonFileOr returns fallback for invalid file", async () => {
+    test("readJsonFileOr returns fallback for invalid shape", async () => {
       const path = join(tempDir, "bad.json");
       await Bun.write(path, JSON.stringify({ not: "snapshot" }));
       const result = await readJsonFileOr(path, null, isSnapshot);
       expect(result).toBeNull();
+    });
+
+    test("readJsonFileOr rejects malformed JSON", async () => {
+      const path = join(tempDir, "broken.json");
+      await Bun.write(path, "{not-json");
+      await expect(readJsonFileOr(path, null, isSnapshot)).rejects.toThrow();
     });
 
     test("tryReadJsonValidated reads valid snapshot", async () => {

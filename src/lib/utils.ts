@@ -60,13 +60,9 @@ export async function readPackageJson<T extends Record<string, unknown>>(
 ): Promise<T | null> {
   const pkgPath = join(projectDir, "package.json");
   if (!pathExists(pkgPath)) return null;
-  try {
-    const pkg = await Bun.file(pkgPath).json();
-    if (validator) return validator(pkg) ? pkg : null;
-    return isPackageJsonManifest(pkg) ? (pkg as T) : null;
-  } catch {
-    return null;
-  }
+  const pkg = await Bun.file(pkgPath).json();
+  if (validator) return validator(pkg) ? pkg : null;
+  return isPackageJsonManifest(pkg) ? (pkg as T) : null;
 }
 
 /** Typed package.json read for common kimi-toolchain scans. */

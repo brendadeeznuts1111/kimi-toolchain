@@ -569,12 +569,8 @@ export async function readConstantsManifest(
 ): Promise<ConstantsManifest | null> {
   const path = `${projectRoot}/constants-manifest.json`;
   if (!pathExists(path)) return null;
-  try {
-    const raw = await Bun.file(path).json();
-    return isConstantsManifest(raw) ? raw : null;
-  } catch {
-    return null;
-  }
+  const raw = await Bun.file(path).json();
+  return isConstantsManifest(raw) ? raw : null;
 }
 
 export function manifestNeedsRefresh(

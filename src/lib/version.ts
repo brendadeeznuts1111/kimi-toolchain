@@ -185,12 +185,10 @@ export function isToolchainManifest(val: unknown): val is ToolchainManifest {
 
 /** Read the desktop install manifest if it exists */
 export async function readManifest(): Promise<ToolchainManifest | null> {
-  try {
-    const parsed = await Bun.file(manifestPath()).json();
-    return isToolchainManifest(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
+  const path = manifestPath();
+  if (!pathExists(path)) return null;
+  const parsed = await Bun.file(path).json();
+  return isToolchainManifest(parsed) ? parsed : null;
 }
 
 /** Compute SHA-256 hex digest for a file (Bun-native). */

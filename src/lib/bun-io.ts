@@ -10,6 +10,7 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -75,6 +76,10 @@ export function pathLstat(path: PathLike) {
   return lstatSync(path);
 }
 
+export function readlinkPath(path: PathLike): string {
+  return readlinkSync(path, "utf8");
+}
+
 export function movePath(oldPath: PathLike, newPath: PathLike): void {
   renameSync(oldPath, newPath);
 }
@@ -110,12 +115,8 @@ export async function readJsonFileOr<T>(
   validate: JsonValidator<T>
 ): Promise<T> {
   if (!pathExists(path)) return fallback;
-  try {
-    const raw = await Bun.file(path).json();
-    return validate(raw) ? raw : fallback;
-  } catch {
-    return fallback;
-  }
+  const raw = await Bun.file(path).json();
+  return validate(raw) ? raw : fallback;
 }
 
 /** Read and validate JSON; returns null when missing, unparseable, or invalid. */
@@ -124,10 +125,6 @@ export async function tryReadJsonValidated<T>(
   validate: JsonValidator<T>
 ): Promise<T | null> {
   if (!pathExists(path)) return null;
-  try {
-    const raw = await Bun.file(path).json();
-    return validate(raw) ? raw : null;
-  } catch {
-    return null;
-  }
+  const raw = await Bun.file(path).json();
+  return validate(raw) ? raw : null;
 }

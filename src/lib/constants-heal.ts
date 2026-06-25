@@ -253,11 +253,7 @@ export async function writeConstantsGolden(
 export async function loadConstantsGolden(projectRoot: string): Promise<ConstantsGolden | null> {
   const path = constantsGoldenPath(projectRoot);
   if (!pathExists(path)) return null;
-  try {
-    return parseConstantsGolden(await Bun.file(path).json());
-  } catch {
-    return null;
-  }
+  return parseConstantsGolden(await Bun.file(path).json());
 }
 
 export function diffAgainstGolden(

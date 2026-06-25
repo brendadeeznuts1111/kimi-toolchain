@@ -3,6 +3,7 @@
  * lockfile integrity. Consumed by kimi-doctor.
  */
 
+import { pathExists } from "./bun-io.ts";
 import type { HealthCheck } from "./health-check.ts";
 import { readPackageManifest } from "./utils.ts";
 
@@ -76,12 +77,7 @@ export async function auditTrustedDeps(opts: TrustedDepsAuditOptions = {}): Prom
 
   // ─── Load bunfig.toml ──────────────────────────────────────────────────────
   const bunfigPath = `${root}/bunfig.toml`;
-  let bunfigExists = false;
-  try {
-    bunfigExists = await Bun.file(bunfigPath).exists();
-  } catch {
-    bunfigExists = false;
-  }
+  const bunfigExists = await Bun.file(bunfigPath).exists();
   const bunfigText = bunfigExists ? await Bun.file(bunfigPath).text() : "";
   const hasIgnoreScriptsFalse = bunfigText.includes("ignoreScripts = false");
   const hasFrozenLockfile = bunfigText.includes("frozenLockfile = true");
@@ -137,18 +133,9 @@ export async function auditTrustedDeps(opts: TrustedDepsAuditOptions = {}): Prom
   );
 
   // ─── Lockfile freshness ────────────────────────────────────────────────────
-  let pkgStat: Awaited<ReturnType<ReturnType<typeof Bun.file>["stat"]>> | null = null;
-  try {
-    pkgStat = await Bun.file(pkgPath).stat();
-  } catch {
-    pkgStat = null;
-  }
-  let lockStat: typeof pkgStat = null;
-  try {
-    lockStat = await Bun.file(`${root}/bun.lock`).stat();
-  } catch {
-    lockStat = null;
-  }
+  const pkgStat = pathExists(pkgPath) ? await Bun.file(pkgPath).stat() : null;
+  const lockPath = `${root}/bun.lock`;
+  const lockStat = pathExists(lockPath) ? await Bun.file(lockPath).stat() : null;
 
   if (!lockStat) {
     checks.push(

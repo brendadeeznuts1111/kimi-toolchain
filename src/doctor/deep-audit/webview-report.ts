@@ -15,15 +15,6 @@ import { ensureDir } from "../../lib/utils.ts";
 import { formatWebViewExperimentalNotice, webViewSupported } from "../../lib/webview-console.ts";
 import { join } from "path";
 
-function escapeHtml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
 function escapeScriptJson(report: DeepAuditReport): string {
   return JSON.stringify(report).replaceAll("<", "\\u003c");
 }
@@ -42,9 +33,9 @@ export function renderReportHtml(report: DeepAuditReport): string {
       return `
     <tr class="run ${run.ok ? "pass" : "fail"}">
       <td class="icon">${run.ok ? "✅" : "❌"}</td>
-      <td class="id">${escapeHtml(run.id)}</td>
+      <td class="id">${Bun.escapeHTML(run.id)}</td>
       <td class="summary">
-        <div class="summary-text">${escapeHtml(run.summary)}</div>
+        <div class="summary-text">${Bun.escapeHTML(run.summary)}</div>
         <div class="duration-bar-bg" aria-hidden="true">
           <div class="duration-bar" style="width: ${widthPct}%"></div>
         </div>
@@ -57,10 +48,10 @@ export function renderReportHtml(report: DeepAuditReport): string {
           <summary>Details</summary>
           <div class="detail-grid">
             <div><strong>Exit code:</strong> ${run.exitCode}</div>
-            <div><strong>Description:</strong> ${escapeHtml(run.description)}</div>
+            <div><strong>Description:</strong> ${Bun.escapeHTML(run.description)}</div>
           </div>
-          ${run.stdout ? `<div class="output"><strong>stdout</strong><pre><code>${escapeHtml(run.stdout)}</code></pre></div>` : ""}
-          ${run.stderr ? `<div class="output"><strong>stderr</strong><pre><code>${escapeHtml(run.stderr)}</code></pre></div>` : ""}
+          ${run.stdout ? `<div class="output"><strong>stdout</strong><pre><code>${Bun.escapeHTML(run.stdout)}</code></pre></div>` : ""}
+          ${run.stderr ? `<div class="output"><strong>stderr</strong><pre><code>${Bun.escapeHTML(run.stderr)}</code></pre></div>` : ""}
         </details>
       </td>
     </tr>`;
@@ -72,9 +63,9 @@ export function renderReportHtml(report: DeepAuditReport): string {
         .map(
           (finding) => `
     <tr>
-      <td class="taxonomy">${escapeHtml(finding.taxonomyId)}</td>
-      <td class="file">${escapeHtml(finding.file)}</td>
-      <td class="message">${escapeHtml(finding.message)}</td>
+      <td class="taxonomy">${Bun.escapeHTML(finding.taxonomyId)}</td>
+      <td class="file">${Bun.escapeHTML(finding.file)}</td>
+      <td class="message">${Bun.escapeHTML(finding.message)}</td>
     </tr>`
         )
         .join("")
@@ -85,7 +76,7 @@ export function renderReportHtml(report: DeepAuditReport): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Deep Audit Report — ${escapeHtml(report.projectRoot)}</title>
+  <title>Deep Audit Report — ${Bun.escapeHTML(report.projectRoot)}</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -248,9 +239,9 @@ export function renderReportHtml(report: DeepAuditReport): string {
   <header>
     <h1>Deep Audit Report</h1>
     <div class="meta">
-      <div>Project: ${escapeHtml(report.projectRoot)}</div>
-      <div>Generated: ${escapeHtml(report.generatedAt)}</div>
-      <div>Bun: ${escapeHtml(report.bunVersion)} · Mode: ${report.full ? "full" : "default"}</div>
+      <div>Project: ${Bun.escapeHTML(report.projectRoot)}</div>
+      <div>Generated: ${Bun.escapeHTML(report.generatedAt)}</div>
+      <div>Bun: ${Bun.escapeHTML(report.bunVersion)} · Mode: ${report.full ? "full" : "default"}</div>
     </div>
     <div class="status ${statusClass}">
       ${statusIcon} ${passed}/${total} passed · ${failed} failed · ${report.summary.durationMs}ms
@@ -401,22 +392,14 @@ export async function showWebviewReport(
 }
 
 async function main(): Promise<number> {
-  const reportPath = Bun.argv[2] ?? ".kimi-artifacts/deep-audit-report.json";
-  const file = Bun.file(reportPath);
-  if (!(await file.exists())) {
-    console.error(`Report not found: ${reportPath}`);
-    return 1;
-  }
-
-  let report: DeepAuditReport;
   try {
-    report = await file.json();
-  } catch (err) {
-    console.error(`Failed to parse report: ${err instanceof Error ? err.message : String(err)}`);
-    return 1;
-  }
-
-  try {
+    const reportPath = Bun.argv[2] ?? ".kimi-artifacts/deep-audit-report.json";
+    const file = Bun.file(reportPath);
+    if (!(await file.exists())) {
+      console.error(`Report not found: ${reportPath}`);
+      return 1;
+    }
+    const report = (await file.json()) as DeepAuditReport;
     const htmlPath = await writeHtmlReport(report);
     console.log(`HTML report written to ${htmlPath}`);
     const view = await openWebviewReport(htmlPath);
@@ -424,7 +407,7 @@ async function main(): Promise<number> {
     await waitForWebviewClose(view);
     return 0;
   } catch (err) {
-    console.error(`Failed to open webview: ${err instanceof Error ? err.message : String(err)}`);
+    console.error("[fatal]", err instanceof Error ? err.message : err);
     return 1;
   }
 }

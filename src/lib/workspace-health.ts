@@ -207,15 +207,11 @@ async function countMismatchedSessionCwds(
   if (!(await Bun.file(sessionIndexPath).exists())) return 0;
   const expected = resolve(expectedCwd);
   let mismatched = 0;
-  try {
-    const lines = (await Bun.file(sessionIndexPath).text()).split("\n").filter(Boolean);
-    for (const line of lines) {
-      const entry = safeParse(line, null as { cwd?: string; workDir?: string } | null);
-      const cwd = entry?.cwd || entry?.workDir;
-      if (cwd && resolve(cwd) !== expected) mismatched++;
-    }
-  } catch {
-    return 0;
+  const lines = (await Bun.file(sessionIndexPath).text()).split("\n").filter(Boolean);
+  for (const line of lines) {
+    const entry = safeParse(line, null as { cwd?: string; workDir?: string } | null);
+    const cwd = entry?.cwd || entry?.workDir;
+    if (cwd && resolve(cwd) !== expected) mismatched++;
   }
   return mismatched;
 }
