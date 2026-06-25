@@ -22,7 +22,10 @@
 
 import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
-import { parseCliFlags } from "../lib/cli-contract.ts";
+import { parseCliFlags, writeStdoutLine } from "../lib/cli-contract.ts";
+import { createLogger } from "../lib/logger.ts";
+
+const logger = createLogger(Bun.argv, "kimi-deep-audit");
 import { resolveDevSecrets } from "../lib/resolve-dev-secrets.ts";
 import { join } from "path";
 import { mkdir } from "fs/promises";
@@ -238,37 +241,37 @@ async function writeReport(report: DeepAuditReport): Promise<string> {
 }
 
 function printHumanReport(report: DeepAuditReport): void {
-  console.log(`\n── Deep Audit Report ─────────────────────────────────────`);
-  console.log(`Generated: ${report.generatedAt}`);
-  console.log(`Project:   ${report.projectRoot}`);
-  console.log(`Bun:       ${report.bunVersion}`);
-  console.log(`Mode:      ${report.full ? "full" : "default"}\n`);
+  logger.info(`\n── Deep Audit Report ─────────────────────────────────────`);
+  logger.info(`Generated: ${report.generatedAt}`);
+  logger.info(`Project:   ${report.projectRoot}`);
+  logger.info(`Bun:       ${report.bunVersion}`);
+  logger.info(`Mode:      ${report.full ? "full" : "default"}\n`);
 
   for (const run of report.runs) {
     const icon = run.ok ? "✅" : "❌";
-    console.log(`${icon} ${run.id.padEnd(28)} ${run.summary} (${run.durationMs}ms)`);
+    logger.info(`${icon} ${run.id.padEnd(28)} ${run.summary} (${run.durationMs}ms)`);
   }
 
-  console.log(`\n────────────────────────────────────────────────────────`);
-  console.log(
+  logger.info(`\n────────────────────────────────────────────────────────`);
+  logger.info(
     `Summary: ${report.summary.passed}/${report.summary.total} passed · ${report.summary.failed} failed · ${report.summary.durationMs}ms`
   );
 
   if (report.imageAudit) {
     const { filesScanned, findings } = report.imageAudit;
-    console.log(`\nImage audit: ${filesScanned} file(s) scanned · ${findings.length} finding(s)`);
+    logger.info(`\nImage audit: ${filesScanned} file(s) scanned · ${findings.length} finding(s)`);
     for (const finding of findings) {
-      console.log(`  [${finding.taxonomyId}] ${finding.file}: ${finding.message}`);
+      logger.info(`  [${finding.taxonomyId}] ${finding.file}: ${finding.message}`);
     }
   }
 
   if (report.summary.failed > 0) {
-    console.log(`\nFailed audits:`);
+    logger.info(`\nFailed audits:`);
     for (const run of report.runs) {
       if (!run.ok) {
-        console.log(`  ❌ ${run.id}: exit ${run.exitCode}`);
+        logger.info(`  ❌ ${run.id}: exit ${run.exitCode}`);
         const firstErr = firstLine(run.stderr) || firstLine(run.stdout);
-        if (firstErr) console.log(`     ${firstErr}`);
+        if (firstErr) logger.info(`     ${firstErr}`);
       }
     }
   }
@@ -290,7 +293,7 @@ async function main(): Promise<number> {
   const argv = Bun.argv.slice(2);
 
   if (argv.includes("--help") || argv.includes("-h")) {
-    console.log(`kimi-deep-audit — comprehensive deep audit
+    logger.info(`kimi-deep-audit — comprehensive deep audit
 
 Usage:
   bun run deep-audit [--json] [--full] [--report] [--webview]
@@ -317,12 +320,12 @@ Report is always written to .kimi-artifacts/deep-audit-report.json.`);
   const projectRoot = await resolveProjectRoot(Bun.cwd);
 
   if (!json) {
-    console.log(`Running deep audit (${full ? "full" : "default"} mode)…`);
+    logger.info(`Running deep audit (${full ? "full" : "default"} mode)…`);
   }
   const auditReport = await buildReport(projectRoot, full);
 
   if (json) {
-    console.log(JSON.stringify(auditReport, null, 2));
+    await writeStdoutLine(JSON.stringify(auditReport, null, 2));
   } else {
     const reportPath = await writeReport(auditReport);
     printHumanReport(auditReport);
@@ -335,16 +338,16 @@ Report is always written to .kimi-artifacts/deep-audit-report.json.`);
       try {
         const result = await showWebviewReport(auditReport);
         webviewView = result.view;
-        console.log(`Webview report opened from ${result.htmlPath}`);
-        console.log("Press Ctrl+C to close the webview window.");
+        logger.info(`Webview report opened from ${result.htmlPath}`);
+        logger.info("Press Ctrl+C to close the webview window.");
       } catch (err) {
-        console.error(
+        logger.error(
           `Failed to open webview: ${err instanceof Error ? err.message : String(err)}`
         );
         return 1;
       }
     }
-    console.log(`Report written to ${reportPath}`);
+    logger.info(`Report written to ${reportPath}`);
     if (webviewView) {
       await waitForWebviewClose(webviewView);
     }

@@ -13,6 +13,7 @@
 
 import { join } from "path";
 import { isDirectRun } from "../lib/bun-utils.ts";
+import { createLogger } from "../lib/logger.ts";
 import { pathExists, readText } from "../lib/bun-io.ts";
 import { loadTomlConfig } from "../lib/toml-config.ts";
 
@@ -43,19 +44,20 @@ interface Manifest {
 
 // ── CLI ────────────────────────────────────────────────────────────
 
+const logger = createLogger(Bun.argv, "kimi-bake");
 const args = Bun.argv.slice(2);
 const command = args[0];
 
 function printHelp() {
-  console.log("kimi-bake — Artifact assembler for kimi-toolchain");
-  console.log("");
-  console.log("Usage:");
-  console.log("  kimi-bake <artifact> [--output <dir>] [--dry-run]");
-  console.log("  kimi-bake list");
-  console.log("  kimi-bake doctor");
-  console.log("");
-  console.log("Reads manifest.toml and assembles artifacts from");
-  console.log("template + example sources into a target directory.");
+  logger.info("kimi-bake — Artifact assembler for kimi-toolchain");
+  logger.info("");
+  logger.info("Usage:");
+  logger.info("  kimi-bake <artifact> [--output <dir>] [--dry-run]");
+  logger.info("  kimi-bake list");
+  logger.info("  kimi-bake doctor");
+  logger.info("");
+  logger.info("Reads manifest.toml and assembles artifacts from");
+  logger.info("template + example sources into a target directory.");
 }
 
 // ── Manifest schema ────────────────────────────────────────────────
@@ -81,7 +83,7 @@ async function loadManifest(): Promise<Manifest> {
   const path = resolveManifestPath();
   const result = await loadTomlConfig(path, isManifestSchema, {});
   if (!result.ok) {
-    console.error(`manifest.toml: ${result.error} (${result.code})`);
+    logger.error(`manifest.toml: ${result.error} (${result.code})`);
     process.exit(1);
   }
   return result.config;
@@ -117,13 +119,13 @@ async function cmdList(): Promise<number> {
   const artifacts = manifest.artifact || {};
   const names = Object.keys(artifacts);
   if (names.length === 0) {
-    console.log("No artifacts defined in manifest.toml");
+    logger.info("No artifacts defined in manifest.toml");
     return 0;
   }
-  console.log("Available artifacts:");
+  logger.info("Available artifacts:");
   for (const name of names) {
     const desc = artifacts[name]?.description ?? "(no description)";
-    console.log(`  ${name} — ${desc}`);
+    logger.info(`  ${name} — ${desc}`);
   }
   return 0;
 }
@@ -133,9 +135,9 @@ async function cmdDoctor(): Promise<number> {
   const artifacts = manifest.artifact || {};
   let errors = 0;
 
-  console.log("── kimi-bake doctor ──");
-  console.log(`manifest: ${resolveManifestPath()}`);
-  console.log(`artifacts: ${Object.keys(artifacts).length}`);
+  logger.info("── kimi-bake doctor ──");
+  logger.info(`manifest: ${resolveManifestPath()}`);
+  logger.info(`artifacts: ${Object.keys(artifacts).length}`);
 
   for (const [name, artifact] of Object.entries(artifacts)) {
     const requires = artifact.requires || [];
@@ -143,9 +145,9 @@ async function cmdDoctor(): Promise<number> {
     if (requires.length > 0) {
       const { ok, missing } = validatePath(requires);
       if (ok) {
-        console.log(`  ✓ ${name}: ${requires.join(", ")} on PATH`);
+        logger.info(`  ✓ ${name}: ${requires.join(", ")} on PATH`);
       } else {
-        console.log(`  ✗ ${name}: missing ${missing.join(", ")}`);
+        logger.info(`  ✗ ${name}: missing ${missing.join(", ")}`);
         errors++;
       }
     }
@@ -153,9 +155,9 @@ async function cmdDoctor(): Promise<number> {
     if (artifact.secrets_check) {
       const secrets = probeSecrets();
       if (secrets.ok) {
-        console.log(`  ✓ ${name}: Bun.secrets (${secrets.methods.join(", ")})`);
+        logger.info(`  ✓ ${name}: Bun.secrets (${secrets.methods.join(", ")})`);
       } else {
-        console.log(
+        logger.info(
           `  ✗ ${name}: Bun.secrets unavailable (${secrets.methods.join(", ") || "none"})`
         );
         errors++;
@@ -164,10 +166,10 @@ async function cmdDoctor(): Promise<number> {
   }
 
   if (errors > 0) {
-    console.log(`\n${errors} artifact(s) have missing dependencies.`);
-    console.log('Run: dx setup   or   export PATH="$HOME/.kimi-code/bin:$PATH"');
+    logger.info(`\n${errors} artifact(s) have missing dependencies.`);
+    logger.info('Run: dx setup   or   export PATH="$HOME/.kimi-code/bin:$PATH"');
   } else {
-    console.log("\n✓ All artifact dependencies satisfied.");
+    logger.info("\n✓ All artifact dependencies satisfied.");
   }
 
   return errors > 0 ? 1 : 0;
@@ -177,8 +179,8 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
   const manifest = await loadManifest();
   const artifact = manifest.artifact?.[name];
   if (!artifact) {
-    console.error(`Unknown artifact: ${name}`);
-    console.error(`Available: ${Object.keys(manifest.artifact || {}).join(", ") || "(none)"}`);
+    logger.error(`Unknown artifact: ${name}`);
+    logger.error(`Available: ${Object.keys(manifest.artifact || {}).join(", ") || "(none)"}`);
     return 1;
   }
 
@@ -186,33 +188,33 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
   if (artifact.path_check && artifact.requires) {
     const { ok, missing } = validatePath(artifact.requires);
     if (!ok) {
-      console.error(`PATH check failed: missing ${missing.join(", ")}`);
+      logger.error(`PATH check failed: missing ${missing.join(", ")}`);
       return 1;
     }
-    console.log(`✓ PATH: ${artifact.requires.join(", ")}`);
+    logger.info(`✓ PATH: ${artifact.requires.join(", ")}`);
   }
 
   // Secrets check
   if (artifact.secrets_check) {
     const secrets = probeSecrets();
     if (!secrets.ok) {
-      console.error("Secrets check failed: Bun.secrets unavailable");
+      logger.error("Secrets check failed: Bun.secrets unavailable");
       return 1;
     }
-    console.log(`✓ Secrets: ${secrets.methods.join(", ")}`);
+    logger.info(`✓ Secrets: ${secrets.methods.join(", ")}`);
   }
 
   const target = outputDir ?? join(process.cwd(), name);
-  console.log(`artifact: ${name}`);
-  console.log(`target:   ${target}`);
+  logger.info(`artifact: ${name}`);
+  logger.info(`target:   ${target}`);
 
   if (dryRun) {
-    console.log("[dry-run] would assemble artifact files here");
+    logger.info("[dry-run] would assemble artifact files here");
     if (artifact.bunfig) {
-      console.log("[dry-run] would merge bunfig sections:");
+      logger.info("[dry-run] would merge bunfig sections:");
       if (artifact.bunfig.install)
-        console.log("  [install]", JSON.stringify(artifact.bunfig.install));
-      if (artifact.bunfig.test) console.log("  [test]", JSON.stringify(artifact.bunfig.test));
+        logger.info("  [install]", JSON.stringify(artifact.bunfig.install));
+      if (artifact.bunfig.test) logger.info("  [test]", JSON.stringify(artifact.bunfig.test));
     }
     return 0;
   }
@@ -224,7 +226,7 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
   if (sources.template) {
     const src = join(root, sources.template);
     if (pathExists(src)) {
-      console.log(`  copy: ${sources.template}/ → ${target}/`);
+      logger.info(`  copy: ${sources.template}/ → ${target}/`);
       await Bun.$`cp -r ${src}/. ${target}/`.quiet();
     }
   }
@@ -232,7 +234,7 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
   if (sources.example) {
     const src = join(root, sources.example);
     if (pathExists(src)) {
-      console.log(`  copy: ${sources.example}/ → ${target}/`);
+      logger.info(`  copy: ${sources.example}/ → ${target}/`);
       await Bun.$`cp -r ${src}/. ${target}/`.quiet();
     }
   }
@@ -263,10 +265,10 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
     }
 
     await Bun.write(bunfigPath, merged.trim() + "\n");
-    console.log(`  merge: bunfig.toml`);
+    logger.info(`  merge: bunfig.toml`);
   }
 
-  console.log(`\n✓ Baked ${name} → ${target}`);
+  logger.info(`\n✓ Baked ${name} → ${target}`);
   return 0;
 }
 

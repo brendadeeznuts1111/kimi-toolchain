@@ -31,6 +31,10 @@ import {
 import { runExamplesDashboardWebView } from "../lib/examples-dashboard-webview.ts";
 import { examplesDashboardLogPath, examplesDashboardPidPath, varDir } from "../lib/paths.ts";
 import { withBunNoOrphans } from "../lib/tool-runner.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
+import { createLogger } from "../lib/logger.ts";
+
+const logger = createLogger(Bun.argv, "kimi-dashboard");
 
 // Resolve the dashboard directory relative to the repo root
 const repoRoot = import.meta.dir.includes("kimi-toolchain")
@@ -140,9 +144,9 @@ if (isDirectRun(import.meta.path)) {
       port: port ?? (Number(env.PORT) || CANONICAL_DASHBOARD_PORT),
     });
     if (json) {
-      console.log(JSON.stringify(result, null, 2));
+      await writeStdoutLine(JSON.stringify(result, null, 2));
     } else {
-      console.log(formatExamplesDashboardProbeReport(result));
+      await writeStdoutLine(formatExamplesDashboardProbeReport(result));
     }
     process.exit(result.ok ? 0 : 1);
   }
@@ -196,13 +200,13 @@ if (isDirectRun(import.meta.path)) {
     ]);
     const daemonPid = Number(stdout.trim());
     if (exitCode !== 0 || !Number.isFinite(daemonPid)) {
-      console.error(stderr.trim() || stdout.trim() || "failed to launch dashboard daemon");
+      logger.error(stderr.trim() || stdout.trim() || "failed to launch dashboard daemon");
       process.exit(exitCode || 1);
     }
     await Bun.write(pidPath, `${daemonPid}\n`);
-    console.log(`Dashboard daemon pid=${daemonPid} port=${listenPort}`);
-    console.log(`Log: ${logPath}`);
-    console.log(`URL: http://127.0.0.1:${listenPort}/`);
+    logger.info(`Dashboard daemon pid=${daemonPid} port=${listenPort}`);
+    logger.info(`Log: ${logPath}`);
+    logger.info(`URL: http://127.0.0.1:${listenPort}/`);
     process.exit(0);
   }
 

@@ -2099,7 +2099,7 @@ async function main(): Promise<number> {
             : `Thresholds written to ${envelope.train.path}`
         );
         if (jsonMode) {
-          console.log(inspectAgent(envelope, { compact: false }));
+          await writeStdoutLine(inspectAgent(envelope, { compact: false }));
         }
         return 0;
       }
@@ -2126,7 +2126,7 @@ async function main(): Promise<number> {
         }
 
         if (jsonMode) {
-          console.log(inspectAgent(envelope, { compact: false }));
+          await writeStdoutLine(inspectAgent(envelope, { compact: false }));
         } else if (PERF_RICH || PERF_GATES) {
           for (const line of formatPerfGatesHuman(envelope).split("\n")) {
             logger.info(line);

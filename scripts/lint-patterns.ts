@@ -20,12 +20,7 @@ const LIB_CONSOLE_ALLOW = new Set([
 ]);
 
 // src/bin/ entry points that have not yet migrated to createLogger().
-const BIN_CONSOLE_ALLOW = new Set([
-  "src/bin/kimi-bake.ts",
-  "src/bin/kimi-dashboard.ts",
-  "src/bin/kimi-dashboard-mcp.ts",
-  "src/bin/kimi-doctor.ts",
-]);
+const BIN_CONSOLE_ALLOW = new Set<string>([]);
 const SCAN_GLOB = new Bun.Glob("src/**/*.ts");
 const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".kimi-artifacts"]);
 

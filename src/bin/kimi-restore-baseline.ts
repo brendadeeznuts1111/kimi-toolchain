@@ -14,6 +14,10 @@ import {
   type RestoreDriftRow,
 } from "../lib/desktop-sync.ts";
 
+function stderrLine(message: string): void {
+  process.stderr.write(`${message}\n`);
+}
+
 function dryRunRows(result: {
   dryRunRows?: RestoreDriftRow[];
   drift: string[];
@@ -41,7 +45,7 @@ async function main(): Promise<number> {
       const hashDiff = (err as Error & { hashDiff?: HashDiffResult }).hashDiff;
       if (driftRows?.length) printRestoreDryRunTable(driftRows);
       if (hashDiff && parsed.mode === "manifest") {
-        console.error("[restore] verifySyncManifest: FAILED — hash mismatch");
+        stderrLine("[restore] verifySyncManifest: FAILED — hash mismatch");
       }
     }
     throw err;
@@ -55,25 +59,25 @@ async function main(): Promise<number> {
   if (parsed.dryRun) {
     printRestoreDryRunTable(dryRunRows(result));
     if (result.mode === "manifest") {
-      console.error("[restore] baseline dry-run passed (archive hashes match repo)");
+      stderrLine("[restore] baseline dry-run passed (archive hashes match repo)");
       return 0;
     }
   }
 
   if (result.mode === "manifest") {
     const action = parsed.dryRun ? "verified" : "restored manifest to";
-    console.error(`[restore] ${action} ${result.targetDir}`);
-    console.error(`[restore] archive: ${result.archivePath}`);
-    console.error(`[restore] file hashes: ${result.restored}`);
-    if (result.wroteManifest) console.error("[restore] manifest written");
-    if (result.manifestVerificationOk) console.error("[restore] verifySyncManifest passed");
+    stderrLine(`[restore] ${action} ${result.targetDir}`);
+    stderrLine(`[restore] archive: ${result.archivePath}`);
+    stderrLine(`[restore] file hashes: ${result.restored}`);
+    if (result.wroteManifest) stderrLine("[restore] manifest written");
+    if (result.manifestVerificationOk) stderrLine("[restore] verifySyncManifest passed");
     return 0;
   }
 
   const action = parsed.dryRun ? "verified" : "restored";
-  console.error(`[restore] ${action} ${result.restored} file(s) from ${result.archivePath}`);
-  console.error(`[restore] target: ${result.targetDir}`);
-  if (result.verified) console.error("[restore] verification passed");
+  stderrLine(`[restore] ${action} ${result.restored} file(s) from ${result.archivePath}`);
+  stderrLine(`[restore] target: ${result.targetDir}`);
+  if (result.verified) stderrLine("[restore] verification passed");
   return 0;
 }
 
@@ -81,7 +85,7 @@ if (isDirectRun(import.meta.path)) {
   main()
     .then((code) => process.exit(code))
     .catch((err) => {
-      console.error("[restore]", err instanceof Error ? err.message : String(err));
+      stderrLine(`[restore] ${err instanceof Error ? err.message : String(err)}`);
       process.exit(1);
     });
 }

@@ -10,6 +10,8 @@
  */
 
 import { isDirectRun } from "../lib/bun-utils.ts";
+import { writeStdoutLine } from "../lib/cli-contract.ts";
+import { createLogger } from "../lib/logger.ts";
 import {
   auditMachineBunPolicy,
   machineCheckFailures,
@@ -18,6 +20,7 @@ import {
 import { readUserBunfigInstall } from "../lib/bunfig-redundancy.ts";
 import { MACHINE_BUNFIG_LABEL } from "../lib/machine-bun-ssot.ts";
 
+const logger = createLogger(Bun.argv, "machine-bun");
 const strict = Bun.argv.includes("--strict");
 const json = Bun.argv.includes("--json");
 
@@ -37,7 +40,7 @@ async function main(): Promise<void> {
   };
 
   if (json) {
-    console.info(
+    await writeStdoutLine(
       JSON.stringify(
         {
           tool: "machine-bun",
@@ -58,41 +61,41 @@ async function main(): Promise<void> {
   }
 
   if (!audit.applicable) {
-    console.info("Machine Bun policy (~/.bunfig.toml)");
-    console.info("────────────────────────────────────");
+    logger.info("Machine Bun policy (~/.bunfig.toml)");
+    logger.info("────────────────────────────────────");
     for (const check of audit.checks) {
-      console.info(`✅ ${check.id} — ${check.detail}`);
+      logger.info(`✅ ${check.id} — ${check.detail}`);
     }
-    console.info("────────────────────────────────────");
-    console.info("Result: pass (machine layer n/a)");
+    logger.info("────────────────────────────────────");
+    logger.info("Result: pass (machine layer n/a)");
     process.exit(0);
   }
 
-  console.info(`Machine Bun policy (${MACHINE_BUNFIG_LABEL})`);
-  console.info("────────────────────────────────────");
-  console.info(
+  logger.info(`Machine Bun policy (${MACHINE_BUNFIG_LABEL})`);
+  logger.info("────────────────────────────────────");
+  logger.info(
     `SSOT — linker=${ssot.linker ?? "unset"} globalStore=${String(ssot.globalStore)} cache.dir=${ssot.cacheDir ?? "unset"}`
   );
-  console.info("────────────────────────────────────");
+  logger.info("────────────────────────────────────");
   for (const check of audit.checks) {
     const isWarn = !check.ok && (check.id === "frozenLockfile" || check.id === "minimumReleaseAge");
     const icon = check.ok ? "✅" : isWarn && !strict ? "⚠️" : "❌";
-    console.info(`${icon} ${check.id} — ${check.detail}`);
+    logger.info(`${icon} ${check.id} — ${check.detail}`);
   }
-  console.info("────────────────────────────────────");
+  logger.info("────────────────────────────────────");
   if (failed === 0 && warned === 0) {
-    console.info("Result: pass");
+    logger.info("Result: pass");
     process.exit(0);
   }
   if (failed === 0) {
-    console.info(
+    logger.info(
       strict
         ? `Result: fail (${warned} warning(s) under --strict)`
         : `Result: warn (${warned} warning(s); use --strict to fail)`
     );
     process.exit(strict ? 1 : 0);
   }
-  console.info(
+  logger.info(
     strict
       ? `Result: fail (${failed} check(s))`
       : `Result: fail (${failed} check(s); ${warned} warning(s))`
