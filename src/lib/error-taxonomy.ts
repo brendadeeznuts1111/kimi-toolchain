@@ -5,7 +5,6 @@
  */
 
 import { pathExists } from "./bun-io.ts";
-import { logger } from "./logger.ts";
 import { join } from "path";
 import yaml from "js-yaml";
 
@@ -66,8 +65,8 @@ export function resolveTaxonomyPath(override?: string): string {
   if (Bun.env.NODE_ENV === "test") {
     const repo = repoTaxonomyPath();
     if (pathExists(repo)) return repo;
-    logger.warn(
-      `resolveTaxonomyPath: repo taxonomy missing at ${repo}; falling back to ${taxonomyPath()}`
+    process.stderr.write(
+      `⚠ resolveTaxonomyPath: repo taxonomy missing at ${repo}; falling back to ${taxonomyPath()}\n`
     );
   }
 
