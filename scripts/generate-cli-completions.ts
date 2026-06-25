@@ -541,12 +541,15 @@ function parseHelpOutput(helpText: string, commandName: string): CommandInfo {
     const line = lines[i];
     const trimmed = line.trim();
 
-    // Extract command description (usually the first non-usage line)
+    // Extract command description (usually the first non-usage, non-section line)
     if (
       !command.description &&
       trimmed &&
       !trimmed.startsWith("Usage:") &&
       !trimmed.startsWith("Alias:") &&
+      trimmed !== "Flags:" &&
+      trimmed !== "Examples:" &&
+      trimmed !== "Commands:" &&
       currentSection === ""
     ) {
       command.description = trimmed;
@@ -850,6 +853,18 @@ async function generateCompletions(): Promise<void> {
       const content = await fetchCommandDocContent(commandName, docs);
       if (content) {
         completionData.commands[commandName].docContent = content;
+
+        // If --help gave us no useful description, pull one from the doc page
+        const cmd = completionData.commands[commandName];
+        if (!cmd.description || cmd.description.startsWith("bun ")) {
+          const firstLine = content
+            .split("\n")
+            .map((l) => l.trim())
+            .find((l) => l && !l.startsWith("#") && !l.startsWith(">"));
+          if (firstLine) {
+            cmd.description = firstLine.replace(/^>\s*/, "").replace(/\*+/g, "").trim();
+          }
+        }
       }
     })
   );

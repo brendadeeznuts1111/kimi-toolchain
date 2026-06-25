@@ -5,27 +5,27 @@
 _bun_commands() {
   local -a commands
   commands=(
-    'run:Flags:'
+    'run:'
     'test:Run all matching test files and print the results to stdout'
     'x:Execute an npm package executable (CLI), automatically installing into a global shared cache if not installed in node_modules.'
-    'repl:Flags:'
+    'repl:'
     'exec:Execute a shell script directly from Bun.'
     'install:Install the dependencies listed in package.json.'
     'add:Add a new dependency to package.json and install it.'
     'remove:Remove a package from package.json and uninstall from node_modules.'
     'update:Update dependencies to their most recent versions within the version range in package.json.'
     'audit:Check installed packages for vulnerabilities.'
-    'outdated:bun outdated v1.4.0-canary.1 (452139e36)'
+    'outdated:Use `bun outdated` to check for outdated dependencies in your project. This command displays a table of dependencies that have newer versions available.'
     'link:Register a local directory as a "linkable" package, or link a "linkable" package to the current project.'
     'unlink:Unregister the current directory as a "linkable" package.'
-    'publish:bun publish v1.4.0-canary.1 (452139e36)'
+    'publish:`bun publish` will automatically pack your package into a tarball, strip catalog and workspace protocols from the `package.json` (resolving versions if necessary), and publish to the registry specified in your configuration files. Both `bunfig.toml` and `.npmrc` files are supported.'
     'patch:Prepare a package for patching, or generate and save a patch.'
     'pm:Run package manager utilities.'
     'info:View package metadata from the registry.'
     'why:Explain why a package is installed'
     'build:Transpile and bundle one or more files.'
     'init:Initialize a Bun project in the current directory.'
-    'create:bun create <MyReactComponent.(jsx|tsx)>'
+    'create:<Note>'
     'upgrade:Upgrade Bun'
     'feedback:bun feedback'
   )
@@ -152,7 +152,88 @@ _bun() {
       case "$line[1]" in
         run)
           _arguments -s -S \
-            # no flags
+            '( --silent)--silent[Don'\''t print the script command]' \
+            '( --elide-lines)--elide-lines[Number of lines of script output shown when using --filter (default: 10). Set to 0 to show all lines.]' \
+            '( -F --filter) -F--filter[Run a script in all workspace packages matching the pattern]' \
+            '( -b --bun) -b--bun[Force a script or package to use Bun'\''s runtime instead of Node.js (via symlinking node)]' \
+            '( --no-orphans)--no-orphans[Exit when the parent process dies, and on exit SIGKILL every descendant. Linux/macOS only.]' \
+            '( --shell)--shell[Control the shell used for package.json scripts. Supports either '\''bun'\'' or '\''system'\'']' \
+            '( --workspaces)--workspaces[Run a script in all workspace packages (from the "workspaces" field in package.json)]' \
+            '( --parallel)--parallel[Run multiple scripts concurrently with Foreman-style output]' \
+            '( --sequential)--sequential[Run multiple scripts sequentially with Foreman-style output]' \
+            '( --no-exit-on-error)--no-exit-on-error[Continue running other scripts when one fails (with --parallel/--sequential)]' \
+            '( --watch)--watch[Automatically restart the process on file change]' \
+            '( --hot)--hot[Enable auto reload in the Bun runtime, test runner, or bundler]' \
+            '( --no-clear-screen)--no-clear-screen[Disable clearing the terminal screen on reload when --hot or --watch is enabled]' \
+            '( --smol)--smol[Use less memory, but run garbage collection more often]' \
+            '( -r --preload) -r--preload[Import a module before other modules are loaded]' \
+            '( --require)--require[Alias of --preload, for Node.js compatibility]' \
+            '( --import)--import[Alias of --preload, for Node.js compatibility]' \
+            '( --inspect)--inspect[Activate Bun'\''s debugger]' \
+            '( --inspect-wait)--inspect-wait[Activate Bun'\''s debugger, wait for a connection before executing]' \
+            '( --inspect-brk)--inspect-brk[Activate Bun'\''s debugger, set breakpoint on first line of code and wait]' \
+            '( --cpu-prof)--cpu-prof[Start CPU profiler and write profile to disk on exit]' \
+            '( --cpu-prof-name)--cpu-prof-name[Specify the name of the CPU profile file]' \
+            '( --cpu-prof-dir)--cpu-prof-dir[Specify the directory where the CPU profile will be saved]' \
+            '( --cpu-prof-md)--cpu-prof-md[Output CPU profile in markdown format (grep-friendly, designed for LLM analysis)]' \
+            '( --cpu-prof-interval)--cpu-prof-interval[Specify the sampling interval in microseconds for CPU profiling (default: 1000)]' \
+            '( --heap-prof)--heap-prof[Generate V8 heap snapshot on exit (.heapsnapshot)]' \
+            '( --heap-prof-name)--heap-prof-name[Specify the name of the heap profile file]' \
+            '( --heap-prof-dir)--heap-prof-dir[Specify the directory where the heap profile will be saved]' \
+            '( --heap-prof-md)--heap-prof-md[Generate markdown heap profile on exit (for CLI analysis)]' \
+            '( --if-present)--if-present[Exit without an error if the entrypoint does not exist]' \
+            '( --no-install)--no-install[Disable auto install in the Bun runtime]' \
+            '( --install)--install[Configure auto-install behavior. One of "auto" (default, auto-installs when no node_modules), "fallback" (missing packages only), "force" (always).]' \
+            '( -i --i) -i--i[Auto-install dependencies during execution. Equivalent to --install=fallback.]' \
+            '( -e --eval) -e--eval[Evaluate argument as a script]' \
+            '( -p --print) -p--print[Evaluate argument as a script and print the result]' \
+            '( --prefer-offline)--prefer-offline[Skip staleness checks for packages in the Bun runtime and resolve from disk]' \
+            '( --prefer-latest)--prefer-latest[Use the latest matching versions of packages in the Bun runtime, always checking npm]' \
+            '( --port)--port[Set the default port for Bun.serve]' \
+            '( --conditions)--conditions[Pass custom conditions to resolve]' \
+            '( --fetch-preconnect)--fetch-preconnect[Preconnect to a URL while code is loading]' \
+            '( --experimental-http2-fetch)--experimental-http2-fetch[Offer h2 in fetch() TLS ALPN. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT=1]' \
+            '( --experimental-http3-fetch)--experimental-http3-fetch[Honor Alt-Svc: h3 in fetch() and upgrade to HTTP/3. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP3_CLIENT=1]' \
+            '( --max-http-header-size)--max-http-header-size[Set the maximum size of HTTP headers in bytes. Default is 16KiB]' \
+            '( --dns-result-order)--dns-result-order[Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first]' \
+            '( --experimental-stream-iter)--experimental-stream-iter[Enable the experimental stream/iter API (node:stream/iter, node:zlib/iter).]' \
+            '( --expose-gc)--expose-gc[Expose gc() on the global object. Has no effect on Bun.gc().]' \
+            '( --no-deprecation)--no-deprecation[Suppress all reporting of the custom deprecation.]' \
+            '( --throw-deprecation)--throw-deprecation[Determine whether or not deprecation warnings result in errors.]' \
+            '( --title)--title[Set the process title]' \
+            '( --zero-fill-buffers)--zero-fill-buffers[Boolean to force Buffer.allocUnsafe(size) to be zero-filled.]' \
+            '( --use-system-ca)--use-system-ca[Use the system'\''s trusted certificate authorities]' \
+            '( --use-openssl-ca)--use-openssl-ca[Use OpenSSL'\''s default CA store]' \
+            '( --use-bundled-ca)--use-bundled-ca[Use bundled CA store]' \
+            '( --redis-preconnect)--redis-preconnect[Preconnect to $REDIS_URL at startup]' \
+            '( --sql-preconnect)--sql-preconnect[Preconnect to PostgreSQL at startup]' \
+            '( --no-addons)--no-addons[Throw an error if process.dlopen is called, and disable export condition "node-addons"]' \
+            '( --unhandled-rejections)--unhandled-rejections[One of "strict", "throw", "warn", "none", or "warn-with-error-code"]' \
+            '( --console-depth)--console-depth[Set the default depth for console.log object inspection (default: 2)]' \
+            '( --user-agent)--user-agent[Set the default User-Agent header for HTTP requests]' \
+            '( --cron-title)--cron-title[Title for cron execution mode]' \
+            '( --cron-period)--cron-period[Cron period for cron execution mode]' \
+            '( --main-fields)--main-fields[Main fields to lookup in package.json. Defaults to --target dependent]' \
+            '( --preserve-symlinks)--preserve-symlinks[Preserve symlinks when resolving files]' \
+            '( --preserve-symlinks-main)--preserve-symlinks-main[Preserve symlinks when resolving the main entry point]' \
+            '( --extension-order)--extension-order[Defaults to: .tsx,.ts,.jsx,.js,.json]' \
+            '( --tsconfig-override)--tsconfig-override[Specify custom tsconfig.json. Default $cwd/tsconfig.json]' \
+            '( -d --define) -d--define[Substitute K:V while parsing, e.g. --define process.env.NODE_ENV:"development". Values are parsed as JSON.]' \
+            '( --drop)--drop[Remove function calls, e.g. --drop=console removes all console.* calls.]' \
+            '( --feature)--feature[Enable a feature flag for dead-code elimination, e.g. --feature=SUPER_SECRET]' \
+            '( -l --loader) -l--loader[Parse files with .ext:loader, e.g. --loader .js:jsx. Valid loaders: js, jsx, ts, tsx, json, toml, text, file, wasm, napi]' \
+            '( --no-macros)--no-macros[Disable macros from being executed in the bundler, transpiler and runtime]' \
+            '( --jsx-factory)--jsx-factory[Changes the function called when compiling JSX elements using the classic JSX runtime]' \
+            '( --jsx-fragment)--jsx-fragment[Changes the function called when compiling JSX fragments]' \
+            '( --jsx-import-source)--jsx-import-source[Declares the module specifier to be used for importing the jsx and jsxs factory functions. Default: "react"]' \
+            '( --jsx-runtime)--jsx-runtime["automatic" (default) or "classic"]' \
+            '( --jsx-side-effects)--jsx-side-effects[Treat JSX elements as having side effects (disable pure annotations)]' \
+            '( --ignore-dce-annotations)--ignore-dce-annotations[Ignore tree-shaking annotations such as @__PURE__]' \
+            '( --env-file)--env-file[Load environment variables from the specified file(s)]' \
+            '( --no-env-file)--no-env-file[Disable automatic loading of .env files]' \
+            '( --cwd)--cwd[Absolute path to resolve files & entry points from. This just changes the process'\'' cwd.]' \
+            '( -c --config) -c--config[Specify path to Bun config file. Default $cwd/bunfig.toml]' \
+            '( -h --help) -h--help[Display this menu and exit]'
           _alternative \
             'scripts:package script:_bun_scripts' \
             'files:javascript file:_bun_files'
@@ -199,7 +280,88 @@ _bun() {
           ;;
         repl)
           _arguments -s -S \
-            # no flags
+            '( --silent)--silent[Don'\''t print the script command]' \
+            '( --elide-lines)--elide-lines[Number of lines of script output shown when using --filter (default: 10). Set to 0 to show all lines.]' \
+            '( -F --filter) -F--filter[Run a script in all workspace packages matching the pattern]' \
+            '( -b --bun) -b--bun[Force a script or package to use Bun'\''s runtime instead of Node.js (via symlinking node)]' \
+            '( --no-orphans)--no-orphans[Exit when the parent process dies, and on exit SIGKILL every descendant. Linux/macOS only.]' \
+            '( --shell)--shell[Control the shell used for package.json scripts. Supports either '\''bun'\'' or '\''system'\'']' \
+            '( --workspaces)--workspaces[Run a script in all workspace packages (from the "workspaces" field in package.json)]' \
+            '( --parallel)--parallel[Run multiple scripts concurrently with Foreman-style output]' \
+            '( --sequential)--sequential[Run multiple scripts sequentially with Foreman-style output]' \
+            '( --no-exit-on-error)--no-exit-on-error[Continue running other scripts when one fails (with --parallel/--sequential)]' \
+            '( --watch)--watch[Automatically restart the process on file change]' \
+            '( --hot)--hot[Enable auto reload in the Bun runtime, test runner, or bundler]' \
+            '( --no-clear-screen)--no-clear-screen[Disable clearing the terminal screen on reload when --hot or --watch is enabled]' \
+            '( --smol)--smol[Use less memory, but run garbage collection more often]' \
+            '( -r --preload) -r--preload[Import a module before other modules are loaded]' \
+            '( --require)--require[Alias of --preload, for Node.js compatibility]' \
+            '( --import)--import[Alias of --preload, for Node.js compatibility]' \
+            '( --inspect)--inspect[Activate Bun'\''s debugger]' \
+            '( --inspect-wait)--inspect-wait[Activate Bun'\''s debugger, wait for a connection before executing]' \
+            '( --inspect-brk)--inspect-brk[Activate Bun'\''s debugger, set breakpoint on first line of code and wait]' \
+            '( --cpu-prof)--cpu-prof[Start CPU profiler and write profile to disk on exit]' \
+            '( --cpu-prof-name)--cpu-prof-name[Specify the name of the CPU profile file]' \
+            '( --cpu-prof-dir)--cpu-prof-dir[Specify the directory where the CPU profile will be saved]' \
+            '( --cpu-prof-md)--cpu-prof-md[Output CPU profile in markdown format (grep-friendly, designed for LLM analysis)]' \
+            '( --cpu-prof-interval)--cpu-prof-interval[Specify the sampling interval in microseconds for CPU profiling (default: 1000)]' \
+            '( --heap-prof)--heap-prof[Generate V8 heap snapshot on exit (.heapsnapshot)]' \
+            '( --heap-prof-name)--heap-prof-name[Specify the name of the heap profile file]' \
+            '( --heap-prof-dir)--heap-prof-dir[Specify the directory where the heap profile will be saved]' \
+            '( --heap-prof-md)--heap-prof-md[Generate markdown heap profile on exit (for CLI analysis)]' \
+            '( --if-present)--if-present[Exit without an error if the entrypoint does not exist]' \
+            '( --no-install)--no-install[Disable auto install in the Bun runtime]' \
+            '( --install)--install[Configure auto-install behavior. One of "auto" (default, auto-installs when no node_modules), "fallback" (missing packages only), "force" (always).]' \
+            '( -i --i) -i--i[Auto-install dependencies during execution. Equivalent to --install=fallback.]' \
+            '( -e --eval) -e--eval[Evaluate argument as a script]' \
+            '( -p --print) -p--print[Evaluate argument as a script and print the result]' \
+            '( --prefer-offline)--prefer-offline[Skip staleness checks for packages in the Bun runtime and resolve from disk]' \
+            '( --prefer-latest)--prefer-latest[Use the latest matching versions of packages in the Bun runtime, always checking npm]' \
+            '( --port)--port[Set the default port for Bun.serve]' \
+            '( --conditions)--conditions[Pass custom conditions to resolve]' \
+            '( --fetch-preconnect)--fetch-preconnect[Preconnect to a URL while code is loading]' \
+            '( --experimental-http2-fetch)--experimental-http2-fetch[Offer h2 in fetch() TLS ALPN. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT=1]' \
+            '( --experimental-http3-fetch)--experimental-http3-fetch[Honor Alt-Svc: h3 in fetch() and upgrade to HTTP/3. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP3_CLIENT=1]' \
+            '( --max-http-header-size)--max-http-header-size[Set the maximum size of HTTP headers in bytes. Default is 16KiB]' \
+            '( --dns-result-order)--dns-result-order[Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first]' \
+            '( --experimental-stream-iter)--experimental-stream-iter[Enable the experimental stream/iter API (node:stream/iter, node:zlib/iter).]' \
+            '( --expose-gc)--expose-gc[Expose gc() on the global object. Has no effect on Bun.gc().]' \
+            '( --no-deprecation)--no-deprecation[Suppress all reporting of the custom deprecation.]' \
+            '( --throw-deprecation)--throw-deprecation[Determine whether or not deprecation warnings result in errors.]' \
+            '( --title)--title[Set the process title]' \
+            '( --zero-fill-buffers)--zero-fill-buffers[Boolean to force Buffer.allocUnsafe(size) to be zero-filled.]' \
+            '( --use-system-ca)--use-system-ca[Use the system'\''s trusted certificate authorities]' \
+            '( --use-openssl-ca)--use-openssl-ca[Use OpenSSL'\''s default CA store]' \
+            '( --use-bundled-ca)--use-bundled-ca[Use bundled CA store]' \
+            '( --redis-preconnect)--redis-preconnect[Preconnect to $REDIS_URL at startup]' \
+            '( --sql-preconnect)--sql-preconnect[Preconnect to PostgreSQL at startup]' \
+            '( --no-addons)--no-addons[Throw an error if process.dlopen is called, and disable export condition "node-addons"]' \
+            '( --unhandled-rejections)--unhandled-rejections[One of "strict", "throw", "warn", "none", or "warn-with-error-code"]' \
+            '( --console-depth)--console-depth[Set the default depth for console.log object inspection (default: 2)]' \
+            '( --user-agent)--user-agent[Set the default User-Agent header for HTTP requests]' \
+            '( --cron-title)--cron-title[Title for cron execution mode]' \
+            '( --cron-period)--cron-period[Cron period for cron execution mode]' \
+            '( --main-fields)--main-fields[Main fields to lookup in package.json. Defaults to --target dependent]' \
+            '( --preserve-symlinks)--preserve-symlinks[Preserve symlinks when resolving files]' \
+            '( --preserve-symlinks-main)--preserve-symlinks-main[Preserve symlinks when resolving the main entry point]' \
+            '( --extension-order)--extension-order[Defaults to: .tsx,.ts,.jsx,.js,.json]' \
+            '( --tsconfig-override)--tsconfig-override[Specify custom tsconfig.json. Default $cwd/tsconfig.json]' \
+            '( -d --define) -d--define[Substitute K:V while parsing, e.g. --define process.env.NODE_ENV:"development". Values are parsed as JSON.]' \
+            '( --drop)--drop[Remove function calls, e.g. --drop=console removes all console.* calls.]' \
+            '( --feature)--feature[Enable a feature flag for dead-code elimination, e.g. --feature=SUPER_SECRET]' \
+            '( -l --loader) -l--loader[Parse files with .ext:loader, e.g. --loader .js:jsx. Valid loaders: js, jsx, ts, tsx, json, toml, text, file, wasm, napi]' \
+            '( --no-macros)--no-macros[Disable macros from being executed in the bundler, transpiler and runtime]' \
+            '( --jsx-factory)--jsx-factory[Changes the function called when compiling JSX elements using the classic JSX runtime]' \
+            '( --jsx-fragment)--jsx-fragment[Changes the function called when compiling JSX fragments]' \
+            '( --jsx-import-source)--jsx-import-source[Declares the module specifier to be used for importing the jsx and jsxs factory functions. Default: "react"]' \
+            '( --jsx-runtime)--jsx-runtime["automatic" (default) or "classic"]' \
+            '( --jsx-side-effects)--jsx-side-effects[Treat JSX elements as having side effects (disable pure annotations)]' \
+            '( --ignore-dce-annotations)--ignore-dce-annotations[Ignore tree-shaking annotations such as @__PURE__]' \
+            '( --env-file)--env-file[Load environment variables from the specified file(s)]' \
+            '( --no-env-file)--no-env-file[Disable automatic loading of .env files]' \
+            '( --cwd)--cwd[Absolute path to resolve files & entry points from. This just changes the process'\'' cwd.]' \
+            '( -c --config) -c--config[Specify path to Bun config file. Default $cwd/bunfig.toml]' \
+            '( -h --help) -h--help[Display this menu and exit]'
           ;;
         exec)
           _arguments -s -S \
