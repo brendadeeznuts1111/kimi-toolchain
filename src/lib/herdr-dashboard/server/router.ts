@@ -121,6 +121,10 @@ function optionalQueryString(url: URL, key: string): string | undefined {
   return value ? value : undefined;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : Bun.inspect(error);
+}
+
 async function readJsonBody<T>(req: Request): Promise<T | null> {
   try {
     return (await req.json()) as T;
@@ -346,9 +350,8 @@ export async function handleDashboardRequest(
           "x-thumbnail-cache": "miss",
         },
       });
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : Bun.inspect(e);
-      return jsonInspectResponseCors({ ok: false, error: message }, 500);
+    } catch (error: unknown) {
+      return jsonInspectResponseCors({ ok: false, error: errorMessage(error) }, 500);
     }
   }
 
