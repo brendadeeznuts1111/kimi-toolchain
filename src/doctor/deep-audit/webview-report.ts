@@ -9,7 +9,7 @@
  * a native webview window. The HTML is written to .kimi-artifacts/deep-audit-report.html.
  */
 
-import { isDirectRun } from "../../lib/bun-utils.ts";
+import { isDirectRun, sleepAbortable } from "../../lib/bun-utils.ts";
 import type { DeepAuditReport } from "../../lib/deep-audit-types.ts";
 import { ensureDir } from "../../lib/utils.ts";
 import { formatWebViewExperimentalNotice, webViewSupported } from "../../lib/webview-console.ts";
@@ -371,16 +371,21 @@ async function openWebviewReport(htmlPath: string): Promise<Bun.WebView> {
  * confirmation messages so the user sees them before the blocking wait.
  */
 export async function waitForWebviewClose(view: Bun.WebView): Promise<void> {
-  await new Promise<void>((resolve) => {
-    process.once("SIGINT", () => {
-      view.close();
-      resolve();
-    });
-    process.once("SIGTERM", () => {
-      view.close();
-      resolve();
-    });
-  });
+  const ac = new AbortController();
+  const onSignal = () => {
+    view.close();
+    ac.abort();
+  };
+  process.once("SIGINT", onSignal);
+  process.once("SIGTERM", onSignal);
+  try {
+    await sleepAbortable(Number.MAX_SAFE_INTEGER, ac.signal);
+  } catch {
+    // closed via signal
+  } finally {
+    process.off("SIGINT", onSignal);
+    process.off("SIGTERM", onSignal);
+  }
 }
 
 export async function showWebviewReport(

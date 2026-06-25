@@ -361,6 +361,54 @@ export function runIfNotInflight(run: () => Promise<void>): void {
   defaultInflightCoalescer(run);
 }
 
+let serialLockChain: Promise<void> = Promise.resolve();
+
+/** Serialize async work (e.g. Bun.build) — concurrent bundler runs throw in bun:test. */
+export async function withSerialLock<T>(run: () => Promise<T>): Promise<T> {
+  const prior = serialLockChain;
+  let release!: () => void;
+  serialLockChain = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await prior;
+  try {
+    return await run();
+  } finally {
+    release();
+  }
+}
+
+/**
+ * Wait for WebView navigation or failure. Registers callbacks before navigate().
+ * @see https://bun.com/docs/runtime/webview#navigation
+ */
+export function waitForNavigation(
+  view: Bun.WebView,
+  timeoutMs = 10_000
+): Promise<{ url: string; title: string }> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      view.onNavigated = null;
+      view.onNavigationFailed = null;
+      reject(new Error(`WebView navigation timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    view.onNavigated = (url: string, title: string) => {
+      clearTimeout(timer);
+      view.onNavigated = null;
+      view.onNavigationFailed = null;
+      resolve({ url, title });
+    };
+
+    view.onNavigationFailed = (error: Error) => {
+      clearTimeout(timer);
+      view.onNavigated = null;
+      view.onNavigationFailed = null;
+      reject(error);
+    };
+  });
+}
+
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException
     ? error.name === "AbortError"

@@ -2,7 +2,7 @@
  * Canonical repo → ~/.kimi-code/ sync, hash, manifest, restore (single module).
  */
 
-import { join, resolve } from "node:path";
+import { join, resolve } from "path";
 import { makeDir, pathExists } from "./bun-io.ts";
 import {
   archiveSupported,
@@ -199,13 +199,21 @@ async function copyTextIfChanged(
   force: boolean,
   result: SyncRunResult
 ): Promise<void> {
-  const srcText = await Bun.file(srcPath)
-    .text()
-    .catch(() => null);
-  if (srcText === null) return;
-  const dstText = await Bun.file(dstPath)
-    .text()
-    .catch(() => null);
+  if (!(await Bun.file(srcPath).exists())) return;
+  let srcText: string;
+  try {
+    srcText = await Bun.file(srcPath).text();
+  } catch {
+    return;
+  }
+  let dstText: string | null = null;
+  if (await Bun.file(dstPath).exists()) {
+    try {
+      dstText = await Bun.file(dstPath).text();
+    } catch {
+      dstText = null;
+    }
+  }
   if (force || srcText !== dstText) {
     await Bun.write(dstPath, srcText);
     result.updated.push(label);
@@ -363,10 +371,10 @@ export async function syncDesktop(
   for (const orphan of TOOL_ORPHANS) {
     const orphanPath = join(toolsDir(), orphan);
     if (await Bun.file(orphanPath).exists()) {
-      await Bun.file(orphanPath)
-        .delete()
-        .catch(() => {});
-      result.removed.push(`${LABEL_PREFIX.TOOLS}${orphan}`);
+      try {
+        await Bun.file(orphanPath).delete();
+        result.removed.push(`${LABEL_PREFIX.TOOLS}${orphan}`);
+      } catch {}
     }
   }
 

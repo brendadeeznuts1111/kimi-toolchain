@@ -8,20 +8,20 @@ import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { nowMs } from "./timing.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 
-export interface ResourceLimits {
+type ResourceLimits = {
   maxMemoryMB?: number;
   maxCpuTimeMs?: number;
   maxFileSizeMB?: number;
   maxOpenFiles?: number;
   wallClockMs?: number;
-}
+};
 
-export interface ResourceUsage {
+type ResourceUsage = {
   memoryMB: number;
   cpuTimeMs: number;
   fileSizeMB: number;
   openFiles: number;
-}
+};
 
 export function getCurrentUsage(): ResourceUsage {
   const mem = process.memoryUsage();
@@ -59,9 +59,12 @@ export async function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGK
     const current = queue.shift()!;
     if (all.has(current)) continue;
     all.add(current);
-    const output = await getCachedCommandOutputAsync("pgrep", ["-P", String(current)]).catch(
-      () => ""
-    );
+    let output = "";
+    try {
+      output = await getCachedCommandOutputAsync("pgrep", ["-P", String(current)]);
+    } catch {
+      output = "";
+    }
     const children = output
       .split("\n")
       .map((s) => parseInt(s.trim(), 10))
@@ -78,18 +81,19 @@ export async function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGK
   }
 }
 
-export interface GovernedSpawnOptions {
-  cwd?: string;
-  env?: Record<string, string>;
-  limits?: ResourceLimits;
-  timeoutMs?: number;
-  stdin?: Uint8Array | string;
-  onResourceWarning?: (violations: string[]) => void;
-  killTree?: boolean;
-  retry?: { maxAttempts: number; backoffMs: number };
-}
-
-export interface GovernedSpawnResult {
+export async function governedSpawn(
+  command: string[],
+  options: {
+    cwd?: string;
+    env?: Record<string, string>;
+    limits?: ResourceLimits;
+    timeoutMs?: number;
+    stdin?: Uint8Array | string;
+    onResourceWarning?: (violations: string[]) => void;
+    killTree?: boolean;
+    retry?: { maxAttempts: number; backoffMs: number };
+  } = {}
+): Promise<{
   stdout: string;
   stderr: string;
   exitCode: number;
@@ -97,12 +101,7 @@ export interface GovernedSpawnResult {
   usage: ResourceUsage;
   killed: boolean;
   attempts: number;
-}
-
-export async function governedSpawn(
-  command: string[],
-  options: GovernedSpawnOptions = {}
-): Promise<GovernedSpawnResult> {
+}> {
   const limits = { ...DEFAULTS, ...options.limits };
   const timeoutMs = options.timeoutMs ?? limits.wallClockMs;
   const maxAttempts = options.retry?.maxAttempts ?? 1;

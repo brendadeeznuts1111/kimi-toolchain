@@ -14,6 +14,7 @@
  * @see https://bun.com/docs/runtime/webview#console-capture
  */
 
+import { waitForNavigation } from "./bun-utils.ts";
 import { inspectAgent } from "./inspect.ts";
 import {
   FRONTMATTER_TABLE_DEPTH,
@@ -250,40 +251,7 @@ export function formatWebViewExperimentalNotice(): string {
   return `[dashboard] Bun.WebView is experimental (${BUN_WEBVIEW_DOCS_URL})`;
 }
 
-/**
- * Wait for `view.onNavigated` to fire, or reject on `view.onNavigationFailed`.
- *
- * Registers both callbacks before `navigate()` is called so no event is missed.
- * After the promise settles both callbacks are cleared to avoid leaking handlers.
- *
- * @see https://bun.com/docs/runtime/webview#navigation
- */
-export function waitForNavigation(
-  view: Bun.WebView,
-  timeoutMs = 10_000
-): Promise<{ url: string; title: string }> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      view.onNavigated = null;
-      view.onNavigationFailed = null;
-      reject(new Error(`WebView navigation timeout after ${timeoutMs}ms`));
-    }, timeoutMs);
-
-    view.onNavigated = (url: string, title: string) => {
-      clearTimeout(timer);
-      view.onNavigated = null;
-      view.onNavigationFailed = null;
-      resolve({ url, title });
-    };
-
-    view.onNavigationFailed = (error: Error) => {
-      clearTimeout(timer);
-      view.onNavigated = null;
-      view.onNavigationFailed = null;
-      reject(error);
-    };
-  });
-}
+export { waitForNavigation } from "./bun-utils.ts";
 
 function isCdpRemoteObject(value: Record<string, unknown>): boolean {
   return (

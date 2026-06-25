@@ -11,9 +11,8 @@
  */
 
 import { join, relative, resolve } from "path";
-import { tmpdir } from "os";
 import { pathExists, readJsonValidated } from "./bun-io.ts";
-import { readableStreamToText } from "./bun-utils.ts";
+import { readableStreamToText, withSerialLock } from "./bun-utils.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -49,21 +48,15 @@ export interface BundleGateFinding {
   detail: string;
 }
 
-export interface BundleMetafileInput {
-  bytes: number;
-  format?: string;
-  imports?: { external?: boolean }[];
-}
-
-export interface BundleMetafileOutput {
-  bytes: number;
-  entryPoint?: string;
-  inputs?: Record<string, { bytesInOutput: number }>;
-}
-
 export interface BundleMetafile {
-  inputs: Record<string, BundleMetafileInput>;
-  outputs: Record<string, BundleMetafileOutput>;
+  inputs: Record<
+    string,
+    { bytes: number; format?: string; imports?: { external?: boolean }[] }
+  >;
+  outputs: Record<
+    string,
+    { bytes: number; entryPoint?: string; inputs?: Record<string, { bytesInOutput: number }> }
+  >;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -110,23 +103,6 @@ const DEFAULT_MAX_SINGLE_FRACTION = 0.15;
 const DEFAULT_MAX_NODE_MODULES_FRACTION = 0.6;
 const DEFAULT_MAX_INPUT_MODULES = 500;
 const DEFAULT_ENTRY_POINT = "src/bin/kimi-doctor.ts";
-
-let bundleBuildChain: Promise<void> = Promise.resolve();
-
-/** Serialize Bun.build calls — concurrent bundler runs throw AggregateError in bun:test. */
-async function withBundleBuildLock<T>(run: () => Promise<T>): Promise<T> {
-  const prior = bundleBuildChain;
-  let release!: () => void;
-  bundleBuildChain = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await prior;
-  try {
-    return await run();
-  } finally {
-    release();
-  }
-}
 
 // ── Report parsing ─────────────────────────────────────────────────
 
@@ -483,7 +459,7 @@ async function buildProjectBundle(
   const target = validEntry.target ?? "bun";
 
   try {
-    const buildResult = await withBundleBuildLock(() =>
+    const buildResult = await withSerialLock(() =>
       Bun.build({
         entrypoints: [entryPath],
         outdir: outDir,
@@ -566,7 +542,7 @@ export async function runBundleGate(options: BundleGateOptions): Promise<BundleG
     };
   }
 
-  const outDir = join(tmpdir(), `bundle-gate-${Bun.nanoseconds()}`);
+  const outDir = join(Bun.env.TMPDIR || "/tmp", `bundle-gate-${Bun.nanoseconds()}`);
   const markdownPath = join(outDir, "report.md");
   const metafilePath = join(outDir, "meta.json");
 

@@ -11,12 +11,12 @@ import { buildHttpErrorBody, formatErrorColored } from "./error-format.ts";
 export const BUN_SERVE_ERROR_HANDLING_DOC_URL =
   "https://bun.com/docs/runtime/http/error-handling#error-callback";
 
-export interface ServeRequestContext {
+export type ServeRequestContext = {
   pathname: string;
   method: string;
   startedAt: number;
   probe?: boolean;
-}
+};
 
 export const serveRequestContext = new AsyncLocalStorage<ServeRequestContext>();
 
@@ -25,13 +25,6 @@ const serveContextStack: ServeRequestContext[] = [];
 
 export function peekServeRequestContext(): ServeRequestContext | undefined {
   return serveContextStack.at(-1) ?? serveRequestContext.getStore();
-}
-
-export interface ServeErrorOptions {
-  route?: string;
-  method?: string;
-  /** Include Error.stack in JSON body (default: non-production). */
-  includeStack?: boolean;
 }
 
 function errorMessage(error: unknown): string {
@@ -44,7 +37,10 @@ function errorStack(error: unknown): string | undefined {
 }
 
 /** Structured 500 Response for Bun.serve `error` callback and fetch guards. */
-export function buildServeErrorResponse(error: unknown, options: ServeErrorOptions = {}): Response {
+export function buildServeErrorResponse(
+  error: unknown,
+  options: { route?: string; method?: string; includeStack?: boolean } = {}
+): Response {
   const ctx = peekServeRequestContext();
   const route = options.route ?? ctx?.pathname ?? "unknown";
   const method = options.method ?? ctx?.method ?? "GET";
@@ -100,15 +96,15 @@ export function withServeRequestContext<T>(
   serveContextStack.push(ctx);
   const wrapped = serveRequestContext.run(ctx, run);
   if (wrapped instanceof Promise) {
-    return wrapped.then(
-      (value) => {
+    return (async () => {
+      try {
+        const value = await wrapped;
         serveContextStack.pop();
         return value;
-      },
-      (err) => {
+      } catch (err) {
         throw err;
       }
-    );
+    })();
   }
   serveContextStack.pop();
   return wrapped;
