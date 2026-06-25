@@ -11,6 +11,7 @@ import {
   clearProcessCache,
   countOrphanCandidates,
 } from "./proc-cache.ts";
+import { getFreeMemoryMB, getMemoryPressureFreePct, getSwapUsedMB } from "./system-memory.ts";
 
 // Re-export for consumers that imported clearProcessCache from here
 export { clearProcessCache };

@@ -89,6 +89,85 @@ function expandPath(raw: string): string {
   return resolve(raw);
 }
 
+export interface HygieneSummary {
+  dirty: boolean;
+  itemGroups: number;
+  files: number;
+  bytes: number;
+  misconfigHints: number;
+  bunfigFixed: boolean;
+}
+
+export function summarizeHygieneOutcome(outcome: HygieneCleanupOutcome): HygieneSummary | null {
+  if (outcome.type === "help") return null;
+
+  const base = {
+    dirty: false,
+    itemGroups: 0,
+    files: 0,
+    bytes: 0,
+    misconfigHints: 0,
+    bunfigFixed: false,
+  };
+
+  switch (outcome.type) {
+    case "path": {
+      for (const report of outcome.reports) {
+        base.itemGroups += report.items.length;
+        base.files += report.totalFiles;
+        base.bytes += report.totalBytes;
+        base.misconfigHints += report.misconfig.length;
+        if (report.repoRootHygiene) {
+          base.itemGroups += report.repoRootHygiene.items.length;
+          base.files += report.repoRootHygiene.totalFiles;
+          base.bytes += report.repoRootHygiene.totalBytes;
+          base.misconfigHints += report.repoRootHygiene.misconfig.length;
+        }
+      }
+      break;
+    }
+    case "root": {
+      base.itemGroups = outcome.report.items.length;
+      base.files = outcome.report.totalFiles;
+      base.bytes = outcome.report.totalBytes;
+      base.misconfigHints = outcome.report.misconfig.length;
+      base.bunfigFixed = outcome.bunfigFixed;
+      break;
+    }
+    case "artifacts": {
+      base.itemGroups = outcome.result.entries.length;
+      base.files = outcome.result.entries.length;
+      break;
+    }
+    case "all": {
+      for (const report of outcome.pathReports) {
+        base.itemGroups += report.items.length;
+        base.files += report.totalFiles;
+        base.bytes += report.totalBytes;
+        base.misconfigHints += report.misconfig.length;
+      }
+      base.itemGroups += outcome.rootReport.items.length;
+      base.files += outcome.rootReport.totalFiles;
+      base.bytes += outcome.rootReport.totalBytes;
+      base.misconfigHints += outcome.rootReport.misconfig.length;
+      base.itemGroups += outcome.artifacts.entries.length;
+      base.files += outcome.artifacts.entries.length;
+      base.bunfigFixed = outcome.bunfigFixed;
+      break;
+    }
+  }
+
+  base.dirty = base.itemGroups > 0 || base.misconfigHints > 0;
+  return base;
+}
+
+/** Non-zero when hygiene issues remain or were just cleaned (actionable signal for CI). */
+export function hygieneExitCode(outcome: HygieneCleanupOutcome): number {
+  if (outcome.type === "help") return 0;
+  const summary = summarizeHygieneOutcome(outcome);
+  return summary?.dirty ? 1 : 0;
+}
+
 export function parseHygieneArgs(argv: string[]): HygieneCliOptions {
   let mode: HygieneMode | undefined;
   let dryRun = false;
@@ -112,7 +191,7 @@ export function parseHygieneArgs(argv: string[]): HygieneCliOptions {
     if (arg === "--help" || arg === "-h") help = true;
     else if (arg === "--dry-run" || arg === "--dryrun") dryRun = true;
     else if (arg === "--json") json = true;
-    else if (arg === "--fix-bunfig") fixBunfig = true;
+    else if (arg === "--fix-bunfig" || arg === "--fix") fixBunfig = true;
     else if (arg === "--path" || arg === "-p") {
       const next = args[++i];
       if (!next) throw new Error("--path requires a directory");

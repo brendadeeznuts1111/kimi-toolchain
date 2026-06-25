@@ -30,12 +30,12 @@ function managerToService(manager: SecretsManager): SecretsService {
       Effect.tryPromise({
         try: () => manager.storageBackend(),
         catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
-      }),
+      }).pipe(Effect.orDie),
     storageStatus: (): Effect.Effect<StorageStatus> =>
       Effect.tryPromise({
         try: () => manager.storageStatus(),
         catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
-      }),
+      }).pipe(Effect.orDie),
   };
 }
 

@@ -8,6 +8,8 @@ import { GENERATED_ARTIFACTS_DIR } from "../src/lib/artifacts.ts";
 import {
   executeHygieneCleanup,
   hygieneCleanupJsonPayload,
+  hygieneExitCode,
+  summarizeHygieneOutcome,
   type HygieneCleanupOutcome,
 } from "../src/lib/cleanup-hygiene.ts";
 import { formatHygieneBytes } from "../src/lib/hygiene-utils.ts";
@@ -108,15 +110,40 @@ function printHelp(): void {
 Usage:
   bun run cleanup:path [--dry-run] [--json] [--path <dir>]
   bun run cleanup:root [--dry-run] [--json] [--fix-bunfig] [--root <path>]
-  bun run cleanup:all  [--dry-run] [--json] [--path <dir>] [--root <path>]
+  bun run cleanup:all  [--dry-run] [--json] [--fix] [--path <dir>] [--root <path>]
   bun run cleanup:artifacts [--dry-run] [--root <path>]
   kimi-toolchain cleanup path|root|all|artifacts [options]
+
+Exit code: 1 when removable items or cache misconfig remain (0 when clean).
 
 Modes:
   path       Scan $HOME (or --path) for literal ~/ dirs and test-bun* junk
   root       Remove gitignored clutter at repo root
   all        path + root + artifacts in one pass
-  artifacts  Purge .kimi-artifacts/ under repo root`);
+  artifacts  Purge .kimi-artifacts/ under repo root
+
+Fix:
+  --fix / --fix-bunfig   Patch bunfig.toml literal-tilde [install.cache].dir (root/all)`);
+}
+
+function renderSummary(outcome: HygieneCleanupOutcome): void {
+  const summary = summarizeHygieneOutcome(outcome);
+  if (!summary) return;
+
+  if (!summary.dirty) {
+    console.log("\nSummary: clean — no hygiene action needed");
+    return;
+  }
+
+  const parts = [
+    `${summary.itemGroups} group(s)`,
+    `${summary.files} file(s)`,
+    summary.bytes > 0 ? formatHygieneBytes(summary.bytes) : null,
+  ].filter(Boolean);
+  const misconfig =
+    summary.misconfigHints > 0 ? `, ${summary.misconfigHints} cache misconfig hint(s)` : "";
+  const fixed = summary.bunfigFixed ? ", bunfig patched" : "";
+  console.log(`\nSummary: ${parts.join(", ")}${misconfig}${fixed}`);
 }
 
 function renderText(outcome: HygieneCleanupOutcome): void {
@@ -161,12 +188,15 @@ async function main(): Promise<number> {
     return 0;
   }
   renderText(outcome);
-  return 0;
+  if (!outcome.json) renderSummary(outcome);
+  return hygieneExitCode(outcome);
 }
 
 if (import.meta.main) {
-  main().catch((err) => {
-    console.error(err instanceof Error ? err.message : String(err));
-    process.exit(1);
-  });
+  main()
+    .then((code) => process.exit(code))
+    .catch((err) => {
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    });
 }

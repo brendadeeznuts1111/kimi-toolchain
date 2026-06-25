@@ -75,7 +75,7 @@ function printCheckRows(logger: Logger, results: SecretCheckResult[]): void {
   }
 }
 
-export function secretsCheckProgram(opts: SecretsCliOptions): Effect.Effect<number> {
+export function secretsCheckProgram(opts: SecretsCliOptions): Effect.Effect<number, Error> {
   return Effect.gen(function* () {
     const logger = resolveSecretsLogger(opts);
     const gate = yield* Effect.tryPromise({

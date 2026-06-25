@@ -213,8 +213,8 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
     if (artifact.bunfig) {
       logger.info("[dry-run] would merge bunfig sections:");
       if (artifact.bunfig.install)
-        logger.info("  [install]", JSON.stringify(artifact.bunfig.install));
-      if (artifact.bunfig.test) logger.info("  [test]", JSON.stringify(artifact.bunfig.test));
+        logger.info(`  [install] ${JSON.stringify(artifact.bunfig.install)}`);
+      if (artifact.bunfig.test) logger.info(`  [test] ${JSON.stringify(artifact.bunfig.test)}`);
     }
     return 0;
   }

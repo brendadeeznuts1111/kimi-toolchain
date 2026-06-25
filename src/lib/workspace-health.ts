@@ -568,7 +568,7 @@ export async function auditWorkspaceHealth(
       checks.push({
         name: "root-artifacts",
         status: strict ? "error" : "warn",
-        message: `${rootItems.length} root artifact group(s), ${rootFiles} file(s) — bun run cleanup:root:dry-run`,
+        message: `${rootItems.length} root artifact group(s), ${rootFiles} file(s) — bun run cleanup:all:dry-run`,
         fixable: true,
       });
     }

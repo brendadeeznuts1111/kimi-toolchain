@@ -19,7 +19,7 @@ import { resolveProjectRoot } from "./utils.ts";
  * `resetDevSecretsResolveCache(root?)` drops a specific root's entry (or all
  * entries when called with no argument) so tests can isolate between cases.
  */
-const resolveCache = new Map<string, Effect.Effect<Record<string, boolean>>>();
+const resolveCache = new Map<string, Effect.Effect<Effect.Effect<Record<string, boolean>>>>();
 
 function resolveRootEffect(projectRoot?: string): Effect.Effect<string, Error> {
   if (projectRoot) return Effect.succeed(projectRoot);
@@ -63,12 +63,12 @@ export function resolveDevSecretsProgram(
 }
 
 function cachedResolveProgram(root: string): Effect.Effect<Record<string, boolean>> {
-  let program = resolveCache.get(root);
-  if (!program) {
-    program = Effect.cached(resolveDevSecretsProgram(root));
-    resolveCache.set(root, program);
+  let wrapped = resolveCache.get(root);
+  if (!wrapped) {
+    wrapped = Effect.cached(resolveDevSecretsProgram(root));
+    resolveCache.set(root, wrapped);
   }
-  return program;
+  return Effect.flatten(wrapped);
 }
 
 export function resolveDevSecrets(

@@ -33,7 +33,7 @@ export interface SecretsApiResponse {
 
 export function buildSecretsApiResponseProgram(
   projectRoot: string
-): Effect.Effect<SecretsApiResponse> {
+): Effect.Effect<SecretsApiResponse, Error> {
   return Effect.gen(function* () {
     const manager = new SecretsManager({
       projectRoot,

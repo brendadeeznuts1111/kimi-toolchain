@@ -53,7 +53,14 @@ function secretsCliProgram(): Effect.Effect<number, CliError> {
 
     switch (command) {
       case "check":
-        return yield* secretsCheckProgram(opts);
+        return yield* secretsCheckProgram(opts).pipe(
+          Effect.mapError(
+            (cause) =>
+              new CliError({
+                message: cause instanceof Error ? cause.message : String(cause),
+              })
+          )
+        );
       case "list":
         return yield* secretsListProgram(opts);
       case "storage":

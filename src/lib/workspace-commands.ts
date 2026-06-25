@@ -23,7 +23,9 @@ import {
 import { createLogger, type Logger } from "./logger.ts";
 import { writeStdoutLine } from "./cli-contract.ts";
 import { homeDir } from "./paths.ts";
+import { collectPathHygieneItems } from "./path-hygiene.ts";
 import { collectRootHygieneItems, collectRootHygieneMisconfig } from "./root-hygiene.ts";
+import { formatHygieneBytes } from "./hygiene-utils.ts";
 
 export interface WorkspaceCommandFlags {
   json: boolean;
@@ -69,7 +71,8 @@ export function printWorkspaceHelp(logger?: Logger): void {
   log.line("  --archive-legacy-sessions  Move wd_kimicode-cli_* to sessions/archive/");
   log.line("  --deep                     All fixes: cursor slugs + sessions + index prune");
   log.line("");
-  log.line("Hygiene: bun run cleanup:all:dry-run | kimi-toolchain cleanup all");
+  log.line("Hygiene: bun run cleanup:all:dry-run | kimi-toolchain cleanup all [--fix]");
+  log.line("  workspace cleanup runs a home path scan for literal ~/ dirs");
 }
 
 async function runVerify(projectRoot: string, strict: boolean, logger: Logger): Promise<number> {
@@ -261,6 +264,25 @@ async function runCleanup(
     }
   }
 
+  const pathItems = collectPathHygieneItems({
+    scanRoot: home,
+    maxDepth: 5,
+    kinds: ["literal-tilde-dir", "test-bun-artifact"],
+  });
+  if (pathItems.length === 0) {
+    logger.info("No path hygiene pollution under $HOME (depth 5)");
+  } else {
+    const pathBytes = pathItems.reduce((sum, item) => sum + item.bytes, 0);
+    const pathFiles = pathItems.reduce((sum, item) => sum + item.fileCount, 0);
+    logger.warn(
+      `${pathItems.length} path hygiene item(s), ${pathFiles} file(s), ${formatHygieneBytes(pathBytes)} — bun run cleanup:all`
+    );
+    for (const item of pathItems.slice(0, 8)) {
+      logger.line(`      ${item.kind}: ${item.relPath}`);
+    }
+    if (pathItems.length > 8) logger.line(`      … +${pathItems.length - 8} more`);
+  }
+
   for (const hint of collectRootHygieneMisconfig(projectRoot)) {
     logger.warn(hint);
   }
@@ -270,7 +292,7 @@ async function runCleanup(
   } else {
     const files = rootItems.reduce((sum, item) => sum + item.fileCount, 0);
     logger.warn(
-      `${rootItems.length} root artifact(s), ${files} file(s) — run: bun run cleanup:root:dry-run`
+      `${rootItems.length} root artifact(s), ${files} file(s) — run: bun run cleanup:all`
     );
     for (const item of rootItems) {
       logger.line(`      ${item.kind}: ${item.relPath} (${item.fileCount} file(s))`);
