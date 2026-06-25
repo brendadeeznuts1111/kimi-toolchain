@@ -24,12 +24,12 @@ describe("dashboard-route-inventory", () => {
     );
   });
 
-  test("lintDashboardRouteParity passes for canonical repo", () => {
-    expect(lintDashboardRouteParity(REPO_ROOT)).toEqual([]);
+  test("lintDashboardRouteParity passes for canonical repo", async () => {
+    expect(await lintDashboardRouteParity(REPO_ROOT)).toEqual([]);
   });
 
-  test("syncDashboardRouteDocs check passes after markers are present", () => {
-    const violations = syncDashboardRouteDocs(REPO_ROOT, { check: true });
+  test("syncDashboardRouteDocs check passes after markers are present", async () => {
+    const violations = await syncDashboardRouteDocs(REPO_ROOT, { check: true });
     expect(violations).toEqual([]);
   });
 
@@ -51,7 +51,7 @@ describe("dashboard-route-inventory", () => {
     expect(wired).toContain("apiGates");
     expect(wired).toContain("apiExamplesGates");
     expect(wired.length).toBeGreaterThan(90);
-    expect(lintDashboardHandlerExports(REPO_ROOT, routesSource)).toEqual([]);
+    expect(await lintDashboardHandlerExports(REPO_ROOT, routesSource)).toEqual([]);
   });
 
   test("dashboardStaticCardApiPaths excludes meta hub routes", () => {

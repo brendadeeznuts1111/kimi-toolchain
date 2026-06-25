@@ -10,8 +10,6 @@ import {
 import { DASHBOARD_COOKIE_ROUTE_PATHS } from "./serve-cookies.ts";
 import { DASHBOARD_WS_PATH } from "./serve-websocket.ts";
 import { dashboardHtmlPath, loadDashboardCards } from "./dashboard-card-registry.ts";
-import { readText, writeText } from "./bun-io.ts";
-
 export interface DashboardServeRoute {
   path: string;
   methods: readonly ("GET" | "POST" | "HEAD")[];
@@ -128,7 +126,9 @@ export interface DashboardRouteLintIssue {
 }
 
 /** Registry cards must render a panel; probed routes must exist in static or artifact tables. */
-export async function lintDashboardRouteParity(repoRoot: string): Promise<DashboardRouteLintIssue[]> {
+export async function lintDashboardRouteParity(
+  repoRoot: string
+): Promise<DashboardRouteLintIssue[]> {
   const issues: DashboardRouteLintIssue[] = [];
   const inventory = buildDashboardRouteInventory();
   const cards = loadDashboardCards(repoRoot);
@@ -199,7 +199,7 @@ export async function syncDashboardRouteDocs(
     if (match !== block)
       violations.push("examples/dashboard/README.md route inventory block is stale");
   } else {
-    writeText(readmePath, readme.replace(README_INVENTORY_BLOCK, block));
+    await Bun.write(readmePath, readme.replace(README_INVENTORY_BLOCK, block));
   }
 
   const urlsLine = `Examples dashboard (\`handlers/routes.ts\` + \`handlers/artifacts.ts\`) — **${inventory.total}** routes total (see [dashboard/README.md](dashboard/README.md)).`;
@@ -270,7 +270,7 @@ export async function syncDashboardRouteDocs(
   }
 
   if (!options.check && violations.length === 0) {
-    writeText(urlsPath, urlsDoc);
+    await Bun.write(urlsPath, urlsDoc);
   }
 
   return violations;

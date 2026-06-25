@@ -29,8 +29,8 @@ const write = args.has("--write");
 
 async function main(): Promise<void> {
   const inventory = buildDashboardRouteInventory();
-  const parityIssues = lintDashboardRouteParity(REPO_ROOT);
-  const docIssues = syncDashboardRouteDocs(REPO_ROOT, { check });
+  const parityIssues = await lintDashboardRouteParity(REPO_ROOT);
+  const docIssues = await syncDashboardRouteDocs(REPO_ROOT, { check });
   const shellIssues = syncDashboardCardShells(REPO_ROOT, { check: true });
   const loaderIssues = syncDashboardCardLoaders(REPO_ROOT, { check: true });
   const assetIssues = lintDashboardStaticAssets(REPO_ROOT);
@@ -41,7 +41,7 @@ async function main(): Promise<void> {
   ).text();
   const handlerRefs = scanDashboardRouteHandlerRefs(routesSource);
   const wiredHandlers = wiredDashboardRouteHandlers(routesSource);
-  const handlerExportIssues = lintDashboardHandlerExports(REPO_ROOT, routesSource);
+  const handlerExportIssues = await lintDashboardHandlerExports(REPO_ROOT, routesSource);
 
   const violations = [
     ...parityIssues.map((v) => v.message),
@@ -54,7 +54,7 @@ async function main(): Promise<void> {
   ];
 
   if (write) {
-    syncDashboardRouteDocs(REPO_ROOT, { check: false });
+    await syncDashboardRouteDocs(REPO_ROOT, { check: false });
     syncDashboardCardShells(REPO_ROOT, { check: false });
     syncDashboardCardLoaders(REPO_ROOT, { check: false });
     console.log(`dashboard-routes docs + shells + loaders refreshed (${inventory.total} routes)`);

@@ -161,10 +161,7 @@ export async function appendNdjsonRecord(path: string, record: unknown): Promise
 
 async function probeBunAppend(): Promise<void> {
   _appendProbed = true;
-  const tmp = join(
-    tmpdir(),
-    `.kimi-append-${Bun.hash(String(process.pid)).toString(16)}.tmp`
-  );
+  const tmp = join(tmpdir(), `.kimi-append-${Bun.hash(String(process.pid)).toString(16)}.tmp`);
   try {
     await Bun.write(tmp, "a\n", { create: true } as Parameters<typeof Bun.write>[2]);
     await Bun.write(tmp, "b\n", { create: true, append: true } as Parameters<typeof Bun.write>[2]);
@@ -172,7 +169,9 @@ async function probeBunAppend(): Promise<void> {
   } catch {
     _bunAppendWorks = false;
   } finally {
-    try { await Bun.file(tmp).delete(); } catch {}
+    try {
+      await Bun.file(tmp).delete();
+    } catch {}
   }
 }
 

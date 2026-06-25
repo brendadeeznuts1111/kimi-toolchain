@@ -19,7 +19,7 @@ export async function apiTranspilerScan(): Promise<Response> {
   const routesPath = join(projectRoot, "examples/dashboard/src/handlers/routes.ts");
   const routesSource = await Bun.file(routesPath).text();
   const wiredHandlers = wiredDashboardRouteHandlers(routesSource);
-  const handlerExportIssues = lintDashboardHandlerExports(projectRoot, routesSource);
+  const handlerExportIssues = await lintDashboardHandlerExports(projectRoot, routesSource);
   const importRefs = scanDashboardRouteHandlerRefs(routesSource);
   const inventory = buildDashboardRouteInventory();
 
