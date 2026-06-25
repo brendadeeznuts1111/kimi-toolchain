@@ -23,7 +23,7 @@ import {
   getPackageVersion,
   getBunVersion,
   getPlatform,
-} from "./build-info-macros.ts" with { type: "macro" };
+} from "./build-info-macros.ts";
 
 // ── Build Metadata (all resolved at build time) ──────────────────────
 
