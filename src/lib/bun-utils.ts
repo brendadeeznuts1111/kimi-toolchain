@@ -6,7 +6,7 @@
  * For inspect output, equality, and ANSI helpers see src/lib/inspect.ts.
  */
 
-import { basename, join } from "path";
+import { join } from "path";
 import { peek, password } from "bun";
 import {
   cpus,
@@ -210,15 +210,12 @@ export function execArgvSync(cmd: string, args: string[], options: ExecArgvOptio
 export const BUN_RUNTIME_UTILS_DOC_URL = "https://bun.com/docs/runtime/utils";
 
 /**
- * True when `modulePath` is the process entry script.
- * Uses `Bun.which` to resolve globally installed tools in PATH, then falls back to
- * `Bun.main` for `bun run src/bin/...` dev invocations.
+ * True when `modulePath` is the process entry script (`import.meta.path === Bun.main`).
  * Use at the bottom of CLI bins instead of `import.meta.main` for a single SSOT surface.
+ * @see https://bun.com/docs/runtime/utils#bun-main
  */
 export function isDirectRun(modulePath: string): boolean {
-  const name = basename(modulePath, ".ts");
-  const resolved = Bun.which(name);
-  return resolved === modulePath || modulePath === Bun.main;
+  return modulePath === Bun.main;
 }
 
 /** @see https://bun.com/docs/runtime/utils#bun-openineditor */
