@@ -38,6 +38,20 @@ describe("effect-gates", () => {
     expect(report.summary.total).toBe(0);
   });
 
+  test("skips bare Promise scan for probe fixture harness files", async () => {
+    await mkdir(join(tmpDir, "src", "lib"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "src", "lib", "bun-utils.ts"),
+      `export function demo() { return new Promise((resolve) => resolve(1)); }`
+    );
+
+    const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
+    const promiseViolations = report.violations.filter(
+      (v) => v.gate === EFFECT_GATES.directPromise
+    );
+    expect(promiseViolations).toHaveLength(0);
+  });
+
   test("detects bare Promise usage", async () => {
     await writeFile(
       join(tmpDir, "src", "service.ts"),

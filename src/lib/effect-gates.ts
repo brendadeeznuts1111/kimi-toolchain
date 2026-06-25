@@ -185,8 +185,28 @@ function isTokenInCommentOrString(sourceFile: ts.SourceFile, position: number): 
   return false;
 }
 
+/**
+ * Probe harness files embed bare Promise patterns as fixture strings — not runtime calls.
+ * Keep in sync with LIB_PROBE_FIXTURES in scripts/lint-patterns.ts.
+ */
+const DIRECT_PROMISE_PROBE_FIXTURES = new Set([
+  "src/lib/bun-cli-contract-probes.ts",
+  "src/lib/bun-cli-env-probes.ts",
+  "src/lib/bun-cli-bun-test-probes.ts",
+  "src/lib/bun-cli-run-test-probes.ts",
+  "src/lib/bun-cli-test-changed-probes.ts",
+  "src/lib/bun-cli-markdown-probes.ts",
+  "src/lib/bun-cli-fixture.ts",
+  "src/lib/bun-install-config.ts",
+  "src/lib/test-runtime.ts",
+  "src/lib/build-info.ts",
+  "src/lib/bun-utils.ts",
+]);
+
 /** Detect bare Promise usage in a source file. */
 function scanDirectPromises(sourceFile: ts.SourceFile, filePath: string): EffectGatesViolation[] {
+  if (DIRECT_PROMISE_PROBE_FIXTURES.has(filePath)) return [];
+
   const violations: EffectGatesViolation[] = [];
   const text = sourceFile.text;
   const patterns = [
