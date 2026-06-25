@@ -123,6 +123,22 @@ _bun_global_flags() {
   _arguments -s -S $flags
 }
 
+_bun_scripts() {
+  local -a scripts
+  scripts=(${(f)"$(bun getcompletes s 2>/dev/null)"})
+  _describe -t scripts 'package script' scripts
+}
+
+_bun_installed_packages() {
+  local -a packages
+  packages=(${(f)"$(bun getcompletes a "$words[$CURRENT]" 2>/dev/null)"})
+  _describe -t packages 'installed package' packages
+}
+
+_bun_files() {
+  _files -g '*.(js|ts|jsx|tsx|mjs|cjs)'
+}
+
 _bun() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -137,7 +153,9 @@ _bun() {
         run)
           _arguments -s -S \
             # no flags
-          _files -g '*.(js|ts|jsx|tsx|mjs|cjs)'
+          _alternative \
+            'scripts:package script:_bun_scripts' \
+            'files:javascript file:_bun_files'
           ;;
         test)
           _arguments -s -S \
@@ -169,6 +187,7 @@ _bun() {
             '( --parallel-delay)--parallel-delay[Milliseconds the first --parallel worker must be busy before spawning the rest. 0 spawns all immediately. Default 5.]' \
             '( --test-worker)--test-worker[(internal) Run as a --parallel worker, receiving files over IPC.]' \
             '( --shard)--shard[Run a subset of test files, e.g. '\''--shard=1/3'\'' runs the first of three shards. Useful for splitting tests across multiple CI jobs.]'
+          _bun_files
           ;;
         x|bunx)
           _arguments -s -S \
@@ -309,6 +328,7 @@ _bun() {
             '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
             '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
             '( -h --help) -h--help[Print this help menu]'
+          _bun_installed_packages
           ;;
         update)
           _arguments -s -S \
@@ -657,6 +677,7 @@ _bun() {
             '( --windows-copyright)--windows-copyright[When using --compile targeting Windows, set the executable copyright]' \
             '( --debug-dump-server-files)--debug-dump-server-files[When --app is set, dump all server files to disk even when building statically]' \
             '( --debug-no-minify)--debug-no-minify[When --app is set, do not minify anything]'
+          _bun_files
           ;;
         init)
           _arguments -s -S \

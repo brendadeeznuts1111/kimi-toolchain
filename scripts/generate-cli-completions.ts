@@ -1042,7 +1042,6 @@ function generateBashCompletion(data: CompletionData): string {
  * Generate a Zsh completion script from completion data.
  */
 function generateZshCompletion(data: CompletionData): string {
-  const commandNames = Object.keys(data.commands);
   const lines: string[] = [
     "#compdef bun",
     "# zsh completion for bun",
@@ -1077,6 +1076,22 @@ function generateZshCompletion(data: CompletionData): string {
   lines.push(
     "  )",
     "  _arguments -s -S $flags",
+    "}",
+    "",
+    "_bun_scripts() {",
+    "  local -a scripts",
+    '  scripts=(${(f)"$(bun getcompletes s 2>/dev/null)"})',
+    "  _describe -t scripts 'package script' scripts",
+    "}",
+    "",
+    "_bun_installed_packages() {",
+    "  local -a packages",
+    '  packages=(${(f)"$(bun getcompletes a "$words[$CURRENT]" 2>/dev/null)"})',
+    "  _describe -t packages 'installed package' packages",
+    "}",
+    "",
+    "_bun_files() {",
+    "  _files -g '*.(js|ts|jsx|tsx|mjs|cjs)'",
     "}",
     "",
     "_bun() {",
@@ -1114,7 +1129,15 @@ function generateZshCompletion(data: CompletionData): string {
     }
 
     if (name === "run") {
-      lines.push("          _files -g '*.(js|ts|jsx|tsx|mjs|cjs)'");
+      lines.push(
+        "          _alternative \\",
+        "            'scripts:package script:_bun_scripts' \\",
+        "            'files:javascript file:_bun_files'"
+      );
+    } else if (name === "remove" || name === "rm") {
+      lines.push("          _bun_installed_packages");
+    } else if (name === "test" || name === "build") {
+      lines.push("          _bun_files");
     }
     lines.push("          ;;");
   }
