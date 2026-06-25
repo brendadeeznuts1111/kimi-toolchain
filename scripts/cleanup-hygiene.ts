@@ -107,12 +107,15 @@ function renderArtifactsText(
 function printHelp(): void {
   console.log(`cleanup:hygiene — unified path, repo-root, and artifact cleanup
 
-Usage:
+Usage (from repo):
   bun run cleanup:path [--dry-run] [--json] [--path <dir>]
   bun run cleanup:root [--dry-run] [--json] [--fix-bunfig] [--root <path>]
   bun run cleanup:all  [--dry-run] [--json] [--fix] [--path <dir>] [--root <path>]
   bun run cleanup:artifacts [--dry-run] [--root <path>]
-  kimi-toolchain cleanup path|root|all|artifacts [options]
+
+From anywhere (after bun run install-wrappers):
+  cleanup-hygiene all --dry-run --path ~
+  kimi-toolchain cleanup all --dry-run --path ~  (requires synced .kimi-code tools)
 
 Exit code: 1 when removable items or cache misconfig remain (0 when clean).
 
