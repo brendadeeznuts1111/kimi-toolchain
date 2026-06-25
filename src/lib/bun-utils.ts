@@ -145,34 +145,10 @@ export function decodeBase64UrlBytes(encoded: string): Uint8Array {
 export const BUN_HEX_DOC_URL =
   "https://bun.com/docs/runtime/binary-data#uint8array-tohex-and-fromhex";
 
-/** Encode bytes to lowercase hex (`bytes.toHex()`). */
-export function encodeHex(bytes: Uint8Array): string {
-  return bytes.toHex();
-}
-
-/** Decode hex string to bytes (`Uint8Array.fromHex`). */
-export function decodeHex(hex: string): Uint8Array {
-  return Uint8Array.fromHex(hex);
-}
-
-/** UTF-8 byte length for a string (`TextEncoder`). */
-export function utf8ByteLength(text: string): number {
-  return new TextEncoder().encode(text).byteLength;
-}
-
 /** @see https://bun.com/reference/bun/randomUUIDv7#bun.randomUUIDv7 */
 export const BUN_RANDOM_UUIDV7_DOC_URL = "https://bun.com/reference/bun/randomUUIDv7";
 
 export type PeekStatus = "fulfilled" | "pending" | "rejected";
-
-/** Parse TOML text (Bun.TOML.parse) with plain-object root validation. */
-export function parseToml(text: string): Record<string, unknown> {
-  const parsed: unknown = Bun.TOML.parse(text);
-  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error("TOML root must be a table/object");
-  }
-  return parsed as Record<string, unknown>;
-}
 
 /** Stable short key for in-flight dedup maps (JSON payload → hex prefix). */
 export function hashInflightPayload(payload: unknown): string {

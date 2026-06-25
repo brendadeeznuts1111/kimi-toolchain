@@ -9,7 +9,6 @@
  * - No quoted-string or comment handling
  * - Focuses on common real-world i18n issues: `@` splitting, UTF-8 octet lengths, Punycode domains
  */
-import { utf8ByteLength } from "./bun-utils.ts";
 import { decodeHostnameUnicode, normalizeHostnameAscii } from "./url-decomposer.ts";
 
 export const LOCAL_PART_MAX_OCTETS = 64;
@@ -117,7 +116,7 @@ export function validateEmailLocalPart(local: string): string | null {
 }
 
 function octetLength(value: string): number {
-  return utf8ByteLength(value);
+  return new TextEncoder().encode(value).byteLength;
 }
 
 function matchesExpectation(probe: EmailI18nProbe, fixture: EmailI18nFixture): boolean {
