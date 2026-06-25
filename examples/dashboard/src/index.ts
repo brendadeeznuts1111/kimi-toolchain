@@ -10,11 +10,11 @@
  */
 
 import {
+  appendDashboardHttpAudit,
   buildDashboardLogEntry,
   isDashboardProbeRequest,
   levelForStatus,
-  logDashboardEvent,
-} from "../../../src/lib/dashboard-logger.ts";
+} from "../../../src/lib/dashboard-http-audit.ts";
 import {
   parseDashboardCliPort,
   resolveDashboardProjectRoot,
@@ -78,7 +78,7 @@ const server = Bun.serve({
       },
       async () => {
         const response = await handleDashboardRequest(req);
-        logDashboardEvent(
+        appendDashboardHttpAudit(
           buildDashboardLogEntry({
             ts: Bun.nanoseconds(),
             level: levelForStatus(response.status),
@@ -95,7 +95,7 @@ const server = Bun.serve({
   },
   error(error) {
     const ctx = peekServeRequestContext();
-    logDashboardEvent(
+    appendDashboardHttpAudit(
       buildDashboardLogEntry({
         ts: Bun.nanoseconds(),
         level: "error",

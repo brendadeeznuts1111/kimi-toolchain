@@ -20,15 +20,11 @@ export interface ServeRequestContext {
 
 export const serveRequestContext = new AsyncLocalStorage<ServeRequestContext>();
 
-/** In-flight contexts — Bun's error callback runs outside ALS; stack survives until error cb pops. */
+/** Survives into Bun.serve `error` callback (runs outside ALS). */
 const serveContextStack: ServeRequestContext[] = [];
 
 export function peekServeRequestContext(): ServeRequestContext | undefined {
-  return serveContextStack[serveContextStack.length - 1] ?? serveRequestContext.getStore();
-}
-
-export function popServeRequestContext(): ServeRequestContext | undefined {
-  return serveContextStack.pop();
+  return serveContextStack.at(-1) ?? serveRequestContext.getStore();
 }
 
 export interface ServeErrorOptions {
@@ -89,10 +85,10 @@ export function buildServeErrorResponse(error: unknown, options: ServeErrorOptio
   });
 }
 
-/** Drop-in Bun.serve `error` handler — use with withServeRequestContext() in fetch. */
+/** Drop-in Bun.serve `error` handler — pair with withServeRequestContext() in fetch. */
 export function serveErrorCallback(error: Error): Response {
   const response = buildServeErrorResponse(error);
-  popServeRequestContext();
+  serveContextStack.pop();
   return response;
 }
 

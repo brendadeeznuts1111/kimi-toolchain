@@ -27,9 +27,13 @@ import {
   DASHBOARD_ARTIFACT_FEED,
   DASHBOARD_ARTIFACT_INDEX_STATS,
   DASHBOARD_RUN_MANIFEST,
-  matchProbeArtifactsRoute,
   pathnameGroup,
+  PROBE_ARTIFACTS_GATE,
+  PROBE_ARTIFACTS_LATEST,
+  PROBE_ARTIFACTS_REFRESH,
+  PROBE_ARTIFACTS_ROOT,
 } from "./dashboard-route-patterns.ts";
+import { jsonResponse } from "./http-json.ts";
 import {
   fetchDashboardArtifactDiff,
   fetchDashboardArtifactFeed,
@@ -122,12 +126,7 @@ function artifactRefreshDisabled(gateName: string): Response {
   );
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
-  });
-}
+const PROBE_JSON_HEADERS = { "cache-control": "no-store" } as const;
 
 function methodNotAllowed(
   path: string,
@@ -303,9 +302,20 @@ export async function startProbeServer(
     return refreshInFlight;
   }
 
+  function resolveProbeArtifactsRoute(url: URL): { gateName: string | undefined; segment: "latest" | "refresh" | undefined } | null {
+    const refresh = PROBE_ARTIFACTS_REFRESH.exec(url);
+    if (refresh) return { gateName: pathnameGroup(refresh, "gate"), segment: "refresh" };
+    const latest = PROBE_ARTIFACTS_LATEST.exec(url);
+    if (latest) return { gateName: pathnameGroup(latest, "gate"), segment: "latest" };
+    const gate = PROBE_ARTIFACTS_GATE.exec(url);
+    if (gate) return { gateName: pathnameGroup(gate, "gate"), segment: undefined };
+    if (PROBE_ARTIFACTS_ROOT.test(url)) return { gateName: undefined, segment: undefined };
+    return null;
+  }
+
   async function handleArtifactsRoute(url: URL, method: string): Promise<Response | null> {
     const path = url.pathname;
-    const match = matchProbeArtifactsRoute(url);
+    const match = resolveProbeArtifactsRoute(url);
     if (!match) return null;
 
     const gateName = match.gateName;

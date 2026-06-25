@@ -1,18 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import {
+  appendDashboardHttpAudit,
   buildDashboardLogEntry,
-  DASHBOARD_PROBE_HEADER,
   isDashboardProbeRequest,
   levelForStatus,
-  logDashboardEvent,
   resetDashboardLogPath,
   setDashboardLogPath,
-} from "../src/lib/dashboard-logger.ts";
+} from "../src/lib/dashboard-http-audit.ts";
+import { DASHBOARD_PROBE_HEADER } from "../src/lib/dashboard-card-registry.ts";
 import { readText } from "../src/lib/bun-io.ts";
 import { testTempDir } from "./helpers.ts";
 
-describe("dashboard-logger", () => {
+describe("dashboard-http-audit", () => {
   test("levelForStatus maps HTTP codes", () => {
     expect(levelForStatus(200)).toBe("info");
     expect(levelForStatus(404)).toBe("warn");
@@ -32,12 +32,12 @@ describe("dashboard-logger", () => {
     expect(isDashboardProbeRequest(plain, new URL(plain.url))).toBe(false);
   });
 
-  test("logDashboardEvent appends JSONL with schemaVersion", () => {
-    const dir = testTempDir("dashboard-logger");
+  test("appendDashboardHttpAudit appends JSONL with schemaVersion", () => {
+    const dir = testTempDir("dashboard-http-audit");
     const logPath = join(dir, "events.jsonl");
     setDashboardLogPath(logPath);
 
-    logDashboardEvent(
+    appendDashboardHttpAudit(
       buildDashboardLogEntry({
         ts: 1,
         level: "info",

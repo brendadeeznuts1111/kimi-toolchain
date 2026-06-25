@@ -184,22 +184,6 @@ function resolveLayers(constants: boolean, dx: boolean): DiscoverLayer {
   return constants && !dx ? "constants" : dx && !constants ? "dx" : "all";
 }
 
-function validateDiscoverCliArgs(args: DiscoverCliArgs): void {
-  const constantsFilters = Boolean(args.domain || args.key || args.orphansOnly || args.noUsages);
-
-  if (args.layers === "dx" && constantsFilters) {
-    throw new DiscoverCliError(
-      "constants filters (--domain, --key, --orphans, --no-usages) require the constants layer; omit --dx or add --constants"
-    );
-  }
-
-  if (args.layers === "constants" && args.probe) {
-    process.stderr.write(
-      "discover: note: --probe applies to the dx layer only (ignored with --constants)\n"
-    );
-  }
-}
-
 export function parseDiscoverCliArgs(
   argv: readonly string[],
   defaultRoot: string
@@ -288,7 +272,17 @@ export function parseDiscoverCliArgs(
     orphansOnly: state.orphansOnly,
   };
 
-  validateDiscoverCliArgs(args);
+  const constantsFilters = Boolean(args.domain || args.key || args.orphansOnly || args.noUsages);
+  if (args.layers === "dx" && constantsFilters) {
+    throw new DiscoverCliError(
+      "constants filters (--domain, --key, --orphans, --no-usages) require the constants layer; omit --dx or add --constants"
+    );
+  }
+  if (args.layers === "constants" && args.probe) {
+    process.stderr.write(
+      "discover: note: --probe applies to the dx layer only (ignored with --constants)\n"
+    );
+  }
   return args;
 }
 

@@ -175,7 +175,7 @@ export const UNIT_TEST_FILES = [
   "test/effect-docs.unit.test.ts",
   "test/testing-docs-lint.unit.test.ts",
   "test/markdown-dead-links.unit.test.ts",
-  "test/dashboard-logger.unit.test.ts",
+  "test/dashboard-logger.unit.test.ts", // dashboard-http-audit
   "test/error-log-discovery.unit.test.ts",
   "test/herdr-dashboard-http3.unit.test.ts",
   "test/herdr-dashboard-cron.unit.test.ts",

@@ -40,14 +40,7 @@ export function dashboardHtml(): string {
   );
 }
 
-export function withCorsHeaders(headers: Record<string, string> = {}): Record<string, string> {
-  return {
-    ...headers,
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-    "access-control-allow-headers": "content-type",
-  };
-}
+import { CORS_HEADERS } from "../../http-json.ts";
 
 export function dashboardAssetResponse(name: string): Response {
   const allowed = DASHBOARD_ASSETS.includes(name as (typeof DASHBOARD_ASSETS)[number]);
@@ -60,7 +53,7 @@ export function dashboardAssetResponse(name: string): Response {
       ? "application/javascript; charset=utf-8"
       : "application/octet-stream";
   return new Response(Bun.file(path), {
-    headers: withCorsHeaders({ "content-type": type, "cache-control": "no-store" }),
+    headers: { ...CORS_HEADERS, "content-type": type, "cache-control": "no-store" },
   });
 }
 

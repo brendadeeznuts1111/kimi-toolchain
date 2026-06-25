@@ -97,24 +97,16 @@ import type { HerdrDashboardHub } from "./hub.ts";
 import type { DashboardHerdrEventBridgeHandle } from "./events.ts";
 import type { DashboardGateHealthWatchHandle } from "../gates/gate-watch.ts";
 import type { DashboardMetaWebView } from "../webview/store.ts";
+import { CORS_HEADERS } from "../../http-json.ts";
 import {
   dashboardAssetResponse,
   dashboardHtml,
   dashboardScreenshotPlaceholder,
-  withCorsHeaders,
 } from "./assets.ts";
 
-interface ServeRequest {
-  url: string;
-  method: string;
-  headers: { get(name: string): string | null };
-  text(): Promise<string>;
-}
-
-async function readJsonBody<T>(request: ServeRequest): Promise<T | null> {
+async function readJsonBody<T>(request: Request): Promise<T | null> {
   try {
-    const raw = await request.text();
-    return raw ? (JSON.parse(raw) as T) : null;
+    return (await request.json()) as T;
   } catch {
     return null;
   }
@@ -123,10 +115,11 @@ async function readJsonBody<T>(request: ServeRequest): Promise<T | null> {
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(`${inspectAgent(body)}\n`, {
     status,
-    headers: withCorsHeaders({
+    headers: {
+      ...CORS_HEADERS,
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
-    }),
+    },
   });
 }
 
@@ -167,14 +160,14 @@ export async function handleDashboardRequest(
     transport,
   } = ctx;
 
-  const request = req as unknown as ServeRequest;
+  const request = req;
   const url = new URL(request.url);
   const path = url.pathname;
 
   if (request.method === "OPTIONS" && path.startsWith("/api/")) {
     return new Response(null, {
       status: 204,
-      headers: withCorsHeaders({ "cache-control": "no-store" }),
+      headers: { ...CORS_HEADERS, "cache-control": "no-store" },
     });
   }
 
@@ -184,10 +177,11 @@ export async function handleDashboardRequest(
 
   if (path === "/" || path === "/index.html") {
     return new Response(dashboardHtml(), {
-      headers: withCorsHeaders({
+      headers: {
+        ...CORS_HEADERS,
         "content-type": "text/html; charset=utf-8",
         "cache-control": "no-store",
-      }),
+      },
     });
   }
 
@@ -291,10 +285,11 @@ export async function handleDashboardRequest(
       return jsonResponse({ ok: false, error: "bun mark encode failed" }, 500);
     }
     return new Response(bytes as BodyInit, {
-      headers: withCorsHeaders({
+      headers: {
+        ...CORS_HEADERS,
         "content-type": effectImageMarkMime(),
         "cache-control": "no-store",
-      }),
+      },
     });
   }
 
@@ -325,11 +320,12 @@ export async function handleDashboardRequest(
     const cached = thumbnailCache.get(cacheKey);
     if (cached) {
       return new Response(cached as BodyInit, {
-        headers: withCorsHeaders({
+        headers: {
+          ...CORS_HEADERS,
           "content-type": thumbnailFormatMime(format),
           "cache-control": "no-store",
           "x-thumbnail-cache": "hit",
-        }),
+        },
       });
     }
 
@@ -340,11 +336,12 @@ export async function handleDashboardRequest(
       }
       thumbnailCache.set(cacheKey, bytes);
       return new Response(bytes as BodyInit, {
-        headers: withCorsHeaders({
+        headers: {
+          ...CORS_HEADERS,
           "content-type": thumbnailFormatMime(format),
           "cache-control": "no-store",
           "x-thumbnail-cache": "miss",
-        }),
+        },
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : Bun.inspect(e);
@@ -370,11 +367,12 @@ export async function handleDashboardRequest(
 
   if (path === "/api/agents/live") {
     return new Response(hub.createAgentsLiveStream(), {
-      headers: withCorsHeaders({
+      headers: {
+        ...CORS_HEADERS,
         "content-type": "text/event-stream; charset=utf-8",
         "cache-control": "no-cache",
         connection: "keep-alive",
-      }),
+      },
     });
   }
 
@@ -502,10 +500,11 @@ export async function handleDashboardRequest(
     }
     const md = exportEventsToMarkdown(result.events);
     return new Response(md, {
-      headers: withCorsHeaders({
+      headers: {
+        ...CORS_HEADERS,
         "content-type": "text/markdown; charset=utf-8",
         "cache-control": "no-store",
-      }),
+      },
     });
   }
 

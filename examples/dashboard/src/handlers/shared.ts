@@ -15,12 +15,8 @@ export function doctorBin(): string {
   return Bun.which("kimi-doctor") || `${root}/src/bin/kimi-doctor.ts`;
 }
 
-export function jsonResponse(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
-}
+import { jsonResponse } from "../../../../src/lib/http-json.ts";
+export { jsonResponse };
 
 /** Structured reverse-domain error envelope for dashboard API handlers. */
 export function jsonErrorResponse(

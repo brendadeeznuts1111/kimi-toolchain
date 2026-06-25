@@ -4,7 +4,8 @@
 
 import { LOCAL_DOC_REFERENCES } from "./canonical-references.ts";
 import { pathExists } from "./bun-io.ts";
-import { DASHBOARD_PROBE_HEADER } from "./dashboard-logger.ts";
+/** Loopback card probes set this header (see probeAllRegistryRoutes). */
+export const DASHBOARD_PROBE_HEADER = "x-kimi-dashboard-probe";
 import { buildCardShowcaseIndex } from "./examples-showcase.ts";
 import {
   DASHBOARD_HTML_REL,
