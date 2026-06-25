@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { Effect } from "effect";
 import { join } from "path";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
@@ -60,7 +61,7 @@ describe("resolve-dev-secrets", () => {
       delete Bun.env[DEMO_TOKEN_ENV_KEY];
       Bun.env[DEMO_TOKEN_ENV_KEY] = "tok-abc-123";
 
-      const status = await resolveDevSecrets(rootA);
+      const status = await Effect.runPromise(resolveDevSecrets(rootA));
       expect(status["com.test.svc/demo-token"]).toBe(true);
       expect(Bun.env[DEMO_TOKEN_ENV_KEY]).toBe("tok-abc-123");
     });
@@ -70,7 +71,7 @@ describe("resolve-dev-secrets", () => {
     await withEnv({ [DEMO_TOKEN_ENV_KEY]: "pre-existing" }, async () => {
       // resolveDevSecrets reads from env (the source) and would only write
       // if the slot were empty. With a value already present, it must stay.
-      await resolveDevSecrets(rootA);
+      await Effect.runPromise(resolveDevSecrets(rootA));
       expect(Bun.env[DEMO_TOKEN_ENV_KEY]).toBe("pre-existing");
     });
   });
@@ -81,9 +82,8 @@ describe("resolve-dev-secrets", () => {
     // Wrap by counting via a side-effect on the env: first call sets a marker,
     // second call (cached) must not re-run the policy load path. We approximate
     // by verifying the cache returns the same promise for the same root.
-    const first = ensureDevSecretsResolved(rootA);
-    const second = ensureDevSecretsResolved(rootA);
-    // Same root → same underlying promise (memoized).
+    const first = Effect.runPromise(ensureDevSecretsResolved(rootA));
+    const second = Effect.runPromise(ensureDevSecretsResolved(rootA));
     await Promise.all([first, second]);
     // No throw is the contract; the memoization is verified by the
     // cross-root test below showing a different root produces a different call.
@@ -94,38 +94,41 @@ describe("resolve-dev-secrets", () => {
   test("ensureDevSecretsResolved caches independently for different roots", async () => {
     // Resolve A first, then B. The old single-slot cache would have returned
     // A's promise for B. The keyed cache must produce a fresh resolution for B.
-    await ensureDevSecretsResolved(rootA);
-    await ensureDevSecretsResolved(rootB);
+    await Effect.runPromise(ensureDevSecretsResolved(rootA));
+    await Effect.runPromise(ensureDevSecretsResolved(rootB));
     // If the cache were single-slot and shared, the second call would have
     // skipped resolution for rootB entirely. We verify by checking that after
     // resetting only rootA, rootB is still cached (no re-resolution).
     resetDevSecretsResolveCache(rootA);
     // rootB should still be cached — calling again must not throw and must
     // resolve to the same memoized result.
-    await expect(ensureDevSecretsResolved(rootB)).resolves.toBeUndefined();
+    await expect(Effect.runPromise(ensureDevSecretsResolved(rootB))).resolves.toBeUndefined();
   });
 
   test("resetDevSecretsResolveCache(root) drops only that root's entry", async () => {
-    await ensureDevSecretsResolved(rootA);
+    await Effect.runPromise(ensureDevSecretsResolved(rootA));
     resetDevSecretsResolveCache(rootA);
     // After reset, a new call must re-resolve (fresh promise) without error.
-    await expect(ensureDevSecretsResolved(rootA)).resolves.toBeUndefined();
+    await expect(Effect.runPromise(ensureDevSecretsResolved(rootA))).resolves.toBeUndefined();
   });
 
   test("resetDevSecretsResolveCache() with no arg clears all roots", async () => {
-    await ensureDevSecretsResolved(rootA);
-    await ensureDevSecretsResolved(rootB);
+    await Effect.runPromise(ensureDevSecretsResolved(rootA));
+    await Effect.runPromise(ensureDevSecretsResolved(rootB));
     resetDevSecretsResolveCache();
     // Both roots should re-resolve cleanly after a full clear.
     await expect(
-      Promise.all([ensureDevSecretsResolved(rootA), ensureDevSecretsResolved(rootB)])
+      Promise.all([
+        Effect.runPromise(ensureDevSecretsResolved(rootA)),
+        Effect.runPromise(ensureDevSecretsResolved(rootB)),
+      ])
     ).resolves.toBeDefined();
   });
 
   test("resolveDevSecrets tolerates a missing policy (probe-only path)", async () => {
     rmSync(secretsPolicyPath(rootA), { force: true });
     // Should not throw — the catch block swallows the missing-policy error.
-    const status = await resolveDevSecrets(rootA);
+    const status = await Effect.runPromise(resolveDevSecrets(rootA));
     expect(status).toEqual({});
   });
 });

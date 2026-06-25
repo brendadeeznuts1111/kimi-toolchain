@@ -178,7 +178,7 @@ async function runScaffold(args: string[]): Promise<number> {
 }
 
 async function main(): Promise<number> {
-  await ensureDevSecretsResolved();
+  await Effect.runPromise(ensureDevSecretsResolved());
   const args = Bun.argv.slice(2);
   const filtered = args.filter((a) => a !== "--dry-run");
 

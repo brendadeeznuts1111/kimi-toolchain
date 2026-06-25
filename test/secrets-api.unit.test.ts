@@ -1,8 +1,9 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { Effect } from "effect";
 import { join } from "path";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
-import { buildSecretsApiResponse } from "../src/lib/secrets-api.ts";
+import { buildSecretsApiResponseProgram } from "../src/lib/secrets-api.ts";
 import { writeText } from "./helpers.ts";
 
 describe("secrets-api", () => {
@@ -32,7 +33,7 @@ describe("secrets-api", () => {
   });
 
   test("buildSecretsApiResponse never includes secret values", async () => {
-    const payload = await buildSecretsApiResponse(tempRoot);
+    const payload = await Effect.runPromise(buildSecretsApiResponseProgram(tempRoot));
     const json = JSON.stringify(payload);
     expect(json).not.toContain("ghp_");
     expect(payload.secrets).toHaveLength(1);

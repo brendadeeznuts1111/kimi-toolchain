@@ -1,3 +1,4 @@
+import { Effect } from "effect";
 import { join } from "path";
 import {
   CANONICAL_DASHBOARD_PORT,
@@ -25,9 +26,9 @@ export async function apiGates(): Promise<Response> {
 }
 
 export async function apiSecrets(): Promise<Response> {
-  const { buildSecretsApiResponse } = await import("../../../../src/lib/secrets-api.ts");
+  const { buildSecretsApiResponseProgram } = await import("../../../../src/lib/secrets-api.ts");
   const projectRoot = resolveDashboardProjectRoot(import.meta.dir);
-  return jsonResponse(await buildSecretsApiResponse(projectRoot));
+  return jsonResponse(await Effect.runPromise(buildSecretsApiResponseProgram(projectRoot)));
 }
 
 export async function apiEnv(request?: Request): Promise<Response> {

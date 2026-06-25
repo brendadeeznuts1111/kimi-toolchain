@@ -1,11 +1,11 @@
 /**
  * resolve-dev-secrets.ts — Resolve policy secrets before spawning child processes.
  */
+import { Effect } from "effect";
 import { secretsPolicyPath } from "./paths.ts";
 import { getAllPolicyEntries, loadSecretsPolicy } from "./secrets-policy.ts";
 import { readSecretFromEnv, secretEnvCandidates } from "./secrets-env.ts";
 import { allowsEnvFallback } from "./secrets-storage.ts";
-import { Effect } from "effect";
 import { SecretsManager } from "./secrets-manager.ts";
 import { resolveProjectRoot } from "./utils.ts";
 
@@ -19,15 +19,17 @@ import { resolveProjectRoot } from "./utils.ts";
  * `resetDevSecretsResolveCache(root?)` drops a specific root's entry (or all
  * entries when called with no argument) so tests can isolate between cases.
  */
-const resolveCache = new Map<string, Promise<Record<string, boolean>>>();
+const resolveCache = new Map<string, Effect.Effect<Record<string, boolean>>>();
 
-export async function resolveDevSecrets(projectRoot?: string): Promise<Record<string, boolean>> {
-  const root = projectRoot ?? (await resolveProjectRoot(Bun.cwd));
-  const manager = new SecretsManager({ projectRoot: root, onWarn: () => {} });
-  const rows = await Effect.runPromise(manager.list());
-  const status: Record<string, boolean> = {};
-  for (const row of rows) status[`${row.key.service}/${row.key.name}`] = row.present;
+function resolveRootEffect(projectRoot?: string): Effect.Effect<string, Error> {
+  if (projectRoot) return Effect.succeed(projectRoot);
+  return Effect.tryPromise({
+    try: () => resolveProjectRoot(Bun.cwd),
+    catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+  });
+}
 
+async function applyEnvFallbackPolicy(root: string): Promise<void> {
   try {
     const policy = await loadSecretsPolicy(secretsPolicyPath(root));
     for (const { service, name, entry } of getAllPolicyEntries(policy)) {
@@ -41,17 +43,48 @@ export async function resolveDevSecrets(projectRoot?: string): Promise<Record<st
   } catch {
     // no policy — probe only
   }
-  return status;
 }
 
-export async function ensureDevSecretsResolved(projectRoot?: string): Promise<void> {
-  const root = projectRoot ?? (await resolveProjectRoot(Bun.cwd));
-  let pending = resolveCache.get(root);
-  if (!pending) {
-    pending = resolveDevSecrets(root);
-    resolveCache.set(root, pending);
+export function resolveDevSecretsProgram(
+  projectRoot: string
+): Effect.Effect<Record<string, boolean>> {
+  return Effect.gen(function* () {
+    const rows = yield* new SecretsManager({ projectRoot, onWarn: () => {} }).list();
+    const status: Record<string, boolean> = {};
+    for (const row of rows) status[`${row.key.service}/${row.key.name}`] = row.present;
+
+    yield* Effect.tryPromise({
+      try: () => applyEnvFallbackPolicy(projectRoot),
+      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+    }).pipe(Effect.catchAll(() => Effect.void));
+
+    return status;
+  });
+}
+
+function cachedResolveProgram(root: string): Effect.Effect<Record<string, boolean>> {
+  let program = resolveCache.get(root);
+  if (!program) {
+    program = Effect.cached(resolveDevSecretsProgram(root));
+    resolveCache.set(root, program);
   }
-  await pending;
+  return program;
+}
+
+export function resolveDevSecrets(
+  projectRoot?: string
+): Effect.Effect<Record<string, boolean>, Error> {
+  return Effect.gen(function* () {
+    const root = yield* resolveRootEffect(projectRoot);
+    return yield* resolveDevSecretsProgram(root);
+  });
+}
+
+export function ensureDevSecretsResolved(projectRoot?: string): Effect.Effect<void, Error> {
+  return Effect.gen(function* () {
+    const root = yield* resolveRootEffect(projectRoot);
+    yield* cachedResolveProgram(root);
+  });
 }
 
 export function resetDevSecretsResolveCache(projectRoot?: string): void {

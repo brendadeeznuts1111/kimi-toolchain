@@ -20,6 +20,7 @@
  *   --help     Show this help.
  */
 
+import { Effect } from "effect";
 import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
 import { parseCliFlags, writeStdoutLine } from "../lib/cli-contract.ts";
@@ -288,7 +289,7 @@ async function runReportRenderer(reportPath: string): Promise<number> {
 
 async function main(): Promise<number> {
   // Touch the secrets resolver so the secret-isolation audit sees intent to resolve secrets.
-  await resolveDevSecrets();
+  await Effect.runPromise(resolveDevSecrets());
 
   const argv = Bun.argv.slice(2);
 

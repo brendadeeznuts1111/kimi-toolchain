@@ -523,7 +523,7 @@ async function doctor(
 // ── Main ─────────────────────────────────────────────────────────────
 
 async function main(): Promise<number> {
-  await ensureDevSecretsResolved();
+  await Effect.runPromise(ensureDevSecretsResolved());
   const args = Bun.argv.slice(2);
   const command = args[0] || "check";
   const projectDir = await resolveProjectRoot(Bun.cwd);
