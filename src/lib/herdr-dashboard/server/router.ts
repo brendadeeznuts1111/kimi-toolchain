@@ -14,7 +14,6 @@ import {
   thumbnailFormatMime,
   type DashboardThumbnailFormat,
 } from "../../bun-image.ts";
-import { bunRevision, bunVersion } from "../../bun-utils.ts";
 import { loadDxDefaults } from "../../defaults-config.ts";
 import {
   fetchDashboardCanvases,
@@ -96,11 +95,7 @@ import type { DashboardHerdrEventBridgeHandle } from "./events.ts";
 import type { DashboardGateHealthWatchHandle } from "../gates/gate-watch.ts";
 import type { DashboardMetaWebView } from "../webview/store.ts";
 import { CORS_HEADERS, jsonInspectResponseCors } from "../../http-json.ts";
-import {
-  dashboardAssetResponse,
-  dashboardHtml,
-  dashboardScreenshotPlaceholder,
-} from "./assets.ts";
+import { dashboardAssetResponse, dashboardHtml, dashboardScreenshotPlaceholder } from "./assets.ts";
 
 function queryNumber(url: URL, key: string, fallback: number): number {
   const raw = url.searchParams.get(key);
@@ -243,8 +238,8 @@ export async function handleDashboardRequest(
         fallbackReason: transport.fallbackReason,
       },
       runtime: {
-        bunVersion: bunVersion(),
-        bunRevision: bunRevision(),
+        bunVersion: Bun.version,
+        bunRevision: typeof Bun.revision === "string" ? Bun.revision : "unknown",
         platform: process.platform,
         arch: process.arch,
         pid: process.pid,
@@ -420,7 +415,9 @@ export async function handleDashboardRequest(
   }
 
   if (path === "/api/rules") {
-    return jsonInspectResponseCors(await fetchDashboardRules(options.projectPath, options.dryRun ?? false));
+    return jsonInspectResponseCors(
+      await fetchDashboardRules(options.projectPath, options.dryRun ?? false)
+    );
   }
 
   if (path === "/api/scan") {
@@ -591,7 +588,10 @@ export async function handleDashboardRequest(
     const pathA = optionalQueryString(url, "a") ?? "";
     const pathB = optionalQueryString(url, "b") ?? "";
     if (!gateName || !pathA || !pathB) {
-      return jsonInspectResponseCors({ ok: false, error: "gate, a, and b query params required" }, 400);
+      return jsonInspectResponseCors(
+        { ok: false, error: "gate, a, and b query params required" },
+        400
+      );
     }
     const payload = await fetchDashboardArtifactDiff(options.projectPath, gateName, pathA, pathB);
     return jsonInspectResponseCors(payload, payload.ok ? 200 : 404);

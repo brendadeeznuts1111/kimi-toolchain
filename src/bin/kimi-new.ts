@@ -9,7 +9,7 @@ import { Effect } from "effect";
 import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { join, resolve } from "path";
 import { $ } from "bun";
-import { bunVersion, isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
+import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
@@ -52,7 +52,7 @@ async function runDoctor(parent: string): Promise<number> {
     logger.check({
       name: "bun",
       status: "ok",
-      message: `${bunVersion()} (${bunPath})`,
+      message: `${Bun.version} (${bunPath})`,
       fixable: false,
     });
   } else {

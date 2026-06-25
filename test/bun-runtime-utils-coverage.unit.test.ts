@@ -5,10 +5,10 @@ import {
 } from "../src/lib/bun-runtime-utils-coverage.ts";
 
 describe("bun-runtime-utils-coverage", () => {
-  test("includes Bun.openInEditor wrapper", () => {
+  test("includes Bun.openInEditor as native-only", () => {
     const entry = RUNTIME_UTILS_COVERAGE.find((e) => e.api === "Bun.openInEditor");
-    expect(entry?.wrapper).toBe("openFileInEditor");
-    expect(entry?.status).toBe("wrapped");
+    expect(entry?.status).toBe("native-only");
+    expect(entry?.docUrlConst).toBe("BUN_OPEN_IN_EDITOR_DOC_URL");
   });
 
   test("includes Bun.semver direct native usage", () => {

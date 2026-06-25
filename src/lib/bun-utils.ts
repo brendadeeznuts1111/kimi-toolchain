@@ -221,23 +221,6 @@ export function isDirectRun(modulePath: string): boolean {
 /** @see https://bun.com/docs/runtime/utils#bun-openineditor */
 export const BUN_OPEN_IN_EDITOR_DOC_URL = "https://bun.com/docs/runtime/utils#bun-openineditor";
 
-export interface OpenInEditorOptions {
-  /** Editor identifier, e.g. "vscode", "subl", "code". */
-  editor?: string;
-  /** 1-based line number. */
-  line?: number;
-  /** 1-based column number. */
-  column?: number;
-}
-
-/**
- * Open a file or URL in the user's default editor (`Bun.openInEditor`).
- * Useful for CLI commands that jump to a config, contract, or failure source.
- */
-export function openFileInEditor(file: string | URL, options?: OpenInEditorOptions): void {
-  Bun.openInEditor(file as string, options as Parameters<typeof Bun.openInEditor>[1]);
-}
-
 export interface EditorRuntimeSnapshot {
   /** $VISUAL when set. */
   visual?: string;
@@ -1091,16 +1074,6 @@ export function bunRuntimeReport(engineRange?: string): BunRuntimeSnapshot & {
       ? Bun.semver.satisfies(snapshot.version, engineRange)
       : false,
   };
-}
-
-/** Bun CLI semver string. */
-export function bunVersion(): string {
-  return detectBunRuntime().version;
-}
-
-/** Bun build git revision. */
-export function bunRevision(): string {
-  return detectBunRuntime().revision;
 }
 
 /** @see https://bun.com/docs/runtime/http/server#changing-the-port-and-hostname */

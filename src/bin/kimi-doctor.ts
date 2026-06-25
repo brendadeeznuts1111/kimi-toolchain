@@ -3,7 +3,6 @@ import {
   inspectBunRuntime,
   inspectEditorRuntime,
   isDirectRun,
-  openFileInEditor,
   readableStreamToText,
 } from "../lib/bun-utils.ts";
 import { pathExists } from "../lib/bun-io.ts";
@@ -2116,7 +2115,7 @@ async function main(): Promise<number> {
         });
         await Bun.write(reportPath, html);
         logger.info(`Report: ${reportPath}`);
-        if (OPEN) openFileInEditor(reportPath);
+        if (OPEN) Bun.openInEditor(reportPath);
       }
 
       if (PERF_GATES || REGRESSION) {

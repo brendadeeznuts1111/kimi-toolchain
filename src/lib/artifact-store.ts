@@ -8,7 +8,6 @@
  * @see examples/artifact-trading-loop.md — L2 feedback loop demo
  */
 import { join } from "path";
-import { bunVersion } from "./bun-utils.ts";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
 import { GATE_LEVEL_PRUNE_MS } from "../gates/types.ts";
 import { generateArtifactLineageMermaid, generateRunLineageMermaid } from "./graph-to-mermaid.ts";
@@ -873,7 +872,7 @@ export class ArtifactStore {
       ...(parentRunId ? { parentRunId } : {}),
       hostname: runtimeHostname(),
       pid: process.pid,
-      bunVersion: bunVersion(),
+      bunVersion: Bun.version,
       resultSize,
     };
     const envelopeWithoutSize: Omit<ArtifactEnvelope, "size"> = {
@@ -899,7 +898,7 @@ export class ArtifactStore {
     const metadata: ArtifactMetadata = {
       hostname: runtimeHostname(),
       pid: process.pid,
-      bunVersion: bunVersion(),
+      bunVersion: Bun.version,
       resultSize:
         typeof envelope.metadata?.resultSize === "number"
           ? envelope.metadata.resultSize

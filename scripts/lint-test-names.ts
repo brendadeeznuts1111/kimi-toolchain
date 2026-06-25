@@ -76,7 +76,6 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-utils-base64": "src/lib/bun-utils.ts",
 
   "bun-utils-runtime": "src/lib/bun-utils.ts",
-  "bun-utils-jsc": "src/lib/bun-utils.ts",
   "bun-utils-editor": "src/lib/bun-utils.ts",
   "bun-utils-streams": "src/lib/bun-utils.ts",
   "bun-utils-memory": "src/lib/bun-utils.ts",

@@ -12,12 +12,7 @@
  */
 
 import { join } from "path";
-import {
-  BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL,
-  bunRevision,
-  bunVersion,
-  readableStreamToText,
-} from "./bun-utils.ts";
+import { BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL, readableStreamToText } from "./bun-utils.ts";
 
 /** @see {@link BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL} */
 export { BUN_COMPILE_EXECUTABLE_PATH_RELEASE_URL };
@@ -93,8 +88,8 @@ let _bunRevision: string | null = null;
 function resolveBunVersion(): { version: string; revision: string } {
   if (_bunVersion && _bunRevision) return { version: _bunVersion, revision: _bunRevision };
 
-  _bunVersion = bunVersion() || "unknown";
-  _bunRevision = bunRevision() || "unknown";
+  _bunVersion = Bun.version || "unknown";
+  _bunRevision = (typeof Bun.revision === "string" ? Bun.revision : null) || "unknown";
   return { version: _bunVersion, revision: _bunRevision };
 }
 

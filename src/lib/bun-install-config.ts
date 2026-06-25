@@ -17,7 +17,6 @@ import {
   BUN_BINARY_DATA_CONVERSION_DOC_URL,
   BUN_DETECT_BUN_GUIDE_DOC_URL,
   BUN_VERSION_GUIDE_DOC_URL,
-  bunVersion,
   detectBunRuntime,
 } from "./bun-utils.ts";
 import {
@@ -1936,7 +1935,7 @@ export function describeBunVersionPolicy(meta?: {
   enginesBun?: string | null;
   packageManager?: string | null;
 }): BunVersionPolicySnapshot {
-  const runtimeBun = bunVersion();
+  const runtimeBun = Bun.version;
   const enginesBun = meta?.enginesBun ?? null;
   const packageManager = meta?.packageManager ?? null;
   const enginesRange = enginesBun ?? BUN_INSTALL_ENGINES_BUN_HARDENED;
@@ -2933,7 +2932,7 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
     environment: [],
   };
 
-  const runtimeBun = bunVersion();
+  const runtimeBun = Bun.version;
   const packageManager = packageMeta?.packageManager ?? null;
   const packageManagerPin = parsePackageManagerPin(packageManager);
   const enginesBun = packageMeta?.engines?.bun ?? null;

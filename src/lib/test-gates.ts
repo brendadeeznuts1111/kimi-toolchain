@@ -94,7 +94,6 @@ export const UNIT_TEST_FILES = [
 
   "test/bun-utils-runtime.unit.test.ts",
   "test/bun-utils-editor.unit.test.ts",
-  "test/bun-utils-jsc.unit.test.ts",
   "test/bun-utils-memory.unit.test.ts",
   "test/bun-utils-streams.unit.test.ts",
   "test/bun-color-formats.unit.test.ts",

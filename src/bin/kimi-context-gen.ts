@@ -8,7 +8,7 @@
  */
 
 import { $ } from "bun";
-import { bunVersion, isDirectRun } from "../lib/bun-utils.ts";
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { recordField } from "../lib/boundary.ts";
 import { pathExists } from "../lib/bun-io.ts";
 import {
@@ -122,7 +122,7 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
 
     const engineBun = pkg.engines?.bun;
     if (engineBun && stack.runtime?.includes("Bun")) {
-      if (!Bun.semver.satisfies(bunVersion(), engineBun)) {
+      if (!Bun.semver.satisfies(Bun.version, engineBun)) {
         stack.runtime += ` (⚠ engine mismatch: needs ${engineBun})`;
       }
     }
