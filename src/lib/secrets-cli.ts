@@ -78,42 +78,33 @@ function printCheckRows(logger: Logger, results: SecretCheckResult[]): void {
 export function secretsCheckProgram(opts: SecretsCliOptions): Effect.Effect<number> {
   return Effect.gen(function* () {
     const logger = resolveSecretsLogger(opts);
-    const manager = new SecretsManager({ projectRoot: opts.projectRoot });
     const gate = yield* Effect.tryPromise({
       try: () => runSecretsStorageGate(opts.projectRoot),
       catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
     });
-    const result = yield* Effect.either(manager.check());
+    const result = yield* Effect.either(
+      new SecretsManager({ projectRoot: opts.projectRoot }).check()
+    );
 
     if (opts.json) {
-      emitJson({
-        gate,
-        check: Either.isRight(result) ? result.right : { error: result.left._tag },
-      });
+      emitJson({ gate, check: Either.isRight(result) ? result.right : { error: result.left._tag } });
     } else {
       if (!gate.ok && !gate.skipped) {
         logger.error(
           `gate: ${gate.message} [${gate.taxonomyId ?? SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY}]`
         );
-      } else if (gate.skipped) {
-        logger.line(`gate: skipped (${gate.message})`);
       } else {
-        logger.line(`gate: ${gate.message}`);
+        logger.line(gate.skipped ? `gate: skipped (${gate.message})` : `gate: ${gate.message}`);
       }
-
-      if (Either.isRight(result)) {
-        printCheckRows(logger, result.right);
-      } else if (result.left instanceof SecretRotationRequired) {
+      if (Either.isRight(result)) printCheckRows(logger, result.right);
+      else if (result.left instanceof SecretRotationRequired)
         logger.error(
           `rotation required: ${result.left.service}/${result.left.name} (${result.left.daysStale ?? "?"}d stale)`
         );
-      }
     }
 
-    if (!gate.ok && !gate.skipped) return 1;
-    if (Either.isLeft(result)) return 1;
-    const mismatches = result.right.filter((r) => r.status === "storage_mismatch");
-    return mismatches.length > 0 ? 1 : 0;
+    if ((!gate.ok && !gate.skipped) || Either.isLeft(result)) return 1;
+    return result.right.some((r) => r.status === "storage_mismatch") ? 1 : 0;
   });
 }
 
