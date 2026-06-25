@@ -87,7 +87,10 @@ export function secretsCheckProgram(opts: SecretsCliOptions): Effect.Effect<numb
     );
 
     if (opts.json) {
-      emitJson({ gate, check: Either.isRight(result) ? result.right : { error: result.left._tag } });
+      emitJson({
+        gate,
+        check: Either.isRight(result) ? result.right : { error: result.left._tag },
+      });
     } else {
       if (!gate.ok && !gate.skipped) {
         logger.error(

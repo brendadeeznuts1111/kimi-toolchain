@@ -342,9 +342,7 @@ Report is always written to .kimi-artifacts/deep-audit-report.json.`);
         logger.info(`Webview report opened from ${result.htmlPath}`);
         logger.info("Press Ctrl+C to close the webview window.");
       } catch (err) {
-        logger.error(
-          `Failed to open webview: ${err instanceof Error ? err.message : String(err)}`
-        );
+        logger.error(`Failed to open webview: ${err instanceof Error ? err.message : String(err)}`);
         return 1;
       }
     }

@@ -2,6 +2,7 @@
  * Process tree helpers used by tool-runner.ts for cleanup.
  */
 
+import { Effect } from "effect";
 import { getCachedCommandOutputAsync } from "./proc-cache.ts";
 import { DEFAULTS } from "./governor-state.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
@@ -51,34 +52,48 @@ export function checkLimits(usage: ResourceUsage, limits: ResourceLimits): strin
   return violations;
 }
 
-/** Kill a process tree: SIGTERM all, wait, then SIGKILL survivors */
-export async function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGKILL") {
-  const all = new Set<number>();
-  const queue = [rootPid];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if (all.has(current)) continue;
-    all.add(current);
-    let output = "";
-    try {
-      output = await getCachedCommandOutputAsync("pgrep", ["-P", String(current)]);
-    } catch {
-      output = "";
+function readPgrepChildrenOutput(parentPid: number): Effect.Effect<string, never> {
+  return Effect.tryPromise({
+    try: () => getCachedCommandOutputAsync("pgrep", ["-P", String(parentPid)]),
+    catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+  }).pipe(Effect.catchAll(() => Effect.succeed("")));
+}
+
+/** Kill a process tree: SIGTERM all, wait, then SIGKILL survivors (Effect program). */
+export function killProcessTreeEffect(
+  rootPid: number,
+  signal: "SIGTERM" | "SIGKILL"
+): Effect.Effect<void, never> {
+  return Effect.gen(function* () {
+    const all = new Set<number>();
+    const queue = [rootPid];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (all.has(current)) continue;
+      all.add(current);
+      const output = yield* readPgrepChildrenOutput(current);
+      const children = output
+        .split("\n")
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !isNaN(n) && n !== current);
+      for (const child of children) {
+        if (!all.has(child)) queue.push(child);
+      }
     }
-    const children = output
-      .split("\n")
-      .map((s) => parseInt(s.trim(), 10))
-      .filter((n) => !isNaN(n) && n !== current);
-    for (const child of children) {
-      if (!all.has(child)) queue.push(child);
+    all.delete(rootPid);
+    for (const pid of all) {
+      yield* Effect.sync(() => {
+        try {
+          process.kill(pid, signal);
+        } catch {}
+      });
     }
-  }
-  all.delete(rootPid);
-  for (const pid of all) {
-    try {
-      process.kill(pid, signal);
-    } catch {}
-  }
+  });
+}
+
+/** Fire-and-forget tree kill — callers use void killProcessTree(...). */
+export function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGKILL"): void {
+  Effect.runFork(killProcessTreeEffect(rootPid, signal));
 }
 
 export async function governedSpawn(

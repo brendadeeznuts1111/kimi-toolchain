@@ -2,7 +2,8 @@
  * Canonical repo → ~/.kimi-code/ sync, hash, manifest, restore (single module).
  */
 
-import { join, resolve } from "path";
+import { Effect } from "effect";
+import { join } from "path";
 import { makeDir, pathExists } from "./bun-io.ts";
 import {
   archiveSupported,
@@ -188,6 +189,46 @@ export function resolveSyncManagedDesktopPath(key: string): string | null {
 
 export type SyncRunResult = { updated: string[]; removed: string[]; skipped: number };
 
+function readSyncFileTextEffect(path: string): Effect.Effect<string | null, never> {
+  return Effect.gen(function* () {
+    const exists = yield* Effect.promise(() => Bun.file(path).exists());
+    if (!exists) return null;
+    return yield* Effect.tryPromise({
+      try: () => Bun.file(path).text(),
+      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+  });
+}
+
+export function copyTextIfChangedEffect(
+  srcPath: string,
+  dstPath: string,
+  label: string,
+  force: boolean,
+  result: SyncRunResult
+): Effect.Effect<void, never> {
+  return Effect.gen(function* () {
+    const srcText = yield* readSyncFileTextEffect(srcPath);
+    if (srcText === null) return;
+    const dstText = yield* readSyncFileTextEffect(dstPath);
+    if (force || srcText !== dstText) {
+      yield* Effect.promise(() => Bun.write(dstPath, srcText));
+      result.updated.push(label);
+    } else {
+      result.skipped++;
+    }
+  });
+}
+
+async function readSyncFileText(path: string): Promise<string | null> {
+  if (!(await Bun.file(path).exists())) return null;
+  try {
+    return await Bun.file(path).text();
+  } catch {
+    return null;
+  }
+}
+
 async function copyTextIfChanged(
   srcPath: string,
   dstPath: string,
@@ -195,21 +236,9 @@ async function copyTextIfChanged(
   force: boolean,
   result: SyncRunResult
 ): Promise<void> {
-  if (!(await Bun.file(srcPath).exists())) return;
-  let srcText: string;
-  try {
-    srcText = await Bun.file(srcPath).text();
-  } catch {
-    return;
-  }
-  let dstText: string | null = null;
-  if (await Bun.file(dstPath).exists()) {
-    try {
-      dstText = await Bun.file(dstPath).text();
-    } catch {
-      dstText = null;
-    }
-  }
+  const srcText = await readSyncFileText(srcPath);
+  if (srcText === null) return;
+  const dstText = await readSyncFileText(dstPath);
   if (force || srcText !== dstText) {
     await Bun.write(dstPath, srcText);
     result.updated.push(label);
@@ -292,7 +321,24 @@ export async function detectSyncDrift(repoRoot: string): Promise<{
   return { drifted, missing, synced: drifted.length === 0 && missing.length === 0 };
 }
 
+export function syncDesktopEffect(
+  repoRoot: string,
+  options: { force?: boolean } = {}
+): Effect.Effect<SyncRunResult, never> {
+  return Effect.tryPromise({
+    try: () => syncDesktopImpl(repoRoot, options),
+    catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+  }).pipe(Effect.orDie);
+}
+
 export async function syncDesktop(
+  repoRoot: string,
+  options: { force?: boolean } = {}
+): Promise<SyncRunResult> {
+  return syncDesktopImpl(repoRoot, options);
+}
+
+async function syncDesktopImpl(
   repoRoot: string,
   options: { force?: boolean } = {}
 ): Promise<SyncRunResult> {

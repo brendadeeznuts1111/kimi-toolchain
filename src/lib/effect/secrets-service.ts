@@ -47,5 +47,8 @@ export function SecretsTest(
   backend: SecretsBackend,
   opts?: Omit<SecretsManagerOptions, "secrets">
 ): Layer.Layer<Secrets> {
-  return Layer.succeed(Secrets, managerToService(new SecretsManager({ ...opts, secrets: backend })));
+  return Layer.succeed(
+    Secrets,
+    managerToService(new SecretsManager({ ...opts, secrets: backend }))
+  );
 }

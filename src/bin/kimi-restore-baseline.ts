@@ -56,9 +56,7 @@ async function resolveDefaultArchivePath(repoRoot: string): Promise<string> {
   return syncBaselineArchivePath();
 }
 
-async function parseRestoreBaselineArgs(
-  args: string[]
-): Promise<RestoreConfig | { help: true }> {
+async function parseRestoreBaselineArgs(args: string[]): Promise<RestoreConfig | { help: true }> {
   const { root: repoRoot } = resolveEffectiveWorkspaceRoot(Bun.cwd);
   let archivePath: string | undefined;
   let targetDir = ".";

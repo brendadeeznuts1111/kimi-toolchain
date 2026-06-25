@@ -3,7 +3,6 @@
  */
 
 import { Effect } from "effect";
-import { startDelayedIntervalLoop } from "../bun-utils.ts";
 import type { WorkflowLoop } from "./loop.ts";
 
 export function workflowRunAllEffect(loop: WorkflowLoop): Effect.Effect<number> {

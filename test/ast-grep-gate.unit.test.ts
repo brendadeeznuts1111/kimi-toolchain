@@ -132,7 +132,7 @@ describe("ast-grep-gate", () => {
     expect(EXEMPT_FILES["no-direct-registry-import"]).toContain("src/lib/bun-utils.ts");
     expect(EXEMPT_FILES["no-manual-feature-url"]).toContain("src/lib/bun-release-registry.ts");
     expect(EXEMPT_FILES["prefer-bun-serve-routes"]).toContain(
-      "src/lib/herdr-dashboard/server/router.ts",
+      "src/lib/herdr-dashboard/server/router.ts"
     );
   });
 
@@ -144,10 +144,10 @@ describe("ast-grep-gate", () => {
         .split("\n")
         .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
         .filter((line) => MANUAL_DISPATCH.test(line));
-    expect(find("+  if (path === \"/api/new\") {")).toHaveLength(1);
-    expect(find("+  if (path.startsWith(\"/api/widgets/\")) {")).toHaveLength(1);
-    expect(find("   if (path === \"/kept\") {")).toHaveLength(0);
-    expect(find("+  } else if (path === \"/api/x\") {")).toHaveLength(1);
+    expect(find('+  if (path === "/api/new") {')).toHaveLength(1);
+    expect(find('+  if (path.startsWith("/api/widgets/")) {')).toHaveLength(1);
+    expect(find('   if (path === "/kept") {')).toHaveLength(0);
+    expect(find('+  } else if (path === "/api/x") {')).toHaveLength(1);
   });
 
   test("evaluateHits exempts prefer-bun-serve-routes in legacy router.ts", () => {
@@ -155,7 +155,7 @@ describe("ast-grep-gate", () => {
       makeHit(
         "prefer-bun-serve-routes",
         `${PROJECT_ROOT}/src/lib/herdr-dashboard/server/router.ts`,
-        196,
+        196
       ),
       makeHit("prefer-bun-serve-routes", `${PROJECT_ROOT}/src/lib/card-probe-server.ts`, 12),
     ];

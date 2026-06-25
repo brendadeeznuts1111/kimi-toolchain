@@ -5,6 +5,7 @@
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
+import { Effect } from "effect";
 import { buildHttpErrorBody, formatErrorColored } from "./error-format.ts";
 
 /** @see https://bun.com/docs/runtime/http/error-handling#error-callback */
@@ -88,6 +89,17 @@ export function serveErrorCallback(error: Error): Response {
   return response;
 }
 
+/** Effect pipeline — stack cleanup via ensuring; pair with runCliExit at CLI boundaries. */
+export function withServeRequestContextEffect<A, E>(
+  ctx: ServeRequestContext,
+  run: Effect.Effect<A, E>
+): Effect.Effect<A, E> {
+  return Effect.gen(function* () {
+    serveContextStack.push(ctx);
+    return yield* run;
+  }).pipe(Effect.ensuring(Effect.sync(() => serveContextStack.pop())));
+}
+
 /** Run a fetch handler with per-request context visible to serveErrorCallback. */
 export function withServeRequestContext<T>(
   ctx: ServeRequestContext,
@@ -98,11 +110,9 @@ export function withServeRequestContext<T>(
   if (wrapped instanceof Promise) {
     return (async () => {
       try {
-        const value = await wrapped;
+        return await wrapped;
+      } finally {
         serveContextStack.pop();
-        return value;
-      } catch (err) {
-        throw err;
       }
     })();
   }

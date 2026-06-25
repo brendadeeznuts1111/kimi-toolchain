@@ -302,7 +302,9 @@ export async function startProbeServer(
     return refreshInFlight;
   }
 
-  function resolveProbeArtifactsRoute(url: URL): { gateName: string | undefined; segment: "latest" | "refresh" | undefined } | null {
+  function resolveProbeArtifactsRoute(
+    url: URL
+  ): { gateName: string | undefined; segment: "latest" | "refresh" | undefined } | null {
     const refresh = PROBE_ARTIFACTS_REFRESH.exec(url);
     if (refresh) return { gateName: pathnameGroup(refresh, "gate"), segment: "refresh" };
     const latest = PROBE_ARTIFACTS_LATEST.exec(url);
@@ -389,10 +391,10 @@ export async function startProbeServer(
 
       if (path === "/api/health") {
         if (method === "HEAD") {
-          return new Response(null, { status: 200, headers: { "cache-control": "no-store" } });
+          return new Response(null, { status: 200, headers: PROBE_JSON_HEADERS });
         }
         if (method === "GET") {
-          return new Response("ok", { status: 200, headers: { "cache-control": "no-store" } });
+          return new Response("ok", { status: 200, headers: PROBE_JSON_HEADERS });
         }
         return methodNotAllowed(path, method, ["GET", "HEAD"]);
       }

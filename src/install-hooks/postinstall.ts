@@ -3,9 +3,10 @@
  * postinstall.ts — Idempotent setup of ~/.kimi-code/ from repo source
  */
 
+import { Effect } from "effect";
 import { readableStreamToText } from "../lib/bun-utils.ts";
 import { Database } from "bun:sqlite";
-import { ensureDesktopLayout, syncDesktop } from "../lib/desktop-sync.ts";
+import { ensureDesktopLayout, syncDesktopEffect } from "../lib/desktop-sync.ts";
 import { makeDir } from "../lib/bun-io.ts";
 import { agentsSkillsRoot, canonicalRepoRoot, desktopRoot } from "../lib/paths.ts";
 import { DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
@@ -29,7 +30,7 @@ async function main() {
     await Bun.write(governorDefaults, DEFAULT_CONFIG_TEMPLATE);
   }
 
-  await syncDesktop(REPO_ROOT, { force: true });
+  await Effect.runPromise(syncDesktopEffect(REPO_ROOT, { force: true }));
 
   const mcp = await provisionUserMcp();
   console.log(

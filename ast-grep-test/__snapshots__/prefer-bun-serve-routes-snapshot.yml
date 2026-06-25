@@ -2,19 +2,19 @@ id: prefer-bun-serve-routes
 snapshots:
   if (path === "/" || path === "/index.html") { return html(); }:
     labels:
-    - source: if (path === "/" || path === "/index.html") { return html(); }
-      style: primary
-      start: 0
-      end: 62
+      - source: if (path === "/" || path === "/index.html") { return html(); }
+        style: primary
+        start: 0
+        end: 62
   if (path === "/api/foo" && request.method === "GET") { return ok(); }:
     labels:
-    - source: if (path === "/api/foo" && request.method === "GET") { return ok(); }
-      style: primary
-      start: 0
-      end: 69
+      - source: if (path === "/api/foo" && request.method === "GET") { return ok(); }
+        style: primary
+        start: 0
+        end: 69
   if (path === "/api/tasks") { return jsonResponse({}); }:
     labels:
-    - source: if (path === "/api/tasks") { return jsonResponse({}); }
-      style: primary
-      start: 0
-      end: 55
+      - source: if (path === "/api/tasks") { return jsonResponse({}); }
+        style: primary
+        start: 0
+        end: 55

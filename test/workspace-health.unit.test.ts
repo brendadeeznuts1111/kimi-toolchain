@@ -158,10 +158,7 @@ describe("workspace-health", () => {
     const underHome = join(tmpHome, CANONICAL_REPO_NAME);
     for (const root of [underDev, underHome]) {
       makeDir(root, { recursive: true });
-      writeText(
-        join(root, "package.json"),
-        JSON.stringify({ name: CANONICAL_REPO_NAME }, null, 2)
-      );
+      writeText(join(root, "package.json"), JSON.stringify({ name: CANONICAL_REPO_NAME }, null, 2));
     }
 
     const prev = Bun.env.MACHINE_DEV_ROOT;

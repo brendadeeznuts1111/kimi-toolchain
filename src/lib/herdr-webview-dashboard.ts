@@ -61,11 +61,15 @@ export async function installDashboardIpcBridge(view: Bun.WebView): Promise<void
       if (window.__herdrBridgeInstalled) return;
       window.__herdrBridgeInstalled = true;
       window.herdr = {
-        postMessage: (payload) =>
-          fetch("/api/ipc", {
+        postMessage: async (payload) => {
+          const response = await fetch("/api/ipc", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify(payload) }).then((r) => r.json()) };
+            body: JSON.stringify(payload),
+          });
+          return response.json();
+        },
+      };
     })()
   `);
 }

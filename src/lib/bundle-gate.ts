@@ -42,10 +42,7 @@ export type BundleGateFinding = {
 };
 
 export type BundleMetafile = {
-  inputs: Record<
-    string,
-    { bytes: number; format?: string; imports?: { external?: boolean }[] }
-  >;
+  inputs: Record<string, { bytes: number; format?: string; imports?: { external?: boolean }[] }>;
   outputs: Record<
     string,
     { bytes: number; entryPoint?: string; inputs?: Record<string, { bytesInOutput: number }> }

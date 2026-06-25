@@ -36,7 +36,9 @@ export function resetDashboardLogPath(): void {
 }
 
 export function isDashboardProbeRequest(req: Request, url: URL): boolean {
-  return url.searchParams.get("probe") === "true" || req.headers.get(DASHBOARD_PROBE_HEADER) === "1";
+  return (
+    url.searchParams.get("probe") === "true" || req.headers.get(DASHBOARD_PROBE_HEADER) === "1"
+  );
 }
 
 export function levelForStatus(status: number): DashboardLogLevel {

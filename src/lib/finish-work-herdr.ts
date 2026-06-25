@@ -12,18 +12,13 @@ import {
   FINISH_WORK_REPORT_PUBLIC_SCHEMA_VERSION,
   finishWorkReportPath,
   gateStatusFromPublicEntry,
-  type FinishWorkGateStatus,
   type FinishWorkPublicGateEntry,
   type FinishWorkPublicHandoffCandidate,
   type FinishWorkPublicOutcome,
-  type FinishWorkReportV11,
 } from "./finish-work-report-schema.ts";
 
 export { FINISH_WORK_REPORT_FILENAME, finishWorkReportPath } from "./finish-work-report-schema.ts";
-import {
-  buildContextSyncFromReport,
-  type ContextSyncPayload,
-} from "./finish-work-context.ts";
+import { buildContextSyncFromReport, type ContextSyncPayload } from "./finish-work-context.ts";
 import { gitBranch, gitRevParse } from "./git-helpers.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";

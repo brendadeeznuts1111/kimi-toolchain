@@ -3,14 +3,14 @@ snapshots:
   (row as any).field:
     fixed: (row).field
     labels:
-    - source: row as any
-      style: primary
-      start: 1
-      end: 11
+      - source: row as any
+        style: primary
+        start: 1
+        end: 11
   const x = value as any:
     fixed: const x = value
     labels:
-    - source: value as any
-      style: primary
-      start: 10
-      end: 22
+      - source: value as any
+        style: primary
+        start: 10
+        end: 22

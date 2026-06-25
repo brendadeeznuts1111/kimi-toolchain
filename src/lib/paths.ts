@@ -49,10 +49,7 @@ export function machineDevRoot(home: string = homeDir()): string {
  * Mirrors ~/.config/shell/machine-paths.sh resolution order.
  */
 export function resolveKimiToolchainRoot(home: string = homeDir()): string {
-  const candidates = [
-    join(machineDevRoot(home), "kimi-toolchain"),
-    join(home, "kimi-toolchain"),
-  ];
+  const candidates = [join(machineDevRoot(home), "kimi-toolchain"), join(home, "kimi-toolchain")];
   for (const root of candidates) {
     if (pathExists(join(root, "package.json"))) return root;
   }

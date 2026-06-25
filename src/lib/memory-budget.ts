@@ -61,11 +61,7 @@ const APP_PATTERNS: Array<{ label: string; pattern: RegExp }> = [
   { label: "Ghostty", pattern: /ghostty/i },
 ];
 
-export {
-  getFreeMemoryMB,
-  getSwapUsedMB,
-  getMemoryPressureFreePct,
-} from "./system-memory.ts";
+export { getFreeMemoryMB, getSwapUsedMB, getMemoryPressureFreePct } from "./system-memory.ts";
 
 export async function getLoadPerCore(): Promise<{ load: number; cores: number; perCore: number }> {
   const [uptime, ncpu] = await Promise.all([

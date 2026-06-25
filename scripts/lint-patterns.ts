@@ -108,11 +108,7 @@ async function main() {
         }
       }
 
-      if (
-        rel.startsWith("src/") &&
-        !LIB_PROBE_FIXTURES.has(rel) &&
-        /\brequire\s*\(/.test(line)
-      ) {
+      if (rel.startsWith("src/") && !LIB_PROBE_FIXTURES.has(rel) && /\brequire\s*\(/.test(line)) {
         violations.push({
           file: rel,
           line: lineNo,

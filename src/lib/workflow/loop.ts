@@ -146,7 +146,9 @@ export class WorkflowLoop {
     const summary = await this.runOnce();
     if (summary.failed) return 1;
     if (!this.options.watch) return 0;
-    throw new Error("WorkflowLoop.runAll() with --watch requires workflowRunAllEffect() at the CLI boundary");
+    throw new Error(
+      "WorkflowLoop.runAll() with --watch requires workflowRunAllEffect() at the CLI boundary"
+    );
   }
 
   stop(): void {
