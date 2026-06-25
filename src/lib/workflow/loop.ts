@@ -16,7 +16,13 @@ import type {
   WorkflowSeedState,
 } from "./types.ts";
 import { startDelayedIntervalLoop, stopDelayedIntervalLoop } from "../bun-utils.ts";
+import { writeStdoutLine } from "../cli-contract.ts";
 import { inspectAgent } from "../inspect.ts";
+import { createLogger, type Logger } from "../logger.ts";
+
+function resolveWorkflowLogger(): Logger {
+  return createLogger(Bun.argv, "kimi-workflow");
+}
 
 const SEVERITY_RANK: Record<IssueSeverity, number> = {
   low: 1,
@@ -54,10 +60,12 @@ export class WorkflowLoop {
     return computeDrift(results, this.seedState);
   }
 
-  outputResults(results: ScannerResult[], drift: DriftMap | null): void {
+  async outputResults(results: ScannerResult[], drift: DriftMap | null): Promise<void> {
     const output = this.options.output ?? "table";
     if (output === "json") {
-      console.log(inspectAgent({ domain: this.domain.id, results, drift }, { compact: false }));
+      await writeStdoutLine(
+        inspectAgent({ domain: this.domain.id, results, drift }, { compact: false })
+      );
       return;
     }
     if (output === "herdr") {
@@ -65,12 +73,13 @@ export class WorkflowLoop {
       return;
     }
 
-    console.error(`[${this.domain.id}] Workflow scan (${results.length} scanner(s))`);
+    const log = resolveWorkflowLogger();
+    log.info(`[${this.domain.id}] Workflow scan (${results.length} scanner(s))`);
     for (const result of results) {
-      console.error(`  ${result.scannerId}: ${result.status} · ${result.issues.length} issue(s)`);
+      log.info(`  ${result.scannerId}: ${result.status} · ${result.issues.length} issue(s)`);
     }
     if (drift && Object.keys(drift).length > 0) {
-      console.error(`  drift: ${Object.keys(drift).length} change(s)`);
+      log.info(`  drift: ${Object.keys(drift).length} change(s)`);
     }
   }
 
@@ -108,7 +117,7 @@ export class WorkflowLoop {
     const drift = this.computeDrift(results);
 
     if (!this.options.dryRun) {
-      this.outputResults(results, drift);
+      await this.outputResults(results, drift);
     }
 
     if (this.options.seedWritePath && !this.options.dryRun) {
@@ -136,16 +145,16 @@ export class WorkflowLoop {
     if (!this.options.watch) return 0;
 
     const intervalMs = this.options.intervalMs ?? 60_000;
-    await new Promise<void>((resolve) => {
+    const watchExit = await new Promise<number>((resolve) => {
       this.watchLoop = startDelayedIntervalLoop(intervalMs, async () => {
         const next = await this.runOnce();
         if (next.failed) {
           this.stop();
-          resolve();
-          process.exit(1);
+          resolve(1);
         }
       });
     });
+    if (watchExit === 1) return 1;
     return 0;
   }
 

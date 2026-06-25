@@ -35,6 +35,7 @@ import {
   syncBaselineHistoryPath,
   syncBaselineMetricsPath,
 } from "./paths.ts";
+import { createLogger, type Logger } from "./logger.ts";
 import { safeParse } from "./utils.ts";
 import {
   writeManifest,
@@ -132,6 +133,15 @@ export const SKILL_ROUTE = {
 
 export const OPTIONAL_CONFIG_FILES = ["bunfig.toml", ".gitignore"] as const;
 export const TOOL_ORPHANS = ["kimi-utils.ts"] as const;
+
+function resolveSyncLogger(logger?: Logger): Logger {
+  return logger ?? createLogger(Bun.argv, "kimi-sync");
+}
+
+/** Human status lines for restore/sync (stderr per cli-contract). */
+function writeStderrLine(text: string): void {
+  process.stderr.write(text.endsWith("\n") ? text : `${text}\n`);
+}
 
 export function repoSourceDir(repoRoot: string, segments: readonly string[]): string {
   return join(canonicalRepoRoot(repoRoot), ...segments);
@@ -507,7 +517,7 @@ export async function finalizeSyncArchive(
   const writeArchive = options.writeArchive ?? (await shouldWriteArchive(repoRoot));
   if (!writeArchive) return { manifest, archived: false, fileCount };
   if (!archiveSupported()) {
-    console.error("[sync] Bun.Archive not available — skipping baseline archive");
+    writeStderrLine("[sync] Bun.Archive not available — skipping baseline archive");
     return { manifest, archived: false, fileCount };
   }
   const archivePath = options.archivePath ?? syncBaselineCacheArchivePath(repoRoot);
@@ -574,11 +584,11 @@ export async function dryRunRestoreBaseline(
 
 export function printRestoreDryRunTable(drift: RestoreDriftRow[]): void {
   if (!drift.length) {
-    console.error("[restore] dry-run: no drift detected");
+    writeStderrLine("[restore] dry-run: no drift detected");
     return;
   }
-  console.error(`[restore] dry-run drift (${drift.length} row(s)):`);
-  console.error(
+  writeStderrLine(`[restore] dry-run drift (${drift.length} row(s)):`);
+  writeStderrLine(
     Bun.inspect.table(
       drift.map((d) => ({
         file: d.file,
@@ -940,9 +950,10 @@ export interface RestoreResult {
   manifestVerificationOk?: boolean;
 }
 
-export function printRestoreBaselineHelp(): void {
+export function printRestoreBaselineHelp(logger?: Logger): void {
+  const log = resolveSyncLogger(logger);
   const { root } = resolveEffectiveWorkspaceRoot(Bun.cwd);
-  console.log(
+  log.line(
     `Usage: kimi-toolchain restore-baseline [-a path] [--to dir] [-n] [--force] [--json]\n` +
       `Manifest mode → ${desktopRoot()}; extract mode with --to.\n` +
       `Archive: ${syncBaselineCacheArchivePath(root)} or ${syncBaselineArchivePath()}`

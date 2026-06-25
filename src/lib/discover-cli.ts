@@ -2,6 +2,7 @@
  * Shared CLI entry for unified discovery (constants, dx, or both).
  */
 
+import { writeStdoutLine } from "./cli-contract.ts";
 import { formatDiscoverCliCompletion } from "./discover-cli-completion.ts";
 import {
   DISCOVER_CLI_FLAG_LOOKUP,
@@ -48,6 +49,17 @@ export class DiscoverCliError extends Error {
     super(message);
     this.name = "DiscoverCliError";
     this.exitCode = exitCode;
+  }
+}
+
+/** Thrown when --help is requested; handled by {@link runDiscoverCliEntry}. */
+export class DiscoverCliHelp extends Error {
+  readonly text: string;
+
+  constructor(text: string, invocation = "bun run discover") {
+    super(`help requested for ${invocation}`);
+    this.name = "DiscoverCliHelp";
+    this.text = text;
   }
 }
 
@@ -186,7 +198,8 @@ function resolveLayers(constants: boolean, dx: boolean): DiscoverLayer {
 
 export function parseDiscoverCliArgs(
   argv: readonly string[],
-  defaultRoot: string
+  defaultRoot: string,
+  invocation = "bun run discover"
 ): DiscoverCliArgs {
   const state = {
     json: false,
@@ -214,8 +227,7 @@ export function parseDiscoverCliArgs(
     }
 
     if (spec.kind === "help") {
-      console.log(formatDiscoverCliHelp());
-      process.exit(0);
+      throw new DiscoverCliHelp(formatDiscoverCliHelp(invocation), invocation);
     }
 
     if (spec.kind === "boolean") {
@@ -310,7 +322,18 @@ export async function runDiscoverCliEntry(
     return;
   }
 
-  await runDiscoverCli(parseDiscoverCliArgs(argv, defaultRoot));
+  let args: DiscoverCliArgs;
+  try {
+    args = parseDiscoverCliArgs(argv, defaultRoot, invocation);
+  } catch (err) {
+    if (err instanceof DiscoverCliHelp) {
+      await writeStdoutLine(err.text);
+      return;
+    }
+    throw err;
+  }
+
+  await runDiscoverCli(args);
 }
 
 export async function runDiscoverCli(args: DiscoverCliArgs): Promise<void> {
@@ -338,11 +361,11 @@ export async function runDiscoverCli(args: DiscoverCliArgs): Promise<void> {
     }
 
     if (args.json) {
-      writeJson(jsonPayload(report, args.layers));
+      await writeJson(jsonPayload(report, args.layers));
       return;
     }
 
-    printLines(formatDiscoverOutput(report, { deep: args.deep, layers: args.layers }));
+    await printLines(formatDiscoverOutput(report, { deep: args.deep, layers: args.layers }));
   } catch (err) {
     if (err instanceof DiscoverCliError) throw err;
     const detail = err instanceof Error ? err.message : Bun.inspect(err);

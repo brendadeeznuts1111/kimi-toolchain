@@ -2,6 +2,7 @@
  * Shared text formatting for discovery CLI output (constants, dx, unified).
  */
 
+import { writeStdout, writeStdoutLine } from "./cli-contract.ts";
 import { formatConstantRange } from "./build-constants-registry.ts";
 import type { DiscoveredConstant, DiscoverConstantsReport } from "./discover-constants.ts";
 import type {
@@ -472,10 +473,11 @@ export function formatDiscoverOutput(
   return options.deep ? formatUnifiedDeep(report) : formatUnifiedDefault(report);
 }
 
-export function printLines(lines: readonly string[]): void {
-  for (const line of lines) console.log(line);
+export async function printLines(lines: readonly string[]): Promise<void> {
+  if (lines.length === 0) return;
+  await writeStdout(`${lines.join("\n")}\n`);
 }
 
-export function writeJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+export async function writeJson(value: unknown): Promise<void> {
+  await writeStdoutLine(JSON.stringify(value, null, 2));
 }

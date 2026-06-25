@@ -8,6 +8,7 @@
  */
 
 import { Effect } from "effect";
+import { createLogger } from "./logger.ts";
 import { secretsPolicyPath, secretsAuditPath } from "./paths.ts";
 import { ensureProcessTrace } from "./effect/trace-context.ts";
 import {
@@ -64,7 +65,7 @@ export interface SecretsManagerOptions {
   now?: () => Date;
   /** Override backend detection (tests). Defaults to detectStorageBackend(). */
   detectBackend?: () => Promise<StorageBackend>;
-  /** Emit storage-tier warnings (defaults to console.warn). */
+  /** Emit storage-tier warnings (defaults to createLogger warn). */
   onWarn?: (message: string) => void;
 }
 
@@ -105,7 +106,7 @@ export class SecretsManager {
     this.envVars = opts.envVars ?? Bun.env;
     this.now = opts.now ?? defaultNow;
     this.detectBackend = opts.detectBackend ?? detectStorageBackend;
-    this.onWarn = opts.onWarn ?? ((message) => console.warn(`[secrets] ${message}`));
+    this.onWarn = opts.onWarn ?? ((message) => createLogger(Bun.argv, "secrets").warn(message));
   }
 
   async storageBackend(): Promise<StorageBackend> {

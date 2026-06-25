@@ -34,12 +34,12 @@ async function main(): Promise<number> {
   const command = argv[0];
 
   if (!command || command === "help" || command === "-h") {
-    printSecretsHelp();
+    printSecretsHelp(logger);
     return command ? 0 : 1;
   }
 
   const projectRoot = await resolveProjectRoot(Bun.cwd);
-  const opts = { projectRoot, json };
+  const opts = { projectRoot, json, logger };
 
   switch (command) {
     case "check":
@@ -63,7 +63,7 @@ async function main(): Promise<number> {
     }
     default:
       logger.error(`Unknown command: ${command}`);
-      printSecretsHelp();
+      printSecretsHelp(logger);
       return 1;
   }
 }

@@ -884,15 +884,10 @@ describe("bun-release-compliance console-bun-terminal", () => {
     "src/lib/logger.ts",
     "src/lib/compile-target.ts",
     "src/lib/mcp-bridge-scaffold.ts",
-    "src/lib/secrets-cli.ts",
-    "src/lib/discover-cli.ts",
-    "src/lib/discover-format.ts",
     "examples/identity-usage-example.ts",
     "src/lib/herdr-dashboard/webview/options.ts",
     "src/lib/test-runtime.ts",
     "src/lib/bun-install-config.ts",
-    "src/lib/error-taxonomy.ts",
-    "src/lib/secrets-manager.ts",
     "src/lib/secrets/fast-resolver.ts",
     "src/lib/compression.ts",
     "src/lib/timing.ts",
@@ -903,11 +898,8 @@ describe("bun-release-compliance console-bun-terminal", () => {
     "src/lib/bun-cli-test-changed-probes.ts",
     "src/lib/bun-cli-markdown-probes.ts",
     "src/lib/bun-cli-fixture.ts",
-
-    "src/lib/workflow/loop.ts",
-    "src/lib/workflow/effects.ts",
-    "src/lib/desktop-sync.ts",
-    "src/lib/memory/governor.ts",
+    "src/lib/bun-utils.ts",
+    "src/lib/build-info.ts",
   ]);
 
   // src/bin/ entry points: console is the primary output mechanism — not linted here

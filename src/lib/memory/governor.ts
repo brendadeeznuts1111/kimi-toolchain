@@ -9,6 +9,7 @@
 
 import { heapStats } from "bun:jsc";
 import { formatMemoryBytes, inspectMemoryRuntime, readableStreamToText } from "../bun-utils.ts";
+import { logger } from "../logger.ts";
 
 /** Memory pressure buckets. */
 export type MemoryPressure = "none" | "fair" | "serious" | "critical";
@@ -130,7 +131,7 @@ export function preflightCheck(label: string): PreflightResult {
   };
 
   if (!ok) {
-    console.error(result.message);
+    logger.error(result.message);
   }
   return result;
 }
@@ -158,7 +159,7 @@ export function relievePressure(): MemoryGovernorSnapshot {
   forceGarbageCollection();
   const after = snapshot();
   const freed = before.process.rss - after.process.rss;
-  console.log(
+  logger.info(
     `Relieved ${(freed / 1_000_000).toFixed(1)} MB · pressure ${classifyPressure(after)}`
   );
   return after;
@@ -183,7 +184,7 @@ export function printMemoryTable(): void {
     { category: "Pressure", value: classifyPressure(snap) },
     { category: "Actually Critical", value: String(isActuallyCritical(snap)) },
   ];
-  console.log(Bun.inspect.table(rows));
+  logger.line(Bun.inspect.table(rows));
 }
 
 /** Options for {@link captureMimallocStats}. */
@@ -308,7 +309,7 @@ export function parseMimallocStats(raw: string): MimallocStats | undefined {
  *
  * @example
  * const { combined, exitCode } = await captureMimallocStats("scripts/runtime-info.ts");
- * console.log(combined);
+ * logger.line(combined);
  */
 export async function captureMimallocStats(
   scriptPath: string,

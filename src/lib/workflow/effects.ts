@@ -4,6 +4,11 @@
 
 import { dirname, join } from "path";
 import { makeDir } from "../bun-io.ts";
+import { createLogger, type Logger } from "../logger.ts";
+
+function resolveWorkflowLogger(): Logger {
+  return createLogger(Bun.argv, "kimi-workflow");
+}
 import { SemverMatcher } from "./semver-matcher.ts";
 import { parseSemverIssueMessage } from "./scanners.ts";
 import type { DriftMap, ScannerResult, WorkflowDomain, WorkflowEffects } from "./types.ts";
@@ -31,7 +36,7 @@ export interface EffectDeps {
 }
 
 function defaultLog(line: string): void {
-  console.error(line);
+  resolveWorkflowLogger().info(line);
 }
 
 /** POST drift/run summary to a webhook URL. */
