@@ -225,6 +225,7 @@ export const UNIT_TEST_FILES = [
   "test/workspace-health.unit.test.ts",
   "test/run-if-not-inflight.unit.test.ts",
   "test/path-hygiene.unit.test.ts",
+  "test/deep-hygiene.unit.test.ts",
   "test/cleanup-hygiene.unit.test.ts",
   "test/root-hygiene.unit.test.ts",
   "test/ecosystem-health.unit.test.ts",

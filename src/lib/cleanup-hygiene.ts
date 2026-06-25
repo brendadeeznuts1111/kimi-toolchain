@@ -6,6 +6,14 @@ import { join, resolve } from "path"; // @bun-native-exempt:soft-banned-import
 import { GENERATED_ARTIFACTS_DIR } from "./artifacts.ts";
 import { listDir, pathExists, removePath } from "./bun-io.ts";
 import {
+  collectDeepInventory,
+  collectNodeModulesTildeDirs,
+  deepPathSkipDirs,
+  defaultDeepScanPaths,
+  PATH_HYGIENE_DEEP_MAX_DEPTH,
+  type DeepInventoryEntry,
+} from "./deep-hygiene.ts";
+import {
   applyPathHygieneCleanup,
   auditPathHygiene,
   defaultPathHygieneRoot,
@@ -18,8 +26,10 @@ import {
   applyRootHygieneCleanup,
   auditRootHygiene,
   fixBunfigCacheMisconfig,
+  scrubEphemeralBunNodeDirs,
   type RootHygieneReport,
 } from "./root-hygiene.ts";
+import type { PathHygieneItem } from "./path-hygiene.ts";
 import { resolveEffectiveWorkspaceRoot } from "./workspace-health.ts";
 
 export type HygieneMode = "path" | "root" | "all" | "artifacts";
@@ -32,10 +42,18 @@ export interface HygieneCliOptions {
   json: boolean;
   help: boolean;
   fixBunfig: boolean;
+  deep: boolean;
   paths: string[];
-  maxDepth: number;
+  /** Set only when --max-depth passed; otherwise deep→12, default→6. */
+  maxDepth?: number;
   kinds: PathHygieneKind[];
   root?: string;
+}
+
+export interface DeepHygieneExtras {
+  nodeModulesTilde: PathHygieneItem[];
+  deepInventory: DeepInventoryEntry[];
+  ephemeralBunNodesRemoved: number;
 }
 
 export interface ArtifactsCleanupResult {
@@ -52,6 +70,7 @@ export type HygieneCleanupOutcome =
       dryRun: boolean;
       json: boolean;
       reports: PathHygieneReport[];
+      deep?: DeepHygieneExtras;
     }
   | {
       type: "root";
@@ -74,6 +93,7 @@ export type HygieneCleanupOutcome =
       rootReport: RootHygieneReport;
       bunfigFixed: boolean;
       artifacts: ArtifactsCleanupResult;
+      deep?: DeepHygieneExtras;
     };
 
 function repoRootFromCwd(explicit?: string): string {
@@ -112,6 +132,13 @@ export function summarizeHygieneOutcome(outcome: HygieneCleanupOutcome): Hygiene
 
   switch (outcome.type) {
     case "path": {
+      if (outcome.deep) {
+        base.itemGroups += outcome.deep.nodeModulesTilde.length;
+        for (const item of outcome.deep.nodeModulesTilde) {
+          base.files += item.fileCount;
+          base.bytes += item.bytes;
+        }
+      }
       for (const report of outcome.reports) {
         base.itemGroups += report.items.length;
         base.files += report.totalFiles;
@@ -140,6 +167,13 @@ export function summarizeHygieneOutcome(outcome: HygieneCleanupOutcome): Hygiene
       break;
     }
     case "all": {
+      if (outcome.deep) {
+        base.itemGroups += outcome.deep.nodeModulesTilde.length;
+        for (const item of outcome.deep.nodeModulesTilde) {
+          base.files += item.fileCount;
+          base.bytes += item.bytes;
+        }
+      }
       for (const report of outcome.pathReports) {
         base.itemGroups += report.items.length;
         base.files += report.totalFiles;
@@ -157,8 +191,15 @@ export function summarizeHygieneOutcome(outcome: HygieneCleanupOutcome): Hygiene
     }
   }
 
+  // Advisory deep inventory never affects dirty/exit code — only auto-clean targets.
   base.dirty = base.itemGroups > 0 || base.misconfigHints > 0;
   return base;
+}
+
+/** True when outcome has auto-clean targets (excludes advisory inventory). */
+export function hygieneHasAutoCleanTargets(outcome: HygieneCleanupOutcome): boolean {
+  const summary = summarizeHygieneOutcome(outcome);
+  return summary?.dirty ?? false;
 }
 
 /** Non-zero when hygiene issues remain or were just cleaned (actionable signal for CI). */
@@ -174,8 +215,9 @@ export function parseHygieneArgs(argv: string[]): HygieneCliOptions {
   let json = false;
   let help = false;
   let fixBunfig = false;
+  let deep = false;
   const paths: string[] = [];
-  let maxDepth = 6;
+  let maxDepth: number | undefined;
   let kinds: PathHygieneKind[] = ["literal-tilde-dir", "test-bun-artifact"];
   let root: string | undefined;
 
@@ -192,6 +234,7 @@ export function parseHygieneArgs(argv: string[]): HygieneCliOptions {
     else if (arg === "--dry-run" || arg === "--dryrun") dryRun = true;
     else if (arg === "--json") json = true;
     else if (arg === "--fix-bunfig" || arg === "--fix") fixBunfig = true;
+    else if (arg === "--deep") deep = true;
     else if (arg === "--path" || arg === "-p") {
       const next = args[++i];
       if (!next) throw new Error("--path requires a directory");
@@ -234,6 +277,7 @@ export function parseHygieneArgs(argv: string[]): HygieneCliOptions {
     json,
     help,
     fixBunfig,
+    deep,
     paths,
     maxDepth,
     kinds,
@@ -241,15 +285,47 @@ export function parseHygieneArgs(argv: string[]): HygieneCliOptions {
   };
 }
 
+function effectiveMaxDepth(options: HygieneCliOptions): number {
+  if (options.maxDepth !== undefined) return options.maxDepth;
+  return options.deep ? PATH_HYGIENE_DEEP_MAX_DEPTH : 6;
+}
+
+function pathScanTargets(options: HygieneCliOptions): string[] {
+  if (options.paths.length > 0) return options.paths;
+  if (options.deep) return defaultDeepScanPaths();
+  return [defaultPathHygieneRoot()];
+}
+
+async function runDeepExtras(options: HygieneCliOptions): Promise<DeepHygieneExtras> {
+  const projectRoot = repoRootFromCwd(options.root);
+  const nodeModulesTilde = collectNodeModulesTildeDirs(projectRoot);
+  if (!options.dryRun) {
+    for (const item of nodeModulesTilde) {
+      try {
+        removePath(item.absolutePath, { recursive: true, force: true });
+      } catch {
+        /* skip */
+      }
+    }
+  }
+  const ephemeralBunNodesRemoved =
+    options.deep && !options.dryRun ? scrubEphemeralBunNodeDirs() : 0;
+  const deepInventory = options.deep ? collectDeepInventory(defaultPathHygieneRoot()) : [];
+  return { nodeModulesTilde, deepInventory, ephemeralBunNodesRemoved };
+}
+
 async function runPathHygiene(options: HygieneCliOptions): Promise<PathHygieneReport[]> {
-  const targets = options.paths.length > 0 ? options.paths : [defaultPathHygieneRoot()];
+  const targets = pathScanTargets(options);
+  const maxDepth = effectiveMaxDepth(options);
+  const skipDirs = options.deep ? deepPathSkipDirs() : undefined;
   const reports: PathHygieneReport[] = [];
   for (const target of targets) {
     const scanRoot = expandPath(target);
     const report = await auditPathHygiene(scanRoot, {
       dryRun: options.dryRun,
-      maxDepth: options.maxDepth,
+      maxDepth,
       kinds: options.kinds,
+      skipDirs,
     });
     if (!options.dryRun) await applyPathHygieneCleanup(report);
     reports.push(report);
@@ -291,11 +367,13 @@ export async function executeHygieneCleanup(argv: string[]): Promise<HygieneClea
   if (options.help) return { type: "help" };
 
   if (options.mode === "path") {
+    const deep = options.deep ? await runDeepExtras(options) : undefined;
     return {
       type: "path",
       dryRun: options.dryRun,
       json: options.json,
       reports: await runPathHygiene(options),
+      deep,
     };
   }
 
@@ -319,6 +397,7 @@ export async function executeHygieneCleanup(argv: string[]): Promise<HygieneClea
     };
   }
 
+  const deep = options.deep ? await runDeepExtras(options) : undefined;
   const pathReports = await runPathHygiene(options);
   const { report: rootReport, bunfigFixed } = await runRootHygiene(options);
   const artifacts = runArtifactsCleanup(options);
@@ -330,6 +409,7 @@ export async function executeHygieneCleanup(argv: string[]): Promise<HygieneClea
     rootReport,
     bunfigFixed,
     artifacts,
+    deep,
   };
 }
 
@@ -369,6 +449,7 @@ export function hygieneCleanupJsonPayload(
         schemaVersion: 1,
         tool: "cleanup:all",
         dryRun: outcome.dryRun,
+        deep: outcome.deep,
         path: outcome.pathReports,
         root: {
           projectRoot: outcome.rootReport.projectRoot,

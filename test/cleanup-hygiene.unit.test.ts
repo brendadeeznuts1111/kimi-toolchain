@@ -40,6 +40,10 @@ describe("cleanup-hygiene CLI", () => {
     expect(parseHygieneArgs(["all", "--fix"]).fixBunfig).toBe(true);
   });
 
+  test("--deep sets deep flag", () => {
+    expect(parseHygieneArgs(["all", "--deep"]).deep).toBe(true);
+  });
+
   test("summarizeHygieneOutcome marks dirty when items exist", () => {
     const report: PathHygieneReport = {
       schemaVersion: 1,

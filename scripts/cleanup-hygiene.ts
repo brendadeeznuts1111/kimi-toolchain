@@ -10,8 +10,10 @@ import {
   hygieneCleanupJsonPayload,
   hygieneExitCode,
   summarizeHygieneOutcome,
+  type DeepHygieneExtras,
   type HygieneCleanupOutcome,
 } from "../src/lib/cleanup-hygiene.ts";
+import type { PathHygieneItem } from "../src/lib/path-hygiene.ts";
 import { formatHygieneBytes } from "../src/lib/hygiene-utils.ts";
 import type { PathHygieneReport } from "../src/lib/path-hygiene.ts";
 import { scrubProcessBunInstallCacheEnv, type RootHygieneReport } from "../src/lib/root-hygiene.ts";
@@ -114,8 +116,8 @@ Usage (from repo):
   bun run cleanup:artifacts [--dry-run] [--root <path>]
 
 From anywhere (after bun run install-wrappers):
-  cleanup-hygiene all --dry-run --path ~
-  kimi-toolchain cleanup all --dry-run --path ~  (requires synced .kimi-code tools)
+  cleanup-hygiene all --deep --dry-run
+  cleanup-hygiene all --deep --fix --path ~
 
 Exit code: 1 when removable items or cache misconfig remain (0 when clean).
 
@@ -125,8 +127,44 @@ Modes:
   all        path + root + artifacts in one pass
   artifacts  Purge .kimi-artifacts/ under repo root
 
+Deep (--deep):
+  max-depth 12; scans $HOME, Projects, .codex, .grok when no --path
+  node_modules ~/ purge on repo root; ephemeral bun-node-* tmp cleanup
+  advisory inventory for worktrees / archive / experimental (never auto-deleted)
+
 Fix:
   --fix / --fix-bunfig   Patch bunfig.toml literal-tilde [install.cache].dir (root/all)`);
+}
+
+function renderNodeModulesTilde(items: PathHygieneItem[], dryRun: boolean): void {
+  if (items.length === 0) return;
+  console.log(
+    dryRun
+      ? `\nWould remove ${items.length} node_modules ~/ dir(s):`
+      : `\nRemoved ${items.length} node_modules ~/ dir(s):`
+  );
+  for (const item of items) {
+    console.log(`  ${item.relPath} — ${item.fileCount} file(s), ${formatHygieneBytes(item.bytes)}`);
+  }
+}
+
+function renderDeepInventory(deep: DeepHygieneExtras, dryRun: boolean): void {
+  if (deep.ephemeralBunNodesRemoved > 0) {
+    console.log(`\nRemoved ${deep.ephemeralBunNodesRemoved} ephemeral bun-node-* dir(s) in tmp`);
+  }
+  if (deep.deepInventory.length === 0) return;
+  console.log("\n══ Advisory (manual review — not auto-deleted) ══");
+  for (const entry of deep.deepInventory) {
+    console.log(`  ${entry.kind.padEnd(16)} ${entry.relPath} — ${formatHygieneBytes(entry.bytes)}`);
+    console.log(`    ${entry.advisory}`);
+  }
+  if (dryRun) console.log("  (inventory only; pass without --dry-run to clean auto targets)");
+}
+
+function renderDeepExtras(deep: DeepHygieneExtras | undefined, dryRun: boolean): void {
+  if (!deep) return;
+  renderNodeModulesTilde(deep.nodeModulesTilde, dryRun);
+  renderDeepInventory(deep, dryRun);
 }
 
 function renderSummary(outcome: HygieneCleanupOutcome): void {
@@ -163,6 +201,7 @@ function renderText(outcome: HygieneCleanupOutcome): void {
         if (outcome.reports.length > 1) console.log(`\n── ${report.scanRoot} ──`);
         renderPathText(report);
       }
+      renderDeepExtras(outcome.deep, outcome.dryRun);
       break;
     case "root":
       renderRootText(outcome.report, outcome.bunfigFixed);
@@ -180,6 +219,7 @@ function renderText(outcome: HygieneCleanupOutcome): void {
       renderRootText(outcome.rootReport, outcome.bunfigFixed);
       console.log("\n══ Artifacts ══");
       renderArtifactsText(outcome);
+      renderDeepExtras(outcome.deep, outcome.dryRun);
       break;
   }
 }
