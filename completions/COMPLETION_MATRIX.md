@@ -1,6 +1,6 @@
 # Bun CLI Completion Matrix
 
-Generated from "completions/bun-cli.json" (sha256: `b29a6db8`).
+Generated from "completions/bun-cli.json" (sha256: `5a2cd016`).
 
 ## Command surface
 

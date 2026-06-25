@@ -102,11 +102,17 @@ interface DocSectionInfo {
   url: string;
 }
 
+interface RuntimeApiInfo {
+  topic: string;
+  apis: string[];
+}
+
 interface CompletionData {
   version: string;
   referenceUrl: string;
   apiModules: ApiModuleInfo[];
   docs: DocPageInfo[];
+  runtimeApis: RuntimeApiInfo[];
   commands: Record<string, CommandInfo>;
   globalFlags: FlagInfo[];
   specialHandling: {
@@ -248,6 +254,52 @@ async function fetchBunDocsIndex(): Promise<DocPageInfo[]> {
   } catch (error) {
     console.warn(
       "⚠ Could not fetch Bun docs index:",
+      error instanceof Error ? error.message : String(error)
+    );
+    return [];
+  }
+}
+
+/**
+ * Fetch and parse the Bun runtime APIs overview page.
+ * Extracts the topic/API table into a structured list.
+ */
+async function fetchRuntimeApis(): Promise<RuntimeApiInfo[]> {
+  try {
+    const response = await fetch("https://bun.com/docs/runtime/bun-apis.md");
+    if (!response.ok) {
+      console.warn(`⚠ Failed to fetch Bun APIs page: HTTP ${response.status}`);
+      return [];
+    }
+
+    const markdown = await response.text();
+    const apis: RuntimeApiInfo[] = [];
+    const seen = new Set<string>();
+
+    // Match table rows like: | HTTP Server | [`Bun.serve`](/runtime/http/server) |
+    for (const match of markdown.matchAll(/^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/gm)) {
+      const topic = match[1].trim();
+      const apiCell = match[2].trim();
+
+      if (!topic || topic === "Topic" || seen.has(topic)) continue;
+      seen.add(topic);
+
+      // Extract API names: Bun.serve, $, Bun.build, etc.
+      const apiNames: string[] = [];
+      for (const apiMatch of apiCell.matchAll(/`([^`]+)`/g)) {
+        const name = apiMatch[1].trim();
+        if (name && !apiNames.includes(name)) apiNames.push(name);
+      }
+
+      if (apiNames.length > 0) {
+        apis.push({ topic, apis: apiNames });
+      }
+    }
+
+    return apis;
+  } catch (error) {
+    console.warn(
+      "⚠ Could not fetch Bun runtime APIs:",
       error instanceof Error ? error.message : String(error)
     );
     return [];
@@ -816,11 +868,16 @@ async function generateCompletions(): Promise<void> {
   const docs = await fetchBunDocsIndex();
   console.log(`   - ${docs.length} doc pages`);
 
+  console.log("⚡ Fetching Bun runtime APIs...");
+  const runtimeApis = await fetchRuntimeApis();
+  console.log(`   - ${runtimeApis.length} runtime API topics`);
+
   const completionData: CompletionData = {
     version: "1.2.0",
     referenceUrl: "https://bun.com/reference",
     apiModules,
     docs,
+    runtimeApis,
     commands: {},
     globalFlags,
     specialHandling: {
@@ -932,6 +989,7 @@ async function generateCompletions(): Promise<void> {
   console.log(`   - Global flags: ${completionData.globalFlags.length}`);
   console.log(`   - API reference modules: ${completionData.apiModules.length}`);
   console.log(`   - Doc pages: ${completionData.docs.length}`);
+  console.log(`   - Runtime API topics: ${completionData.runtimeApis.length}`);
 
   let totalFlags = 0;
   let totalExamples = 0;

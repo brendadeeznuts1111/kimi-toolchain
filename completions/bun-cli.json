@@ -1623,6 +1623,180 @@
       "url": "https://bun.com/blog"
     }
   ],
+  "runtimeApis": [
+    {
+      "topic": "HTTP Server",
+      "apis": ["Bun.serve"]
+    },
+    {
+      "topic": "Shell",
+      "apis": ["$"]
+    },
+    {
+      "topic": "Bundler",
+      "apis": ["Bun.build"]
+    },
+    {
+      "topic": "File I/O",
+      "apis": ["Bun.file", "Bun.write", "Bun.stdin", "Bun.stdout", "Bun.stderr"]
+    },
+    {
+      "topic": "Child Processes",
+      "apis": ["Bun.spawn", "Bun.spawnSync"]
+    },
+    {
+      "topic": "TCP Sockets",
+      "apis": ["Bun.listen", "Bun.connect"]
+    },
+    {
+      "topic": "UDP Sockets",
+      "apis": ["Bun.udpSocket"]
+    },
+    {
+      "topic": "WebSockets",
+      "apis": ["new WebSocket()", "Bun.serve"]
+    },
+    {
+      "topic": "Transpiler",
+      "apis": ["Bun.Transpiler"]
+    },
+    {
+      "topic": "Routing",
+      "apis": ["Bun.FileSystemRouter"]
+    },
+    {
+      "topic": "Streaming HTML",
+      "apis": ["HTMLRewriter"]
+    },
+    {
+      "topic": "Headless Browser",
+      "apis": ["Bun.WebView"]
+    },
+    {
+      "topic": "Hashing",
+      "apis": ["Bun.password", "Bun.hash", "Bun.CryptoHasher", "Bun.sha"]
+    },
+    {
+      "topic": "CSRF Protection",
+      "apis": ["Bun.CSRF.generate", "Bun.CSRF.verify"]
+    },
+    {
+      "topic": "SQLite",
+      "apis": ["bun:sqlite"]
+    },
+    {
+      "topic": "PostgreSQL Client",
+      "apis": ["Bun.SQL", "Bun.sql"]
+    },
+    {
+      "topic": "Redis (Valkey) Client",
+      "apis": ["Bun.RedisClient", "Bun.redis"]
+    },
+    {
+      "topic": "FFI (Foreign Function Interface)",
+      "apis": ["bun:ffi"]
+    },
+    {
+      "topic": "DNS",
+      "apis": ["Bun.dns.lookup", "Bun.dns.prefetch", "Bun.dns.getCacheStats"]
+    },
+    {
+      "topic": "Testing",
+      "apis": ["bun:test"]
+    },
+    {
+      "topic": "Workers",
+      "apis": ["new Worker()"]
+    },
+    {
+      "topic": "Module Loaders",
+      "apis": ["Bun.plugin"]
+    },
+    {
+      "topic": "Glob",
+      "apis": ["Bun.Glob"]
+    },
+    {
+      "topic": "Cookies",
+      "apis": ["Bun.Cookie", "Bun.CookieMap"]
+    },
+    {
+      "topic": "Node-API",
+      "apis": ["Node-API"]
+    },
+    {
+      "topic": "`import.meta`",
+      "apis": ["import.meta"]
+    },
+    {
+      "topic": "Utilities",
+      "apis": ["Bun.version", "Bun.revision", "Bun.env", "Bun.main"]
+    },
+    {
+      "topic": "Sleep & Timing",
+      "apis": ["Bun.sleep()", "Bun.sleepSync()", "Bun.nanoseconds()"]
+    },
+    {
+      "topic": "Random & UUID",
+      "apis": ["Bun.randomUUIDv7()"]
+    },
+    {
+      "topic": "System & Environment",
+      "apis": ["Bun.which()"]
+    },
+    {
+      "topic": "Comparison & Inspection",
+      "apis": ["Bun.peek()", "Bun.deepEquals()", "Bun.deepMatch", "Bun.inspect()"]
+    },
+    {
+      "topic": "String & Text Processing",
+      "apis": ["Bun.escapeHTML()", "Bun.stringWidth()", "Bun.indexOfLine"]
+    },
+    {
+      "topic": "URL & Path Utilities",
+      "apis": ["Bun.fileURLToPath()", "Bun.pathToFileURL()"]
+    },
+    {
+      "topic": "Compression",
+      "apis": [
+        "Bun.gzipSync()",
+        "Bun.gunzipSync()",
+        "Bun.deflateSync()",
+        "Bun.inflateSync()",
+        "Bun.zstdCompressSync()",
+        "Bun.zstdDecompressSync()",
+        "Bun.zstdCompress()",
+        "Bun.zstdDecompress()"
+      ]
+    },
+    {
+      "topic": "Stream Processing",
+      "apis": [
+        "Bun.readableStreamTo*()",
+        "Bun.readableStreamToBytes()",
+        "Bun.readableStreamToBlob()",
+        "Bun.readableStreamToFormData()",
+        "Bun.readableStreamToJSON()",
+        "Bun.readableStreamToArray()"
+      ]
+    },
+    {
+      "topic": "Memory & Buffer Management",
+      "apis": ["Bun.ArrayBufferSink", "Bun.allocUnsafe", "Bun.concatArrayBuffers"]
+    },
+    {
+      "topic": "Module Resolution",
+      "apis": ["Bun.resolveSync()"]
+    },
+    {
+      "topic": "Parsing & Formatting",
+      "apis": ["Bun.semver", "Bun.TOML.parse", "Bun.markdown", "Bun.color", "Bun.Image"]
+    },
+    {
+      "topic": "Low-level / Internals",
+      "apis": ["Bun.mmap", "Bun.gc", "Bun.generateHeapSnapshot", "bun:jsc"]
+    }
+  ],
   "commands": {
     "run": {
       "name": "run",
