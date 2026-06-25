@@ -76,7 +76,7 @@ concurrentScripts = 8
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
 minimumReleaseAge = 259200
-minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
+minimumReleaseAgeExcludes = ["@types/node", "typescript"]
 # @see https://bun.com/docs/runtime/bunfig#installloglevel
 logLevel = "error"
 
