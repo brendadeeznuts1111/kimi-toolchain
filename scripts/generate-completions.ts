@@ -177,7 +177,9 @@ function parseFlag(line: string): FlagInfo | null {
       }
 
       // Look for choices/enums
-      const choicesMatch = description.match(/(?:One of|Valid (?:orders?|values?|options?)):?\s*"?([^"]+)"?/);
+      const choicesMatch = description.match(
+        /(?:One of|Valid (?:orders?|values?|options?)):?\s*"?([^"]+)"?/
+      );
       if (choicesMatch) {
         choices = choicesMatch[1]
           .split(/[,\s]+/)
@@ -277,7 +279,7 @@ writeText(
     name: "test",
     version: "1.0.0",
     scripts: {},
-  }),
+  })
 );
 process.once("beforeExit", () => {
   removePath(tmpRoot, { recursive: true });
@@ -623,7 +625,8 @@ async function generateCompletions(): Promise<void> {
     globalFlags,
     specialHandling: {
       bareCommand: {
-        description: "Run JavaScript/TypeScript files directly or access package scripts and binaries",
+        description:
+          "Run JavaScript/TypeScript files directly or access package scripts and binaries",
         canRunFiles: true,
         dynamicCompletions: {
           scripts: true,
@@ -710,7 +713,7 @@ async function generateCompletions(): Promise<void> {
       : "";
 
     console.log(
-      `   - ${name}${aliasInfo}: ${cmd.flags.length} flags, ${cmd.positionalArgs.length} positional args, ${cmd.examples.length} examples${subcommandInfo}${dynamicInfo}`,
+      `   - ${name}${aliasInfo}: ${cmd.flags.length} flags, ${cmd.positionalArgs.length} positional args, ${cmd.examples.length} examples${subcommandInfo}${dynamicInfo}`
     );
   }
 
