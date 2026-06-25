@@ -35,7 +35,7 @@ import {
   syncBaselineHistoryPath,
   syncBaselineMetricsPath,
 } from "./paths.ts";
-import { createLogger, type Logger } from "./logger.ts";
+
 import { safeParse } from "./utils.ts";
 import {
   writeManifest,
@@ -133,10 +133,6 @@ export const SKILL_ROUTE = {
 
 export const OPTIONAL_CONFIG_FILES = ["bunfig.toml", ".gitignore"] as const;
 export const TOOL_ORPHANS = ["kimi-utils.ts"] as const;
-
-function resolveSyncLogger(logger?: Logger): Logger {
-  return logger ?? createLogger(Bun.argv, "kimi-sync");
-}
 
 /** Human status lines for restore/sync (stderr per cli-contract). */
 function writeStderrLine(text: string): void {
@@ -237,7 +233,7 @@ export function ensureDesktopLayout(): void {
     governorDir(),
     skillsDir(),
   ]) {
-    Bun.spawnSync(["mkdir", "-p", dir]);
+    makeDir(dir, { recursive: true });
   }
 }
 
@@ -555,7 +551,7 @@ export type RestoreDriftRow = {
   newHash?: string;
 };
 
-export function hashDiffDriftRows(
+function hashDiffDriftRows(
   archived: Record<string, string>,
   current: Record<string, string>
 ): RestoreDriftRow[] {
@@ -932,7 +928,7 @@ export async function readSyncBaselineMetricsWithDrift(
 
 export type RestoreMode = "manifest" | "extract";
 
-export interface RestoreConfig {
+export type RestoreConfig = {
   archivePath: string;
   repoRoot: string;
   mode: RestoreMode;
@@ -940,9 +936,9 @@ export interface RestoreConfig {
   verify: boolean;
   dryRun: boolean;
   json: boolean;
-}
+};
 
-export interface RestoreResult {
+export type RestoreResult = {
   mode: RestoreMode;
   archivePath: string;
   targetDir: string;
@@ -956,89 +952,7 @@ export interface RestoreResult {
   dryRunRows?: RestoreDriftRow[];
   wroteManifest?: boolean;
   manifestVerificationOk?: boolean;
-}
-
-export function printRestoreBaselineHelp(logger?: Logger): void {
-  const log = resolveSyncLogger(logger);
-  const { root } = resolveEffectiveWorkspaceRoot(Bun.cwd);
-  log.line(
-    `Usage: kimi-toolchain restore-baseline [-a path] [--to dir] [-n] [--force] [--json]\n` +
-      `Manifest mode → ${desktopRoot()}; extract mode with --to.\n` +
-      `Archive: ${syncBaselineCacheArchivePath(root)} or ${syncBaselineArchivePath()}`
-  );
-}
-
-async function resolveDefaultArchivePath(repoRoot: string): Promise<string> {
-  const cachePath = syncBaselineCacheArchivePath(repoRoot);
-  if (await Bun.file(cachePath).exists()) return cachePath;
-  return syncBaselineArchivePath();
-}
-
-export async function parseRestoreBaselineArgs(
-  args: string[]
-): Promise<RestoreConfig | { help: true }> {
-  const { root: repoRoot } = resolveEffectiveWorkspaceRoot(Bun.cwd);
-  let archivePath: string | undefined;
-  let targetDir = ".";
-  let extractMode = false;
-  let verify = true;
-  let dryRun = false;
-  let json = false;
-
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index];
-    if (arg === "-h" || arg === "--help") return { help: true };
-    if (arg === "-a" || arg === "--archive") {
-      const value = args[index + 1];
-      if (!value || value.startsWith("-")) throw new Error(`${arg} requires a value`);
-      archivePath = value;
-      index++;
-      continue;
-    }
-    if (arg.startsWith("--archive=")) {
-      archivePath = arg.slice("--archive=".length);
-      continue;
-    }
-    if (arg === "--to" || arg === "-t" || arg === "--target") {
-      const value = args[index + 1];
-      if (!value || value.startsWith("-")) throw new Error(`${arg} requires a value`);
-      targetDir = value;
-      extractMode = true;
-      index++;
-      continue;
-    }
-    if (arg.startsWith("--to=") || arg.startsWith("--target=")) {
-      targetDir = arg.includes("--to=") ? arg.slice("--to=".length) : arg.slice("--target=".length);
-      extractMode = true;
-      continue;
-    }
-    if (arg === "-n" || arg === "--dry-run") {
-      dryRun = true;
-      continue;
-    }
-    if (arg === "--force") {
-      verify = false;
-      continue;
-    }
-    if (arg === "--json") {
-      json = true;
-      continue;
-    }
-    throw new Error(`Unknown option: ${arg}`);
-  }
-
-  const resolvedArchive = resolve(archivePath ?? (await resolveDefaultArchivePath(repoRoot)));
-
-  return {
-    archivePath: resolvedArchive,
-    repoRoot,
-    mode: extractMode ? "extract" : "manifest",
-    targetDir: resolve(targetDir),
-    verify,
-    dryRun,
-    json,
-  };
-}
+};
 
 export async function restoreBaseline(cfg: RestoreConfig): Promise<RestoreResult> {
   if (cfg.mode === "extract") {

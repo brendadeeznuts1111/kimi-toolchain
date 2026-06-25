@@ -62,7 +62,7 @@ export interface WebViewConsoleCaptureResult {
   mirrored: boolean;
 }
 
-export interface WebViewCliArgs {
+export type WebViewCliArgs = {
   mode: "open" | "frontmatter";
   target: string;
   mirror: boolean;
@@ -71,7 +71,7 @@ export interface WebViewCliArgs {
   script?: string;
   waitMs: number;
   backend?: "webkit" | "chrome";
-}
+};
 
 const DEFAULT_WAIT_MS = 100;
 

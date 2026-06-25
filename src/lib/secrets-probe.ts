@@ -18,13 +18,9 @@ function check(
   return { name, status, message, fixable, autoFix };
 }
 
-export interface SecretsProbeOptions {
-  detectBackend?: () => Promise<StorageBackend>;
-}
-
 export async function auditSecretsStorage(
   projectRoot: string,
-  opts: SecretsProbeOptions = {}
+  opts: { detectBackend?: () => Promise<StorageBackend> } = {}
 ): Promise<HealthCheck[]> {
   const policyPath = secretsPolicyPath(projectRoot);
   if (!(await Bun.file(policyPath).exists())) {

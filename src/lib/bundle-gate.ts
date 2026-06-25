@@ -16,21 +16,14 @@ import { readableStreamToText, withSerialLock } from "./bun-utils.ts";
 
 // ── Types ──────────────────────────────────────────────────────────
 
-export interface BundleGateEntryPoint {
-  /** Relative path from project root (e.g. "src/bin/kimi-doctor.ts"). */
-  path: string;
-  /** Target: "bun" | "node" | "browser" */
-  target?: string;
-}
-
-export interface BundleModuleRow {
+export type BundleModuleRow = {
   outputBytes: number;
   pctOfTotal: number;
   module: string;
   format: string;
-}
+};
 
-export interface BundleQuickSummary {
+export type BundleQuickSummary = {
   totalBytes: number;
   inputModules: number;
   entryPoints: number;
@@ -39,16 +32,16 @@ export interface BundleQuickSummary {
   esmModules: number;
   cjsModules: number;
   externalImports: number;
-}
+};
 
-export interface BundleGateFinding {
+export type BundleGateFinding = {
   severity: "error" | "warn" | "info";
   rule: string;
   message: string;
   detail: string;
-}
+};
 
-export interface BundleMetafile {
+export type BundleMetafile = {
   inputs: Record<
     string,
     { bytes: number; format?: string; imports?: { external?: boolean }[] }
@@ -57,7 +50,7 @@ export interface BundleMetafile {
     string,
     { bytes: number; entryPoint?: string; inputs?: Record<string, { bytesInOutput: number }> }
   >;
-}
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -68,7 +61,7 @@ export function isBundleMetafile(value: unknown): value is BundleMetafile {
   return isRecord(value.inputs) && isRecord(value.outputs);
 }
 
-export interface BundleGateReport {
+export type BundleGateReport = {
   schemaVersion: 1;
   tool: "bundle-gate";
   ok: boolean;
@@ -81,11 +74,11 @@ export interface BundleGateReport {
   markdownPath: string | null;
   error: string | null;
   generatedAt: string;
-}
+};
 
-export interface BundleGateOptions {
+export type BundleGateOptions = {
   projectRoot: string;
-  entryPoints?: BundleGateEntryPoint[];
+  entryPoints?: { path: string; target?: string }[];
   /** Total bundle size threshold in bytes (default: 15 MB). */
   maxTotalBytes?: number;
   /** Single-module contribution threshold as fraction (default: 0.15 = 15%). */
@@ -94,7 +87,7 @@ export interface BundleGateOptions {
   maxNodeModulesFraction?: number;
   /** Max number of input modules before warning (default: 500). */
   maxInputModules?: number;
-}
+};
 
 // ── Defaults ───────────────────────────────────────────────────────
 
@@ -401,11 +394,6 @@ export type BundleBuildArtifacts = {
   markdownPath: string;
 };
 
-export interface BuildWithMetafileResult extends BundleBuildArtifacts {
-  outDir: string;
-  entryPath: string;
-}
-
 /**
  * Build a single entry with `Bun.build({ metafile: true })` and write meta.json + markdown.
  * Throws when the entry is missing or the build fails.
@@ -414,7 +402,7 @@ export async function buildWithMetafile(
   entryPath: string,
   outDir: string,
   options: { target?: string; projectRoot?: string } = {}
-): Promise<BuildWithMetafileResult> {
+): Promise<BundleBuildArtifacts & { outDir: string; entryPath: string }> {
   const absoluteEntry = resolve(entryPath);
   const projectRoot = resolve(options.projectRoot ?? process.cwd());
 
@@ -450,7 +438,7 @@ export async function buildWithMetafile(
  */
 async function buildProjectBundle(
   projectRoot: string,
-  validEntry: BundleGateEntryPoint,
+  validEntry: { path: string; target?: string },
   outDir: string,
   metafilePath: string,
   markdownPath: string

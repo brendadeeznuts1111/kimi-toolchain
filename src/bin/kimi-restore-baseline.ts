@@ -4,17 +4,23 @@
  */
 
 import { Effect, Either } from "effect";
+import { resolve } from "path";
 import { isDirectRun } from "../lib/bun-utils.ts";
 import { writeStdoutJsonSync } from "../lib/ndjson.ts";
 import { createLogger } from "../lib/logger.ts";
 import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import {
-  parseRestoreBaselineArgs,
-  printRestoreBaselineHelp,
+  desktopRoot,
+  syncBaselineArchivePath,
+  syncBaselineCacheArchivePath,
+} from "../lib/paths.ts";
+import { resolveEffectiveWorkspaceRoot } from "../lib/workspace-health.ts";
+import {
   printRestoreDryRunTable,
   restoreBaseline,
   type HashDiffResult,
+  type RestoreConfig,
   type RestoreDriftRow,
 } from "../lib/desktop-sync.ts";
 
@@ -33,6 +39,85 @@ function dryRunRows(result: {
     file: line.replace(/^(missing|changed) /, ""),
     status: line.startsWith("missing ") ? ("remove" as const) : ("modify" as const),
   }));
+}
+
+function printRestoreBaselineHelp(): void {
+  const { root } = resolveEffectiveWorkspaceRoot(Bun.cwd);
+  logger.line(
+    `Usage: kimi-toolchain restore-baseline [-a path] [--to dir] [-n] [--force] [--json]\n` +
+      `Manifest mode → ${desktopRoot()}; extract mode with --to.\n` +
+      `Archive: ${syncBaselineCacheArchivePath(root)} or ${syncBaselineArchivePath()}`
+  );
+}
+
+async function resolveDefaultArchivePath(repoRoot: string): Promise<string> {
+  const cachePath = syncBaselineCacheArchivePath(repoRoot);
+  if (await Bun.file(cachePath).exists()) return cachePath;
+  return syncBaselineArchivePath();
+}
+
+async function parseRestoreBaselineArgs(
+  args: string[]
+): Promise<RestoreConfig | { help: true }> {
+  const { root: repoRoot } = resolveEffectiveWorkspaceRoot(Bun.cwd);
+  let archivePath: string | undefined;
+  let targetDir = ".";
+  let extractMode = false;
+  let verify = true;
+  let dryRun = false;
+  let json = false;
+
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg === "-h" || arg === "--help") return { help: true };
+    if (arg === "-a" || arg === "--archive") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) throw new Error(`${arg} requires a value`);
+      archivePath = value;
+      index++;
+      continue;
+    }
+    if (arg.startsWith("--archive=")) {
+      archivePath = arg.slice("--archive=".length);
+      continue;
+    }
+    if (arg === "--to" || arg === "-t" || arg === "--target") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) throw new Error(`${arg} requires a value`);
+      targetDir = value;
+      extractMode = true;
+      index++;
+      continue;
+    }
+    if (arg.startsWith("--to=") || arg.startsWith("--target=")) {
+      targetDir = arg.includes("--to=") ? arg.slice("--to=".length) : arg.slice("--target=".length);
+      extractMode = true;
+      continue;
+    }
+    if (arg === "-n" || arg === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
+    if (arg === "--force") {
+      verify = false;
+      continue;
+    }
+    if (arg === "--json") {
+      json = true;
+      continue;
+    }
+    throw new Error(`Unknown option: ${arg}`);
+  }
+
+  return {
+    archivePath: resolve(archivePath ?? (await resolveDefaultArchivePath(repoRoot))),
+    repoRoot,
+    mode: extractMode ? "extract" : "manifest",
+    targetDir: resolve(targetDir),
+    verify,
+    dryRun,
+    json,
+  };
 }
 
 function formatRestoreError(err: unknown): CliError {

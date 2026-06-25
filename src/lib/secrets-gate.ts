@@ -8,23 +8,17 @@ import type { StorageBackend } from "./secrets-types.ts";
 
 export const SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY = "secrets_storage_tier_mismatch";
 
-export interface SecretsStorageGateResult {
+export async function runSecretsStorageGate(
+  projectRoot: string,
+  opts: { detectBackend?: () => Promise<StorageBackend> } = {}
+): Promise<{
   ok: boolean;
   message: string;
   taxonomyId?: string;
   backend?: string;
   insecureSecretCount?: number;
   skipped?: boolean;
-}
-
-export interface SecretsStorageGateOptions {
-  detectBackend?: () => Promise<StorageBackend>;
-}
-
-export async function runSecretsStorageGate(
-  projectRoot: string,
-  opts: SecretsStorageGateOptions = {}
-): Promise<SecretsStorageGateResult> {
+}> {
   const policyPath = secretsPolicyPath(projectRoot);
   if (!(await Bun.file(policyPath).exists())) {
     return {
