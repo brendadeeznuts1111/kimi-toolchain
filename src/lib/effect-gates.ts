@@ -600,9 +600,10 @@ export async function appendEffectGatesSnapshot(
 ): Promise<void> {
   const path = effectGatesPath(projectRoot);
   makeDir(dirname(path), { recursive: true });
-  const sink = Bun.file(path).writer();
-  sink.write(`${JSON.stringify(report)}\n`);
-  await sink.end();
+  await Bun.write(path, `${JSON.stringify(report)}\n`, {
+    create: true,
+    append: true,
+  } as Parameters<typeof Bun.write>[2]);
 }
 
 /** Read recent effect-gates snapshots, newest first. */

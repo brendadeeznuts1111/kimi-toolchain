@@ -9,8 +9,9 @@
  * - `appendNdjsonRecord` — `Bun.file(path).writer()` (FileSink)
  */
 
-import { makeDir } from "./bun-io.ts";
-import { dirname } from "path";
+import { appendText, makeDir } from "./bun-io.ts";
+import { dirname, join } from "path";
+import { tmpdir } from "os";
 import { safeParse } from "./safe-parse.ts";
 
 /** Serialize one JSONL/NDJSON record (includes trailing newline). */
@@ -29,12 +30,10 @@ export function writeStdoutJsonSync(value: unknown, indent: number | null = 2): 
   process.stdout.write(`${body}\n`);
 }
 
-/** Sync append for hot paths — uses Bun.file().writer() (FileSink). */
+/** Sync append for hot paths — uses appendText (Node appendFileSync). */
 export function appendNdjsonRecordSync(path: string, record: unknown): void {
   makeDir(dirname(path), { recursive: true });
-  const sink = Bun.file(path).writer();
-  sink.write(formatNdjsonLine(record));
-  sink.end();
+  appendText(path, formatNdjsonLine(record));
 }
 
 /** Parse newline-delimited JSON text into validated records. */
@@ -145,12 +144,42 @@ export async function* streamNdjsonRecords<T = unknown>(
   }
 }
 
-/** Append one JSONL record via Bun.file().writer() (FileSink). */
+/** Append one JSONL record — probes Bun.write append mode at first call. */
+let _appendProbed = false;
+let _bunAppendWorks = false;
+
 export async function appendNdjsonRecord(path: string, record: unknown): Promise<void> {
+  if (!_appendProbed) await probeBunAppend();
   makeDir(dirname(path), { recursive: true });
-  const sink = Bun.file(path).writer();
-  sink.write(formatNdjsonLine(record));
-  await sink.end();
+  const line = formatNdjsonLine(record);
+  if (_bunAppendWorks) {
+    await Bun.write(path, line, { create: true, append: true } as Parameters<typeof Bun.write>[2]);
+  } else {
+    appendText(path, line);
+  }
+}
+
+async function probeBunAppend(): Promise<void> {
+  _appendProbed = true;
+  const tmp = join(
+    tmpdir(),
+    `.kimi-append-${Bun.hash(String(process.pid)).toString(16)}.tmp`
+  );
+  try {
+    await Bun.write(tmp, "a\n", { create: true } as Parameters<typeof Bun.write>[2]);
+    await Bun.write(tmp, "b\n", { create: true, append: true } as Parameters<typeof Bun.write>[2]);
+    _bunAppendWorks = (await Bun.file(tmp).text()) === "a\nb\n";
+  } catch {
+    _bunAppendWorks = false;
+  } finally {
+    try { await Bun.file(tmp).delete(); } catch {}
+  }
+}
+
+// Re-export for tests
+export function resetAppendCache(): void {
+  _appendProbed = false;
+  _bunAppendWorks = false;
 }
 
 /** Rewrite a JSONL file from an array of records. */

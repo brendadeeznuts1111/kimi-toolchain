@@ -471,9 +471,7 @@ export class Logger {
     if (this.logs.length === 0) return;
     makeDir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
     const lines = this.logs.map((l) => inspectAgent(l)).join("\n") + "\n";
-    const sink = Bun.file(path).writer();
-    sink.write(lines);
-    await sink.end();
+    await Bun.write(path, lines, { create: true, append: true } as Parameters<typeof Bun.write>[2]);
     this.logs.length = 0;
   }
 }

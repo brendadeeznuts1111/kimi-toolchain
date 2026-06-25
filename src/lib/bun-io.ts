@@ -4,6 +4,7 @@
  */
 
 import {
+  appendFileSync,
   cpSync,
   existsSync,
   lstatSync,
@@ -39,10 +40,9 @@ export function writeBytes(path: PathLike, data: string | Uint8Array): void {
   writeFileSync(path, data);
 }
 
+/** Sync append — no Bun-native sync API; uses Node appendFileSync. */
 export function appendText(path: PathLike, data: string): void {
-  const sink = Bun.file(path.toString()).writer();
-  sink.write(data);
-  sink.end();
+  appendFileSync(path, data);
 }
 
 export function listDir(path: PathLike): string[];

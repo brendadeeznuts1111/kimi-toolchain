@@ -58,9 +58,7 @@ async function persistRunLog(projectRoot: string, report: ScopePreflightReport):
   const jsonl = join(dir, "scope-runs.jsonl");
   const line = `${JSON.stringify(report)}\n`;
   await Bun.write(latest, `${JSON.stringify(report, null, 2)}\n`);
-  const sink = Bun.file(jsonl).writer();
-  sink.write(line);
-  await sink.end();
+  await Bun.write(jsonl, line, { create: true, append: true } as Parameters<typeof Bun.write>[2]);
   return latest;
 }
 
