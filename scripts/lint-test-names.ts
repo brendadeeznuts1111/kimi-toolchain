@@ -140,6 +140,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "kimi-doctor-gate": "src/bin/kimi-doctor.ts",
   "gates-trading": "src/gates/trading-metrics.ts",
   "dashboard-audit-store": "src/lib/dashboard-audit-store.ts",
+
   "herdr-dashboard-data": "src/lib/herdr-dashboard/data/data.ts",
   "herdr-dashboard-bridge": "src/lib/herdr-dashboard/server/bridge.ts",
   "herdr-dashboard-agents": "src/lib/herdr-dashboard/agents.ts",

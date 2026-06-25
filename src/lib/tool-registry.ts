@@ -181,7 +181,7 @@ export function formatToolHelp(): string {
     `Usage: ${META_BIN} <tool> [args...]`,
     `       ${META_BIN} workspace <verify|audit|fix|cleanup> [options]`,
     `       ${META_BIN} restore-baseline --archive <path> --to <dir> [--dry-run] [--force]`,
-    `       ${META_BIN} cleanup root [--dry-run] [--json]`,
+    `       ${META_BIN} cleanup root|path|all|artifacts [--dry-run] [--json]`,
     `       ${META_BIN} --list-tools`,
     `       ${META_BIN} --version`,
     "",

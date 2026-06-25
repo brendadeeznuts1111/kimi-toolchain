@@ -6,8 +6,9 @@
  *   - `test-bun*` compile artifact directories left by bun build probes
  */
 
-import { join, relative, resolve } from "path";
-import { listDir, pathExists, pathStat, readText, removePath } from "./bun-io.ts";
+import { join, relative, resolve } from "path"; // @bun-native-exempt:soft-banned-import
+import { listDir, pathExists, readText, removePath } from "./bun-io.ts";
+import { countTree } from "./hygiene-utils.ts";
 import { homeDir } from "./paths.ts";
 import {
   collectRootHygieneMisconfig,
@@ -68,31 +69,6 @@ export const PATH_HYGIENE_SKIP_DIRS = new Set([
 
 const DEFAULT_MAX_DEPTH = 6;
 const DEFAULT_KINDS: PathHygieneKind[] = ["literal-tilde-dir", "test-bun-artifact"];
-
-function countTree(path: string): { bytes: number; files: number } {
-  let bytes = 0;
-  let files = 0;
-  try {
-    const stat = pathStat(path);
-    if (!stat.isDirectory()) {
-      return { bytes: stat.size, files: 1 };
-    }
-    for (const entry of listDir(path, { withFileTypes: true })) {
-      const full = join(path, entry.name);
-      if (entry.isDirectory()) {
-        const nested = countTree(full);
-        bytes += nested.bytes;
-        files += nested.files;
-      } else if (entry.isFile()) {
-        bytes += pathStat(full).size;
-        files++;
-      }
-    }
-  } catch {
-    /* unreadable */
-  }
-  return { bytes, files };
-}
 
 function makeItem(
   scanRoot: string,
@@ -181,7 +157,9 @@ export function collectPathHygieneItems(options: CollectPathHygieneOptions): Pat
   return items.sort((a, b) => b.bytes - a.bytes);
 }
 
-async function repoRootHygieneIfApplicable(scanRoot: string): Promise<RootHygieneReport | undefined> {
+async function repoRootHygieneIfApplicable(
+  scanRoot: string
+): Promise<RootHygieneReport | undefined> {
   const pkg = join(scanRoot, "package.json");
   if (!pathExists(pkg)) return undefined;
   try {

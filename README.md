@@ -138,7 +138,11 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run ci:local`                      | scripts/ci-local.ts                    |
 | `bun run ci:pipeline`                   | scripts/ci-pipeline.ts                 |
 | `bun run cleanup-legacy`                | Workspace / artifact cleanup           |
+| `bun run cleanup:all`                   | Workspace / artifact cleanup           |
+| `bun run cleanup:all:dry-run`           | Workspace / artifact cleanup           |
 | `bun run cleanup:artifacts`             | Workspace / artifact cleanup           |
+| `bun run cleanup:path`                  | Workspace / artifact cleanup           |
+| `bun run cleanup:path:dry-run`          | Workspace / artifact cleanup           |
 | `bun run cleanup:root`                  | Workspace / artifact cleanup           |
 | `bun run cleanup:root:dry-run`          | Workspace / artifact cleanup           |
 | `bun run cleanup:root:fix`              | Workspace / artifact cleanup           |

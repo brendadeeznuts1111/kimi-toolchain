@@ -3,7 +3,7 @@
  * kimi-toolchain — Meta-binary router for all toolchain tools.
  * Usage: kimi-toolchain <tool> [args...]
  *        kimi-toolchain workspace verify|audit|fix|cleanup
- *        kimi-toolchain cleanup root|path [--dry-run] [--json]
+ *        kimi-toolchain cleanup root|path|all|artifacts [--dry-run] [--json]
  */
 
 import { Effect } from "effect";
@@ -111,18 +111,13 @@ async function main(): Promise<number> {
   if (tool === "cleanup") {
     const sub = rest[0];
     if (!sub || sub === "--help" || sub === "-h") {
-      logger.line("Usage: kimi-toolchain cleanup root|path [--dry-run] [--json]");
-      logger.line("       bun run cleanup:root:dry-run");
-      logger.line("       bun run cleanup:path:dry-run");
+      logger.line("Usage: kimi-toolchain cleanup root|path|all|artifacts [--dry-run] [--json]");
+      logger.line("       bun run cleanup:all:dry-run");
       return sub ? 0 : 1;
     }
-    if (sub === "root") {
-      const script = join(REPO_BIN, "..", "..", "scripts", "cleanup-root-bloat.ts");
-      return spawnTool(script, rest.slice(1));
-    }
-    if (sub === "path") {
-      const script = join(REPO_BIN, "..", "..", "scripts", "cleanup-path.ts");
-      return spawnTool(script, rest.slice(1));
+    if (sub === "root" || sub === "path" || sub === "all" || sub === "artifacts") {
+      const script = join(REPO_BIN, "..", "..", "scripts", "cleanup-hygiene.ts");
+      return spawnTool(script, [sub, ...rest.slice(1)]);
     }
     logger.error(`Unknown cleanup command: ${sub}`);
     return 1;

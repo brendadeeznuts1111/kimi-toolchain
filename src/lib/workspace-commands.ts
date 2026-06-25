@@ -69,7 +69,7 @@ export function printWorkspaceHelp(logger?: Logger): void {
   log.line("  --archive-legacy-sessions  Move wd_kimicode-cli_* to sessions/archive/");
   log.line("  --deep                     All fixes: cursor slugs + sessions + index prune");
   log.line("");
-  log.line("Root bloat (separate): bun run cleanup:root:dry-run | kimi-toolchain cleanup root");
+  log.line("Hygiene: bun run cleanup:all:dry-run | kimi-toolchain cleanup all");
 }
 
 async function runVerify(projectRoot: string, strict: boolean, logger: Logger): Promise<number> {

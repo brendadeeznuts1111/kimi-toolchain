@@ -7,6 +7,7 @@
 
 import { join } from "path";
 import { listDir, pathExists, pathStat, readText, removePath, writeText } from "./bun-io.ts";
+import { countTree } from "./hygiene-utils.ts";
 import { homeDir } from "./paths.ts";
 
 /** Default CPU/heap profile output under the project (gitignored via .kimi-artifacts/). */
@@ -187,31 +188,6 @@ export function gateSpawnEnv(
   applyBunInstallCacheEnvSanitizer(env, home);
   env.PATH = sanitizeGatePath(env.PATH, home);
   return env;
-}
-
-function countTree(path: string): { bytes: number; files: number } {
-  let bytes = 0;
-  let files = 0;
-  try {
-    const stat = pathStat(path);
-    if (!stat.isDirectory()) {
-      return { bytes: stat.size, files: 1 };
-    }
-    for (const entry of listDir(path, { withFileTypes: true })) {
-      const full = join(path, entry.name);
-      if (entry.isDirectory()) {
-        const nested = countTree(full);
-        bytes += nested.bytes;
-        files += nested.files;
-      } else if (entry.isFile()) {
-        bytes += pathStat(full).size;
-        files++;
-      }
-    }
-  } catch {
-    /* skip unreadable */
-  }
-  return { bytes, files };
 }
 
 function item(

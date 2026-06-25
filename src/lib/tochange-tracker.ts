@@ -193,11 +193,11 @@ export const STREAM_READ_REGISTRY: TochangeRegistryEntry[] = [
   },
   {
     id: "scripts-cleanup-bun-io",
-    file: "scripts/cleanup-root-bloat.ts",
+    file: "src/lib/cleanup-hygiene.ts",
     tier: "tier2",
     status: "implemented",
-    summary: "cleanup-root-bloat delegates I/O to root-hygiene (bun-io under the hood)",
-    probe: 'from "../src/lib/root-hygiene.ts"',
+    summary: "cleanup-hygiene unifies path/root/artifacts cleanup via hygiene libs",
+    probe: 'from "./root-hygiene.ts"',
   },
 ];
 
