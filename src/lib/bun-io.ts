@@ -10,7 +10,6 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
-  readlinkSync,
   readdirSync,
   renameSync,
   rmSync,
@@ -78,9 +77,6 @@ export function pathLstat(path: PathLike) {
   return lstatSync(path);
 }
 
-export function readLink(path: PathLike): string {
-  return readlinkSync(path, "utf8");
-}
 
 export function movePath(oldPath: PathLike, newPath: PathLike): void {
   renameSync(oldPath, newPath);

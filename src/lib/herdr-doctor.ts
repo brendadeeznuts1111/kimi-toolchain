@@ -1,5 +1,6 @@
+import { readlinkSync } from "node:fs";
 import { writeStdoutLine } from "./cli-contract.ts";
-import { pathExists, pathLstat, readLink, readText } from "./bun-io.ts";
+import { pathExists, pathLstat, readText } from "./bun-io.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 
 import { join } from "path";
@@ -273,7 +274,7 @@ function readJson(path: string) {
 function isSymlinkTo(path: string, expectedTarget: string): boolean {
   try {
     if (!pathLstat(path).isSymbolicLink()) return false;
-    const target = readLink(path);
+    const target = readlinkSync(path);
     const resolved = target.startsWith("/") ? target : join(path, "..", target);
     return resolved === expectedTarget;
   } catch {
