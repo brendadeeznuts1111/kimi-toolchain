@@ -227,6 +227,1402 @@
       "url": "https://bun.com/reference/node/zlib/iter"
     }
   ],
+  "docs": [
+    {
+      "title": "Bytecode Caching",
+      "url": "https://bun.com/docs/bundler/bytecode.md",
+      "description": "Speed up JavaScript execution with bytecode caching in Bun's bundler"
+    },
+    {
+      "title": "CSS",
+      "url": "https://bun.com/docs/bundler/css.md",
+      "description": "Bun's bundler has built-in support for CSS with modern features"
+    },
+    {
+      "title": "esbuild",
+      "url": "https://bun.com/docs/bundler/esbuild.md",
+      "description": "Migration guide from esbuild to Bun's bundler"
+    },
+    {
+      "title": "Single-file executable",
+      "url": "https://bun.com/docs/bundler/executables.md",
+      "description": "Generate standalone executables from TypeScript or JavaScript files with Bun"
+    },
+    {
+      "title": "Fullstack dev server",
+      "url": "https://bun.com/docs/bundler/fullstack.md",
+      "description": "Build fullstack applications with Bun's integrated dev server that bundles frontend assets and handles API routes"
+    },
+    {
+      "title": "Hot reloading",
+      "url": "https://bun.com/docs/bundler/hot-reloading.md",
+      "description": "Hot Module Replacement (HMR) for Bun's development server"
+    },
+    {
+      "title": "HTML & static sites",
+      "url": "https://bun.com/docs/bundler/html-static.md",
+      "description": "Build static sites, landing pages, and web applications with Bun's bundler"
+    },
+    {
+      "title": "Bundler",
+      "url": "https://bun.com/docs/bundler/index.md",
+      "description": "Bun's fast native bundler for JavaScript, TypeScript, JSX, and more"
+    },
+    {
+      "title": "Loaders",
+      "url": "https://bun.com/docs/bundler/loaders.md",
+      "description": "Built-in loaders for the Bun bundler and runtime"
+    },
+    {
+      "title": "Macros",
+      "url": "https://bun.com/docs/bundler/macros.md",
+      "description": "Run JavaScript functions at bundle-time with Bun macros"
+    },
+    {
+      "title": "Minifier",
+      "url": "https://bun.com/docs/bundler/minifier.md",
+      "description": "Reduce bundle sizes with Bun's JavaScript and TypeScript minifier"
+    },
+    {
+      "title": "Plugins",
+      "url": "https://bun.com/docs/bundler/plugins.md",
+      "description": "Universal plugin API for extending Bun's runtime and bundler"
+    },
+    {
+      "title": "Standalone HTML",
+      "url": "https://bun.com/docs/bundler/standalone-html.md",
+      "description": "Bundle a single-page app into a single self-contained .html file with no external dependencies"
+    },
+    {
+      "title": "Feedback",
+      "url": "https://bun.com/docs/feedback.md",
+      "description": "Share feedback, bug reports, and feature requests"
+    },
+    {
+      "title": "Convert an ArrayBuffer to an array of numbers",
+      "url": "https://bun.com/docs/guides/binary/arraybuffer-to-array.md"
+    },
+    {
+      "title": "Convert an ArrayBuffer to a Blob",
+      "url": "https://bun.com/docs/guides/binary/arraybuffer-to-blob.md"
+    },
+    {
+      "title": "Convert an ArrayBuffer to a Buffer",
+      "url": "https://bun.com/docs/guides/binary/arraybuffer-to-buffer.md"
+    },
+    {
+      "title": "Convert an ArrayBuffer to a string",
+      "url": "https://bun.com/docs/guides/binary/arraybuffer-to-string.md"
+    },
+    {
+      "title": "Convert an ArrayBuffer to a Uint8Array",
+      "url": "https://bun.com/docs/guides/binary/arraybuffer-to-typedarray.md"
+    },
+    {
+      "title": "Convert a Blob to an ArrayBuffer",
+      "url": "https://bun.com/docs/guides/binary/blob-to-arraybuffer.md"
+    },
+    {
+      "title": "Convert a Blob to a DataView",
+      "url": "https://bun.com/docs/guides/binary/blob-to-dataview.md"
+    },
+    {
+      "title": "Convert a Blob to a ReadableStream",
+      "url": "https://bun.com/docs/guides/binary/blob-to-stream.md"
+    },
+    {
+      "title": "Convert a Blob to a string",
+      "url": "https://bun.com/docs/guides/binary/blob-to-string.md"
+    },
+    {
+      "title": "Convert a Blob to a Uint8Array",
+      "url": "https://bun.com/docs/guides/binary/blob-to-typedarray.md"
+    },
+    {
+      "title": "Convert a Buffer to an ArrayBuffer",
+      "url": "https://bun.com/docs/guides/binary/buffer-to-arraybuffer.md"
+    },
+    {
+      "title": "Convert a Buffer to a blob",
+      "url": "https://bun.com/docs/guides/binary/buffer-to-blob.md"
+    },
+    {
+      "title": "Convert a Buffer to a ReadableStream",
+      "url": "https://bun.com/docs/guides/binary/buffer-to-readablestream.md"
+    },
+    {
+      "title": "Convert a Buffer to a string",
+      "url": "https://bun.com/docs/guides/binary/buffer-to-string.md"
+    },
+    {
+      "title": "Convert a Buffer to a Uint8Array",
+      "url": "https://bun.com/docs/guides/binary/buffer-to-typedarray.md"
+    },
+    {
+      "title": "Convert a DataView to a string",
+      "url": "https://bun.com/docs/guides/binary/dataview-to-string.md"
+    },
+    {
+      "title": "Convert a Uint8Array to an ArrayBuffer",
+      "url": "https://bun.com/docs/guides/binary/typedarray-to-arraybuffer.md"
+    },
+    {
+      "title": "Convert a Uint8Array to a Blob",
+      "url": "https://bun.com/docs/guides/binary/typedarray-to-blob.md"
+    },
+    {
+      "title": "Convert a Uint8Array to a Buffer",
+      "url": "https://bun.com/docs/guides/binary/typedarray-to-buffer.md"
+    },
+    {
+      "title": "Convert a Uint8Array to a DataView",
+      "url": "https://bun.com/docs/guides/binary/typedarray-to-dataview.md"
+    },
+    {
+      "title": "Convert a Uint8Array to a ReadableStream",
+      "url": "https://bun.com/docs/guides/binary/typedarray-to-readablestream.md"
+    },
+    {
+      "title": "Convert a Uint8Array to a string",
+      "url": "https://bun.com/docs/guides/binary/typedarray-to-string.md"
+    },
+    {
+      "title": "Deploy a Bun application on AWS Lambda",
+      "url": "https://bun.com/docs/guides/deployment/aws-lambda.md"
+    },
+    {
+      "title": "Deploy a Bun application on DigitalOcean",
+      "url": "https://bun.com/docs/guides/deployment/digital-ocean.md"
+    },
+    {
+      "title": "Deploy a Bun application on Google Cloud Run",
+      "url": "https://bun.com/docs/guides/deployment/google-cloud-run.md"
+    },
+    {
+      "title": "Deploy a Bun application on Railway",
+      "url": "https://bun.com/docs/guides/deployment/railway.md",
+      "description": "Deploy Bun applications to Railway with this step-by-step guide covering CLI and dashboard methods, optional PostgreSQL setup, and automatic SSL configuration."
+    },
+    {
+      "title": "Deploy a Bun application on Render",
+      "url": "https://bun.com/docs/guides/deployment/render.md"
+    },
+    {
+      "title": "Deploy a Bun application on Vercel",
+      "url": "https://bun.com/docs/guides/deployment/vercel.md"
+    },
+    {
+      "title": "Build an app with Astro and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/astro.md"
+    },
+    {
+      "title": "Create a Discord bot",
+      "url": "https://bun.com/docs/guides/ecosystem/discordjs.md"
+    },
+    {
+      "title": "Containerize a Bun application with Docker",
+      "url": "https://bun.com/docs/guides/ecosystem/docker.md"
+    },
+    {
+      "title": "Use Drizzle ORM with Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/drizzle.md"
+    },
+    {
+      "title": "Build an HTTP server using Elysia and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/elysia.md"
+    },
+    {
+      "title": "Build an HTTP server using Express and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/express.md"
+    },
+    {
+      "title": "Use Gel with Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/gel.md"
+    },
+    {
+      "title": "Build an HTTP server using Hono and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/hono.md"
+    },
+    {
+      "title": "Read and write data to MongoDB using Mongoose and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/mongoose.md"
+    },
+    {
+      "title": "Use Neon Postgres through Drizzle ORM",
+      "url": "https://bun.com/docs/guides/ecosystem/neon-drizzle.md"
+    },
+    {
+      "title": "Use Neon's Serverless Postgres with Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/neon-serverless-postgres.md"
+    },
+    {
+      "title": "Build an app with Next.js and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/nextjs.md"
+    },
+    {
+      "title": "Build an app with Nuxt and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/nuxt.md"
+    },
+    {
+      "title": "Run Bun as a daemon with PM2",
+      "url": "https://bun.com/docs/guides/ecosystem/pm2.md"
+    },
+    {
+      "title": "Use Prisma with Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/prisma.md"
+    },
+    {
+      "title": "Use Prisma Postgres with Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/prisma-postgres.md"
+    },
+    {
+      "title": "Build an app with Qwik and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/qwik.md"
+    },
+    {
+      "title": "Build a React app with Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/react.md"
+    },
+    {
+      "title": "Build an app with Remix and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/remix.md"
+    },
+    {
+      "title": "Add Sentry to a Bun app",
+      "url": "https://bun.com/docs/guides/ecosystem/sentry.md"
+    },
+    {
+      "title": "Build an app with SolidStart and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/solidstart.md"
+    },
+    {
+      "title": "Server-side render (SSR) a React component",
+      "url": "https://bun.com/docs/guides/ecosystem/ssr-react.md"
+    },
+    {
+      "title": "Build an HTTP server using StricJS and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/stric.md"
+    },
+    {
+      "title": "Build an app with SvelteKit and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/sveltekit.md"
+    },
+    {
+      "title": "Run Bun as a daemon with systemd",
+      "url": "https://bun.com/docs/guides/ecosystem/systemd.md"
+    },
+    {
+      "title": "Use TanStack Start with Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/tanstack-start.md"
+    },
+    {
+      "title": "Bun Redis with Upstash",
+      "url": "https://bun.com/docs/guides/ecosystem/upstash.md"
+    },
+    {
+      "title": "Build a frontend using Vite and Bun",
+      "url": "https://bun.com/docs/guides/ecosystem/vite.md"
+    },
+    {
+      "title": "Extract links from a webpage using HTMLRewriter",
+      "url": "https://bun.com/docs/guides/html-rewriter/extract-links.md"
+    },
+    {
+      "title": "Extract social share images and Open Graph tags",
+      "url": "https://bun.com/docs/guides/html-rewriter/extract-social-meta.md"
+    },
+    {
+      "title": "Start a cluster of HTTP servers",
+      "url": "https://bun.com/docs/guides/http/cluster.md",
+      "description": "Run multiple HTTP servers concurrently via the \"reusePort\" option to share the same port across multiple processes"
+    },
+    {
+      "title": "Send an HTTP request using fetch",
+      "url": "https://bun.com/docs/guides/http/fetch.md"
+    },
+    {
+      "title": "fetch with unix domain sockets in Bun",
+      "url": "https://bun.com/docs/guides/http/fetch-unix.md"
+    },
+    {
+      "title": "Upload files via HTTP using FormData",
+      "url": "https://bun.com/docs/guides/http/file-uploads.md"
+    },
+    {
+      "title": "Hot reload an HTTP server",
+      "url": "https://bun.com/docs/guides/http/hot.md"
+    },
+    {
+      "title": "Proxy HTTP requests using fetch()",
+      "url": "https://bun.com/docs/guides/http/proxy.md"
+    },
+    {
+      "title": "Common HTTP server usage",
+      "url": "https://bun.com/docs/guides/http/server.md"
+    },
+    {
+      "title": "Write a simple HTTP server",
+      "url": "https://bun.com/docs/guides/http/simple.md"
+    },
+    {
+      "title": "Server-Sent Events (SSE) with Bun",
+      "url": "https://bun.com/docs/guides/http/sse.md"
+    },
+    {
+      "title": "Stream a file as an HTTP Response",
+      "url": "https://bun.com/docs/guides/http/stream-file.md"
+    },
+    {
+      "title": "Streaming HTTP Server with Async Iterators",
+      "url": "https://bun.com/docs/guides/http/stream-iterator.md"
+    },
+    {
+      "title": "Streaming HTTP Server with Node.js Streams",
+      "url": "https://bun.com/docs/guides/http/stream-node-streams-in-bun.md"
+    },
+    {
+      "title": "Configure TLS on an HTTP server",
+      "url": "https://bun.com/docs/guides/http/tls.md"
+    },
+    {
+      "title": "Guides",
+      "url": "https://bun.com/docs/guides/index.md",
+      "description": "A collection of code samples and walkthroughs for performing common tasks with Bun."
+    },
+    {
+      "title": "Add a dependency",
+      "url": "https://bun.com/docs/guides/install/add.md"
+    },
+    {
+      "title": "Add a development dependency",
+      "url": "https://bun.com/docs/guides/install/add-dev.md"
+    },
+    {
+      "title": "Add a Git dependency",
+      "url": "https://bun.com/docs/guides/install/add-git.md"
+    },
+    {
+      "title": "Add an optional dependency",
+      "url": "https://bun.com/docs/guides/install/add-optional.md"
+    },
+    {
+      "title": "Add a peer dependency",
+      "url": "https://bun.com/docs/guides/install/add-peer.md"
+    },
+    {
+      "title": "Add a tarball dependency",
+      "url": "https://bun.com/docs/guides/install/add-tarball.md"
+    },
+    {
+      "title": "Using bun install with an Azure Artifacts npm registry",
+      "url": "https://bun.com/docs/guides/install/azure-artifacts.md"
+    },
+    {
+      "title": "Install dependencies with Bun in GitHub Actions",
+      "url": "https://bun.com/docs/guides/install/cicd.md"
+    },
+    {
+      "title": "Override the default npm registry for bun install",
+      "url": "https://bun.com/docs/guides/install/custom-registry.md"
+    },
+    {
+      "title": "Migrate from npm install to bun install",
+      "url": "https://bun.com/docs/guides/install/from-npm-install-to-bun-install.md"
+    },
+    {
+      "title": "Configure git to diff Bun's lockb lockfile",
+      "url": "https://bun.com/docs/guides/install/git-diff-bun-lockfile.md"
+    },
+    {
+      "title": "Using bun install with Artifactory",
+      "url": "https://bun.com/docs/guides/install/jfrog-artifactory.md"
+    },
+    {
+      "title": "Install a package under a different name",
+      "url": "https://bun.com/docs/guides/install/npm-alias.md"
+    },
+    {
+      "title": "Configure a private registry for an organization scope with bun install",
+      "url": "https://bun.com/docs/guides/install/registry-scope.md"
+    },
+    {
+      "title": "Add a trusted dependency",
+      "url": "https://bun.com/docs/guides/install/trusted.md"
+    },
+    {
+      "title": "Configuring a monorepo using workspaces",
+      "url": "https://bun.com/docs/guides/install/workspaces.md"
+    },
+    {
+      "title": "Generate a yarn-compatible lockfile",
+      "url": "https://bun.com/docs/guides/install/yarnlock.md"
+    },
+    {
+      "title": "Parse command-line arguments",
+      "url": "https://bun.com/docs/guides/process/argv.md"
+    },
+    {
+      "title": "Listen for CTRL+C",
+      "url": "https://bun.com/docs/guides/process/ctrl-c.md"
+    },
+    {
+      "title": "Spawn a child process and communicate using IPC",
+      "url": "https://bun.com/docs/guides/process/ipc.md"
+    },
+    {
+      "title": "Get the process uptime in nanoseconds",
+      "url": "https://bun.com/docs/guides/process/nanoseconds.md"
+    },
+    {
+      "title": "Listen to OS signals",
+      "url": "https://bun.com/docs/guides/process/os-signals.md"
+    },
+    {
+      "title": "Spawn a child process",
+      "url": "https://bun.com/docs/guides/process/spawn.md"
+    },
+    {
+      "title": "Read stderr from a child process",
+      "url": "https://bun.com/docs/guides/process/spawn-stderr.md"
+    },
+    {
+      "title": "Read stdout from a child process",
+      "url": "https://bun.com/docs/guides/process/spawn-stdout.md"
+    },
+    {
+      "title": "Read from stdin",
+      "url": "https://bun.com/docs/guides/process/stdin.md"
+    },
+    {
+      "title": "Read a file to an ArrayBuffer",
+      "url": "https://bun.com/docs/guides/read-file/arraybuffer.md"
+    },
+    {
+      "title": "Read a file to a Buffer",
+      "url": "https://bun.com/docs/guides/read-file/buffer.md"
+    },
+    {
+      "title": "Check if a file exists",
+      "url": "https://bun.com/docs/guides/read-file/exists.md"
+    },
+    {
+      "title": "Read a JSON file",
+      "url": "https://bun.com/docs/guides/read-file/json.md"
+    },
+    {
+      "title": "Get the MIME type of a file",
+      "url": "https://bun.com/docs/guides/read-file/mime.md"
+    },
+    {
+      "title": "Read a file as a ReadableStream",
+      "url": "https://bun.com/docs/guides/read-file/stream.md"
+    },
+    {
+      "title": "Read a file as a string",
+      "url": "https://bun.com/docs/guides/read-file/string.md"
+    },
+    {
+      "title": "Read a file to a Uint8Array",
+      "url": "https://bun.com/docs/guides/read-file/uint8array.md"
+    },
+    {
+      "title": "Watch a directory for changes",
+      "url": "https://bun.com/docs/guides/read-file/watch.md"
+    },
+    {
+      "title": "Build-time constants with --define",
+      "url": "https://bun.com/docs/guides/runtime/build-time-constants.md"
+    },
+    {
+      "title": "Install and run Bun in GitHub Actions",
+      "url": "https://bun.com/docs/guides/runtime/cicd.md"
+    },
+    {
+      "title": "Codesign a single-file JavaScript executable on macOS",
+      "url": "https://bun.com/docs/guides/runtime/codesign-macos-executable.md",
+      "description": "Fix the \"can't be opened because it is from an unidentified developer\" Gatekeeper warning when running your JavaScript executable."
+    },
+    {
+      "title": "Define and replace static globals & constants",
+      "url": "https://bun.com/docs/guides/runtime/define-constant.md"
+    },
+    {
+      "title": "Delete directories",
+      "url": "https://bun.com/docs/guides/runtime/delete-directory.md"
+    },
+    {
+      "title": "Delete files",
+      "url": "https://bun.com/docs/guides/runtime/delete-file.md"
+    },
+    {
+      "title": "Inspect memory usage using V8 heap snapshots",
+      "url": "https://bun.com/docs/guides/runtime/heap-snapshot.md"
+    },
+    {
+      "title": "Import a HTML file as text",
+      "url": "https://bun.com/docs/guides/runtime/import-html.md"
+    },
+    {
+      "title": "Import a JSON file",
+      "url": "https://bun.com/docs/guides/runtime/import-json.md"
+    },
+    {
+      "title": "Import a JSON5 file",
+      "url": "https://bun.com/docs/guides/runtime/import-json5.md"
+    },
+    {
+      "title": "Import a TOML file",
+      "url": "https://bun.com/docs/guides/runtime/import-toml.md"
+    },
+    {
+      "title": "Import a YAML file",
+      "url": "https://bun.com/docs/guides/runtime/import-yaml.md"
+    },
+    {
+      "title": "Read environment variables",
+      "url": "https://bun.com/docs/guides/runtime/read-env.md"
+    },
+    {
+      "title": "Set environment variables",
+      "url": "https://bun.com/docs/guides/runtime/set-env.md"
+    },
+    {
+      "title": "Run a Shell Command",
+      "url": "https://bun.com/docs/guides/runtime/shell.md"
+    },
+    {
+      "title": "Set a time zone in Bun",
+      "url": "https://bun.com/docs/guides/runtime/timezone.md"
+    },
+    {
+      "title": "Re-map import paths",
+      "url": "https://bun.com/docs/guides/runtime/tsconfig-paths.md"
+    },
+    {
+      "title": "Install TypeScript declarations for Bun",
+      "url": "https://bun.com/docs/guides/runtime/typescript.md"
+    },
+    {
+      "title": "Debugging Bun with the VS Code extension",
+      "url": "https://bun.com/docs/guides/runtime/vscode-debugger.md"
+    },
+    {
+      "title": "Debugging Bun with the web debugger",
+      "url": "https://bun.com/docs/guides/runtime/web-debugger.md"
+    },
+    {
+      "title": "Convert a Node.js Readable to an ArrayBuffer",
+      "url": "https://bun.com/docs/guides/streams/node-readable-to-arraybuffer.md"
+    },
+    {
+      "title": "Convert a Node.js Readable to a Blob",
+      "url": "https://bun.com/docs/guides/streams/node-readable-to-blob.md"
+    },
+    {
+      "title": "Convert a Node.js Readable to JSON",
+      "url": "https://bun.com/docs/guides/streams/node-readable-to-json.md"
+    },
+    {
+      "title": "Convert a Node.js Readable to a string",
+      "url": "https://bun.com/docs/guides/streams/node-readable-to-string.md"
+    },
+    {
+      "title": "Convert a Node.js Readable to an Uint8Array",
+      "url": "https://bun.com/docs/guides/streams/node-readable-to-uint8array.md"
+    },
+    {
+      "title": "Convert a ReadableStream to an array of chunks",
+      "url": "https://bun.com/docs/guides/streams/to-array.md"
+    },
+    {
+      "title": "Convert a ReadableStream to an ArrayBuffer",
+      "url": "https://bun.com/docs/guides/streams/to-arraybuffer.md"
+    },
+    {
+      "title": "Convert a ReadableStream to a Blob",
+      "url": "https://bun.com/docs/guides/streams/to-blob.md"
+    },
+    {
+      "title": "Convert a ReadableStream to a Buffer",
+      "url": "https://bun.com/docs/guides/streams/to-buffer.md"
+    },
+    {
+      "title": "Convert a ReadableStream to JSON",
+      "url": "https://bun.com/docs/guides/streams/to-json.md"
+    },
+    {
+      "title": "Convert a ReadableStream to a string",
+      "url": "https://bun.com/docs/guides/streams/to-string.md"
+    },
+    {
+      "title": "Convert a ReadableStream to a Uint8Array",
+      "url": "https://bun.com/docs/guides/streams/to-typedarray.md"
+    },
+    {
+      "title": "Bail early with the Bun test runner",
+      "url": "https://bun.com/docs/guides/test/bail.md"
+    },
+    {
+      "title": "Selectively run tests concurrently with glob patterns",
+      "url": "https://bun.com/docs/guides/test/concurrent-test-glob.md",
+      "description": "Set a glob pattern to decide which tests from which files run in parallel"
+    },
+    {
+      "title": "Generate code coverage reports with the Bun test runner",
+      "url": "https://bun.com/docs/guides/test/coverage.md"
+    },
+    {
+      "title": "Set a code coverage threshold with the Bun test runner",
+      "url": "https://bun.com/docs/guides/test/coverage-threshold.md"
+    },
+    {
+      "title": "Write browser DOM tests with Bun and happy-dom",
+      "url": "https://bun.com/docs/guides/test/happy-dom.md"
+    },
+    {
+      "title": "Migrate from Jest to Bun's test runner",
+      "url": "https://bun.com/docs/guides/test/migrate-from-jest.md"
+    },
+    {
+      "title": "Set the system time in Bun's test runner",
+      "url": "https://bun.com/docs/guides/test/mock-clock.md"
+    },
+    {
+      "title": "Mock functions in `bun test`",
+      "url": "https://bun.com/docs/guides/test/mock-functions.md"
+    },
+    {
+      "title": "Re-run tests multiple times with the Bun test runner",
+      "url": "https://bun.com/docs/guides/test/rerun-each.md"
+    },
+    {
+      "title": "Run your tests with the Bun test runner",
+      "url": "https://bun.com/docs/guides/test/run-tests.md"
+    },
+    {
+      "title": "Skip tests with the Bun test runner",
+      "url": "https://bun.com/docs/guides/test/skip-tests.md"
+    },
+    {
+      "title": "Use snapshot testing in `bun test`",
+      "url": "https://bun.com/docs/guides/test/snapshot.md"
+    },
+    {
+      "title": "Spy on methods in `bun test`",
+      "url": "https://bun.com/docs/guides/test/spy-on.md"
+    },
+    {
+      "title": "import, require, and test Svelte components with bun test",
+      "url": "https://bun.com/docs/guides/test/svelte-test.md"
+    },
+    {
+      "title": "Using Testing Library with Bun",
+      "url": "https://bun.com/docs/guides/test/testing-library.md"
+    },
+    {
+      "title": "Set a per-test timeout with the Bun test runner",
+      "url": "https://bun.com/docs/guides/test/timeout.md"
+    },
+    {
+      "title": "Mark a test as a \"todo\" with the Bun test runner",
+      "url": "https://bun.com/docs/guides/test/todo-tests.md"
+    },
+    {
+      "title": "Update snapshots in `bun test`",
+      "url": "https://bun.com/docs/guides/test/update-snapshots.md"
+    },
+    {
+      "title": "Run tests in watch mode with Bun",
+      "url": "https://bun.com/docs/guides/test/watch-mode.md"
+    },
+    {
+      "title": "Encode and decode base64 strings",
+      "url": "https://bun.com/docs/guides/util/base64.md"
+    },
+    {
+      "title": "Check if two objects are deeply equal",
+      "url": "https://bun.com/docs/guides/util/deep-equals.md"
+    },
+    {
+      "title": "Compress and decompress data with DEFLATE",
+      "url": "https://bun.com/docs/guides/util/deflate.md"
+    },
+    {
+      "title": "Detect when code is executed with Bun",
+      "url": "https://bun.com/docs/guides/util/detect-bun.md"
+    },
+    {
+      "title": "Check if the current file is the entrypoint",
+      "url": "https://bun.com/docs/guides/util/entrypoint.md"
+    },
+    {
+      "title": "Escape an HTML string",
+      "url": "https://bun.com/docs/guides/util/escape-html.md"
+    },
+    {
+      "title": "Convert a file URL to an absolute path",
+      "url": "https://bun.com/docs/guides/util/file-url-to-path.md"
+    },
+    {
+      "title": "Compress and decompress data with gzip",
+      "url": "https://bun.com/docs/guides/util/gzip.md"
+    },
+    {
+      "title": "Hash a password",
+      "url": "https://bun.com/docs/guides/util/hash-a-password.md"
+    },
+    {
+      "title": "Get the directory of the current file",
+      "url": "https://bun.com/docs/guides/util/import-meta-dir.md"
+    },
+    {
+      "title": "Get the file name of the current file",
+      "url": "https://bun.com/docs/guides/util/import-meta-file.md"
+    },
+    {
+      "title": "Get the absolute path of the current file",
+      "url": "https://bun.com/docs/guides/util/import-meta-path.md"
+    },
+    {
+      "title": "Generate a UUID",
+      "url": "https://bun.com/docs/guides/util/javascript-uuid.md"
+    },
+    {
+      "title": "Get the absolute path to the current entrypoint",
+      "url": "https://bun.com/docs/guides/util/main.md"
+    },
+    {
+      "title": "Convert an absolute path to a file URL",
+      "url": "https://bun.com/docs/guides/util/path-to-file-url.md"
+    },
+    {
+      "title": "Sleep for a fixed number of milliseconds",
+      "url": "https://bun.com/docs/guides/util/sleep.md"
+    },
+    {
+      "title": "Upgrade Bun to the latest version",
+      "url": "https://bun.com/docs/guides/util/upgrade.md"
+    },
+    {
+      "title": "Get the current Bun version",
+      "url": "https://bun.com/docs/guides/util/version.md"
+    },
+    {
+      "title": "Get the path to an executable bin file",
+      "url": "https://bun.com/docs/guides/util/which-path-to-executable-bin.md"
+    },
+    {
+      "title": "Enable compression for WebSocket messages",
+      "url": "https://bun.com/docs/guides/websocket/compression.md"
+    },
+    {
+      "title": "Set per-socket contextual data on a WebSocket",
+      "url": "https://bun.com/docs/guides/websocket/context.md"
+    },
+    {
+      "title": "Build a publish-subscribe WebSocket server",
+      "url": "https://bun.com/docs/guides/websocket/pubsub.md"
+    },
+    {
+      "title": "Build a simple WebSocket server",
+      "url": "https://bun.com/docs/guides/websocket/simple.md"
+    },
+    {
+      "title": "Append content to a file",
+      "url": "https://bun.com/docs/guides/write-file/append.md"
+    },
+    {
+      "title": "Write a string to a file",
+      "url": "https://bun.com/docs/guides/write-file/basic.md"
+    },
+    {
+      "title": "Write a Blob to a file",
+      "url": "https://bun.com/docs/guides/write-file/blob.md"
+    },
+    {
+      "title": "Write a file to stdout",
+      "url": "https://bun.com/docs/guides/write-file/cat.md"
+    },
+    {
+      "title": "Copy a file to another location",
+      "url": "https://bun.com/docs/guides/write-file/file-cp.md"
+    },
+    {
+      "title": "Write a file incrementally",
+      "url": "https://bun.com/docs/guides/write-file/filesink.md"
+    },
+    {
+      "title": "Write a Response to a file",
+      "url": "https://bun.com/docs/guides/write-file/response.md"
+    },
+    {
+      "title": "Write to stdout",
+      "url": "https://bun.com/docs/guides/write-file/stdout.md"
+    },
+    {
+      "title": "Write a ReadableStream to a file",
+      "url": "https://bun.com/docs/guides/write-file/stream.md"
+    },
+    {
+      "title": "Delete a file",
+      "url": "https://bun.com/docs/guides/write-file/unlink.md"
+    },
+    {
+      "title": "Welcome to Bun",
+      "url": "https://bun.com/docs/index.md",
+      "description": "Bun is an all-in-one toolkit for developing modern JavaScript/TypeScript applications."
+    },
+    {
+      "title": "Installation",
+      "url": "https://bun.com/docs/installation.md",
+      "description": "Install Bun with npm, Homebrew, Docker, or the official script."
+    },
+    {
+      "title": "bunx",
+      "url": "https://bun.com/docs/pm/bunx.md",
+      "description": "Run packages from npm"
+    },
+    {
+      "title": "Catalogs",
+      "url": "https://bun.com/docs/pm/catalogs.md",
+      "description": "Share common dependency versions across multiple packages in a monorepo"
+    },
+    {
+      "title": "bun add",
+      "url": "https://bun.com/docs/pm/cli/add.md",
+      "description": "Add packages to your project with Bun's fast package manager"
+    },
+    {
+      "title": "bun audit",
+      "url": "https://bun.com/docs/pm/cli/audit.md",
+      "description": "Check your installed packages for known security vulnerabilities"
+    },
+    {
+      "title": "bun info",
+      "url": "https://bun.com/docs/pm/cli/info.md",
+      "description": "Display package metadata from the npm registry"
+    },
+    {
+      "title": "bun install",
+      "url": "https://bun.com/docs/pm/cli/install.md",
+      "description": "Install packages with Bun's fast package manager"
+    },
+    {
+      "title": "bun link",
+      "url": "https://bun.com/docs/pm/cli/link.md",
+      "description": "Link local packages for development"
+    },
+    {
+      "title": "bun outdated",
+      "url": "https://bun.com/docs/pm/cli/outdated.md",
+      "description": "Check for outdated dependencies"
+    },
+    {
+      "title": "bun patch",
+      "url": "https://bun.com/docs/pm/cli/patch.md",
+      "description": "Persistently patch node_modules packages in a git-friendly way"
+    },
+    {
+      "title": "bun pm",
+      "url": "https://bun.com/docs/pm/cli/pm.md",
+      "description": "Package manager utilities"
+    },
+    {
+      "title": "bun publish",
+      "url": "https://bun.com/docs/pm/cli/publish.md",
+      "description": "Use `bun publish` to publish a package to the npm registry"
+    },
+    {
+      "title": "bun remove",
+      "url": "https://bun.com/docs/pm/cli/remove.md",
+      "description": "Remove dependencies from your project"
+    },
+    {
+      "title": "bun update",
+      "url": "https://bun.com/docs/pm/cli/update.md",
+      "description": "Update dependencies to latest versions"
+    },
+    {
+      "title": "bun why",
+      "url": "https://bun.com/docs/pm/cli/why.md",
+      "description": "Explain why a package is installed"
+    },
+    {
+      "title": "bun --filter",
+      "url": "https://bun.com/docs/pm/filter.md",
+      "description": "Select packages by pattern in a monorepo using the --filter flag"
+    },
+    {
+      "title": "Global cache",
+      "url": "https://bun.com/docs/pm/global-cache.md",
+      "description": "How Bun stores and manages packages in its global cache"
+    },
+    {
+      "title": "Global virtual store",
+      "url": "https://bun.com/docs/pm/global-store.md",
+      "description": "Install packages once. Every project links to the same copy."
+    },
+    {
+      "title": "Isolated installs",
+      "url": "https://bun.com/docs/pm/isolated-installs.md",
+      "description": "Strict dependency isolation similar to pnpm's approach"
+    },
+    {
+      "title": "Lifecycle scripts",
+      "url": "https://bun.com/docs/pm/lifecycle.md",
+      "description": "How Bun handles package lifecycle scripts securely"
+    },
+    {
+      "title": "Lockfile",
+      "url": "https://bun.com/docs/pm/lockfile.md",
+      "description": "Bun's lockfile format and configuration"
+    },
+    {
+      "title": ".npmrc support",
+      "url": "https://bun.com/docs/pm/npmrc.md"
+    },
+    {
+      "title": "Overrides and resolutions",
+      "url": "https://bun.com/docs/pm/overrides.md",
+      "description": "Control metadependency versions with npm overrides and Yarn resolutions"
+    },
+    {
+      "title": "Scopes and registries",
+      "url": "https://bun.com/docs/pm/scopes-registries.md",
+      "description": "Configure private registries and scoped packages"
+    },
+    {
+      "title": "Security Scanner API",
+      "url": "https://bun.com/docs/pm/security-scanner-api.md"
+    },
+    {
+      "title": "Workspaces",
+      "url": "https://bun.com/docs/pm/workspaces.md",
+      "description": "Develop complex monorepos with multiple independent packages"
+    },
+    {
+      "title": "Benchmarking",
+      "url": "https://bun.com/docs/project/benchmarking.md",
+      "description": "How to benchmark Bun"
+    },
+    {
+      "title": "Bindgen",
+      "url": "https://bun.com/docs/project/bindgen.md",
+      "description": "Bindgen for Bun"
+    },
+    {
+      "title": "Building Windows",
+      "url": "https://bun.com/docs/project/building-windows.md",
+      "description": "Building Bun on Windows"
+    },
+    {
+      "title": "Contributing",
+      "url": "https://bun.com/docs/project/contributing.md",
+      "description": "Contributing to Bun"
+    },
+    {
+      "title": "License",
+      "url": "https://bun.com/docs/project/license.md",
+      "description": "License for Bun"
+    },
+    {
+      "title": "Roadmap",
+      "url": "https://bun.com/docs/project/roadmap.md",
+      "description": "Bun's roadmap and long-term plans"
+    },
+    {
+      "title": "Quickstart",
+      "url": "https://bun.com/docs/quickstart.md",
+      "description": "Build your first app with Bun"
+    },
+    {
+      "title": "Archive",
+      "url": "https://bun.com/docs/runtime/archive.md",
+      "description": "Create and extract tar archives with Bun's fast native implementation"
+    },
+    {
+      "title": "Auto-install",
+      "url": "https://bun.com/docs/runtime/auto-install.md",
+      "description": "Bun's automatic package installation feature for standalone script execution"
+    },
+    {
+      "title": "Binary Data",
+      "url": "https://bun.com/docs/runtime/binary-data.md",
+      "description": "Working with binary data in JavaScript"
+    },
+    {
+      "title": "Bun APIs",
+      "url": "https://bun.com/docs/runtime/bun-apis.md",
+      "description": "Overview of Bun's native APIs available on the Bun global object and built-in modules"
+    },
+    {
+      "title": "bunfig.toml",
+      "url": "https://bun.com/docs/runtime/bunfig.md",
+      "description": "Configure Bun's behavior using its configuration file bunfig.toml"
+    },
+    {
+      "title": "C Compiler",
+      "url": "https://bun.com/docs/runtime/c-compiler.md",
+      "description": "Compile and run C from JavaScript with low overhead"
+    },
+    {
+      "title": "Spawn",
+      "url": "https://bun.com/docs/runtime/child-process.md",
+      "description": "Spawn child processes with `Bun.spawn` or `Bun.spawnSync`"
+    },
+    {
+      "title": "Color",
+      "url": "https://bun.com/docs/runtime/color.md",
+      "description": "Format colors as CSS, ANSI, numbers, hex strings, and more"
+    },
+    {
+      "title": "Console",
+      "url": "https://bun.com/docs/runtime/console.md",
+      "description": "The console object in Bun"
+    },
+    {
+      "title": "Cookies",
+      "url": "https://bun.com/docs/runtime/cookies.md",
+      "description": "Use Bun's native APIs for working with HTTP cookies"
+    },
+    {
+      "title": "Cron",
+      "url": "https://bun.com/docs/runtime/cron.md",
+      "description": "Schedule and parse cron jobs with Bun"
+    },
+    {
+      "title": "CSRF Protection",
+      "url": "https://bun.com/docs/runtime/csrf.md",
+      "description": "Generate and verify CSRF tokens with Bun's built-in API"
+    },
+    {
+      "title": "Debugging",
+      "url": "https://bun.com/docs/runtime/debugger.md",
+      "description": "Debug your Bun code with an interactive debugger using WebKit Inspector Protocol"
+    },
+    {
+      "title": "Environment Variables",
+      "url": "https://bun.com/docs/runtime/environment-variables.md",
+      "description": "Read and configure environment variables in Bun, including automatic .env file support"
+    },
+    {
+      "title": "FFI",
+      "url": "https://bun.com/docs/runtime/ffi.md",
+      "description": "Use Bun's FFI module to efficiently call native libraries from JavaScript"
+    },
+    {
+      "title": "File I/O",
+      "url": "https://bun.com/docs/runtime/file-io.md",
+      "description": "Bun provides a set of optimized APIs for reading and writing files."
+    },
+    {
+      "title": "File System Router",
+      "url": "https://bun.com/docs/runtime/file-system-router.md",
+      "description": "Bun provides a fast API for resolving routes against file-system paths"
+    },
+    {
+      "title": "File Types",
+      "url": "https://bun.com/docs/runtime/file-types.md",
+      "description": "File types and loaders supported by Bun's bundler and runtime"
+    },
+    {
+      "title": "Glob",
+      "url": "https://bun.com/docs/runtime/glob.md",
+      "description": "Use Bun's fast native implementation of file globbing"
+    },
+    {
+      "title": "Globals",
+      "url": "https://bun.com/docs/runtime/globals.md",
+      "description": "Use Bun's global objects"
+    },
+    {
+      "title": "Hashing",
+      "url": "https://bun.com/docs/runtime/hashing.md",
+      "description": "Bun provides a set of utility functions for hashing and verifying passwords with various cryptographically secure algorithms"
+    },
+    {
+      "title": "HTMLRewriter",
+      "url": "https://bun.com/docs/runtime/html-rewriter.md",
+      "description": "Use Bun's HTMLRewriter to transform HTML documents with CSS selectors"
+    },
+    {
+      "title": "Cookies",
+      "url": "https://bun.com/docs/runtime/http/cookies.md",
+      "description": "Work with cookies in HTTP requests and responses using Bun's built-in Cookie API."
+    },
+    {
+      "title": "Error Handling",
+      "url": "https://bun.com/docs/runtime/http/error-handling.md",
+      "description": "Learn how to handle errors in Bun's development server"
+    },
+    {
+      "title": "Metrics",
+      "url": "https://bun.com/docs/runtime/http/metrics.md",
+      "description": "Monitor server activity with built-in metrics"
+    },
+    {
+      "title": "Routing",
+      "url": "https://bun.com/docs/runtime/http/routing.md",
+      "description": "Define routes in `Bun.serve` using static paths, parameters, and wildcards"
+    },
+    {
+      "title": "Server",
+      "url": "https://bun.com/docs/runtime/http/server.md",
+      "description": "Use `Bun.serve` to start a high-performance HTTP server in Bun"
+    },
+    {
+      "title": "TLS",
+      "url": "https://bun.com/docs/runtime/http/tls.md",
+      "description": "Enable TLS in Bun.serve"
+    },
+    {
+      "title": "WebSockets",
+      "url": "https://bun.com/docs/runtime/http/websockets.md",
+      "description": "Server-side WebSockets in Bun"
+    },
+    {
+      "title": "Image",
+      "url": "https://bun.com/docs/runtime/image.md",
+      "description": "Decode, transform, and encode images with a fast native pipeline"
+    },
+    {
+      "title": "Bun Runtime",
+      "url": "https://bun.com/docs/runtime/index.md",
+      "description": "Execute JavaScript/TypeScript files, package.json scripts, and executable packages with Bun's fast runtime."
+    },
+    {
+      "title": "JSON5",
+      "url": "https://bun.com/docs/runtime/json5.md",
+      "description": "Use Bun's built-in support for JSON5 files through both runtime APIs and bundler integration"
+    },
+    {
+      "title": "JSONL",
+      "url": "https://bun.com/docs/runtime/jsonl.md",
+      "description": "Parse newline-delimited JSON (JSONL) with Bun's built-in streaming parser"
+    },
+    {
+      "title": "JSX",
+      "url": "https://bun.com/docs/runtime/jsx.md",
+      "description": "Built-in JSX and TSX support in Bun with configurable transpilation options"
+    },
+    {
+      "title": "Markdown",
+      "url": "https://bun.com/docs/runtime/markdown.md",
+      "description": "Parse and render Markdown with Bun's built-in Markdown API, supporting GFM extensions and custom rendering callbacks"
+    },
+    {
+      "title": "Module Resolution",
+      "url": "https://bun.com/docs/runtime/module-resolution.md",
+      "description": "How Bun resolves modules and handles imports in JavaScript and TypeScript"
+    },
+    {
+      "title": "DNS",
+      "url": "https://bun.com/docs/runtime/networking/dns.md",
+      "description": "Use Bun's DNS module to resolve DNS records"
+    },
+    {
+      "title": "Fetch",
+      "url": "https://bun.com/docs/runtime/networking/fetch.md",
+      "description": "Send HTTP requests with Bun's fetch API"
+    },
+    {
+      "title": "TCP",
+      "url": "https://bun.com/docs/runtime/networking/tcp.md",
+      "description": "Use Bun's native TCP API to implement performance sensitive systems like database clients, game servers, or anything that needs to communicate over TCP (instead of HTTP)"
+    },
+    {
+      "title": "UDP",
+      "url": "https://bun.com/docs/runtime/networking/udp.md",
+      "description": "Use Bun's UDP API to implement services with advanced real-time requirements, such as voice chat."
+    },
+    {
+      "title": "Node-API",
+      "url": "https://bun.com/docs/runtime/node-api.md",
+      "description": "Use Bun's Node-API module to build native add-ons to Node.js"
+    },
+    {
+      "title": "Node.js Compatibility",
+      "url": "https://bun.com/docs/runtime/nodejs-compat.md",
+      "description": "Bun's compatibility status with Node.js APIs, modules, and globals"
+    },
+    {
+      "title": "Plugins",
+      "url": "https://bun.com/docs/runtime/plugins.md",
+      "description": "Universal plugin API for extending Bun's runtime and bundler"
+    },
+    {
+      "title": "Redis",
+      "url": "https://bun.com/docs/runtime/redis.md",
+      "description": "Use Bun's native Redis client with a Promise-based API"
+    },
+    {
+      "title": "REPL",
+      "url": "https://bun.com/docs/runtime/repl.md",
+      "description": "An interactive JavaScript and TypeScript REPL with syntax highlighting, history, and tab completion"
+    },
+    {
+      "title": "S3",
+      "url": "https://bun.com/docs/runtime/s3.md",
+      "description": "Bun provides fast, native bindings for interacting with S3-compatible object storage services."
+    },
+    {
+      "title": "Secrets",
+      "url": "https://bun.com/docs/runtime/secrets.md",
+      "description": "Use Bun's Secrets API to store and retrieve sensitive credentials securely"
+    },
+    {
+      "title": "Semver",
+      "url": "https://bun.com/docs/runtime/semver.md",
+      "description": "Use Bun's semantic versioning API"
+    },
+    {
+      "title": "Shell",
+      "url": "https://bun.com/docs/runtime/shell.md",
+      "description": "Use Bun's shell scripting API to run shell commands from JavaScript"
+    },
+    {
+      "title": "SQL",
+      "url": "https://bun.com/docs/runtime/sql.md",
+      "description": "Bun provides native bindings for working with SQL databases through a unified Promise-based API that supports PostgreSQL, MySQL, and SQLite."
+    },
+    {
+      "title": "SQLite",
+      "url": "https://bun.com/docs/runtime/sqlite.md",
+      "description": "Bun natively implements a high-performance SQLite3 driver."
+    },
+    {
+      "title": "Streams",
+      "url": "https://bun.com/docs/runtime/streams.md",
+      "description": "Use Bun's streams API to work with binary data without loading it all into memory at once"
+    },
+    {
+      "title": "bun create",
+      "url": "https://bun.com/docs/runtime/templating/create.md",
+      "description": "Create a new Bun project from a React component, a `create-<template>` npm package, a GitHub repo, or a local template"
+    },
+    {
+      "title": "bun init",
+      "url": "https://bun.com/docs/runtime/templating/init.md",
+      "description": "Scaffold an empty Bun project with the interactive `bun init` command"
+    },
+    {
+      "title": "TOML",
+      "url": "https://bun.com/docs/runtime/toml.md",
+      "description": "Use Bun's built-in support for TOML files through both runtime APIs and bundler integration"
+    },
+    {
+      "title": "Transpiler",
+      "url": "https://bun.com/docs/runtime/transpiler.md",
+      "description": "Use Bun's transpiler to transpile JavaScript and TypeScript code"
+    },
+    {
+      "title": "Utils",
+      "url": "https://bun.com/docs/runtime/utils.md",
+      "description": "Use Bun's utility functions to work with the runtime"
+    },
+    {
+      "title": "Watch Mode",
+      "url": "https://bun.com/docs/runtime/watch-mode.md",
+      "description": "Automatic reloading in Bun with --watch and --hot modes"
+    },
+    {
+      "title": "Web APIs",
+      "url": "https://bun.com/docs/runtime/web-apis.md",
+      "description": "Web-standard APIs supported by Bun for server-side JavaScript"
+    },
+    {
+      "title": "WebView",
+      "url": "https://bun.com/docs/runtime/webview.md",
+      "description": "Control a headless browser from Bun for automation, testing, and scraping — zero dependencies on macOS, Chrome DevTools Protocol everywhere else"
+    },
+    {
+      "title": "Workers",
+      "url": "https://bun.com/docs/runtime/workers.md",
+      "description": "Use Bun's Workers API to create and communicate with a new JavaScript instance running on a separate thread while sharing I/O resources with the main thread"
+    },
+    {
+      "title": "YAML",
+      "url": "https://bun.com/docs/runtime/yaml.md",
+      "description": "Use Bun's built-in support for YAML files through both runtime APIs and bundler integration"
+    },
+    {
+      "title": "Code coverage",
+      "url": "https://bun.com/docs/test/code-coverage.md",
+      "description": "Learn how to use Bun's built-in code coverage reporting to track test coverage and find untested areas in your codebase"
+    },
+    {
+      "title": "Test configuration",
+      "url": "https://bun.com/docs/test/configuration.md",
+      "description": "Learn how to configure Bun test behavior using bunfig.toml and command-line options"
+    },
+    {
+      "title": "Dates and times",
+      "url": "https://bun.com/docs/test/dates-times.md",
+      "description": "Learn how to manipulate time and dates in your Bun tests using setSystemTime and Jest compatibility functions"
+    },
+    {
+      "title": "Finding tests",
+      "url": "https://bun.com/docs/test/discovery.md",
+      "description": "Learn how Bun's test runner discovers and filters test files in your project"
+    },
+    {
+      "title": "DOM testing",
+      "url": "https://bun.com/docs/test/dom.md",
+      "description": "Learn how to test DOM elements and components using Bun with happy-dom and React Testing Library"
+    },
+    {
+      "title": "Test runner",
+      "url": "https://bun.com/docs/test/index.md",
+      "description": "Bun's fast, built-in, Jest-compatible test runner with TypeScript support, lifecycle hooks, mocking, and watch mode"
+    },
+    {
+      "title": "Lifecycle hooks",
+      "url": "https://bun.com/docs/test/lifecycle.md",
+      "description": "Learn how to use beforeAll, beforeEach, afterEach, and afterAll lifecycle hooks in Bun tests"
+    },
+    {
+      "title": "Mocks",
+      "url": "https://bun.com/docs/test/mocks.md",
+      "description": "Learn how to create and use mock functions, spies, and module mocks in Bun tests"
+    },
+    {
+      "title": "Test Reporters",
+      "url": "https://bun.com/docs/test/reporters.md"
+    },
+    {
+      "title": "Runtime behavior",
+      "url": "https://bun.com/docs/test/runtime-behavior.md",
+      "description": "Learn about Bun test's runtime integration, environment variables, timeouts, and error handling"
+    },
+    {
+      "title": "Snapshots",
+      "url": "https://bun.com/docs/test/snapshots.md",
+      "description": "Learn how to use snapshot testing in Bun to save and compare output between test runs"
+    },
+    {
+      "title": "Writing tests",
+      "url": "https://bun.com/docs/test/writing-tests.md",
+      "description": "Learn how to write tests using Bun's Jest-compatible API with support for async tests, timeouts, and various test modifiers"
+    },
+    {
+      "title": "TypeScript",
+      "url": "https://bun.com/docs/typescript.md",
+      "description": "Using TypeScript with Bun, including type definitions and compiler options"
+    },
+    {
+      "title": "TypeScript 6 and 7",
+      "url": "https://bun.com/docs/typescript-6.md",
+      "description": "How to configure Bun's type definitions for TypeScript 6.0 and 7.0, which no longer auto-discover @types packages. Fix 'Cannot find name Bun' and other missing type errors after upgrading TypeScript."
+    },
+    {
+      "title": "Reference",
+      "url": "https://bun.com/reference"
+    },
+    {
+      "title": "Blog",
+      "url": "https://bun.com/blog"
+    }
+  ],
   "commands": {
     "run": {
       "name": "run",

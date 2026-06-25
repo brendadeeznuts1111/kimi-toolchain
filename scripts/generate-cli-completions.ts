@@ -87,10 +87,17 @@ interface ApiModuleInfo {
   url: string;
 }
 
+interface DocPageInfo {
+  title: string;
+  url: string;
+  description?: string;
+}
+
 interface CompletionData {
   version: string;
   referenceUrl: string;
   apiModules: ApiModuleInfo[];
+  docs: DocPageInfo[];
   commands: Record<string, CommandInfo>;
   globalFlags: FlagInfo[];
   specialHandling: {
@@ -191,6 +198,47 @@ async function fetchBunReferenceModules(): Promise<ApiModuleInfo[]> {
   } catch (error) {
     console.warn(
       "⚠ Could not fetch Bun reference modules:",
+      error instanceof Error ? error.message : String(error)
+    );
+    return [];
+  }
+}
+
+/**
+ * Fetch the Bun docs index from https://bun.com/docs/llms.txt.
+ * Parses Markdown list items in the format `- [Title](url): description`.
+ */
+async function fetchBunDocsIndex(): Promise<DocPageInfo[]> {
+  try {
+    const response = await fetch("https://bun.com/docs/llms.txt");
+    if (!response.ok) {
+      console.warn(`⚠ Failed to fetch Bun docs index: HTTP ${response.status}`);
+      return [];
+    }
+
+    const text = await response.text();
+    const pages: DocPageInfo[] = [];
+    const seen = new Set<string>();
+
+    for (const match of text.matchAll(/^-\s*\[([^\]]+)\]\(([^)]+)\)(?::\s*(.+))?$/gm)) {
+      const title = match[1].trim();
+      const url = match[2].trim();
+      const description = match[3]?.trim();
+
+      if (seen.has(url)) continue;
+      seen.add(url);
+
+      pages.push({
+        title,
+        url: url.startsWith("http") ? url : `https://bun.com${url}`,
+        description,
+      });
+    }
+
+    return pages;
+  } catch (error) {
+    console.warn(
+      "⚠ Could not fetch Bun docs index:",
       error instanceof Error ? error.message : String(error)
     );
     return [];
@@ -722,10 +770,15 @@ async function generateCompletions(): Promise<void> {
   const apiModules = await fetchBunReferenceModules();
   console.log(`   - ${apiModules.length} API modules`);
 
+  console.log("📚 Fetching Bun docs index...");
+  const docs = await fetchBunDocsIndex();
+  console.log(`   - ${docs.length} doc pages`);
+
   const completionData: CompletionData = {
     version: "1.2.0",
     referenceUrl: "https://bun.com/reference",
     apiModules,
+    docs,
     commands: {},
     globalFlags,
     specialHandling: {
@@ -803,6 +856,7 @@ async function generateCompletions(): Promise<void> {
   console.log(`   - Commands: ${Object.keys(completionData.commands).length}`);
   console.log(`   - Global flags: ${completionData.globalFlags.length}`);
   console.log(`   - API reference modules: ${completionData.apiModules.length}`);
+  console.log(`   - Doc pages: ${completionData.docs.length}`);
 
   let totalFlags = 0;
   let totalExamples = 0;
