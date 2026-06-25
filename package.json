@@ -262,6 +262,8 @@
     "cleanup:root": "bun run scripts/cleanup-root-bloat.ts",
     "cleanup:root:dry-run": "bun run scripts/cleanup-root-bloat.ts --dry-run",
     "cleanup:root:fix": "bun run scripts/cleanup-root-bloat.ts --fix-bunfig",
+    "cleanup:path": "bun run scripts/cleanup-path.ts",
+    "cleanup:path:dry-run": "bun run scripts/cleanup-path.ts --dry-run",
     "agent:shell": "bash scripts/agent-shell.sh",
     "agent:env:status": "bash scripts/agent-shell.sh --status",
     "install-wrappers": "bash scripts/install-bin-wrappers.sh",
