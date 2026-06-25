@@ -2,24 +2,19 @@
 /**
  * Herdr test-agent tab — runs kimi-toolchain gates with Herdr state reporting.
  *
- *   bun run scripts/test-agent.ts --watch   # fast unit tests on src/test/scripts change (tab default)
  *   bun run scripts/test-agent.ts --once    # single fast test run
  *   bun run scripts/test-agent.ts --check   # check:fast (format, lint, typecheck, test:fast)
  *   bun run scripts/test-agent.ts --ci      # ci:local --job quality
  */
 
-import { join } from "path";
-import { watchPath } from "../src/lib/bun-io.ts";
 import { herdrCliRun } from "../src/lib/herdr-project-cli.ts";
 import {
   parseTestAgentMode,
-  TEST_AGENT_DEBOUNCE_MS,
   testAgentCommand,
-  watchPaths,
   type HerdrAgentState,
 } from "../src/lib/herdr-test-agent.ts";
 
-const REPO_ROOT = join(import.meta.dir, "..");
+const REPO_ROOT = new URL("..", import.meta.url).pathname;
 const paneId = process.env.HERDR_PANE_ID;
 
 function report(status: HerdrAgentState, customStatus: string) {
@@ -51,43 +46,16 @@ async function runCommand(label: string, cmd: string[]): Promise<boolean> {
   return false;
 }
 
-function startWatch(run: () => Promise<boolean>) {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let running = false;
-
-  const schedule = () => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      void (async () => {
-        if (running) return;
-        running = true;
-        try {
-          await run();
-        } finally {
-          running = false;
-        }
-      })();
-    }, TEST_AGENT_DEBOUNCE_MS);
-  };
-
-  void run();
-  for (const path of watchPaths(REPO_ROOT)) {
-    watchPath(path, { recursive: true }, schedule);
-  }
-  console.log(
-    `test-agent: watching ${watchPaths(REPO_ROOT).join(", ")} (debounce ${TEST_AGENT_DEBOUNCE_MS}ms); Ctrl+C to stop`
-  );
-}
-
 async function main() {
-  const mode = parseTestAgentMode(Bun.argv.slice(2));
+  const argv = Bun.argv.slice(2);
+  if (argv.includes("--watch")) {
+    console.error("test-agent watch mode removed: Bun.watch is unavailable in this runtime");
+    process.exit(1);
+  }
+
+  const mode = parseTestAgentMode(argv);
   const { label, cmd } = testAgentCommand(mode);
   const run = () => runCommand(label, cmd);
-
-  if (mode === "watch") {
-    startWatch(run);
-    return;
-  }
 
   process.exit((await run()) ? 0 : 1);
 }

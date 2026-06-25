@@ -1,6 +1,6 @@
 // ── Sync baseline tarball metrics card ───────────────────────────────
 
-import { readSyncBaselineMetricsWithDrift } from "../../../../src/lib/sync-baseline-metrics.ts";
+import { readSyncBaselineMetricsWithDrift } from "../../../../src/lib/desktop-sync.ts";
 import { jsonResponse, resolveRoot } from "./shared.ts";
 
 export async function apiSyncBaseline(): Promise<Response> {

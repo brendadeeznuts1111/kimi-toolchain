@@ -2,15 +2,16 @@
  * Canonical repo → ~/.kimi-code/ sync, hash, manifest, restore (single module).
  */
 
-import { join } from "node:path";
-import { pathExists } from "./bun-io.ts";
+import { join, resolve } from "node:path";
+import { makeDir, pathExists } from "./bun-io.ts";
 import {
   archiveSupported,
   extractSyncSnapshotArchive,
+  hashArchive,
   readSyncSnapshotArchiveMetadata,
   writeSyncSnapshotArchive,
 } from "./archive-persistence.ts";
-import { recordSyncBaselineMetrics } from "./sync-baseline-metrics.ts";
+import { appendNdjsonRecord, readNdjsonFile } from "./ndjson.ts";
 import { collectLocalDocSyncEntries, collectLocalDocSyncPaths } from "./canonical-references.ts";
 import { sha256File } from "./hash.ts";
 import {
@@ -31,7 +32,10 @@ import {
   agentsSkillsRoot,
   syncBaselineArchivePath,
   syncBaselineCacheArchivePath,
+  syncBaselineHistoryPath,
+  syncBaselineMetricsPath,
 } from "./paths.ts";
+import { safeParse } from "./utils.ts";
 import {
   writeManifest,
   TOOLCHAIN_VERSION,
@@ -40,6 +44,7 @@ import {
   readManifest,
   type ToolchainManifest,
 } from "./version.ts";
+import { resolveEffectiveWorkspaceRoot } from "./workspace-health.ts";
 
 /** Manifest hash key prefixes — must match ~/.kimi-code/ layout. */
 export const LABEL_PREFIX = {
@@ -706,4 +711,369 @@ export async function restoreBaselineToDir(
   } finally {
     if (dryRun) Bun.spawnSync(["rm", "-rf", extractDir]);
   }
+}
+
+// --- Baseline metrics (tarball size/hash history) ---
+
+export interface SyncBaselineMetrics {
+  ok: boolean;
+  archivePath: string | null;
+  syncBaselineSize: number;
+  syncBaselineHash: string | null;
+  fileCount: number | null;
+  toolchainVersion: string | null;
+  lastSyncedAt: string | null;
+}
+
+export interface SyncBaselineMetricsSnapshot extends SyncBaselineMetrics {
+  recordedAt: string;
+  previousSyncBaselineHash: string | null;
+  previousSyncBaselineSize: number | null;
+  hashChanged: boolean;
+  sizeDelta: number;
+}
+
+export interface SyncBaselineHistoryEntry {
+  t: number;
+  syncBaselineSize: number;
+  syncBaselineHash: string;
+  hashChanged: boolean;
+  sizeDelta: number;
+  fileCount: number | null;
+  driftCount: number;
+}
+
+export interface SyncBaselineHistory {
+  timestamps: string[];
+  sizes: number[];
+  hashes: string[];
+  driftCounts: number[];
+}
+
+interface StoredSyncBaselineMetrics {
+  recordedAt: string;
+  archivePath: string;
+  syncBaselineSize: number;
+  syncBaselineHash: string;
+  fileCount: number | null;
+  toolchainVersion: string | null;
+  lastSyncedAt: string | null;
+  previousSyncBaselineHash: string | null;
+  previousSyncBaselineSize: number | null;
+}
+
+export async function resolveSyncBaselineArchivePath(repoRoot: string): Promise<string | null> {
+  const cachePath = syncBaselineCacheArchivePath(repoRoot);
+  if (await Bun.file(cachePath).exists()) return cachePath;
+  const desktopPath = syncBaselineArchivePath();
+  if (await Bun.file(desktopPath).exists()) return desktopPath;
+  return null;
+}
+
+export async function readSyncBaselineMetrics(repoRoot?: string): Promise<SyncBaselineMetrics> {
+  const root = repoRoot ?? resolveEffectiveWorkspaceRoot(Bun.cwd).root;
+  const archivePath = await resolveSyncBaselineArchivePath(root);
+  if (!archivePath) {
+    return {
+      ok: false,
+      archivePath: null,
+      syncBaselineSize: 0,
+      syncBaselineHash: null,
+      fileCount: null,
+      toolchainVersion: null,
+      lastSyncedAt: null,
+    };
+  }
+
+  const bytes = await Bun.file(archivePath).bytes();
+  const manifest = await readManifest();
+
+  return {
+    ok: true,
+    archivePath,
+    syncBaselineSize: bytes.byteLength,
+    syncBaselineHash: hashArchive(bytes),
+    fileCount: manifest ? Object.keys(manifest.fileHashes ?? {}).length : null,
+    toolchainVersion: manifest?.toolchainVersion ?? null,
+    lastSyncedAt: manifest?.lastSyncedAt ?? null,
+  };
+}
+
+async function readStoredMetrics(): Promise<StoredSyncBaselineMetrics | null> {
+  const path = syncBaselineMetricsPath();
+  if (!(await Bun.file(path).exists())) return null;
+  return safeParse<StoredSyncBaselineMetrics | null>(await Bun.file(path).text(), null);
+}
+
+export async function recordSyncBaselineMetrics(
+  repoRoot: string,
+  live?: SyncBaselineMetrics
+): Promise<SyncBaselineMetricsSnapshot | null> {
+  const current = live ?? (await readSyncBaselineMetrics(repoRoot));
+  if (!current.ok || !current.archivePath || !current.syncBaselineHash) return null;
+
+  const previous = await readStoredMetrics();
+  const snapshot: SyncBaselineMetricsSnapshot = {
+    ...current,
+    recordedAt: new Date().toISOString(),
+    previousSyncBaselineHash: previous?.syncBaselineHash ?? null,
+    previousSyncBaselineSize: previous?.syncBaselineSize ?? null,
+    hashChanged:
+      previous?.syncBaselineHash != null && previous.syncBaselineHash !== current.syncBaselineHash,
+    sizeDelta: previous ? current.syncBaselineSize - previous.syncBaselineSize : 0,
+  };
+
+  makeDir(varDir(), { recursive: true });
+  const stored: StoredSyncBaselineMetrics = {
+    recordedAt: snapshot.recordedAt,
+    archivePath: current.archivePath,
+    syncBaselineSize: current.syncBaselineSize,
+    syncBaselineHash: current.syncBaselineHash,
+    fileCount: current.fileCount,
+    toolchainVersion: current.toolchainVersion,
+    lastSyncedAt: current.lastSyncedAt,
+    previousSyncBaselineHash: snapshot.previousSyncBaselineHash,
+    previousSyncBaselineSize: snapshot.previousSyncBaselineSize,
+  };
+  await Bun.write(syncBaselineMetricsPath(), JSON.stringify(stored, null, 2));
+  await appendBaselineHistory(repoRoot, snapshot);
+  return snapshot;
+}
+
+export async function appendBaselineHistory(
+  repoRoot: string,
+  metrics: SyncBaselineMetricsSnapshot
+): Promise<void> {
+  if (!metrics.syncBaselineHash) return;
+  const entry: SyncBaselineHistoryEntry = {
+    t: Date.now(),
+    syncBaselineSize: metrics.syncBaselineSize,
+    syncBaselineHash: metrics.syncBaselineHash,
+    hashChanged: metrics.hashChanged,
+    sizeDelta: metrics.sizeDelta,
+    fileCount: metrics.fileCount,
+    driftCount: metrics.hashChanged ? 1 : 0,
+  };
+  await appendNdjsonRecord(syncBaselineHistoryPath(repoRoot), entry);
+}
+
+export async function readSyncBaselineHistory(
+  repoRoot: string,
+  limit = 32
+): Promise<SyncBaselineHistory> {
+  const records = await readNdjsonFile<SyncBaselineHistoryEntry>(syncBaselineHistoryPath(repoRoot));
+  const slice = records.slice(-limit);
+  return {
+    timestamps: slice.map((row) => new Date(row.t).toISOString()),
+    sizes: slice.map((row) => row.syncBaselineSize),
+    hashes: slice.map((row) => row.syncBaselineHash),
+    driftCounts: slice.map((row) => row.driftCount),
+  };
+}
+
+export interface SyncBaselineMetricsView extends SyncBaselineMetricsSnapshot {
+  history: SyncBaselineHistory;
+}
+
+export async function readSyncBaselineMetricsWithDrift(
+  repoRoot?: string
+): Promise<SyncBaselineMetricsView> {
+  const root = repoRoot ?? resolveEffectiveWorkspaceRoot(Bun.cwd).root;
+  const live = await readSyncBaselineMetrics(root);
+  const stored = await readStoredMetrics();
+  const history = await readSyncBaselineHistory(root);
+
+  if (!live.ok) {
+    return {
+      ...live,
+      recordedAt: stored?.recordedAt ?? new Date().toISOString(),
+      previousSyncBaselineHash: stored?.previousSyncBaselineHash ?? null,
+      previousSyncBaselineSize: stored?.previousSyncBaselineSize ?? null,
+      hashChanged: false,
+      sizeDelta: 0,
+      history,
+    };
+  }
+
+  const hashChanged =
+    stored?.syncBaselineHash != null && stored.syncBaselineHash !== live.syncBaselineHash;
+  const sizeDelta = stored ? live.syncBaselineSize - stored.syncBaselineSize : 0;
+
+  return {
+    ...live,
+    recordedAt: stored?.recordedAt ?? new Date().toISOString(),
+    previousSyncBaselineHash: stored?.syncBaselineHash ?? null,
+    previousSyncBaselineSize: stored?.syncBaselineSize ?? null,
+    hashChanged,
+    sizeDelta,
+    history,
+  };
+}
+
+// --- Restore-baseline CLI command ---
+
+export type RestoreMode = "manifest" | "extract";
+
+export interface RestoreConfig {
+  archivePath: string;
+  repoRoot: string;
+  mode: RestoreMode;
+  targetDir: string;
+  verify: boolean;
+  dryRun: boolean;
+  json: boolean;
+}
+
+export interface RestoreResult {
+  mode: RestoreMode;
+  archivePath: string;
+  targetDir: string;
+  dryRun: boolean;
+  verified: boolean;
+  manifest: ToolchainManifest;
+  restoredFiles: string[];
+  restored: number;
+  drift: string[];
+  hashDiff?: HashDiffResult;
+  dryRunRows?: RestoreDriftRow[];
+  wroteManifest?: boolean;
+  manifestVerificationOk?: boolean;
+}
+
+export function printRestoreBaselineHelp(): void {
+  const { root } = resolveEffectiveWorkspaceRoot(Bun.cwd);
+  console.log(
+    `Usage: kimi-toolchain restore-baseline [-a path] [--to dir] [-n] [--force] [--json]\n` +
+      `Manifest mode → ${desktopRoot()}; extract mode with --to.\n` +
+      `Archive: ${syncBaselineCacheArchivePath(root)} or ${syncBaselineArchivePath()}`
+  );
+}
+
+async function resolveDefaultArchivePath(repoRoot: string): Promise<string> {
+  const cachePath = syncBaselineCacheArchivePath(repoRoot);
+  if (await Bun.file(cachePath).exists()) return cachePath;
+  return syncBaselineArchivePath();
+}
+
+export async function parseRestoreBaselineArgs(
+  args: string[]
+): Promise<RestoreConfig | { help: true }> {
+  const { root: repoRoot } = resolveEffectiveWorkspaceRoot(Bun.cwd);
+  let archivePath: string | undefined;
+  let targetDir = ".";
+  let extractMode = false;
+  let verify = true;
+  let dryRun = false;
+  let json = false;
+
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg === "-h" || arg === "--help") return { help: true };
+    if (arg === "-a" || arg === "--archive") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) throw new Error(`${arg} requires a value`);
+      archivePath = value;
+      index++;
+      continue;
+    }
+    if (arg.startsWith("--archive=")) {
+      archivePath = arg.slice("--archive=".length);
+      continue;
+    }
+    if (arg === "--to" || arg === "-t" || arg === "--target") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("-")) throw new Error(`${arg} requires a value`);
+      targetDir = value;
+      extractMode = true;
+      index++;
+      continue;
+    }
+    if (arg.startsWith("--to=") || arg.startsWith("--target=")) {
+      targetDir = arg.includes("--to=") ? arg.slice("--to=".length) : arg.slice("--target=".length);
+      extractMode = true;
+      continue;
+    }
+    if (arg === "-n" || arg === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
+    if (arg === "--force") {
+      verify = false;
+      continue;
+    }
+    if (arg === "--json") {
+      json = true;
+      continue;
+    }
+    throw new Error(`Unknown option: ${arg}`);
+  }
+
+  const resolvedArchive = resolve(archivePath ?? (await resolveDefaultArchivePath(repoRoot)));
+
+  return {
+    archivePath: resolvedArchive,
+    repoRoot,
+    mode: extractMode ? "extract" : "manifest",
+    targetDir: resolve(targetDir),
+    verify,
+    dryRun,
+    json,
+  };
+}
+
+export async function restoreBaseline(cfg: RestoreConfig): Promise<RestoreResult> {
+  if (cfg.mode === "extract") {
+    const result = await restoreBaselineToDir(cfg.archivePath, cfg.targetDir, {
+      verify: cfg.verify,
+      dryRun: cfg.dryRun,
+    });
+    return {
+      mode: "extract",
+      archivePath: result.archivePath,
+      targetDir: result.targetDir,
+      dryRun: result.dryRun,
+      verified: result.verified,
+      manifest: result.manifest,
+      restoredFiles: result.restoredFiles,
+      restored: result.restored,
+      drift: result.drift,
+      dryRunRows: result.drift.map((line) => ({
+        file: line.replace(/^(missing|changed) /, ""),
+        status: line.startsWith("missing ") ? ("remove" as const) : ("modify" as const),
+      })),
+    };
+  }
+
+  const syncResult = await restoreSyncBaseline({
+    archivePath: cfg.archivePath,
+    repoRoot: cfg.repoRoot,
+    verify: cfg.verify,
+    dryRun: cfg.dryRun,
+  });
+
+  let manifestVerificationOk: boolean | undefined;
+  if (!cfg.dryRun && syncResult.wroteManifest && cfg.verify) {
+    const report = await verifySyncManifest(cfg.repoRoot);
+    manifestVerificationOk = report.ok;
+    if (!report.ok) {
+      throw new Error("verifySyncManifest failed after restore");
+    }
+  }
+
+  const hashDiff = syncResult.hashDiff;
+  return {
+    mode: "manifest",
+    archivePath: cfg.archivePath,
+    targetDir: desktopRoot(),
+    dryRun: cfg.dryRun,
+    verified: cfg.verify,
+    manifest: syncResult.manifest,
+    restoredFiles: [],
+    restored: syncResult.meta.fileCount,
+    drift: [],
+    hashDiff,
+    dryRunRows: syncResult.driftRows ?? [],
+    wroteManifest: syncResult.wroteManifest,
+    manifestVerificationOk,
+  };
 }

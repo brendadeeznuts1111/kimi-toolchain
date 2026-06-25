@@ -11,12 +11,8 @@
  *   bun run references:inspect --validate       # run URL lint after printing
  *   bun run references:inspect --json             # machine-readable JSON for jq / CI
  *   bun run references:inspect --health         # audit repo + runtime health
- *   bun run references:inspect --watch            # live dashboard (q/r/0-3 keys); prefers Bun.markdown.ansi, falls back to PTY
- *   bun --hot run references:inspect --watch      # HMR-aware: Bun reloads changed modules automatically
  */
 
-import { join } from "path";
-import { REFERENCES_INSPECT_CHILD_ENV } from "../src/lib/references-inspect-watch.ts";
 import {
   ECOSYSTEM_REFERENCES,
   LOCAL_DOC_REFERENCES,
@@ -31,7 +27,7 @@ import {
 } from "../src/lib/canonical-references.ts";
 import { canonicalReferencesPath, homeDir } from "../src/lib/paths.ts";
 
-const REPO_ROOT = join(import.meta.dir, "..");
+const REPO_ROOT = new URL("..", import.meta.url).pathname;
 
 const args = new Set(Bun.argv.slice(2));
 
@@ -41,17 +37,14 @@ const section = (() => {
   return (raw ?? "all") as CanonicalReferencesInspectSection;
 })();
 
-const watchMode =
-  args.has("--watch") && Bun.env[REFERENCES_INSPECT_CHILD_ENV] !== "1" && !args.has("--json");
 const plain = args.has("--plain");
 const validate = args.has("--validate");
 const jsonMode = args.has("--json");
 const healthMode = args.has("--health");
 
-if (watchMode) {
-  const { runReferencesInspectWatch } = await import("../src/lib/references-inspect-watch.ts");
-  await runReferencesInspectWatch({ repoRoot: REPO_ROOT, initialSection: section });
-  process.exit(0);
+if (args.has("--watch")) {
+  console.error("references:inspect watch mode removed: Bun.watch is unavailable in this runtime");
+  process.exit(1);
 }
 
 function printTable(header: string, table: string): void {

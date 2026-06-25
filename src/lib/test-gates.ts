@@ -89,7 +89,7 @@ export const UNIT_TEST_FILES = [
   "test/archive-package.unit.test.ts",
   "test/sync-archive.unit.test.ts",
   "test/archive-baseline-integration.unit.test.ts",
-  "test/sync-baseline-metrics.unit.test.ts",
+
   "test/gzip-performance.unit.test.ts",
   "test/bun-utils-hostname.unit.test.ts",
   "test/bun-utils-runtime.unit.test.ts",
@@ -314,8 +314,6 @@ export const UNIT_TEST_FILES = [
   "test/governor-parallel.unit.test.ts",
   "test/governance-preflight.unit.test.ts",
   "test/canonical-references.unit.test.ts",
-  "test/references-inspect-watch.unit.test.ts",
-
   "test/dashboard-card-registry.unit.test.ts",
   "test/bun-runtime-dashboard.unit.test.ts",
   "test/bun-pm-dashboard.unit.test.ts",
@@ -344,7 +342,6 @@ export const UNIT_TEST_FILES = [
   "test/check-lint-scoped.unit.test.ts",
   "test/check-pipeline.unit.test.ts",
   "test/check-result-cache.unit.test.ts",
-  "test/check-watch.unit.test.ts",
   "test/ci-impact.unit.test.ts",
   "test/ci-pipeline.unit.test.ts",
   "test/cli-contract.unit.test.ts",

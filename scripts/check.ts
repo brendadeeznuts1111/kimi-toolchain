@@ -8,18 +8,14 @@
  *   bun run scripts/check.ts --fast --skip-tests
  *   bun run scripts/check.ts --changed-only
  *   bun run scripts/check.ts --staged
- *   bun run scripts/check.ts --watch
- *   bun run scripts/check.ts --watch-tests
  *   bun run scripts/check.ts --dry-run
  */
 
-import { join } from "path";
 import {
   printCheckResult,
   runCheckPipeline,
   runTestOnlyPipeline,
 } from "../src/lib/check-pipeline.ts";
-import { startCheckWatchMode } from "./check-watch-runner.ts";
 import type { CheckOptions } from "../src/lib/check-types.ts";
 import {
   gateSpawnEnv,
@@ -31,7 +27,7 @@ scrubEphemeralBunNodeDirs();
 scrubProcessBunInstallCacheEnv();
 Object.assign(Bun.env, gateSpawnEnv(Bun.env));
 
-const REPO_ROOT = join(import.meta.dir, "..");
+const REPO_ROOT = new URL("..", import.meta.url).pathname;
 
 function parseCli(): CheckOptions {
   const argv = Bun.argv.slice(2);
@@ -126,20 +122,8 @@ async function main() {
   const options = parseCli();
 
   if (options.watch || options.watchTests) {
-    const stop = startCheckWatchMode(REPO_ROOT, options, async (watchOptions) => {
-      const code = await runOnce(watchOptions);
-      return {
-        passed: code === 0,
-        steps: {},
-        failures: [],
-        totalDurationMs: 0,
-      };
-    });
-    process.on("SIGINT", () => {
-      stop();
-      process.exit(0);
-    });
-    return;
+    console.error("check watch mode removed: Bun.watch is unavailable in this runtime");
+    process.exit(1);
   }
 
   process.exit(await runOnce(options));

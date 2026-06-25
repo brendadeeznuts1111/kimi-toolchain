@@ -224,7 +224,7 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 | **Health**     | `workspace-health.ts`, `workspace-commands.ts`, `legacy-cleanup.ts`, `ecosystem-health.ts`                          |
 | **Process**    | `process-utils.ts`, `snapshot-core.ts`                                                                              |
 | **Doctor**     | `doctor-runs.ts`, `doctor-pipeline.ts`                                                                              |
-| **Sync**       | `desktop-sync.ts`, `sync-baseline-metrics.ts`                                                                       |
+| **Sync**       | `desktop-sync.ts`                                                                                                   |
 | **Registry**   | `tool-registry.ts`                                                                                                  |
 | **Taxonomy**   | `error-taxonomy.ts`                                                                                                 |
 

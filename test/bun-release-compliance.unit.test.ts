@@ -482,37 +482,6 @@ describe("bun-release-compliance HTMLRewriter in markdown-dead-links-lint", () =
   });
 });
 
-// ── SIGINT/SIGTERM in references-inspect-watch PTY mode ───────────────
-
-describe("bun-release-compliance references-inspect-watch signal handling", () => {
-  test("references-inspect-watch.ts uses TextDecoder (not Buffer.from) for stdin", () => {
-    const text = readSrc("src/lib/references-inspect-watch.ts");
-    expect(text).toContain("TextDecoder");
-    expect(text).toContain("stdinDecoder");
-    expect(text).not.toMatch(/Buffer\.from\(chunk\)/);
-  });
-
-  test("references-inspect-watch.ts PTY mode has SIGINT handler", () => {
-    const text = readSrc("src/lib/references-inspect-watch.ts");
-    expect(text).toContain('process.on("SIGINT"');
-    expect(text).toContain('process.on("SIGTERM"');
-    expect(text).toContain("signalInterrupted");
-    expect(text).toContain("process.stdin.destroy()");
-  });
-
-  test("references-inspect-watch.ts cleans up signal handlers in finally block", () => {
-    const text = readSrc("src/lib/references-inspect-watch.ts");
-    expect(text).toContain('process.off("SIGINT"');
-    expect(text).toContain('process.off("SIGTERM"');
-  });
-
-  test("references-inspect-watch.ts poll fallback also handles SIGINT/SIGTERM", () => {
-    const text = readSrc("src/lib/references-inspect-watch.ts");
-    expect(text).toContain('process.once("SIGINT"');
-    expect(text).toContain('process.once("SIGTERM"');
-  });
-});
-
 // ── Bun.build HTML production path ─────────────────────────────────────
 
 describe("bun-release-compliance Bun.build HTML production", () => {
@@ -988,21 +957,17 @@ describe("bun-release-compliance console-bun-terminal", () => {
     expect(violations).toHaveLength(0);
   });
 
-  test("Bun.Terminal is only used in references-inspect-watch", () => {
+  test("Bun.Terminal is not used in src runtime modules", () => {
     const glob = new Bun.Glob("src/**/*.ts");
-    const allowed = new Set(["src/lib/references-inspect-watch.ts"]);
     const violations: string[] = [];
     for (const path of glob.scanSync(import.meta.dir + "/..")) {
-      if (allowed.has(path)) continue;
       const text = readSrc(path);
       if (text.includes("Bun.Terminal")) {
         violations.push(`${path}`);
       }
     }
     if (violations.length > 0) {
-      throw new Error(
-        `Bun.Terminal used outside references-inspect-watch.ts:\n${violations.join("\n")}`
-      );
+      throw new Error(`Bun.Terminal used in src runtime modules:\n${violations.join("\n")}`);
     }
     expect(violations).toHaveLength(0);
   });

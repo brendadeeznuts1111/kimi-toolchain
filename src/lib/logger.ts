@@ -502,6 +502,4 @@ export function log(level: "info" | "warn" | "error", msg: string): void {
   logger[level](msg);
 }
 
-export function statusIcon(status: "ok" | "warn" | "error"): string {
-  return healthStatusIcon(status);
-}
+

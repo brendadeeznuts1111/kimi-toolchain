@@ -122,11 +122,6 @@ export function decodePunycodeHostname(hostname: string): string {
     .join(".");
 }
 
-/** @deprecated Use looksLikeAbsoluteUrl — kept for tests. */
-export function isParseableUrl(value: string): boolean {
-  return looksLikeAbsoluteUrl(value);
-}
-
 /** Split a URL into component parts (empty port/search/hash → em dash). */
 export function decomposeUrl(value: string): UrlDecomposedParts {
   const url = new URL(value.trim());

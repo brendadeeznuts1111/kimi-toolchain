@@ -4,7 +4,7 @@
  */
 
 import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
-import { resolveSyncBaselineArchivePath } from "../src/lib/sync-baseline-metrics.ts";
+import { resolveSyncBaselineArchivePath } from "../src/lib/desktop-sync.ts";
 import {
   buildSyncManifest,
   dryRunRestoreBaseline,

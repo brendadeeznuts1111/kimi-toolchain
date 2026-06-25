@@ -4,9 +4,9 @@ import { writeSyncSnapshotArchive } from "../src/lib/archive-persistence.ts";
 import {
   dryRunRestoreBaseline,
   finalizeSyncArchive,
+  restoreBaseline,
   syncDesktop,
 } from "../src/lib/desktop-sync.ts";
-import { restoreBaseline } from "../src/profile/commands/restore-baseline.ts";
 import { syncBaselineCacheArchivePath } from "../src/lib/paths.ts";
 import { REPO_ROOT } from "./helpers.ts";
 import { sha256String } from "../src/lib/utils.ts";

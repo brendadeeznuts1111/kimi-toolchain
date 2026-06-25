@@ -33,7 +33,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   sync: "src/lib/desktop-sync.ts",
   "sync-archive": "src/lib/desktop-sync.ts",
   "archive-baseline-integration": "src/lib/desktop-sync.ts",
-  "sync-baseline-metrics": "src/lib/sync-baseline-metrics.ts",
+
   "telemetry-schema": "src/lib/error-taxonomy.ts",
   "unified-shell-bridge": "src/bin/unified-shell-bridge.ts",
   "kimi-githooks": "src/bin/kimi-githooks.ts",

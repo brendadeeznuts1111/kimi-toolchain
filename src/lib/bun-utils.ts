@@ -1062,21 +1062,6 @@ export function bunRevision(): string {
   return detectBunRuntime().revision;
 }
 
-/**
- * Local machine hostname for provenance metadata (`os.hostname`).
- *
- * Not `Bun.serve({ hostname })` / `server.hostname` — those are the server bind address
- * (default `"0.0.0.0"`). See {@link BUN_SERVE_HOSTNAME_DOC_URL}.
- *
- * Bun mirrors `node:os`; confine the import here rather than at feature call sites.
- */
 /** @see https://bun.com/docs/runtime/http/server#changing-the-port-and-hostname */
 export const BUN_SERVE_HOSTNAME_DOC_URL =
   "https://bun.com/docs/runtime/http/server#changing-the-port-and-hostname";
-
-/** @see https://bun.com/reference/node/os/hostname */
-export const BUN_OS_HOSTNAME_DOC_URL = "https://bun.com/reference/node/os/hostname";
-
-export function runtimeHostname(): string {
-  return osHostname();
-}

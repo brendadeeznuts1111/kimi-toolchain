@@ -693,13 +693,6 @@ export async function scanFile(
   return violations;
 }
 
-export async function scanRepo(
-  repoRoot: string,
-  config: BunNativeLintConfig
-): Promise<Violation[]> {
-  return scanGlobPatterns(repoRoot, ["src/**/*.ts", "scripts/**/*.ts", "examples/**/*.ts"], config);
-}
-
 export async function scanGlobPatterns(
   repoRoot: string,
   patterns: readonly string[],

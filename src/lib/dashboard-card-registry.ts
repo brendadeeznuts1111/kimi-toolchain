@@ -2,7 +2,6 @@
  * examples/dashboard card registry — SSOT for canvasInfluences lint and /api/cards.
  */
 
-import { join } from "path";
 import { LOCAL_DOC_REFERENCES } from "./canonical-references.ts";
 import { pathExists } from "./bun-io.ts";
 import { DASHBOARD_PROBE_HEADER } from "./dashboard-logger.ts";
@@ -90,10 +89,6 @@ export interface DashboardCardsPayload {
   fetchedAt: string;
   /** Present when route probes ran (`probed` option / `?probe=true`). */
   probedCount?: number;
-}
-
-export function repoRootFromLibDir(libDir: string): string {
-  return join(libDir, "../..");
 }
 
 function buildInfluenceReverseMap(): Map<string, string[]> {

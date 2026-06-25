@@ -8,10 +8,8 @@ import { writeStdoutJsonSync } from "../lib/ndjson.ts";
 import {
   parseRestoreBaselineArgs,
   printRestoreBaselineHelp,
-  restoreBaseline,
-} from "../profile/commands/restore-baseline.ts";
-import {
   printRestoreDryRunTable,
+  restoreBaseline,
   type HashDiffResult,
   type RestoreDriftRow,
 } from "../lib/desktop-sync.ts";

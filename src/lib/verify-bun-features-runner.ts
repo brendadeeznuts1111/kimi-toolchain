@@ -442,11 +442,6 @@ export async function verifyUdpSocket(): Promise<boolean> {
   }
 }
 
-/** Probe Bun.Image availability (thumbnails, QR, peptide labels). */
-export function verifyImageApi(): boolean {
-  return bunImageSupported();
-}
-
 async function checkBunUdpSocket(): Promise<void> {
   const start = nowNs();
   const bun = Bun as typeof Bun & { udpSocket?: unknown };
@@ -462,7 +457,7 @@ async function checkBunUdpSocket(): Promise<void> {
 
 async function checkBunImageApi(): Promise<void> {
   const start = nowNs();
-  const ok = verifyImageApi();
+  const ok = bunImageSupported();
   const ms = elapsedMsRoundedLocal(start);
   record(
     "bun.image",

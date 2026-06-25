@@ -642,9 +642,4 @@ export async function runBundleGate(options: BundleGateOptions): Promise<BundleG
   }
 }
 
-// ── Shortcut ───────────────────────────────────────────────────────
 
-/** Quick bundle analysis for the default kimi-doctor entry point. */
-export async function quickBundleGate(projectRoot: string): Promise<BundleGateReport> {
-  return runBundleGate({ projectRoot });
-}

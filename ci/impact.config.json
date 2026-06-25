@@ -69,7 +69,6 @@
       "id": "sync",
       "paths": [
         "src/lib/desktop-sync.ts",
-        "src/lib/sync-baseline-metrics.ts",
         "scripts/sync-to-desktop.ts",
         "scripts/sync-manifest.ts"
       ],

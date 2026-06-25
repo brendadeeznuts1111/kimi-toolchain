@@ -154,11 +154,6 @@ export function formatErrorColored(input: FormattedErrorInput): string {
   return colorOutputEnabled() ? formatted.colored : formatted.plain;
 }
 
-/** Strip ANSI from a formatted error line. */
-export function stripFormattedError(text: string): string {
-  return stripANSI(text);
-}
-
 /** Metadata fields for embedding in mixed success/failure JSON payloads. */
 export function structuredErrorFields(
   input: FormattedErrorInput
