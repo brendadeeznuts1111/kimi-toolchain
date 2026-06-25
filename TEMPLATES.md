@@ -230,26 +230,20 @@ Bun bundler mode — per [Bun TypeScript docs](https://bun.com/docs/runtime/type
 
 Run type checking separately: `bun run typecheck` (`tsc --noEmit`). Bun runtime does not typecheck.
 
-## src/bun-globals.d.ts Template
+## Bun-Types Alignment
 
-Temporary shims for Bun 1.3+ runtime APIs ahead of `bun-types`. Remove entries as `@types/bun` catches up:
+TypeScript uses **`bun-types`** from [oven-sh/bun `packages/bun-types`](https://github.com/oven-sh/bun/tree/main/packages/bun-types) — pinned in root `package.json` → `kimi.bunTypesCommit`. Do **not** add `src/bun-globals.d.ts` or `types/test-globals.d.ts`; extend upstream `bun.d.ts` instead.
 
-```ts
-/// <reference types="bun" />
-
-declare module "bun" {
-  const cwd: string;
-  const pid: number;
-
-  interface BunFile {
-    textSync(encoding?: string): string;
-  }
-}
-
-interface ReadableStream<R = any> {
-  [Symbol.asyncIterator](): AsyncIterator<R>;
+```json
+"devDependencies": {
+  "bun-types": "file:../bun/packages/bun-types"
+},
+"kimi": {
+  "bunTypesCommit": "ed700c207ab7e20eaaf17e9f60fa54407d016bc9"
 }
 ```
+
+`tsconfig.json` → `"types": ["bun-types"]`.
 
 ## .env.example Template
 

@@ -27,7 +27,9 @@ describe("bun-utils-streams", () => {
   test("ReadableStream.bytes concatenates chunks", async () => {
     const encoder = new TextEncoder();
     const stream = makeStream([encoder.encode("foo"), encoder.encode("bar")]);
-    const bytes = await stream.bytes();
+    const bytes = await (
+      stream as ReadableStream<Uint8Array> & { bytes(): Promise<Uint8Array> }
+    ).bytes();
     const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
     expect(view).toBeInstanceOf(Uint8Array);
     expect(new TextDecoder().decode(view)).toBe("foobar");
@@ -44,7 +46,7 @@ describe("bun-utils-streams", () => {
   test("ReadableStream.blob returns a Blob", async () => {
     const encoder = new TextEncoder();
     const stream = makeStream([encoder.encode("x"), encoder.encode("y")]);
-    const blob = await stream.blob();
+    const blob = await (stream as ReadableStream<Uint8Array> & { blob(): Promise<Blob> }).blob();
     expect(blob).toBeInstanceOf(Blob);
     expect(await blob.text()).toBe("xy");
   });
@@ -52,7 +54,9 @@ describe("bun-utils-streams", () => {
   test("ReadableStream.json parses JSON stream", async () => {
     const encoder = new TextEncoder();
     const stream = makeStream([encoder.encode('{"a":1,"b":['), encoder.encode("2,3]}")]);
-    expect(await stream.json()).toEqual({ a: 1, b: [2, 3] });
+    expect(
+      await (stream as ReadableStream<Uint8Array> & { json(): Promise<unknown> }).json()
+    ).toEqual({ a: 1, b: [2, 3] });
   });
 
   test("Bun.readableStreamToArray collects typed chunks", async () => {

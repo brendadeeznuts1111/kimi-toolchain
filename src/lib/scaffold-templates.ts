@@ -28,7 +28,6 @@ export const OXFMTRC = load("oxfmtrc.json");
 export const OXLINTRC = load("oxlintrc.json");
 export const CI_WORKFLOW = load("ci.yml");
 export const TSCONFIG = load("tsconfig.json");
-export const BUN_GLOBALS = load("bun-globals.d.ts");
 export const DX_CONFIG = load("dx.config.toml");
 export const GITIGNORE = load("gitignore");
 export const ENV_EXAMPLE = load("env.example");

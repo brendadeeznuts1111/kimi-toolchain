@@ -19,7 +19,6 @@ import {
   OXLINTRC,
   CI_WORKFLOW,
   TSCONFIG,
-  BUN_GLOBALS,
   GITIGNORE,
   ENV_EXAMPLE,
   BUNFIG,
@@ -268,13 +267,6 @@ async function runFix(project: string, dryRun: boolean, profile: ScaffoldProfile
   if (!pathExists(join(project, "tsconfig.json"))) {
     stepLog("tsconfig", "creating tsconfig.json...");
     await writeFile(join(project, "tsconfig.json"), TSCONFIG, dryRun);
-  }
-
-  const globalsPath = join(project, "src", "bun-globals.d.ts");
-  if (!pathExists(globalsPath)) {
-    stepLog("types", "creating src/bun-globals.d.ts...");
-    if (!dryRun) makeDir(join(project, "src"), { recursive: true });
-    await writeFile(globalsPath, BUN_GLOBALS, dryRun);
   }
 
   const indexPath = join(project, "src", "index.ts");

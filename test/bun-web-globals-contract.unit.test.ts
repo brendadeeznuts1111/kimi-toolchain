@@ -176,7 +176,7 @@ test("self is a getter", () => {
   expect(descriptor?.set).toBeInstanceOf(Function);
   expect(descriptor?.enumerable).toBe(true);
   expect(descriptor?.configurable).toBe(true);
-  expect((globalThis as typeof globalThis & { self: typeof globalThis }).self).toBe(globalThis);
+  expect((globalThis as unknown as { self: unknown }).self).toBe(globalThis);
 });
 
 test("errors thrown by native code should be TypeError", async () => {

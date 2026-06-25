@@ -133,7 +133,7 @@ export function connectHerdrRemoteWebSocket(
   env: Record<string, string | undefined> = Bun.env
 ): HerdrUnixSocket & { transport: "websocket" } {
   const proxy = resolveWebSocketProxy(url, env);
-  const ws = proxy ? new WebSocket(url, { proxy }) : new WebSocket(url);
+  const ws = proxy ? new WebSocket(url, { proxy } as unknown as string[]) : new WebSocket(url);
   return createHerdrWebSocketClient(ws, url);
 }
 

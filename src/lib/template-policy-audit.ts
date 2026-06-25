@@ -69,7 +69,6 @@ const REQUIRED_SCAFFOLD_FILES = [
   "env.example",
   "gitignore",
   "ci.yml",
-  "bun-globals.d.ts",
   "code-references.md",
   "adr-template.md",
   "LICENSE-MIT",
@@ -173,7 +172,7 @@ const REQUIRED_TSCONFIG: Record<string, unknown> = {
   strict: true,
   noEmit: true,
   moduleResolution: "bundler",
-  types: ["bun"],
+  types: ["bun-types"],
 };
 
 const BUN_CREATE_DIR = "templates/bun-create";
@@ -364,11 +363,11 @@ export async function auditTemplateTsconfigs(root: string): Promise<TemplatePoli
       const actual = opts[key];
       if (key === "types") {
         const types = Array.isArray(actual) ? actual : [];
-        if (!types.includes("bun")) {
+        if (!types.includes("bun-types")) {
           violations.push({
             file: relPath,
             field: "compilerOptions.types",
-            message: 'tsconfig must include "bun" in compilerOptions.types',
+            message: 'tsconfig must include "bun-types" in compilerOptions.types',
           });
         }
         continue;
