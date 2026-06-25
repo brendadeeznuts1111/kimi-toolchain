@@ -641,5 +641,3 @@ export async function runBundleGate(options: BundleGateOptions): Promise<BundleG
     };
   }
 }
-
-

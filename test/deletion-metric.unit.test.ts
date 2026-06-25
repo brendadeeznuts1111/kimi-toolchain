@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseDiffStat, passesDeletionMetric } from "../src/lib/deletion-metric.ts";
+import { parseDiffStat, passesDeletionMetric } from "../scripts/preservation-protocol-audit.ts";
 
 describe("deletion-metric", () => {
   test("enforces 3× ratio", () => {

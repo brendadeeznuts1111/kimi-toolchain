@@ -5,8 +5,16 @@
 
 import { pathExists } from "./bun-io.ts";
 import { join } from "path";
-import { CANONICAL_REFERENCES_PROBE_IDS } from "./canonical-references.ts";
-import { FINISH_WORK_PROBE_IDS } from "./finish-work-herdr.ts";
+import {
+  CANONICAL_REFERENCES_PROBE_IDS,
+  evaluateProbeHandoffCondition,
+  isCanonicalReferencesProbeId,
+} from "./canonical-references.ts";
+import {
+  evaluateFinishWorkProbeCondition,
+  FINISH_WORK_PROBE_IDS,
+  isFinishWorkProbeId,
+} from "./finish-work-herdr.ts";
 import {
   parseCondition,
   parseHandoffRuleEntry,
@@ -14,7 +22,14 @@ import {
   resolveTargetStrategy,
   type HandoffRule,
 } from "./herdr-orchestrator-config.ts";
-import { evaluateHandoffProbeCondition } from "./handoff-probes.ts";
+import {
+  evaluateArtifactGraphProbeHandoffCondition,
+  isArtifactGraphProbeId,
+} from "./artifact-graph-health.ts";
+import {
+  evaluateBunInstallProbeHandoffCondition,
+  isBunInstallProbeId,
+} from "./bun-install-config.ts";
 import { listTomlPropertyTablePaths } from "./toml-property-table.ts";
 import { decomposeUrl, looksLikeAbsoluteUrl } from "./url-decomposer.ts";
 
@@ -674,4 +689,25 @@ export async function discoverDxInventory(
     ...body,
     healthScore: computeDxHealthScore(body),
   };
+}
+
+/** Evaluate any supported `probe:*` handoff condition. */
+export async function evaluateHandoffProbeCondition(
+  probeId: string,
+  projectRoot: string,
+  home?: string
+): Promise<{ ok: boolean; message: string }> {
+  if (isCanonicalReferencesProbeId(probeId)) {
+    return evaluateProbeHandoffCondition(probeId, projectRoot, home);
+  }
+  if (isBunInstallProbeId(probeId)) {
+    return evaluateBunInstallProbeHandoffCondition(probeId, projectRoot);
+  }
+  if (isArtifactGraphProbeId(probeId)) {
+    return evaluateArtifactGraphProbeHandoffCondition(probeId, projectRoot);
+  }
+  if (isFinishWorkProbeId(probeId)) {
+    return evaluateFinishWorkProbeCondition(probeId, projectRoot);
+  }
+  return { ok: false, message: `unknown probe condition: ${probeId}` };
 }

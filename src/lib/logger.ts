@@ -501,5 +501,3 @@ export const logger = new Logger();
 export function log(level: "info" | "warn" | "error", msg: string): void {
   logger[level](msg);
 }
-
-

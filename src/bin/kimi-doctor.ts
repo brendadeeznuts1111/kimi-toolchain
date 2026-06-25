@@ -62,7 +62,7 @@ import {
   buildBunDocsKnowledgeCard,
 } from "../lib/bun-docs-mcp.ts";
 import { buildRuntimeUtilsCoverageReport } from "../lib/bun-runtime-utils-coverage.ts";
-import { openFirstFailedCheck, openFirstGateFinding } from "../lib/open-check-source.ts";
+import { openFirstFailedCheck, openFirstGateFinding } from "../lib/health-check.ts";
 import { fixMcpConfig, validateMcpConfig } from "../lib/mcp-config.ts";
 import {
   auditKimiConfig,

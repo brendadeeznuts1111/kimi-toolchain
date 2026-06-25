@@ -91,7 +91,7 @@ export const UNIT_TEST_FILES = [
   "test/archive-baseline-integration.unit.test.ts",
 
   "test/gzip-performance.unit.test.ts",
-  "test/bun-utils-hostname.unit.test.ts",
+
   "test/bun-utils-runtime.unit.test.ts",
   "test/bun-utils-editor.unit.test.ts",
   "test/bun-utils-jsc.unit.test.ts",
@@ -191,7 +191,7 @@ export const UNIT_TEST_FILES = [
   "test/herdr-dashboard-session-selector.unit.test.ts",
   "test/herdr-dashboard-watch.unit.test.ts",
   "test/herdr-dashboard-gate-watch.unit.test.ts",
-  "test/deferred-watch.unit.test.ts",
+
   "test/bundle-gate.unit.test.ts",
   "test/bundle-gate-integration.unit.test.ts",
   "test/config-loader.unit.test.ts",

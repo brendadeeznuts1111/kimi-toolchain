@@ -11,10 +11,10 @@ import {
   jsonErrorResponse,
   resolveErrorDomain,
   structuredErrorFields,
-  stripFormattedError,
 } from "../src/lib/error-format.ts";
 import { lintErrorRegistry } from "../src/lib/error-registry-lint.ts";
 import { Logger } from "../src/lib/logger.ts";
+import { stripANSI } from "../src/lib/inspect.ts";
 import { REPO_ROOT, withClearedEnv, withEnv, captureConsoleError } from "./helpers.ts";
 
 describe("error-format", () => {
@@ -57,14 +57,14 @@ describe("error-format", () => {
       expect(formatted.plain).not.toContain("\x1b[");
       if (colorOutputEnabled()) {
         expect(formatted.colored).toContain("\x1b[");
-        expect(stripFormattedError(formatted.colored)).toContain("com.kimi.toolchain.cli");
+        expect(stripANSI(formatted.colored)).toContain("com.kimi.toolchain.cli");
       }
     });
   });
 
-  test("stripFormattedError removes ANSI codes", () => {
+  test("stripANSI removes ANSI codes", () => {
     const colored = colorize("probe", "red");
-    expect(stripFormattedError(colored)).toBe("probe");
+    expect(stripANSI(colored)).toBe("probe");
   });
 
   test("colorize respects NO_COLOR", () => {

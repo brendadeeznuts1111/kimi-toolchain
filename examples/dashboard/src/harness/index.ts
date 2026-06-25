@@ -34,11 +34,4 @@ export {
   installBenchEnabled,
   stopInstallBenchContext,
 } from "./install-bench.ts";
-export {
-  runPerfWatchLoop,
-  bindPerfWatchSignals,
-  unbindPerfWatchSignals,
-  PERF_WATCH_REL_PATHS,
-  PERF_WATCH_DEBOUNCE_MS,
-} from "./perf-watch.ts";
 export type { Metric, PerfGateResult, ModuleRegistryEntry, TrainResult } from "./types.ts";

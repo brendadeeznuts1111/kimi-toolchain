@@ -15,11 +15,9 @@ import {
   rmSync,
   statSync,
   unlinkSync,
-  watch,
   writeFileSync,
 } from "node:fs";
-import type { Dirent, PathLike, WatchOptions } from "node:fs";
-import type { FSWatcher } from "node:fs";
+import type { Dirent, PathLike } from "node:fs";
 
 export function pathExists(path: PathLike): boolean {
   return existsSync(path);
@@ -87,23 +85,6 @@ export function copyTree(
   options?: Parameters<typeof cpSync>[2]
 ): void {
   cpSync(String(src), String(dest), options);
-}
-
-export function watchPath(path: PathLike, listener: () => void): FSWatcher;
-export function watchPath(
-  path: PathLike,
-  options: WatchOptions,
-  listener: (...args: unknown[]) => void
-): FSWatcher;
-export function watchPath(
-  path: PathLike,
-  optionsOrListener: WatchOptions | (() => void),
-  listener?: (...args: unknown[]) => void
-): FSWatcher {
-  if (typeof optionsOrListener === "function") {
-    return watch(path, optionsOrListener);
-  }
-  return watch(path, optionsOrListener, listener as never);
 }
 
 export type JsonValidator<T> = (value: unknown) => value is T;

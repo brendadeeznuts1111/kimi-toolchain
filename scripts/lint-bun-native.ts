@@ -13,7 +13,7 @@ import {
   formatRuleCatalog,
   parseBaselineJson,
   parseConfigToml,
-  scanRepo,
+  scanGlobPatterns,
   shouldFailCheck,
   type BaselineFile,
   type BunNativeLintConfig,
@@ -93,7 +93,11 @@ async function main(): Promise<number> {
   const config = await loadConfig();
   const baseline = await loadBaseline();
   const gateMode = opts.report ? "report" : config.gateMode;
-  const violations = await scanRepo(REPO_ROOT, config);
+  const violations = await scanGlobPatterns(
+    REPO_ROOT,
+    ["src/**/*.ts", "scripts/**/*.ts", "examples/**/*.ts"],
+    config
+  );
   const result = evaluateViolations(violations, config, baseline);
 
   if (opts.listRules) {

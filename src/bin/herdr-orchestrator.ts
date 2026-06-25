@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { writeStdout, writeStdoutLine } from "../lib/cli-contract.ts";
-import { pathExists, readText, watchPath } from "../lib/bun-io.ts";
+import { pathExists, readText } from "../lib/bun-io.ts";
 import { handoffInheritedSpawn } from "../lib/execve-handoff.ts";
 import { withNoOrphansEnv } from "../lib/bun-spawn-env.ts";
 import { withBunNoOrphans } from "../lib/tool-runner.ts";
@@ -1231,28 +1231,19 @@ if (isDirectRun(import.meta.path)) {
 
         using followCtx = {
           abort: new AbortController(),
-          watcher: null as ReturnType<typeof watchPath> | null,
           _sigHandler: null as (() => void) | null,
           [Symbol.dispose]() {
             this.abort.abort();
-            this.watcher?.close();
             if (this._sigHandler) process.off("SIGINT", this._sigHandler);
           },
         };
-
-        if (pathExists(logPath)) {
-          followCtx.watcher = watchPath(logPath, () => void renderNew());
-        }
 
         void (async () => {
           while (!followCtx.abort.signal.aborted) {
             await Bun.sleep(1000);
             if (followCtx.abort.signal.aborted) break;
             if (!pathExists(logPath)) continue;
-            if (!followCtx.watcher) {
-              followCtx.watcher = watchPath(logPath, () => void renderNew());
-              await renderNew();
-            }
+            await renderNew();
           }
         })();
 

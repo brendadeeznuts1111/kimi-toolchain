@@ -15,7 +15,6 @@ export const EXEMPT_FILES: Record<string, string[]> = {
   "no-manual-feature-url": ["src/lib/bun-release-registry.ts"],
   // Intentional boundary shims / runtime patches
   "no-as-any": [
-    "src/lib/deferred-watch.ts",
     "src/lib/bun-markdown.ts",
     "src/lib/governor-spawn.ts",
     "src/lib/secrets-policy.ts",

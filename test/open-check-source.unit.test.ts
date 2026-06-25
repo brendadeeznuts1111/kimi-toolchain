@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { openFirstFailedCheck, parseCheckSource } from "../src/lib/open-check-source.ts";
+import { openFirstFailedCheck, parseCheckSource } from "../src/lib/health-check.ts";
 
 describe("open-check-source", () => {
   test("parseCheckSource extracts file:line:col", () => {
@@ -11,6 +11,10 @@ describe("open-check-source", () => {
   });
 
   test("openFirstFailedCheck returns false when no source", () => {
-    expect(openFirstFailedCheck([{ status: "error", message: "no path here" }])).toBe(false);
+    expect(
+      openFirstFailedCheck([
+        { name: "x", status: "error", message: "no path here", fixable: false },
+      ])
+    ).toBe(false);
   });
 });

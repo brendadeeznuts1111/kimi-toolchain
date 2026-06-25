@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { evaluateHandoffProbeCondition } from "../src/lib/handoff-probes.ts";
+import { evaluateHandoffProbeCondition } from "../src/lib/discover-dx-inventory.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("handoff-probes", () => {

@@ -31,11 +31,6 @@ const KIMI_DOCTOR_STATIC = {
           "thresholds.baseline.json (portable) + .kimi/thresholds.local.json (HTTP); skipped benchmarks excluded",
       },
       {
-        flag: "--watch",
-        description: "Re-run perf gates when harness/isolation sources change",
-        output: "node:fs.watch recursive on src/harness + src/lib/isolation",
-      },
-      {
         flag: "--out",
         description: "Output directory for reports/thresholds (default: cwd)",
         output: "paths relative to --out",
@@ -50,11 +45,10 @@ const KIMI_DOCTOR_STATIC = {
       perf: "bun run perf — gates + HTML report",
       "perf:gates:changed": "bun run perf:gates:changed — scoped vs origin/main",
       "perf:train": "bun run perf:train — train thresholds after pass",
-      "perf:watch": "bun run perf:watch — file-triggered gates + report",
       "perf:nightly": "bun run perf:nightly — gates + train + report",
     },
-    pipeline: "perf-doctor: --perf-gates → --report | --train | --watch",
-    allAtOnce: "bun run src/bin/perf-doctor.ts --perf-gates --report --watch --out=.",
+    pipeline: "perf-doctor: --perf-gates → --report | --train",
+    allAtOnce: "bun run src/bin/perf-doctor.ts --perf-gates --report --out=.",
   },
   kimiDoctor: {
     cli: "src/bin/kimi-doctor.ts",
@@ -89,13 +83,6 @@ const KIMI_DOCTOR_STATIC = {
     },
   ],
   watchModes: {
-    perfDoctor: {
-      entry: "bun run perf:watch",
-      tool: "perf-doctor.ts",
-      mechanism: "node:fs.watch (recursive) on src/harness + src/lib/isolation",
-      debounceMs: 300,
-      signals: "SIGINT, SIGTERM; SIGHUP/SIGBREAK on Windows",
-    },
     kimiDoctor: {
       entry: "kimi-doctor --watch",
       tool: "kimi-doctor (main repo)",
@@ -122,7 +109,7 @@ const KIMI_DOCTOR_STATIC = {
     },
   ],
   doc: "docs/references/kimi-doctor.md § Effects pipeline",
-  note: "Performance loop lives in perf-doctor (this example). Main kimi-doctor --watch polls effect-gates; use perf-doctor --watch for file-triggered benchmark re-runs.",
+  note: "Performance loop lives in perf-doctor (this example). Main kimi-doctor --watch polls effect-gates.",
   cli: "src/bin/perf-doctor.ts (examples/dashboard performance loop)",
   commands: [
     {
@@ -142,18 +129,13 @@ const KIMI_DOCTOR_STATIC = {
         "thresholds.baseline.json (portable) + .kimi/thresholds.local.json (HTTP); skipped benchmarks excluded",
     },
     {
-      flag: "--watch",
-      description: "Re-run perf gates when harness/isolation sources change",
-      output: "node:fs.watch recursive on src/harness + src/lib/isolation",
-    },
-    {
       flag: "--out",
       description: "Output directory for reports/thresholds (default: cwd)",
       output: "paths relative to --out",
     },
   ],
-  pipeline: "perf-doctor: --perf-gates → --report | --train | --watch",
-  allAtOnce: "bun run src/bin/perf-doctor.ts --perf-gates --report --watch --out=.",
+  pipeline: "perf-doctor: --perf-gates → --report | --train",
+  allAtOnce: "bun run src/bin/perf-doctor.ts --perf-gates --report --out=.",
   refresh: {
     perfMs: 10_000,
     effectGatesMs: 30_000,

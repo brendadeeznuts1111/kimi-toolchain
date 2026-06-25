@@ -1,4 +1,4 @@
-import { pathExists, readText, watchPath } from "./bun-io.ts";
+import { pathExists, readText } from "./bun-io.ts";
 import { writeStdoutLine } from "./cli-contract.ts";
 
 import { join } from "path";
@@ -335,35 +335,41 @@ async function runWatchOrchestratorEvents(
     });
   };
 
-  let gitWatcher: ReturnType<typeof watchPath> | null = null;
+  let settled = false;
   let gitHead = readGitHead(projectRoot);
   const gitRefLastEmit = new Map<string, number>();
+  const emitGitRefChange = () => {
+    const next = readGitHead(projectRoot);
+    if (!next || next === gitHead) return;
+    if (
+      shouldThrottleGitRefChanged(
+        projectRoot,
+        next,
+        gitRefLastEmit,
+        Date.now(),
+        eventsConfig.gitRefCooldownMs
+      )
+    ) {
+      return;
+    }
+    gitHead = next;
+    markGitRefChangedEmitted(projectRoot, next, gitRefLastEmit);
+    const routed = routeOrchestratorEvent(
+      { event: "git.ref.changed", data: { head: next } },
+      eventsConfig.allowlist
+    );
+    if (routed) queue(routed);
+  };
 
   if (eventsConfig.watchGit) {
     const gitHeadPath = resolveGitHeadWatchPath(projectRoot);
     if (gitHeadPath && pathExists(gitHeadPath)) {
-      gitWatcher = watchPath(gitHeadPath, () => {
-        const next = readGitHead(projectRoot);
-        if (!next || next === gitHead) return;
-        if (
-          shouldThrottleGitRefChanged(
-            projectRoot,
-            next,
-            gitRefLastEmit,
-            Date.now(),
-            eventsConfig.gitRefCooldownMs
-          )
-        ) {
-          return;
+      void (async () => {
+        while (!settled && !options.signal?.aborted) {
+          await Bun.sleep(1000);
+          if (!settled && !options.signal?.aborted) emitGitRefChange();
         }
-        gitHead = next;
-        markGitRefChangedEmitted(projectRoot, next, gitRefLastEmit);
-        const routed = routeOrchestratorEvent(
-          { event: "git.ref.changed", data: { head: next } },
-          eventsConfig.allowlist
-        );
-        if (routed) queue(routed);
-      });
+      })();
     }
   }
 
@@ -379,11 +385,9 @@ async function runWatchOrchestratorEvents(
     );
   }
 
-  let settled = false;
   const finish = (result: WatchOrchestratorEventsResult) => {
     if (settled) return;
     settled = true;
-    gitWatcher?.close();
     debouncer.clear();
     resume(Effect.succeed(result));
   };

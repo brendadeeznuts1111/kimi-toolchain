@@ -2,15 +2,15 @@ import { describe, expect, test } from "bun:test";
 import {
   countVerifyFailures,
   runVerifyBunFeatures,
-  verifyImageApi,
   verifyUdpSocket,
   VERIFY_GROUP_ORDER,
   type VerifyReport,
 } from "../src/lib/verify-bun-features-runner.ts";
+import { bunImageSupported } from "../src/lib/bun-image.ts";
 
 describe("verify-bun-features-runner", () => {
-  test("verifyUdpSocket and verifyImageApi expose runtime probes", async () => {
-    const imageOk = verifyImageApi();
+  test("verifyUdpSocket and bunImageSupported expose runtime probes", async () => {
+    const imageOk = bunImageSupported();
     expect(typeof imageOk).toBe("boolean");
     const udpOk = await verifyUdpSocket();
     expect(typeof udpOk).toBe("boolean");

@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { aggregateChecks } from "../src/lib/health-check.ts";
-import { Logger, createLogger, log, statusIcon } from "../src/lib/logger.ts";
+import { Logger, createLogger, log } from "../src/lib/logger.ts";
 import { generateTraceId, generateSpanId } from "../src/lib/bun-utils.ts";
 import { captureConsoleError, captureStdout } from "./helpers.ts";
 
@@ -185,12 +185,6 @@ describe("logger", () => {
     });
     expect(lines.length).toBe(1);
     expect(lines[0]).toContain("backward compat");
-  });
-
-  test("statusIcon returns correct icons", () => {
-    expect(statusIcon("ok")).toBe("✓");
-    expect(statusIcon("warn")).toBe("⚠");
-    expect(statusIcon("error")).toBe("✗");
   });
 
   test("getLogs returns all logged entries", () => {

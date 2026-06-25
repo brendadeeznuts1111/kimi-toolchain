@@ -131,8 +131,6 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run check:staged`                  | Quality gate                           |
 | `bun run check:template-policy`         | Quality gate                           |
 | `bun run check:templates`               | Quality gate                           |
-| `bun run check:watch`                   | Quality gate                           |
-| `bun run check:watch:tests`             | Quality gate                           |
 | `bun run ci:fast`                       | See package.json scripts               |
 | `bun run ci:impact`                     | scripts/ci-impact.ts                   |
 | `bun run ci:local`                      | scripts/ci-local.ts                    |
@@ -227,7 +225,6 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run reclassify:failures`           | scripts/reclassify-failure-ledger.ts   |
 | `bun run references:generate`           | Canonical references script            |
 | `bun run references:inspect`            | Canonical references script            |
-| `bun run references:inspect:watch`      | Canonical references script            |
 | `bun run references:lint`               | Canonical references script            |
 | `bun run references:lint-online`        | Canonical references script            |
 | `bun run references:lint:examples`      | Canonical references script            |
@@ -255,7 +252,6 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run test:changed`                  | Test tier script                       |
 | `bun run test:changed:push`             | Test tier script                       |
 | `bun run test:changed:shard`            | Test tier script                       |
-| `bun run test:changed:watch`            | Test tier script                       |
 | `bun run test:ci`                       | Test tier script                       |
 | `bun run test:coverage`                 | Test tier script                       |
 | `bun run test:coverage:ci`              | Test tier script                       |

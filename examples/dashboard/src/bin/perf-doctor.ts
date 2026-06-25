@@ -1,16 +1,14 @@
 #!/usr/bin/env bun
 /**
- * Performance control loop — perf benchmarks, gates, train, and file-triggered watch.
+ * Performance control loop — perf benchmarks, gates, and train.
  *
  * Usage:
  *   bun run src/bin/perf-doctor.ts --perf-gates
  *   bun run src/bin/perf-doctor.ts --perf-gates --changed-only --base=origin/main
  *   bun run src/bin/perf-doctor.ts --report --out=./reports
  *   bun run src/bin/perf-doctor.ts --train --out=.
- *   bun run src/bin/perf-doctor.ts --watch --perf-gates --report
  */
 
-import { join } from "path";
 import { resolvePerfChangedFiles } from "../harness/changed-context.ts";
 import { stopFileBenchServers } from "../harness/file-bench.ts";
 import {
@@ -23,11 +21,6 @@ import {
 import { stopHttpBenchServers } from "../harness/http-bench.ts";
 import { stopInstallBenchContext } from "../harness/install-bench.ts";
 import { registryKeysForChanged } from "../harness/registry-scope.ts";
-import {
-  bindPerfWatchSignals,
-  runPerfWatchLoop,
-  unbindPerfWatchSignals,
-} from "../harness/perf-watch.ts";
 import type { BenchmarkOptions } from "../harness/perf-monitor.ts";
 import type { Metric } from "../harness/types.ts";
 
@@ -35,11 +28,7 @@ const argv = Bun.argv.slice(2);
 const PERF_GATES = argv.includes("--perf-gates");
 const REPORT = argv.includes("--report");
 const TRAIN = argv.includes("--train");
-const WATCH = argv.includes("--watch");
 const CHANGED_ONLY = argv.includes("--changed-only") || argv.includes("--changed");
-
-/** Dashboard project root (examples/dashboard). */
-const PROJECT_ROOT = join(import.meta.dir, "../..");
 
 function parseBaseRef(): { base: string; baseExplicit: boolean } {
   const flag = argv.find((a) => a.startsWith("--base="));
@@ -91,9 +80,9 @@ async function processMetrics(metrics: Metric[], dir: string): Promise<number> {
 
   if (REPORT) {
     const html = generatePerfHtml(metrics);
-    const reportPath = join(dir, "perf-report.html");
-    await Bun.write(reportPath, html);
-    console.log(`📊 Report written to ${reportPath}`);
+    const reportUrl = new URL("perf-report.html", Bun.pathToFileURL(`${dir}/`));
+    await Bun.write(reportUrl, html);
+    console.log(`📊 Report written to ${Bun.fileURLToPath(reportUrl)}`);
   }
 
   if (TRAIN) {
@@ -147,26 +136,9 @@ async function main(): Promise<number> {
   const dir = outDir();
   setThresholdsPath(dir);
 
-  if (WATCH) {
-    const controller = new AbortController();
-    const onSignal = () => controller.abort();
-    bindPerfWatchSignals(onSignal);
-
-    try {
-      await runPerfWatchLoop({
-        projectRoot: PROJECT_ROOT,
-        signal: controller.signal,
-        onRun: async () => {
-          const code = await runOnce(dir);
-          if (code !== 0 && (PERF_GATES || TRAIN)) {
-            process.stderr.write(`Watch run failed (exit ${code})\n`);
-          }
-        },
-      });
-    } finally {
-      unbindPerfWatchSignals(onSignal);
-    }
-    return 0;
+  if (argv.includes("--watch")) {
+    console.error("perf-doctor watch mode removed: Bun.watch is unavailable in this runtime");
+    return 1;
   }
 
   return runOnce(dir);

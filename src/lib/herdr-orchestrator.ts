@@ -23,7 +23,7 @@ import {
   enrichHandoffMessage,
   isFinishWorkHandoffCondition,
 } from "./context-sync-from-report.ts";
-import { evaluateHandoffProbeCondition } from "./handoff-probes.ts";
+import { evaluateHandoffProbeCondition } from "./discover-dx-inventory.ts";
 import { recordHandoffRuleEvaluation, type HandoffLogEntry } from "./handoff-log.ts";
 import { homeDir } from "./paths.ts";
 import {
