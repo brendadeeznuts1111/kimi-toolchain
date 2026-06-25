@@ -75,7 +75,7 @@ import { isAgentContext } from "../lib/tool-runner.ts";
 import { resolveProjectRoot, getProjectName, readPackageManifest } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 import { auditAgentReady } from "../lib/agent-ready.ts";
-import { auditSecretsStorage } from "../lib/secrets-manager.ts";
+import { auditSecretsStorage } from "../lib/secrets-probe.ts";
 import { auditTrustedDeps } from "../lib/doctor-trusted-deps.ts";
 import { auditSuccessMetrics } from "../lib/success-metrics.ts";
 import { generateAgentDiagnosisReport } from "../lib/agent-diagnosis.ts";
@@ -293,7 +293,7 @@ interface CheckResult {
   name: string;
   status: "ok" | "warn" | "error";
   message: string;
-  fixable?: boolean;
+  fixable: boolean;
   category?: string;
   autoFix?: string;
   taxonomyId?: string;
@@ -2218,7 +2218,7 @@ async function main(): Promise<number> {
         fixable: false,
       });
     }
-    results.push(officialKimiDoctorResult);
+    results.push({ ...officialKimiDoctorResult, fixable: false });
     if (!JSON_OUT) {
       logger.info("kimi doctor (official) ≠ kimi-doctor (toolchain)");
     }
@@ -2399,6 +2399,7 @@ async function main(): Promise<number> {
         name: c.name,
         status: c.status,
         message: c.message,
+        fixable: false,
         category: c.category,
         autoFix: c.autoFix,
         taxonomyId: c.category,
@@ -2441,6 +2442,7 @@ async function main(): Promise<number> {
       name: "Optimizer",
       status: optimizerSummary.status,
       message: optimizerMessage,
+      fixable: false,
       optimizerRecommendations,
     });
   }

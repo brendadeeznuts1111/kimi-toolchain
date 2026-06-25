@@ -8,6 +8,7 @@ import { TOML } from "bun";
 import type { GateResult } from "./gate-runner.ts";
 import {
   defaultLatmBlock,
+  FINISH_WORK_REPORT_FILENAME,
   FINISH_WORK_REPORT_PUBLIC_SCHEMA_VERSION,
   finishWorkReportPath,
   gateStatusFromPublicEntry,
@@ -17,6 +18,8 @@ import {
   type FinishWorkPublicOutcome,
   type FinishWorkReportV11,
 } from "./finish-work-report-schema.ts";
+
+export { FINISH_WORK_REPORT_FILENAME, finishWorkReportPath };
 import { gitBranch, gitRevParse } from "./git-helpers.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";
@@ -103,10 +106,6 @@ export interface FinishWorkReport {
     error?: string;
   };
 }
-
-import { FINISH_WORK_REPORT_FILENAME, finishWorkReportPath } from "./finish-work-report-schema.ts";
-
-export { FINISH_WORK_REPORT_FILENAME, finishWorkReportPath };
 
 /** Probe IDs for orchestrator handoff rules (`probe:<id>` or bare `finish-work:<outcome>`). */
 export const FINISH_WORK_PROBE_IDS = [

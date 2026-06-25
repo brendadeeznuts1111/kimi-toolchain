@@ -6,7 +6,7 @@ import {
   setSecret,
   FACTORY_WAGER_SERVICE_PREFIX,
 } from "../src/lib/secrets.ts";
-import type { SecretsBackend } from "../src/lib/secrets-constants.ts";
+import type { SecretsBackend } from "../src/lib/secrets-types.ts";
 
 function mockBackend(store: Map<string, string>): SecretsBackend {
   return {

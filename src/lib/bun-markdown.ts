@@ -236,12 +236,16 @@ export function markdownToHtmlFallback(text: string): string {
   body = body.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
     const idx = codeBlocks.length;
     codeBlocks.push(
-      `<pre><code class="language-${lang || "text"}">${escapeHtml(code.trimEnd())}</code></pre>`
+      `<pre><code class="language-${lang || "text"}">${code.trimEnd().replace(/[&<>"]/g, (ch: string) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch] ?? ch)}</code></pre>`
     );
     return `\x00CODEBLOCK${idx}\x00`;
   });
 
-  body = body.replace(/`([^`]+)`/g, (_, code: string) => `<code>${escapeHtml(code)}</code>`);
+  body = body.replace(
+    /`([^`]+)`/g,
+    (_, code: string) =>
+      `<code>${code.replace(/[&<>"]/g, (ch: string) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch] ?? ch)}</code>`
+  );
   // Single-pass heading conversion: match 1–6 # characters.
   body = body.replace(/^(#{1,6})\s+(.+)$/gm, (_, hashes: string, content: string) => {
     const level = hashes.length;
@@ -282,36 +286,18 @@ export function markdownToHtmlFallback(text: string): string {
   return body;
 }
 
-function escapeHtml(text: string): string {
-  return text.replace(/[&<>"]/g, (ch) => {
-    switch (ch) {
-      case "&":
-        return "&amp;";
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case '"':
-        return "&quot;";
-      default:
-        return ch;
-    }
-  });
-}
-
 // ── .ansi() — terminal rendering ───────────────────────────────────
 
 const ansiCache = new TinyLru<string, string>(64);
-
-function ansiOptionsKey(options: MarkdownAnsiOptions): string {
-  return `${options.colors ?? ""}|${options.columns ?? ""}|${options.hyperlinks ?? ""}|${options.kittyGraphics ?? ""}`;
-}
 
 /** Render markdown for terminal output; falls back to plain-text stripping. */
 export function renderMarkdownAnsi(text: string, options: MarkdownAnsiOptions = {}): string {
   if (!markdownAnsiSupported()) return stripMarkdownPlain(text);
 
-  const key = text + "\x00" + ansiOptionsKey(options);
+  const key =
+    text +
+    "\x00" +
+    `${options.colors ?? ""}|${options.columns ?? ""}|${options.hyperlinks ?? ""}|${options.kittyGraphics ?? ""}`;
   const cached = ansiCache.get(key);
   if (cached !== undefined) return cached;
 

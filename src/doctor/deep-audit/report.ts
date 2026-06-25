@@ -32,8 +32,16 @@ export interface DeepAuditReport {
   bunVersion: string;
   full: boolean;
   runs: DeepAuditRun[];
-  summary: { total: number; passed: number; failed: number; durationMs: number };
-  imageAudit?: { filesScanned: number; findings: ImageAuditFinding[] };
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    durationMs: number;
+  };
+  imageAudit?: {
+    filesScanned: number;
+    findings: ImageAuditFinding[];
+  };
 }
 
 function firstLine(text: string): string {

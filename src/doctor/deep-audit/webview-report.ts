@@ -10,7 +10,7 @@
  */
 
 import { isDirectRun } from "../../lib/bun-utils.ts";
-import type { DeepAuditReport } from "./report.ts";
+import type { DeepAuditReport } from "../../lib/deep-audit-types.ts";
 import { ensureDir } from "../../lib/utils.ts";
 import { formatWebViewExperimentalNotice, webViewSupported } from "../../lib/webview-console.ts";
 import { join } from "path";

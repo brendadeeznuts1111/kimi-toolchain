@@ -1,4 +1,6 @@
-/** JWT signing and verification using Bun.CryptoHasher. */
+/**
+ * jwt.ts — JWT signing and verification using Bun.CryptoHasher (HMAC-SHA256/384/512).
+ */
 
 export interface JwtHeader {
   alg: "HS256" | "HS384" | "HS512";
@@ -77,7 +79,6 @@ export type SessionError =
   | "session_limit_exceeded";
 
 export type CsrfError = "csrf_token_mismatch" | "csrf_token_expired" | "csrf_token_invalid";
-
 import { constantTimeEqual } from "./crypto-utils.ts";
 import { decodeBase64UrlBytes, encodeBase64UrlBytes } from "./bun-utils.ts";
 

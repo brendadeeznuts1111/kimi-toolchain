@@ -2,7 +2,7 @@
  * secrets-manager.ts — Core SecretsManager wrapping Bun.secrets with policy
  * enforcement, audit logging, in-memory caching, and rotation support.
  *
- * @see secrets-constants.ts for type definitions
+ * @see secrets-types.ts for type definitions
  * @see secrets-policy.ts for policy loading/validation
  * @see secrets-audit.ts for audit trail
  */
@@ -662,7 +662,12 @@ async function policyBackedManager(
 ): Promise<SecretsManager | null> {
   const policyPath = secretsPolicyPath(projectRoot);
   if (!(await Bun.file(policyPath).exists())) return null;
-  return new SecretsManager({ projectRoot, policyPath, detectBackend, onWarn: () => {} });
+  return new SecretsManager({
+    projectRoot,
+    policyPath,
+    detectBackend,
+    onWarn: () => {},
+  });
 }
 
 export async function runSecretsStorageGate(
@@ -673,6 +678,7 @@ export async function runSecretsStorageGate(
   if (!manager) {
     return { ok: true, skipped: true, message: "secrets-policy.json5 missing — gate skipped" };
   }
+
   const status = await manager.storageStatus();
   if (status.backend !== "env-fallback") {
     return {
@@ -715,6 +721,7 @@ export async function auditSecretsStorage(
       },
     ];
   }
+
   const status = await manager.storageStatus();
   const checks: HealthCheck[] = [
     {
@@ -724,6 +731,7 @@ export async function auditSecretsStorage(
       fixable: false,
     },
   ];
+
   if (process.platform === "linux") {
     checks.push({
       name: "secrets:libsecret",
@@ -736,6 +744,7 @@ export async function auditSecretsStorage(
       fixable: false,
     });
   }
+
   if (status.insecureSecretCount > 0) {
     checks.push({
       name: "secrets:tier-mismatch",
@@ -763,5 +772,6 @@ export async function auditSecretsStorage(
       fixable: false,
     });
   }
+
   return checks;
 }

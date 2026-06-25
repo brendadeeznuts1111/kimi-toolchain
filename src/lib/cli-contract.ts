@@ -229,7 +229,7 @@ function envMs(name: string): number | undefined {
  * Returns the parsed flags plus any positional arguments. Tool-specific flags
  * can still be handled from `positional` or by passing `allowedFlags`.
  *
- * @see {@link BUN_ARGV_DOC_URL} — `Bun.argv` + `util.parseArgs`
+ * @see {@link BUN_ARGV_DOC_URL} — `Bun.argv`
  */
 export function parseCliFlags(
   argv: string[],

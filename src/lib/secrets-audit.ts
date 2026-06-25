@@ -6,7 +6,7 @@
  */
 
 import { appendNdjsonRecord, readNdjsonFile } from "./ndjson.ts";
-import type { SecretAuditRecord, AuditQuery } from "./secrets-constants.ts";
+import type { SecretAuditRecord, AuditQuery } from "./secrets-types.ts";
 
 function isSecretAuditRecord(value: unknown): value is SecretAuditRecord {
   const record = value as Record<string, unknown>;

@@ -2,7 +2,6 @@
  * health-check.ts — Shared health check types and aggregation for all kimi-toolchain tools.
  */
 
-import { resolve } from "path";
 import { openFileInEditor } from "./bun-utils.ts";
 import type { ToolInvocation } from "./tool-runner.ts";
 
@@ -34,7 +33,7 @@ export interface HealthCheck {
   name: string;
   status: CheckStatus;
   message: string;
-  fixable: boolean;
+  fixable?: boolean;
   /** Links to error-taxonomy.yml category id */
   category?: string;
   /** Shell command hint for automated recovery */
@@ -105,7 +104,9 @@ export function openFirstFailedCheck(checks: HealthCheck[], cwd = process.cwd())
   if (!failed) return false;
   const source = failed.source ?? parseCheckSource(failed.message);
   if (!source) return false;
-  const file = source.file.startsWith("/") ? source.file : resolve(cwd, source.file);
+  const file = source.file.startsWith("/")
+    ? source.file
+    : Bun.fileURLToPath(new URL(source.file, Bun.pathToFileURL(`${cwd}/`)));
   openFileInEditor(file, { line: source.line, column: source.column });
   return true;
 }
@@ -119,7 +120,9 @@ export function openFirstGateFinding(
   if (gate !== "hardcoded-secrets") return false;
   const first = detail?.findings?.[0];
   if (!first) return false;
-  const file = first.file.startsWith("/") ? first.file : resolve(cwd, first.file);
+  const file = first.file.startsWith("/")
+    ? first.file
+    : Bun.fileURLToPath(new URL(first.file, Bun.pathToFileURL(`${cwd}/`)));
   openFileInEditor(file, { line: first.line });
   return true;
 }

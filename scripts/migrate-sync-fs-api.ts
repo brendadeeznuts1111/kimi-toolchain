@@ -4,7 +4,7 @@
  * Usage: bun run scripts/migrate-sync-fs-api.ts [--dry-run]
  */
 
-import { dirname, relative } from "path";
+import { dirname, join, relative } from "path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname;
 const BUN_IO = new URL("../src/lib/bun-io.ts", import.meta.url).pathname;

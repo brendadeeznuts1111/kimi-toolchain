@@ -4,10 +4,10 @@
 
 import { Effect, Either } from "effect";
 import { SecretsManager } from "./secrets-manager.ts";
-import { auditSecretsStorage } from "./secrets-manager.ts";
-import { runSecretsStorageGate, SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY } from "./secrets-manager.ts";
+import { auditSecretsStorage } from "./secrets-probe.ts";
+import { runSecretsStorageGate, SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY } from "./secrets-gate.ts";
 import { SecretRotationRequired, SecretPolicyViolation, SecretNotFound } from "./effect/errors.ts";
-import type { AnySecretKey, SecretCheckResult } from "./secrets-constants.ts";
+import type { AnySecretKey, SecretCheckResult } from "./secrets-types.ts";
 import { aggregateChecks } from "./health-check.ts";
 import { inspectAgent } from "./inspect.ts";
 

@@ -26,7 +26,7 @@ import { parseCliFlags } from "../lib/cli-contract.ts";
 import { resolveDevSecrets } from "../lib/resolve-dev-secrets.ts";
 import { join } from "path";
 import { mkdir } from "fs/promises";
-import type { DeepAuditReport, DeepAuditRun } from "../doctor/deep-audit/report.ts";
+import type { DeepAuditReport, DeepAuditRun } from "../lib/deep-audit-types.ts";
 import type { ImageAuditFinding } from "../lib/image-audit.ts";
 import { showWebviewReport, waitForWebviewClose } from "../doctor/deep-audit/webview-report.ts";
 

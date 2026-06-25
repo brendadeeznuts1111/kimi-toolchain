@@ -8,7 +8,6 @@
  * @see examples/artifact-trading-loop.md — L2 feedback loop demo
  */
 import { join } from "path";
-import { hostname as osHostname } from "os";
 import { bunVersion } from "./bun-utils.ts";
 import { listDir, makeDir, pathExists, removePath } from "./bun-io.ts";
 import { GATE_LEVEL_PRUNE_MS } from "../gates/types.ts";
@@ -541,10 +540,6 @@ function resolveArtifactsRelativeDir(override?: string): string {
   return raw.replace(/^\/+/, "");
 }
 
-function runtimeHostname(): string {
-  return Bun.env.HOSTNAME ?? "unknown";
-}
-
 /** Persist gate run results under `{projectRoot}/.kimi/artifacts/{gateName}/`. */
 export class ArtifactStore {
   private readonly artifactsRelativeDir: string;
@@ -872,7 +867,7 @@ export class ArtifactStore {
       ...(lineageMermaid ? { lineageMermaid } : {}),
       ...identity,
       ...(parentRunId ? { parentRunId } : {}),
-      hostname: runtimeHostname(),
+      hostname: osHostname(),
       pid: process.pid,
       bunVersion: bunVersion(),
       resultSize,
@@ -898,7 +893,7 @@ export class ArtifactStore {
     if (!envelope) return;
 
     const metadata: ArtifactMetadata = {
-      hostname: runtimeHostname(),
+      hostname: osHostname(),
       pid: process.pid,
       bunVersion: bunVersion(),
       resultSize:

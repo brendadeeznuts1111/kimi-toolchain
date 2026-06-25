@@ -9,7 +9,7 @@ import { IdentityLive } from "./effect/identity-service.ts";
 import { SecretsTest } from "./effect/secrets-service.ts";
 import { readSecretFromEnv } from "./secrets-env.ts";
 import { SecretKeys } from "./secrets-constants.ts";
-import type { SecretsBackend } from "./secrets-constants.ts";
+import type { SecretsBackend } from "./secrets-types.ts";
 import { JwtMissingSecret } from "./effect/errors.ts";
 
 const DEV_JWT_SECRET = "kimi-toolchain-jwt-dev-secret"; // kimi-audit:ignore-hardcoded-secret (intentional dev-only fallback)

@@ -123,3 +123,85 @@ export const SecretKeys = {
     name: "herdr-proxy-cert",
   },
 } as const satisfies Record<string, { service: ServiceName; name: string }>;
+
+export type SecretKey = (typeof SecretKeys)[keyof typeof SecretKeys];
+export type DynamicSecretKey = { service: string; name: string };
+export type AnySecretKey = SecretKey | DynamicSecretKey;
+export type StorageBackend =
+  | "keychain"
+  | "credential-manager"
+  | "libsecret"
+  | "env-fallback"
+  | "Bun.secrets";
+export type StorageSecurityLevel = "high" | "low";
+export type SecretResolveSource = "bun.secrets" | "env";
+
+export interface SecretPolicyEntry {
+  allowedConsumers: string[];
+  rotationDays: number;
+  lastRotated: string | null;
+  version: number;
+  storageTier?: StorageBackend;
+  expiresAt?: string | null;
+  environments?: { [env: string]: Partial<Omit<SecretPolicyEntry, "environments">> };
+}
+
+export interface SecretsPolicyDocument {
+  $schema: "v1";
+  [service: string]: Record<string, SecretPolicyEntry> | "v1";
+}
+
+export interface SecretAuditRecord {
+  timestamp: string;
+  action: "get" | "set" | "delete" | "rotate" | "check";
+  service: string;
+  name: string;
+  consumer: string;
+  success: boolean;
+  errorReason?: string;
+  stale?: boolean;
+  daysStale?: number | null;
+  version?: number;
+  traceId?: string;
+  storageBackend?: StorageBackend;
+  resolvedVia?: SecretResolveSource;
+}
+
+export interface SecretsBackend {
+  get(options: { service: string; name: string }): Promise<string | null>;
+  set(options: { service: string; name: string; value: string }): Promise<void>;
+  delete(options: { service: string; name: string }): Promise<boolean>;
+}
+
+export interface ValidationResult<T> {
+  ok: boolean;
+  errors: string[];
+  value?: T;
+}
+
+export interface SecretCheckResult {
+  key: AnySecretKey;
+  status: "ok" | "missing" | "stale" | "unregistered" | "storage_mismatch";
+  daysStale?: number | null;
+  lastRotated?: string | null;
+  rotationDays?: number;
+  storageTier?: StorageBackend;
+  storageWarning?: string;
+  resolvedVia?: SecretResolveSource;
+  storageMismatch?: boolean;
+}
+
+export interface SecretListResult {
+  key: AnySecretKey;
+  present: boolean;
+  policy: SecretPolicyEntry | null;
+  resolvedVia?: SecretResolveSource;
+}
+
+export interface AuditQuery {
+  since?: string;
+  consumer?: string;
+  service?: string;
+  name?: string;
+  action?: "get" | "set" | "delete" | "rotate" | "check";
+}

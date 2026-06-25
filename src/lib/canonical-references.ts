@@ -1105,6 +1105,7 @@ export function formatCanonicalReferencesInspectPlain(
 
   return parts.join("\n");
 }
+
 const VALID_REFERENCE_KINDS = new Set<ReferenceKind>([
   "runtime",
   "library",
@@ -1144,7 +1145,6 @@ function isValidManifestId(value: string, violations: string[], path: string): b
   return true;
 }
 
-/** Local filesystem paths allowed in ecosystem homepage/docs/install fields. */
 export function isLocalReferencePath(value: string): boolean {
   return value.startsWith("~/") || value.startsWith("./") || value.startsWith("/") || value === ".";
 }
@@ -1167,7 +1167,6 @@ function isValidHttpUrl(value: string, violations: string[], path: string): bool
   }
 }
 
-/** Ecosystem URL fields accept https URLs or local paths (~/ ./ /). */
 function isValidEcosystemReferenceUrl(value: string, violations: string[], path: string): boolean {
   if (isLocalReferencePath(value)) return true;
   return isValidHttpUrl(value, violations, path);
@@ -1216,7 +1215,6 @@ function lintDuplicateIds<T extends { id: string }>(items: readonly T[], label: 
     .map(([id, count]) => `${label}: duplicate id "${id}" appears ${count} times`);
 }
 
-/** Bun-native structural validation for manifest link tables. */
 export function lintCanonicalReferencesLinkTables(tables: CanonicalReferencesLinkTables): string[] {
   const violations: string[] = [];
   violations.push(...lintDuplicateIds(tables.ecosystem, "ecosystem"));
@@ -1358,7 +1356,6 @@ export function lintCanonicalReferencesLinkTables(tables: CanonicalReferencesLin
   return violations;
 }
 
-/** Bun-native manifest validation — metadata plus link tables. */
 export interface LintManifestBunNativeInput {
   schemaVersion: number;
   generatedAt?: string;

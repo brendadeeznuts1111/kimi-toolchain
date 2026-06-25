@@ -54,7 +54,7 @@ export function normalizeConsoleOutput(output: string): string {
   return output.replace(/\r\n?/g, "\n").trim();
 }
 
-async function spawnInDir(
+function spawnInDir(
   cwd: string,
   args: string[],
   env?: Record<string, string | undefined>
@@ -67,15 +67,14 @@ async function spawnInDir(
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [stdout, stderr, exitCode] = await Promise.all([
+  return Promise.all([
     readableStreamToText(proc.stdout),
     readableStreamToText(proc.stderr),
     proc.exited,
-  ]);
-  return { exitCode, stdout, stderr };
+  ]).then(([stdout, stderr, exitCode]) => ({ exitCode, stdout, stderr }));
 }
 
-async function withCliFixture(
+function withCliFixture(
   label: string,
   files: Record<string, string>,
   args: string[],
@@ -83,19 +82,17 @@ async function withCliFixture(
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   const dir = join(Bun.env.TMPDIR || "/tmp", `kimi-cli-${label}-${Bun.randomUUIDv7()}`);
   makeDir(dir, { recursive: true });
-  try {
-    for (const [name, body] of Object.entries(files)) {
-      const filePath = join(dir, name);
-      if (body === "") {
-        makeDir(filePath, { recursive: true });
-      } else {
-        writeText(filePath, body);
-      }
+  for (const [name, body] of Object.entries(files)) {
+    const filePath = join(dir, name);
+    if (body === "") {
+      makeDir(filePath, { recursive: true });
+    } else {
+      writeText(filePath, body);
     }
-    return await spawnInDir(dir, args, env);
-  } finally {
-    removePath(dir, { recursive: true, force: true });
   }
+  return spawnInDir(dir, args, env).finally(() =>
+    removePath(dir, { recursive: true, force: true })
+  );
 }
 
 function probe(id: string, ok: boolean, detail: string): CliContractProbeResult {

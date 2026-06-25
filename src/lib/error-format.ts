@@ -12,7 +12,6 @@ import {
   type ErrorDomainId,
   type ErrorSeverity,
 } from "./error-domains-constants.ts";
-import { stripANSI } from "./inspect.ts";
 
 /** @see https://bun.com/docs/runtime/utils#bun-color */
 export const BUN_COLOR_DOC_URL = "https://bun.com/docs/runtime/utils#bun-color";

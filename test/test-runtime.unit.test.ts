@@ -1352,9 +1352,7 @@ test("global cleaned", () => {
       expect(pkg.scripts["test:watch"]).toContain("--watch");
       expect(pkg.scripts["test:watch"]).toContain("--isolate");
       expect(pkg.scripts["test:watch"]).not.toContain("--hot");
-      expect(pkg.scripts["test:changed:watch"]).toContain("--watch");
-      expect(pkg.scripts["test:changed:watch"]).toContain("--changed");
-      expect(pkg.scripts["test:changed:watch"]).not.toContain("--hot");
+      expect(pkg.scripts["test:changed:watch"]).toBeUndefined();
     });
 
     test("bun CLI advertises --watch and --hot for the test runner", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { appendSecretAudit, readSecretAudit, filterSecretAudit } from "../src/lib/secrets-audit.ts";
-import type { SecretAuditRecord } from "../src/lib/secrets-constants.ts";
+import type { SecretAuditRecord } from "../src/lib/secrets-types.ts";
 import { join } from "path";
 import { rmSync, existsSync } from "fs";
 

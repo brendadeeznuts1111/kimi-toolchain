@@ -17,7 +17,7 @@ import type {
   AuditQuery,
   SecretsBackend,
   StorageBackend,
-} from "../secrets-constants.ts";
+} from "../secrets-types.ts";
 
 export interface SecretsService {
   readonly get: (

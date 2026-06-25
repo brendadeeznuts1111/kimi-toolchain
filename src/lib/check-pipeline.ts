@@ -30,6 +30,7 @@ import { shouldRunScopedLint } from "./check-lint-scoped.ts";
 import { SCOPED_ANY_TS, writeScopedGatePass } from "./scoped-gate-cache.ts";
 import { isKimiToolchainRepo } from "./workspace-health.ts";
 import { pathExists } from "./bun-io.ts";
+import { join } from "path";
 
 function checkOut(message: string): void {
   Bun.stdout.write(`${message}\n`);
@@ -133,16 +134,14 @@ export async function buildSteps(
       cmd: ["bun", "run", "scripts/secrets-storage-gate.ts"],
       silentOnSuccess: quiet,
     });
-    if (pathExists(new URL("scripts/check-env-drift.ts", Bun.pathToFileURL(`${projectRoot}/`)).pathname)) {
+    if (pathExists(join(projectRoot, "scripts", "check-env-drift.ts"))) {
       steps.push({
         name: "check:env-drift",
         cmd: ["bun", "run", "scripts/check-env-drift.ts"],
         silentOnSuccess: quiet,
       });
     }
-    if (
-      pathExists(new URL("scripts/validate-release-ssot.ts", Bun.pathToFileURL(`${projectRoot}/`)).pathname)
-    ) {
+    if (pathExists(join(projectRoot, "scripts", "validate-release-ssot.ts"))) {
       const releaseSsotCmd = [
         "bun",
         "run",
@@ -163,16 +162,14 @@ export async function buildSteps(
       cmd: ["bun", "scripts/verify-bun-features.ts"],
       silentOnSuccess: quiet,
     });
-    if (pathExists(new URL("scripts/autophagy-scan.ts", Bun.pathToFileURL(`${projectRoot}/`)).pathname)) {
+    if (pathExists(join(projectRoot, "scripts", "autophagy-scan.ts"))) {
       steps.push({
         name: "autophagy:scan",
         cmd: ["bun", "scripts/autophagy-scan.ts", "--brief"],
         silentOnSuccess: false,
       });
     }
-    if (
-      pathExists(new URL("scripts/bun-hygiene-audit.ts", Bun.pathToFileURL(`${projectRoot}/`)).pathname)
-    ) {
+    if (pathExists(join(projectRoot, "scripts", "bun-hygiene-audit.ts"))) {
       steps.push({
         name: "bun-hygiene:audit",
         cmd: ["bun", "run", "scripts/bun-hygiene-audit.ts"],
@@ -181,7 +178,7 @@ export async function buildSteps(
     }
   }
 
-  if (options.fast && pathExists(new URL("scripts/scan.ts", Bun.pathToFileURL(`${projectRoot}/`)).pathname)) {
+  if (options.fast && pathExists(join(projectRoot, "scripts", "scan.ts"))) {
     const scanCmd = ["bun", "run", "scripts/scan.ts", "--brief"];
     if (options.scanStrict) scanCmd.push("--exit-code");
     steps.push({

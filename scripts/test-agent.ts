@@ -15,10 +15,10 @@ import {
 } from "../src/lib/herdr-test-agent.ts";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname;
-const paneId = process.env.HERDR_PANE_ID;
+const paneId = Bun.env.HERDR_PANE_ID;
 
 function report(status: HerdrAgentState, customStatus: string) {
-  if (process.env.HERDR_ENV !== "1" || !paneId) return;
+  if (Bun.env.HERDR_ENV !== "1" || !paneId) return;
   herdrCliRun("", [
     "pane",
     "report-agent",

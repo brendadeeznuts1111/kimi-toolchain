@@ -14,7 +14,7 @@
  *   bun run scripts/migrate-tests.ts --write
  */
 
-import { dirname, relative } from "path";
+import { dirname, join, relative } from "path";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname;
 const BUN_IO = new URL("../src/lib/bun-io.ts", import.meta.url).pathname;
@@ -211,6 +211,9 @@ function stripFsImports(text: string): string {
 
 function normalizeNodeImports(text: string): string {
   return text.replace(IMPORT_BLOCK, (full, typePrefix, raw, from) => {
+    if (from === "node:path") {
+      return `import ${typePrefix ?? ""}{ ${raw.trim()} } from "path";\n`;
+    }
     if (from === "node:os") {
       return `import ${typePrefix ?? ""}{ ${raw.trim()} } from "os";\n`;
     }

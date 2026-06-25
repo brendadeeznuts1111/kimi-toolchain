@@ -127,17 +127,13 @@ export interface DashboardRouteLintIssue {
   message: string;
 }
 
-function panelIdsFromHtml(html: string): Set<string> {
-  return new Set([...html.matchAll(/id="(card-[^"]+)"/g)].map((m) => m[1]!));
-}
-
 /** Registry cards must render a panel; probed routes must exist in static or artifact tables. */
 export function lintDashboardRouteParity(repoRoot: string): DashboardRouteLintIssue[] {
   const issues: DashboardRouteLintIssue[] = [];
   const inventory = buildDashboardRouteInventory();
   const cards = loadDashboardCards(repoRoot);
   const html = readText(dashboardHtmlPath(repoRoot));
-  const panels = panelIdsFromHtml(html);
+  const panels = new Set([...html.matchAll(/id="(card-[^"]+)"/g)].map((m) => m[1]!));
 
   const staticPaths = new Set(inventory.staticRoutes.map((r) => r.path));
   const servePaths = new Set(inventory.indexServeRoutes.map((r) => r.path));
@@ -280,8 +276,6 @@ export function syncDashboardRouteDocs(
   return violations;
 }
 
-const STATIC_ROUTES_COLS = 4;
-
 /** GET card API paths from the static route table (excludes meta/hub routes). */
 export function dashboardStaticCardApiPaths(
   inventory: DashboardRouteInventory = buildDashboardRouteInventory()
@@ -301,12 +295,13 @@ export function formatDashboardStaticRoutesBlock(
   inventory: DashboardRouteInventory = buildDashboardRouteInventory()
 ): string {
   const paths = dashboardStaticCardApiPaths(inventory);
-  const header = `| ${Array(STATIC_ROUTES_COLS).fill("Path").join(" | ")} |`;
-  const sep = `| ${Array(STATIC_ROUTES_COLS).fill("---").join(" | ")} |`;
+  const cols = 4;
+  const header = `| ${Array(cols).fill("Path").join(" | ")} |`;
+  const sep = `| ${Array(cols).fill("---").join(" | ")} |`;
   const rows: string[] = [];
-  for (let i = 0; i < paths.length; i += STATIC_ROUTES_COLS) {
-    const cells = paths.slice(i, i + STATIC_ROUTES_COLS).map((path) => `\`${path}\``);
-    while (cells.length < STATIC_ROUTES_COLS) cells.push("");
+  for (let i = 0; i < paths.length; i += cols) {
+    const cells = paths.slice(i, i + cols).map((path) => `\`${path}\``);
+    while (cells.length < cols) cells.push("");
     rows.push(`| ${cells.join(" | ")} |`);
   }
   return `<!-- dashboard-static-routes:AUTO -->
@@ -370,14 +365,6 @@ export function parseRoutesHandlerImports(routesSource: string): Map<string, str
   return imports;
 }
 
-function localRouteHandlers(routesSource: string): Set<string> {
-  const locals = new Set<string>();
-  for (const match of routesSource.matchAll(/(?:async\s+)?function\s+(api[A-Z]\w*)/g)) {
-    locals.add(match[1]!);
-  }
-  return locals;
-}
-
 /** Verify every wired handler is imported (or local) and exported from its module. */
 export function lintDashboardHandlerExports(
   repoRoot: string,
@@ -387,7 +374,10 @@ export function lintDashboardHandlerExports(
   const violations: string[] = [];
   const wired = wiredDashboardRouteHandlers(routesSource);
   const imports = parseRoutesHandlerImports(routesSource);
-  const locals = localRouteHandlers(routesSource);
+  const locals = new Set<string>();
+  for (const match of routesSource.matchAll(/(?:async\s+)?function\s+(api[A-Z]\w*)/g)) {
+    locals.add(match[1]!);
+  }
   const handlersDir = join(repoRoot, "examples/dashboard/src/handlers");
   const transpiler = new Bun.Transpiler({ loader: "ts" });
   const exportCache = options.exportCache ?? new Map<string, Set<string>>();
