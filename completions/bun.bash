@@ -67,12 +67,27 @@ _bun_complete() {
     return
   fi
 
-  # Dynamic completions
+  # Dynamic completions via bun getcompletes
   case "$cmd" in
-    run) COMPREPLY=( $(compgen -f -- "$cur") ) ;;
-    add) COMPREPLY=() ;;
-    remove) COMPREPLY=() ;;
-    test|build) COMPREPLY=( $(compgen -f -- "$cur") ) ;;
+    run)
+      if [[ $cur == -* ]]; then return; fi
+      local scripts=$(bun getcompletes s 2>/dev/null)
+      COMPREPLY=( $(compgen -W "$scripts" -- "$cur") )
+      ;;
+    add)
+      if [[ $cur == -* ]]; then return; fi
+      COMPREPLY=()
+      ;;
+    remove)
+      if [[ $cur == -* ]]; then return; fi
+      local installed=$(bun getcompletes a "$cur" 2>/dev/null)
+      COMPREPLY=( $(compgen -W "$installed" -- "$cur") )
+      ;;
+    test|build)
+      if [[ $cur == -* ]]; then return; fi
+      local files=$(bun getcompletes j 2>/dev/null)
+      COMPREPLY=( $(compgen -W "$files" -- "$cur") )
+      ;;
   esac
 }
 

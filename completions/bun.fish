@@ -580,3 +580,8 @@ complete -c bun -n '__fish_seen_subcommand_from init ' -s m -l minimal -d 'Only 
 complete -c bun -n '__fish_seen_subcommand_from init ' -s r -l react -d 'Initialize a React project'
 complete -c bun -n '__fish_seen_subcommand_from init ' -l react -d 'tailwind'
 complete -c bun -n '__fish_seen_subcommand_from init ' -l react -d 'shadcn'
+
+# Dynamic completions
+complete -c bun -n '__fish_seen_subcommand_from run' -a '(bun getcompletes s 2>/dev/null)' -d 'script'
+complete -c bun -n '__fish_seen_subcommand_from remove rm' -a '(bun getcompletes a (commandline -ct) 2>/dev/null)' -d 'installed package'
+complete -c bun -n '__fish_seen_subcommand_from test build' -a '(bun getcompletes j 2>/dev/null)' -d 'file'
