@@ -15,7 +15,6 @@ import {
   type DashboardThumbnailFormat,
 } from "../../bun-image.ts";
 import { bunRevision, bunVersion } from "../../bun-utils.ts";
-import { inspectAgent } from "../../inspect.ts";
 import { loadDxDefaults } from "../../defaults-config.ts";
 import {
   fetchDashboardCanvases,
@@ -46,9 +45,8 @@ import {
   fetchDashboardGateGraph,
   fetchDashboardProbeCards,
   fetchDashboardProbeHealthInput,
-  type DashboardActionRequest,
-  type DashboardIpcCommand,
 } from "../data/data.ts";
+import type { DashboardActionRequest, DashboardIpcCommand } from "../data/data.ts";
 import {
   buildHerdrDashboardEffectImageMeta,
   effectImageMarkBytes,
@@ -97,52 +95,58 @@ import type { HerdrDashboardHub } from "./hub.ts";
 import type { DashboardHerdrEventBridgeHandle } from "./events.ts";
 import type { DashboardGateHealthWatchHandle } from "../gates/gate-watch.ts";
 import type { DashboardMetaWebView } from "../webview/store.ts";
-import { CORS_HEADERS } from "../../http-json.ts";
+import { CORS_HEADERS, jsonInspectResponseCors } from "../../http-json.ts";
 import {
   dashboardAssetResponse,
   dashboardHtml,
   dashboardScreenshotPlaceholder,
 } from "./assets.ts";
 
-async function readJsonBody<T>(request: Request): Promise<T | null> {
+function queryNumber(url: URL, key: string, fallback: number): number {
+  const raw = url.searchParams.get(key);
+  if (raw == null || raw === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function optionalQueryNumber(url: URL, key: string): number | undefined {
+  const raw = url.searchParams.get(key);
+  if (raw == null || raw === "") return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function optionalQueryString(url: URL, key: string): string | undefined {
+  const value = url.searchParams.get(key)?.trim();
+  return value ? value : undefined;
+}
+
+async function readJsonBody<T>(req: Request): Promise<T | null> {
   try {
-    return (await request.json()) as T;
+    return (await req.json()) as T;
   } catch {
     return null;
   }
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(`${inspectAgent(body)}\n`, {
-    status,
-    headers: {
-      ...CORS_HEADERS,
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-    },
-  });
-}
-
-export interface DashboardRouteContext {
-  options: HerdrDashboardServerOptions;
-  hub: HerdrDashboardHub;
-  herdrEventBridge: DashboardHerdrEventBridgeHandle;
-  gateHealthWatch: DashboardGateHealthWatchHandle | null;
-  pollHintMs: number;
-  ssePollMs: number;
-  staleMs: number;
-  examplesDashboardUrl: string;
-  screenshotPng: { current: Uint8Array | null };
-  widgetCache: TtlCache<DashboardWidgetResponse>;
-  thumbnailCache: TtlCache<Uint8Array>;
-  metaWebView: DashboardMetaWebView;
-  scheme: string;
-  transport: DashboardServeTransport;
-}
-
 export async function handleDashboardRequest(
   req: Request,
-  ctx: DashboardRouteContext
+  ctx: {
+    options: HerdrDashboardServerOptions;
+    hub: HerdrDashboardHub;
+    herdrEventBridge: DashboardHerdrEventBridgeHandle;
+    gateHealthWatch: DashboardGateHealthWatchHandle | null;
+    pollHintMs: number;
+    ssePollMs: number;
+    staleMs: number;
+    examplesDashboardUrl: string;
+    screenshotPng: { current: Uint8Array | null };
+    widgetCache: TtlCache<DashboardWidgetResponse>;
+    thumbnailCache: TtlCache<Uint8Array>;
+    metaWebView: DashboardMetaWebView;
+    scheme: string;
+    transport: DashboardServeTransport;
+  }
 ): Promise<Response> {
   const {
     options,
@@ -160,11 +164,10 @@ export async function handleDashboardRequest(
     transport,
   } = ctx;
 
-  const request = req;
-  const url = new URL(request.url);
+  const url = new URL(req.url);
   const path = url.pathname;
 
-  if (request.method === "OPTIONS" && path.startsWith("/api/")) {
+  if (req.method === "OPTIONS" && path.startsWith("/api/")) {
     return new Response(null, {
       status: 204,
       headers: { ...CORS_HEADERS, "cache-control": "no-store" },
@@ -260,29 +263,29 @@ export async function handleDashboardRequest(
       const placeholder = await dashboardScreenshotPlaceholder(ctx.screenshotPng.current);
       if (placeholder) meta.placeholder = placeholder;
     }
-    return jsonResponse(meta);
+    return jsonInspectResponseCors(meta);
   }
 
   if (path === "/api/examples/health") {
     const payload = await fetchExamplesDashboardHealth(examplesDashboardUrl);
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
-  if (path === "/api/probe/cards" && request.method === "GET") {
+  if (path === "/api/probe/cards" && req.method === "GET") {
     const payload = await fetchDashboardProbeCards(options.projectPath);
-    return jsonResponse(payload, payload.reachable ? 200 : 503);
+    return jsonInspectResponseCors(payload, payload.reachable ? 200 : 503);
   }
 
   if (path === "/api/bun-mark") {
     if (!bunImageSupported()) {
-      return jsonResponse({ ok: false, error: "Bun.Image unavailable" }, 503);
+      return jsonInspectResponseCors({ ok: false, error: "Bun.Image unavailable" }, 503);
     }
-    const width = Number(url.searchParams.get("width") || String(EFFECT_IMAGE_MARK_WIDTH));
-    const height = Number(url.searchParams.get("height") || String(EFFECT_IMAGE_MARK_HEIGHT));
-    const quality = Number(url.searchParams.get("quality") || "82");
+    const width = queryNumber(url, "width", EFFECT_IMAGE_MARK_WIDTH);
+    const height = queryNumber(url, "height", EFFECT_IMAGE_MARK_HEIGHT);
+    const quality = queryNumber(url, "quality", 82);
     const bytes = await effectImageMarkBytes({ width, height, quality });
     if (!bytes) {
-      return jsonResponse({ ok: false, error: "bun mark encode failed" }, 500);
+      return jsonInspectResponseCors({ ok: false, error: "bun mark encode failed" }, 500);
     }
     return new Response(bytes as BodyInit, {
       headers: {
@@ -294,27 +297,27 @@ export async function handleDashboardRequest(
   }
 
   if (path === "/api/effect-image") {
-    return jsonResponse(await buildHerdrDashboardEffectImageMeta());
+    return jsonInspectResponseCors(await buildHerdrDashboardEffectImageMeta());
   }
 
   if (path === "/api/thumbnail") {
     if (!bunImageSupported()) {
-      return jsonResponse({ ok: false, error: "Bun.Image unavailable" }, 503);
+      return jsonInspectResponseCors({ ok: false, error: "Bun.Image unavailable" }, 503);
     }
     const png =
       ctx.screenshotPng.current ??
       (options.screenshotProvider ? await options.screenshotProvider() : null);
     if (!png) {
-      return jsonResponse({ ok: false, error: "no screenshot available" }, 404);
+      return jsonInspectResponseCors({ ok: false, error: "no screenshot available" }, 404);
     }
-    const width = Number(url.searchParams.get("width") || String(DASHBOARD_THUMB_WIDTH));
-    const height = Number(url.searchParams.get("height") || String(DASHBOARD_THUMB_HEIGHT));
-    const quality = Number(url.searchParams.get("quality") || "80");
+    const width = queryNumber(url, "width", DASHBOARD_THUMB_WIDTH);
+    const height = queryNumber(url, "height", DASHBOARD_THUMB_HEIGHT);
+    const quality = queryNumber(url, "quality", 80);
     const formatParam = url.searchParams.get("format") as DashboardThumbnailFormat | null;
     const format: DashboardThumbnailFormat =
       formatParam && ["webp", "avif", "jpeg", "png"].includes(formatParam)
         ? formatParam
-        : negotiateDashboardThumbnailFormat(request.headers.get("accept"));
+        : negotiateDashboardThumbnailFormat(req.headers.get("accept"));
 
     const cacheKey = thumbnailCacheKey(png, width, height, quality, format);
     const cached = thumbnailCache.get(cacheKey);
@@ -332,7 +335,7 @@ export async function handleDashboardRequest(
     try {
       const bytes = await dashboardThumbnailBytes(png, { width, height, quality, format });
       if (!bytes) {
-        return jsonResponse({ ok: false, error: "thumbnail encode failed" }, 500);
+        return jsonInspectResponseCors({ ok: false, error: "thumbnail encode failed" }, 500);
       }
       thumbnailCache.set(cacheKey, bytes);
       return new Response(bytes as BodyInit, {
@@ -345,7 +348,7 @@ export async function handleDashboardRequest(
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : Bun.inspect(e);
-      return jsonResponse({ ok: false, error: message }, 500);
+      return jsonInspectResponseCors({ ok: false, error: message }, 500);
     }
   }
 
@@ -353,9 +356,9 @@ export async function handleDashboardRequest(
     const cached = hub.lastPayload;
     setTimeout(() => void hub.refreshDiscovery(), 0);
     if (cached) {
-      return jsonResponse(cached, cached.ok ? 200 : 503);
+      return jsonInspectResponseCors(cached, cached.ok ? 200 : 503);
     }
-    return jsonResponse({
+    return jsonInspectResponseCors({
       ok: true,
       projectPath: options.projectPath,
       agentCount: 0,
@@ -376,26 +379,26 @@ export async function handleDashboardRequest(
     });
   }
 
-  if (path === "/api/heartbeat" && request.method === "POST") {
+  if (path === "/api/heartbeat" && req.method === "POST") {
     const body = await readJsonBody<{
       agent?: string;
       host?: string;
       session?: string;
-    }>(request);
-    if (!body?.agent) {
-      return jsonResponse({ ok: false, error: "agent required" }, 400);
+    }>(req);
+    if (!body?.agent?.trim()) {
+      return jsonInspectResponseCors({ ok: false, error: "agent required" }, 400);
     }
     hub.recordHeartbeat(body.agent, body.host, body.session);
-    return jsonResponse({ ok: true, agent: body.agent });
+    return jsonInspectResponseCors({ ok: true, agent: body.agent });
   }
 
-  if (path === "/api/heartbeats" && request.method === "POST") {
+  if (path === "/api/heartbeats" && req.method === "POST") {
     const body = await readJsonBody<{
       agents?: Array<{ agent?: string; host?: string; session?: string }>;
-    }>(request);
+    }>(req);
     const rows = body?.agents ?? [];
     if (rows.length === 0) {
-      return jsonResponse({ ok: false, error: "agents array required" }, 400);
+      return jsonInspectResponseCors({ ok: false, error: "agents array required" }, 400);
     }
     const recorded = hub.recordHeartbeats(
       rows.filter((row): row is { agent: string; host?: string; session?: string } =>
@@ -403,33 +406,33 @@ export async function handleDashboardRequest(
       )
     );
     if (recorded === 0) {
-      return jsonResponse({ ok: false, error: "no valid agents" }, 400);
+      return jsonInspectResponseCors({ ok: false, error: "no valid agents" }, 400);
     }
-    return jsonResponse({ ok: true, recorded });
+    return jsonInspectResponseCors({ ok: true, recorded });
   }
 
   if (path === "/api/handoffs") {
-    const limit = Number(url.searchParams.get("limit") || "50");
-    return jsonResponse(await fetchDashboardHandoffs(options.projectPath, limit));
+    const limit = queryNumber(url, "limit", 50);
+    return jsonInspectResponseCors(await fetchDashboardHandoffs(options.projectPath, limit));
   }
 
   if (path === "/api/rules") {
-    return jsonResponse(await fetchDashboardRules(options.projectPath, options.dryRun ?? false));
+    return jsonInspectResponseCors(await fetchDashboardRules(options.projectPath, options.dryRun ?? false));
   }
 
   if (path === "/api/scan") {
     const payload = await fetchDashboardUpgradeScan(options.projectPath);
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
-  if (path === "/api/scan/fix" && request.method === "POST") {
+  if (path === "/api/scan/fix" && req.method === "POST") {
     const body = await readJsonBody<{
       ruleId?: string;
       file?: string;
       line?: number;
-    }>(request);
-    if (!body?.ruleId || !body.file || typeof body.line !== "number") {
-      return jsonResponse({ ok: false, error: "ruleId, file, and line required" }, 400);
+    }>(req);
+    if (!body?.ruleId?.trim() || !body.file?.trim() || typeof body.line !== "number") {
+      return jsonInspectResponseCors({ ok: false, error: "ruleId, file, and line required" }, 400);
     }
     const result = await runDashboardScanFix(options.projectPath, {
       ruleId: body.ruleId,
@@ -449,44 +452,40 @@ export async function handleDashboardRequest(
         at: dashboardEventTimestamp(),
       });
     }
-    return jsonResponse(result, result.ok ? 200 : 422);
+    return jsonInspectResponseCors(result, result.ok ? 200 : 422);
   }
 
   if (path === "/api/events") {
-    const typeParam = url.searchParams.get("type") ?? undefined;
-    const workspace = url.searchParams.get("workspace") ?? undefined;
-    const agent = url.searchParams.get("agent") ?? undefined;
-    const severity = url.searchParams.get("severity") ?? undefined;
+    const typeParam = optionalQueryString(url, "type");
+    const workspace = optionalQueryString(url, "workspace");
+    const agent = optionalQueryString(url, "agent");
+    const severity = optionalQueryString(url, "severity");
     const q =
-      url.searchParams.get("q") ??
-      url.searchParams.get("query") ??
-      url.searchParams.get("text") ??
-      undefined;
-    const sinceRaw = url.searchParams.get("since");
-    const since = sinceRaw ? Number(sinceRaw) : undefined;
-    const limitRaw = url.searchParams.get("limit");
-    const limit = limitRaw ? Number(limitRaw) : undefined;
-    return jsonResponse(
+      optionalQueryString(url, "q") ??
+      optionalQueryString(url, "query") ??
+      optionalQueryString(url, "text");
+    const since = optionalQueryNumber(url, "since");
+    const limit = optionalQueryNumber(url, "limit");
+    return jsonInspectResponseCors(
       queryDashboardEvents({ type: typeParam, workspace, agent, severity, q, since, limit })
     );
   }
 
   if (path === "/api/events/types") {
     const result = queryDashboardEvents({ limit: 1 });
-    return jsonResponse({ ok: true, types: result.types });
+    return jsonInspectResponseCors({ ok: true, types: result.types });
   }
 
   if (path === "/api/events/export") {
     const format = url.searchParams.get("format") ?? "markdown";
-    const typeParam = url.searchParams.get("type") ?? undefined;
-    const workspace = url.searchParams.get("workspace") ?? undefined;
-    const agent = url.searchParams.get("agent") ?? undefined;
-    const severity = url.searchParams.get("severity") ?? undefined;
+    const typeParam = optionalQueryString(url, "type");
+    const workspace = optionalQueryString(url, "workspace");
+    const agent = optionalQueryString(url, "agent");
+    const severity = optionalQueryString(url, "severity");
     const q =
-      url.searchParams.get("q") ??
-      url.searchParams.get("query") ??
-      url.searchParams.get("text") ??
-      undefined;
+      optionalQueryString(url, "q") ??
+      optionalQueryString(url, "query") ??
+      optionalQueryString(url, "text");
     const result = queryDashboardEvents({
       type: typeParam,
       workspace,
@@ -496,7 +495,7 @@ export async function handleDashboardRequest(
       limit: 200,
     });
     if (format === "json") {
-      return jsonResponse(result);
+      return jsonInspectResponseCors(result);
     }
     const md = exportEventsToMarkdown(result.events);
     return new Response(md, {
@@ -515,13 +514,13 @@ export async function handleDashboardRequest(
       projectPath: options.projectPath,
       companion,
     });
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
-  if (path === "/api/canvas-filter" && request.method === "GET") {
+  if (path === "/api/canvas-filter" && req.method === "GET") {
     const { applyCanvasFilter } = await import("../../dashboard-canvas-filter.ts");
     const result = await applyCanvasFilter(options.projectPath, url);
-    return jsonResponse({
+    return jsonInspectResponseCors({
       ok: true,
       ...result,
       fetchedAt: new Date().toISOString(),
@@ -530,35 +529,35 @@ export async function handleDashboardRequest(
 
   // Read-only by design: the dashboard observes saved artifacts but never executes gates.
   // Fresh gate artifacts must come from explicit CLI runs with --save-artifact.
-  if (path === "/api/sessions" && request.method === "GET") {
+  if (path === "/api/sessions" && req.method === "GET") {
     const payload = await fetchDashboardSessionsIndex(options.projectPath);
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
   const sessionRunsMatch = DASHBOARD_SESSION_RUNS.exec(url);
-  if (sessionRunsMatch && request.method === "GET") {
+  if (sessionRunsMatch && req.method === "GET") {
     const scope = pathnameGroup(sessionRunsMatch, "scope");
     if (!scope) {
-      return jsonResponse({ ok: false, error: "session scope required" }, 400);
+      return jsonInspectResponseCors({ ok: false, error: "session scope required" }, 400);
     }
     const filter = artifactFilterFromSessionRoute(scope);
     const payload = await fetchDashboardRunsList(options.projectPath, filter);
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
   const sessionArtifactsMatch = DASHBOARD_SESSION_ARTIFACTS.exec(url);
-  if (sessionArtifactsMatch && request.method === "GET") {
+  if (sessionArtifactsMatch && req.method === "GET") {
     const scope = pathnameGroup(sessionArtifactsMatch, "scope");
     if (!scope) {
-      return jsonResponse({ ok: false, error: "session scope required" }, 400);
+      return jsonInspectResponseCors({ ok: false, error: "session scope required" }, 400);
     }
     const filter = artifactFilterFromSessionRoute(scope);
     const payload = await fetchDashboardArtifacts(options.projectPath, filter);
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
-  if (DASHBOARD_ARTIFACT_FEED.test(url) && request.method === "GET") {
-    const limit = Number(url.searchParams.get("limit") ?? "50");
+  if (DASHBOARD_ARTIFACT_FEED.test(url) && req.method === "GET") {
+    const limit = queryNumber(url, "limit", 50);
     const xml = await fetchDashboardArtifactFeed(options.projectPath, {
       baseUrl: url.origin,
       limit: Number.isFinite(limit) ? limit : 50,
@@ -572,121 +571,120 @@ export async function handleDashboardRequest(
     });
   }
 
-  if (DASHBOARD_ARTIFACT_INDEX_STATS.test(url) && request.method === "GET") {
+  if (DASHBOARD_ARTIFACT_INDEX_STATS.test(url) && req.method === "GET") {
     const payload = await fetchDashboardArtifactIndexStats(options.projectPath);
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
-  if (path === "/api/artifacts/aggregates" && request.method === "GET") {
+  if (path === "/api/artifacts/aggregates" && req.method === "GET") {
     const filter = parseArtifactListQuery(url.searchParams);
     const payload = await fetchDashboardArtifactAggregates(options.projectPath, filter);
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
   const artifactDiffMatch = DASHBOARD_ARTIFACT_DIFF.exec(url);
-  if (artifactDiffMatch && request.method === "GET") {
+  if (artifactDiffMatch && req.method === "GET") {
     const gateName = pathnameGroup(artifactDiffMatch, "gate");
-    const pathA = url.searchParams.get("a")?.trim() ?? "";
-    const pathB = url.searchParams.get("b")?.trim() ?? "";
+    const pathA = optionalQueryString(url, "a") ?? "";
+    const pathB = optionalQueryString(url, "b") ?? "";
     if (!gateName || !pathA || !pathB) {
-      return jsonResponse({ ok: false, error: "gate, a, and b query params required" }, 400);
+      return jsonInspectResponseCors({ ok: false, error: "gate, a, and b query params required" }, 400);
     }
     const payload = await fetchDashboardArtifactDiff(options.projectPath, gateName, pathA, pathB);
-    return jsonResponse(payload, payload.ok ? 200 : 404);
+    return jsonInspectResponseCors(payload, payload.ok ? 200 : 404);
   }
 
-  if (path === "/api/artifacts" && request.method === "GET") {
+  if (path === "/api/artifacts" && req.method === "GET") {
     const filter = parseArtifactListQuery(url.searchParams);
     const payload = await fetchDashboardArtifacts(options.projectPath, filter);
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
-  if (path === "/api/runs" && request.method === "GET") {
+  if (path === "/api/runs" && req.method === "GET") {
     const filter = parseArtifactListQuery(url.searchParams);
     const payload = await fetchDashboardRunsList(options.projectPath, filter);
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
   const runManifestMatch = DASHBOARD_RUN_MANIFEST.exec(url);
-  if (runManifestMatch && request.method === "GET") {
+  if (runManifestMatch && req.method === "GET") {
     const runId = pathnameGroup(runManifestMatch, "runId");
     if (!runId) {
-      return jsonResponse({ ok: false, error: "runId required" }, 400);
+      return jsonInspectResponseCors({ ok: false, error: "runId required" }, 400);
     }
     const payload = await fetchDashboardRunManifest(options.projectPath, runId);
-    return jsonResponse(payload, payload.ok ? 200 : 404);
+    return jsonInspectResponseCors(payload, payload.ok ? 200 : 404);
   }
 
   const artifactLineageMatch = DASHBOARD_ARTIFACT_LINEAGE.exec(url);
-  if (artifactLineageMatch && request.method === "GET") {
+  if (artifactLineageMatch && req.method === "GET") {
     const gateName = pathnameGroup(artifactLineageMatch, "gate");
     if (!gateName) {
-      return jsonResponse({ ok: false, error: "gate required" }, 400);
+      return jsonInspectResponseCors({ ok: false, error: "gate required" }, 400);
     }
-    const artifactPath = url.searchParams.get("path")?.trim() || undefined;
+    const artifactPath = optionalQueryString(url, "path");
     const payload = await fetchDashboardArtifactLineage(
       options.projectPath,
       gateName,
       artifactPath
     );
-    return jsonResponse(payload, payload.ok ? 200 : 404);
+    return jsonInspectResponseCors(payload, payload.ok ? 200 : 404);
   }
 
-  if (path === "/api/gates/graph" && request.method === "GET") {
-    const gate = url.searchParams.get("gate")?.trim() || undefined;
+  if (path === "/api/gates/graph" && req.method === "GET") {
+    const gate = optionalQueryString(url, "gate");
     const payload = await fetchDashboardGateGraph(gate);
-    return jsonResponse(payload, payload.ok ? 200 : 404);
+    return jsonInspectResponseCors(payload, payload.ok ? 200 : 404);
   }
 
-  if (path === "/api/artifact-graph" && request.method === "GET") {
+  if (path === "/api/artifact-graph" && req.method === "GET") {
     const payload = await fetchDashboardArtifactGraph(options.projectPath);
-    return jsonResponse(payload, payload.ok ? 200 : 500);
+    return jsonInspectResponseCors(payload, payload.ok ? 200 : 500);
   }
 
-  if (path === "/api/artifacts/context" && request.method === "GET") {
+  if (path === "/api/artifacts/context" && req.method === "GET") {
     const payload = await fetchDashboardArtifactContext(options.projectPath);
-    return jsonResponse(payload, payload.ok ? 200 : 500);
+    return jsonInspectResponseCors(payload, payload.ok ? 200 : 500);
   }
 
-  if (path === "/api/artifacts/metadata" && request.method === "GET") {
+  if (path === "/api/artifacts/metadata" && req.method === "GET") {
     const filter = parseArtifactListQuery(url.searchParams);
-    const gate = url.searchParams.get("gate")?.trim() || undefined;
+    const gate = optionalQueryString(url, "gate");
     const payload = await fetchDashboardArtifactMetadata(options.projectPath, filter, {
       gate,
     });
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
   if (isDashboardArtifactNamespace(path)) {
-    return jsonResponse(
+    return jsonInspectResponseCors(
       {
         ok: false,
         error:
           "artifact API is read-only; run kimi-doctor --gate <name> --save-artifact to refresh gate artifacts",
       },
-      request.method === "GET" ? 404 : 405
+      req.method === "GET" ? 404 : 405
     );
   }
 
   if (path === "/api/debug/logs") {
-    const sink = url.searchParams.get("sink")?.trim() ?? "";
+    const sink = optionalQueryString(url, "sink") ?? "";
     if (!sink) {
-      return jsonResponse(fetchDashboardDebugLogSinks(options.projectPath));
+      return jsonInspectResponseCors(fetchDashboardDebugLogSinks(options.projectPath));
     }
-    const tailRaw = url.searchParams.get("tail");
-    const tail = tailRaw ? Number(tailRaw) : undefined;
+    const tail = optionalQueryNumber(url, "tail");
     const payload = await fetchDashboardDebugLogs(options.projectPath, sink, tail);
-    return jsonResponse(payload, payload.ok ? 200 : 404);
+    return jsonInspectResponseCors(payload, payload.ok ? 200 : 404);
   }
 
   if (path === "/api/doctor/gates") {
     const payload = await fetchDashboardGateHealth(options.projectPath);
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
   if (path === "/api/tls-compliance") {
     const payload = await fetchDashboardTlsCompliance();
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
   if (path === "/api/metrics") {
@@ -694,7 +692,7 @@ export async function handleDashboardRequest(
       hub.lastPayload?.agentCount ?? 0,
       hub.sseSubscriberCount()
     );
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
   if (path === "/api/health") {
@@ -712,13 +710,13 @@ export async function handleDashboardRequest(
       discoveryWorkspaceId: discoveryCtx.workspaceId ?? agentWorkspaceId,
       probe,
     });
-    return jsonResponse(payload);
+    return jsonInspectResponseCors(payload);
   }
 
-  if (path === "/api/widgets/processes/action" && request.method === "POST") {
-    const body = await readJsonBody<DashboardPaneActionRequest>(request);
+  if (path === "/api/widgets/processes/action" && req.method === "POST") {
+    const body = await readJsonBody<DashboardPaneActionRequest>(req);
     if (!body?.paneId?.trim() || !body?.action) {
-      return jsonResponse({ ok: false, error: "paneId and action required" }, 400);
+      return jsonInspectResponseCors({ ok: false, error: "paneId and action required" }, 400);
     }
     const session = body.session?.trim() ?? "";
     const result = await runDashboardPaneAction(
@@ -741,7 +739,7 @@ export async function handleDashboardRequest(
         )
       );
     }
-    return jsonResponse(result, result.ok ? 200 : 422);
+    return jsonInspectResponseCors(result, result.ok ? 200 : 422);
   }
 
   if (path.startsWith("/api/widgets/")) {
@@ -749,23 +747,20 @@ export async function handleDashboardRequest(
     if (!isDashboardWidgetId(widgetSegment)) {
       return new Response("Not Found", { status: 404 });
     }
-    const session = url.searchParams.get("session")?.trim() ?? "";
-    const paneId = url.searchParams.get("paneId")?.trim() ?? "";
-    const linesRaw = url.searchParams.get("lines");
-    const lines = linesRaw ? Number(linesRaw) : undefined;
-    const commitsRaw = url.searchParams.get("commits");
-    const commits = commitsRaw ? Number(commitsRaw) : undefined;
-    const sinceRaw = url.searchParams.get("since");
-    const since = sinceRaw ? Number(sinceRaw) : undefined;
+    const session = optionalQueryString(url, "session") ?? "";
+    const paneId = optionalQueryString(url, "paneId") ?? "";
+    const lines = optionalQueryNumber(url, "lines");
+    const commits = optionalQueryNumber(url, "commits");
+    const since = optionalQueryNumber(url, "since");
     const payload = await fetchDashboardWidget(
       widgetSegment,
       options.projectPath,
       {
         session,
         paneId,
-        lines: Number.isFinite(lines) ? lines : undefined,
-        since: Number.isFinite(since) ? since : undefined,
-        commits: Number.isFinite(commits) ? commits : undefined,
+        lines,
+        since,
+        commits,
         catalog: hub.discoveryCache.discoveryContext().sessionCatalog,
       },
       {
@@ -777,26 +772,26 @@ export async function handleDashboardRequest(
         gitDeps: options.widgetGitDeps,
       }
     );
-    return jsonResponse(payload, 200);
+    return jsonInspectResponseCors(payload, 200);
   }
 
-  if (path === "/api/actions" && request.method === "POST") {
-    const body = await readJsonBody<DashboardActionRequest>(request);
-    if (!body?.action || !body.agent) {
-      return jsonResponse({ ok: false, error: "action and agent required" }, 400);
+  if (path === "/api/actions" && req.method === "POST") {
+    const body = await readJsonBody<DashboardActionRequest>(req);
+    if (!body?.action || !body.agent?.trim()) {
+      return jsonInspectResponseCors({ ok: false, error: "action and agent required" }, 400);
     }
     const result = runDashboardAgentAction(body);
-    return jsonResponse(result, result.ok ? 200 : 422);
+    return jsonInspectResponseCors(result, result.ok ? 200 : 422);
   }
 
-  if (path === "/api/ipc" && request.method === "POST") {
-    const body = await readJsonBody<DashboardIpcCommand>(request);
-    if (!body?.command) {
-      return jsonResponse({ ok: false, error: "command required" }, 400);
+  if (path === "/api/ipc" && req.method === "POST") {
+    const body = await readJsonBody<DashboardIpcCommand>(req);
+    if (!body?.command?.trim()) {
+      return jsonInspectResponseCors({ ok: false, error: "command required" }, 400);
     }
     const result = await runDashboardIpcCommand(options.projectPath, body);
     options.onIpc?.(result);
-    return jsonResponse(result, result.ok ? 200 : 422);
+    return jsonInspectResponseCors(result, result.ok ? 200 : 422);
   }
 
   return new Response("Not Found", { status: 404 });

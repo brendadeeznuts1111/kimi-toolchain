@@ -136,6 +136,20 @@ describe("ast-grep-gate", () => {
     );
   });
 
+  test("staged router diff flags manual path dispatch additions", () => {
+    const MANUAL_DISPATCH =
+      /^\+\s*(?:\}\s*)?(?:else\s+)?if\s*\(\s*path\s*(?:===|\.startsWith\s*\(|\.endsWith\s*\(|\.includes\s*\()/;
+    const find = (diff: string) =>
+      diff
+        .split("\n")
+        .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+        .filter((line) => MANUAL_DISPATCH.test(line));
+    expect(find("+  if (path === \"/api/new\") {")).toHaveLength(1);
+    expect(find("+  if (path.startsWith(\"/api/widgets/\")) {")).toHaveLength(1);
+    expect(find("   if (path === \"/kept\") {")).toHaveLength(0);
+    expect(find("+  } else if (path === \"/api/x\") {")).toHaveLength(1);
+  });
+
   test("evaluateHits exempts prefer-bun-serve-routes in legacy router.ts", () => {
     const hits = [
       makeHit(
