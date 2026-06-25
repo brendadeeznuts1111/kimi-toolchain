@@ -74,6 +74,7 @@ interface CommandInfo {
   examples: string[];
   subcommands?: Record<string, SubcommandInfo>;
   documentationUrl?: string;
+  docUrl?: string;
   docContent?: string;
   sections?: DocSectionInfo[];
   dynamicCompletions?: {
@@ -98,6 +99,7 @@ interface DocPageInfo {
 interface DocSectionInfo {
   title: string;
   anchor: string;
+  url: string;
 }
 
 interface CompletionData {
@@ -256,7 +258,7 @@ async function fetchBunDocsIndex(): Promise<DocPageInfo[]> {
  * Parse Markdown headings from a command doc page into section links.
  * Headings become URL anchors (GitHub-style slugification).
  */
-function parseDocSections(markdown: string): DocSectionInfo[] {
+function parseDocSections(markdown: string, pageUrl: string): DocSectionInfo[] {
   const sections: DocSectionInfo[] = [];
   const seen = new Set<string>();
 
@@ -276,7 +278,7 @@ function parseDocSections(markdown: string): DocSectionInfo[] {
 
     if (!anchor || seen.has(anchor)) continue;
     seen.add(anchor);
-    sections.push({ title: rawTitle, anchor });
+    sections.push({ title: rawTitle, anchor, url: `${pageUrl}#${anchor}` });
   }
 
   return sections;
@@ -875,8 +877,9 @@ async function generateCompletions(): Promise<void> {
         const content = await response.text();
 
         const cmd = completionData.commands[commandName];
+        cmd.docUrl = page.url;
         cmd.docContent = content;
-        cmd.sections = parseDocSections(content);
+        cmd.sections = parseDocSections(content, page.url);
 
         // If --help gave us no useful description, pull one from the doc page
         if (!cmd.description || cmd.description.startsWith("bun ")) {

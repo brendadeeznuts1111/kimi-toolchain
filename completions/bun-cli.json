@@ -3612,191 +3612,238 @@
       "aliases": ["i"],
       "documentationUrl": "https://bun.com/docs/cli/install",
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/pm/cli/install.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun install\n\n> Install packages with Bun's fast package manager\n\n## Basic Usage\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install react\nbun install react@19.1.1 # specific version\nbun install react@latest # specific tag\n```\n\nThe `bun` CLI contains a Node.js-compatible package manager designed to be a dramatically faster replacement for `npm`, `yarn`, and `pnpm`. It's a standalone tool that will work in pre-existing Node.js projects; if your project has a `package.json`, `bun install` can help you speed up your workflow.\n\n<Note>\n  **⚡️ 25x faster** — Switch from `npm install` to `bun install` in any Node.js project to make your installations up to 25x faster.\n\n  <Frame>\n    ![Bun installation speed\n    comparison](https://user-images.githubusercontent.com/709451/147004342-571b6123-17a9-49a2-8bfd-dcfc5204047e.png)\n  </Frame>\n</Note>\n\nTo install all dependencies of a project:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install\n```\n\nRunning `bun install` will:\n\n* **Install** all `dependencies`, `devDependencies`, and `optionalDependencies`. Bun will install `peerDependencies` by default.\n* **Run** your project's `{pre|post}install` and `{pre|post}prepare` scripts at the appropriate time. For security reasons Bun *does not execute* lifecycle scripts of installed dependencies.\n* **Write** a `bun.lock` lockfile to the project root.\n\n***\n\n## Logging\n\nTo modify logging verbosity:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install --verbose # debug logging\nbun install --silent  # no logging\n```\n\n***\n\n## Lifecycle scripts\n\nUnlike other npm clients, Bun does not execute arbitrary lifecycle scripts like `postinstall` for installed dependencies. Executing arbitrary scripts represents a potential security risk.\n\nTo tell Bun to allow lifecycle scripts for a particular package, add the package to `trustedDependencies` in your package.json.\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"name\": \"my-app\",\n  \"version\": \"1.0.0\",\n  \"trustedDependencies\": [\"my-trusted-package\"] // [!code ++]\n}\n```\n\nThen re-install the package. Bun will read this field and run lifecycle scripts for `my-trusted-package`.\n\nLifecycle scripts will run in parallel during installation. To adjust the maximum number of concurrent scripts, use the `--concurrent-scripts` flag. The default is two times the reported cpu count or GOMAXPROCS.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install --concurrent-scripts 5\n```\n\nBun automatically optimizes postinstall scripts for popular packages (like `esbuild`, `sharp`, etc.) by determining which scripts need to run. To disable these optimizations:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nBUN_FEATURE_FLAG_DISABLE_NATIVE_DEPENDENCY_LINKER=1 bun install\nBUN_FEATURE_FLAG_DISABLE_IGNORE_SCRIPTS=1 bun install\n```\n\n***\n\n## Workspaces\n\nBun supports `\"workspaces\"` in package.json. For complete documentation refer to [Package manager > Workspaces](/pm/workspaces).\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"name\": \"my-app\",\n  \"version\": \"1.0.0\",\n  \"workspaces\": [\"packages/*\"], // [!code ++]\n  \"dependencies\": {\n    \"preact\": \"^10.5.13\"\n  }\n}\n```\n\n***\n\n## Installing dependencies for specific packages\n\nIn a monorepo, you can install the dependencies for a subset of packages using the `--filter` flag.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n# Install dependencies for all workspaces except `pkg-c`\nbun install --filter '!pkg-c'\n\n# Install dependencies for only `pkg-a` in `./packages/pkg-a`\nbun install --filter './packages/pkg-a'\n```\n\nFor more information on filtering with `bun install`, refer to [Package Manager > Filtering](/pm/filter#bun-install-and-bun-outdated)\n\n***\n\n## Overrides and resolutions\n\nBun supports npm's `\"overrides\"` and Yarn's `\"resolutions\"` in `package.json`. These are mechanisms for specifying a version range for *metadependencies*—the dependencies of your dependencies. Refer to [Package manager > Overrides and resolutions](/pm/overrides) for complete documentation.\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"name\": \"my-app\",\n  \"dependencies\": {\n    \"foo\": \"^2.0.0\"\n  },\n  \"overrides\": { // [!code ++]\n    \"bar\": \"~4.4.0\" // [!code ++]\n  } // [!code ++]\n}\n```\n\n***\n\n## Global packages\n\nTo install a package globally, use the `-g`/`--global` flag. Typically this is used for installing command-line tools.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install --global cowsay # or `bun install -g cowsay`\ncowsay \"Bun!\"\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n ______\n< Bun! >\n ------\n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||\n```\n\n***\n\n## Production mode\n\nTo install in production mode (i.e. without `devDependencies` or `optionalDependencies`):\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install --production\n```\n\nFor reproducible installs, use `--frozen-lockfile`. This will install the exact versions of each package specified in the lockfile. If your `package.json` disagrees with `bun.lock`, Bun will exit with an error. The lockfile will not be updated.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install --frozen-lockfile\n```\n\nFor more information on Bun's lockfile `bun.lock`, refer to [Package manager > Lockfile](/pm/lockfile).\n\n***\n\n## Omitting dependencies\n\nTo omit dev, peer, or optional dependencies use the `--omit` flag.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n# Exclude \"devDependencies\" from the installation. This will apply to the\n# root package and workspaces if they exist. Transitive dependencies will\n# not have \"devDependencies\".\nbun install --omit dev\n\n# Install only dependencies from \"dependencies\"\nbun install --omit=dev --omit=peer --omit=optional\n```\n\n***\n\n## Dry run\n\nTo perform a dry run (i.e. don't actually install anything):\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install --dry-run\n```\n\n***\n\n## Non-npm dependencies\n\nBun supports installing dependencies from Git, GitHub, and local or remotely-hosted tarballs. For complete documentation refer to [Package manager > Git, GitHub, and tarball dependencies](/pm/cli/add).\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"dependencies\": {\n    \"dayjs\": \"git+https://github.com/iamkun/dayjs.git\",\n    \"lodash\": \"git+ssh://github.com/lodash/lodash.git#4.17.21\",\n    \"moment\": \"git@github.com:moment/moment.git\",\n    \"zod\": \"github:colinhacks/zod\",\n    \"react\": \"https://registry.npmjs.org/react/-/react-18.2.0.tgz\",\n    \"bun-types\": \"npm:@types/bun\"\n  }\n}\n```\n\n***\n\n## Installation strategies\n\nBun supports two package installation strategies that determine how dependencies are organized in `node_modules`:\n\n### Hoisted installs\n\nThe traditional npm/Yarn approach that flattens dependencies into a shared `node_modules` directory:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install --linker hoisted\n```\n\n### Isolated installs\n\nA pnpm-like approach that creates strict dependency isolation to prevent phantom dependencies:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install --linker isolated\n```\n\nIsolated installs create a central package store in `node_modules/.bun/` with symlinks in the top-level `node_modules`. This ensures packages can only access their declared dependencies.\n\n### Default strategy\n\nThe default linker strategy depends on whether you're starting fresh or have an existing project:\n\n* **New workspaces/monorepos**: `isolated` (prevents phantom dependencies)\n* **New single-package projects**: `hoisted` (traditional npm behavior)\n* **Existing projects (made pre-v1.3.2)**: `hoisted` (preserves backward compatibility)\n\nThe default is controlled by a `configVersion` field in your lockfile. For a detailed explanation, see [Package manager > Isolated installs](/pm/isolated-installs).\n\n***\n\n## Minimum release age\n\nTo protect against supply chain attacks where malicious packages are quickly published, you can configure a minimum age requirement for npm packages. Package versions published more recently than the specified threshold (in seconds) will be filtered out during installation.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n# Only install package versions published at least 3 days ago\nbun add @types/bun --minimum-release-age 259200 # seconds\n```\n\nYou can also configure this in `bunfig.toml`:\n\n```toml bunfig.toml icon=\"settings\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n[install]\n# Only install package versions published at least 3 days ago\nminimumReleaseAge = 259200 # seconds\n\n# Exclude trusted packages from the age gate\nminimumReleaseAgeExcludes = [\"@types/node\", \"typescript\"]\n```\n\nWhen the minimum age filter is active:\n\n* Only affects new package resolution - existing packages in `bun.lock` remain unchanged\n* All dependencies (direct and transitive) are filtered to meet the age requirement when being resolved\n* When versions are blocked by the age gate, a stability check detects rapid bugfix patterns\n  * If multiple versions were published close together just outside your age gate, it extends the filter to skip those potentially unstable versions and selects an older, more mature version\n  * Searches up to 7 days after the age gate, however if still finding rapid releases it ignores stability check\n  * Exact version requests (like `package@1.1.1`) still respect the age gate but bypass the stability check\n* Versions without a `time` field are treated as passing the age check (npm registry should always provide timestamps)\n\nFor more advanced security scanning, including integration with services & custom filtering, see [Package manager > Security Scanner API](/pm/security-scanner-api).\n\n***\n\n## Configuration\n\n### Configuring `bun install` with `bunfig.toml`\n\n`bunfig.toml` is searched for in the following paths on `bun install`, `bun remove`, and `bun add`:\n\n1. `$XDG_CONFIG_HOME/.bunfig.toml` or `$HOME/.bunfig.toml`\n2. `./bunfig.toml`\n\nIf both are found, the results are merged together.\n\nConfiguring with `bunfig.toml` is optional. Bun tries to be zero configuration in general, but that's not always possible. The default behavior of `bun install` can be configured in `bunfig.toml`. The default values are shown below.\n\n```toml bunfig.toml icon=\"settings\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n[install]\n\n# whether to install optionalDependencies\noptional = true\n\n# whether to install devDependencies\ndev = true\n\n# whether to install peerDependencies\npeer = true\n\n# equivalent to `--production` flag\nproduction = false\n\n# equivalent to `--save-text-lockfile` flag\nsaveTextLockfile = false\n\n# equivalent to `--frozen-lockfile` flag\nfrozenLockfile = false\n\n# equivalent to `--dry-run` flag\ndryRun = false\n\n# equivalent to `--concurrent-scripts` flag\nconcurrentScripts = 16 # (cpu count or GOMAXPROCS) x2\n\n# installation strategy: \"hoisted\" or \"isolated\"\n# default depends on lockfile configVersion and workspaces:\n# - configVersion = 1: \"isolated\" if using workspaces, otherwise \"hoisted\"\n# - configVersion = 0: \"hoisted\"\nlinker = \"hoisted\"\n\n\n# minimum age config\nminimumReleaseAge = 259200 # seconds\nminimumReleaseAgeExcludes = [\"@types/node\", \"typescript\"]\n```\n\n### Configuring with environment variables\n\nEnvironment variables have a higher priority than `bunfig.toml`.\n\n| Name                               | Description                                                                             |\n| ---------------------------------- | --------------------------------------------------------------------------------------- |\n| `BUN_CONFIG_REGISTRY`              | Set an npm registry (default: [https://registry.npmjs.org](https://registry.npmjs.org)) |\n| `BUN_CONFIG_TOKEN`                 | Set an auth token (currently does nothing)                                              |\n| `BUN_CONFIG_YARN_LOCKFILE`         | Save a Yarn v1-style yarn.lock                                                          |\n| `BUN_CONFIG_LINK_NATIVE_BINS`      | Point `bin` in package.json to a platform-specific dependency                           |\n| `BUN_CONFIG_SKIP_SAVE_LOCKFILE`    | Don’t save a lockfile                                                                   |\n| `BUN_CONFIG_SKIP_LOAD_LOCKFILE`    | Don’t load a lockfile                                                                   |\n| `BUN_CONFIG_SKIP_INSTALL_PACKAGES` | Don’t install any packages                                                              |\n\nBun always tries to use the fastest available installation method for the target platform. On macOS, that’s `clonefile` and on Linux, that’s `hardlink`. You can change which installation method is used with the `--backend` flag. When unavailable or on error, `clonefile` and `hardlink` fallsback to a platform-specific implementation of copying files.\n\nBun stores installed packages from npm in `~/.bun/install/cache/${name}@${version}`. Note that if the semver version has a `build` or a `pre` tag, it is replaced with a hash of that value instead. This is to reduce the chances of errors from long file paths, but unfortunately complicates figuring out where a package was installed on disk.\n\nWhen the `node_modules` folder exists, before installing, Bun checks if the `\"name\"` and `\"version\"` in `package/package.json` in the expected node\\_modules folder matches the expected `name` and `version`. This is how it determines whether it should install. It uses a custom JSON parser which stops parsing as soon as it finds `\"name\"` and `\"version\"`.\n\nWhen a `bun.lock` doesn’t exist or `package.json` has changed dependencies, tarballs are downloaded & extracted eagerly while resolving.\n\nWhen a `bun.lock` exists and `package.json` hasn’t changed, Bun downloads missing dependencies lazily. If the package with a matching `name` & `version` already exists in the expected location within `node_modules`, Bun won’t attempt to download the tarball.\n\n## CI/CD\n\nUse the official [`oven-sh/setup-bun`](https://github.com/oven-sh/setup-bun) action to install `bun` in a GitHub Actions pipeline:\n\n```yaml .github/workflows/release.yml icon=\"file-code\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nname: bun-types\njobs:\n  build:\n    name: build-app\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout repo\n        uses: actions/checkout@v4\n      - name: Install bun\n        uses: oven-sh/setup-bun@v2\n      - name: Install dependencies\n        run: bun install\n      - name: Build app\n        run: bun run build\n```\n\nFor CI/CD environments that want to enforce reproducible builds, use `bun ci` to fail the build if the package.json is out of sync with the lockfile:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun ci\n```\n\nThis is equivalent to `bun install --frozen-lockfile`. It installs exact versions from `bun.lock` and fails if `package.json` doesn't match the lockfile. To use `bun ci` or `bun install --frozen-lockfile`, you must commit `bun.lock` to version control.\n\nAnd instead of running `bun install`, run `bun ci`.\n\n```yaml .github/workflows/release.yml icon=\"file-code\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nname: bun-types\njobs:\n  build:\n    name: build-app\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout repo\n        uses: actions/checkout@v4\n      - name: Install bun\n        uses: oven-sh/setup-bun@v2\n      - name: Install dependencies\n        run: bun ci\n      - name: Build app\n        run: bun run build\n```\n\n## Platform-specific dependencies?\n\nbun stores normalized `cpu` and `os` values from npm in the lockfile, along with the resolved packages. It skips downloading, extracting, and installing packages disabled for the current target at runtime. This means the lockfile won't change between platforms/architectures even if the packages ultimately installed do change.\n\n### `--cpu` and `--os` flags\n\nYou can override the target platform for package selection:\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install --cpu=x64 --os=linux\n```\n\nThis installs packages for the specified platform instead of the current system. Useful for cross-platform builds or when preparing deployments for different environments.\n\n**Accepted values for `--cpu`**: `arm64`, `x64`, `ia32`, `ppc64`, `s390x`\n\n**Accepted values for `--os`**: `linux`, `darwin`, `win32`, `freebsd`, `openbsd`, `sunos`, `aix`\n\n## Peer dependencies?\n\nPeer dependencies are handled similarly to yarn. `bun install` will automatically install peer dependencies. If the dependency is marked optional in `peerDependenciesMeta`, an existing dependency will be chosen if possible.\n\n## Lockfile\n\n`bun.lock` is Bun’s lockfile format. See [our blogpost about the text lockfile](https://bun.com/blog/bun-lock-text-lockfile).\n\nPrior to Bun 1.2, the lockfile was binary and called `bun.lockb`. Old lockfiles can be upgraded to the new format by running `bun install --save-text-lockfile --frozen-lockfile --lockfile-only`, and then deleting `bun.lockb`.\n\n## Cache\n\nTo delete the cache:\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm cache rm\n# or\nrm -rf ~/.bun/install/cache\n```\n\n## Platform-specific backends\n\n`bun install` uses different system calls to install dependencies depending on the platform. This is a performance optimization. You can force a specific backend with the `--backend` flag.\n\n**`hardlink`** is the default backend on Linux. Benchmarking showed it to be the fastest on Linux.\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nrm -rf node_modules\nbun install --backend hardlink\n```\n\n**`clonefile`** is the default backend on macOS. Benchmarking showed it to be the fastest on macOS. It is only available on macOS.\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nrm -rf node_modules\nbun install --backend clonefile\n```\n\n**`clonefile_each_dir`** is similar to `clonefile`, except it clones each file individually per directory. It is only available on macOS and tends to perform slower than `clonefile`. Unlike `clonefile`, this does not recursively clone subdirectories in one system call.\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nrm -rf node_modules\nbun install --backend clonefile_each_dir\n```\n\n**`copyfile`** is the fallback used when any of the above fail, and is the slowest. on macOS, it uses `fcopyfile()` and on linux it uses `copy_file_range()`.\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nrm -rf node_modules\nbun install --backend copyfile\n```\n\n**`symlink`** is typically only used for `file:` dependencies (and eventually `link:`) internally. To prevent infinite loops, it skips symlinking the `node_modules` folder.\n\nIf you install with `--backend=symlink`, Node.js won't resolve node\\_modules of dependencies unless each dependency has its own node\\_modules folder or you pass `--preserve-symlinks` to `node` or `bun`. See [Node.js documentation on `--preserve-symlinks`](https://nodejs.org/api/cli.html#--preserve-symlinks).\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nrm -rf node_modules\nbun install --backend symlink\nbun --preserve-symlinks ./my-file.js\nnode --preserve-symlinks ./my-file.js # https://nodejs.org/api/cli.html#--preserve-symlinks\n```\n\n## npm registry metadata\n\nBun uses a binary format for caching NPM registry responses. This loads much faster than JSON and tends to be smaller on disk.\nYou will see these files in `~/.bun/install/cache/*.npm`. The filename pattern is `${hash(packageName)}.npm`. It’s a hash so that extra directories don’t need to be created for scoped packages.\n\nBun's usage of `Cache-Control` ignores `Age`. This improves performance, but means bun may be about 5 minutes out of date to receive the latest package version metadata from npm.\n\n## pnpm migration\n\nBun automatically migrates projects from pnpm to bun. When a `pnpm-lock.yaml` file is detected and no `bun.lock` file exists, Bun will automatically migrate the lockfile to `bun.lock` during installation. The original `pnpm-lock.yaml` file remains unmodified.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install\n```\n\n**Note**: Migration only runs when `bun.lock` is absent. There is currently no opt-out flag for pnpm migration.\n\nThe migration process handles:\n\n### Lockfile Migration\n\n* Converts `pnpm-lock.yaml` to `bun.lock` format\n* Preserves package versions and resolution information\n* Maintains dependency relationships and peer dependencies\n* Handles patched dependencies with integrity hashes\n\n### Workspace Configuration\n\nWhen a `pnpm-workspace.yaml` file exists, Bun migrates workspace settings to your root `package.json`:\n\n```yaml pnpm-workspace.yaml icon=\"file-code\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\npackages:\n  - \"apps/*\"\n  - \"packages/*\"\n\ncatalog:\n  react: ^18.0.0\n  typescript: ^5.0.0\n\ncatalogs:\n  build:\n    webpack: ^5.0.0\n    babel: ^7.0.0\n```\n\nThe workspace packages list and catalogs are moved to the `workspaces` field in `package.json`:\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"workspaces\": {\n    \"packages\": [\"apps/*\", \"packages/*\"],\n    \"catalog\": {\n      \"react\": \"^18.0.0\",\n      \"typescript\": \"^5.0.0\"\n    },\n    \"catalogs\": {\n      \"build\": {\n        \"webpack\": \"^5.0.0\",\n        \"babel\": \"^7.0.0\"\n      }\n    }\n  }\n}\n```\n\n### Catalog Dependencies\n\nDependencies using pnpm's `catalog:` protocol are preserved:\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"dependencies\": {\n    \"react\": \"catalog:\",\n    \"webpack\": \"catalog:build\"\n  }\n}\n```\n\n### Configuration Migration\n\nThe following pnpm configuration is migrated from both `pnpm-lock.yaml` and `pnpm-workspace.yaml`:\n\n* **Overrides**: Moved from `pnpm.overrides` to root-level `overrides` in `package.json`\n* **Patched Dependencies**: Moved from `pnpm.patchedDependencies` to root-level `patchedDependencies` in `package.json`\n* **Workspace Overrides**: Applied from `pnpm-workspace.yaml` to root `package.json`\n\n### Requirements\n\n* Requires pnpm lockfile version 7 or higher\n* Workspace packages must have a `name` field in their `package.json`\n* All catalog entries referenced by dependencies must exist in the catalogs definition\n\nAfter migration, you can safely remove `pnpm-lock.yaml` and `pnpm-workspace.yaml` files.\n\n***\n\n## CLI Usage\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun install <name>@<version>\n```\n\n### General Configuration\n\n<ParamField path=\"--config\" type=\"string\">\n  Specify path to config file (bunfig.toml)\n</ParamField>\n\n<ParamField path=\"--cwd\" type=\"string\">\n  Set a specific cwd\n</ParamField>\n\n### Dependency Scope & Management\n\n<ParamField path=\"--production\" type=\"boolean\">\n  Don't install devDependencies\n</ParamField>\n\n<ParamField path=\"--no-save\" type=\"boolean\">\n  Don't update package.json or save a lockfile\n</ParamField>\n\n<ParamField path=\"--save\" type=\"boolean\" default=\"true\">\n  Save to package.json\n</ParamField>\n\n<ParamField path=\"--omit\" type=\"string\">\n  Exclude 'dev', 'optional', or 'peer' dependencies from install\n</ParamField>\n\n<ParamField path=\"--only-missing\" type=\"boolean\">\n  Only add dependencies to package.json if they are not already present\n</ParamField>\n\n### Dependency Type & Versioning\n\n<ParamField path=\"--dev\" type=\"boolean\">\n  Add dependency to \"devDependencies\"\n</ParamField>\n\n<ParamField path=\"--optional\" type=\"boolean\">\n  Add dependency to \"optionalDependencies\"\n</ParamField>\n\n<ParamField path=\"--peer\" type=\"boolean\">\n  Add dependency to \"peerDependencies\"\n</ParamField>\n\n<ParamField path=\"--exact\" type=\"boolean\">\n  Add the exact version instead of the ^range\n</ParamField>\n\n### Lockfile Control\n\n<ParamField path=\"--yarn\" type=\"boolean\">\n  Write a yarn.lock file (yarn v1)\n</ParamField>\n\n<ParamField path=\"--frozen-lockfile\" type=\"boolean\">\n  Disallow changes to lockfile\n</ParamField>\n\n<ParamField path=\"--save-text-lockfile\" type=\"boolean\">\n  Save a text-based lockfile\n</ParamField>\n\n<ParamField path=\"--lockfile-only\" type=\"boolean\">\n  Generate a lockfile without installing dependencies\n</ParamField>\n\n### Network & Registry Settings\n\n<ParamField path=\"--ca\" type=\"string\">\n  Provide a Certificate Authority signing certificate\n</ParamField>\n\n<ParamField path=\"--cafile\" type=\"string\">\n  File path to Certificate Authority signing certificate\n</ParamField>\n\n<ParamField path=\"--registry\" type=\"string\">\n  Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables\n</ParamField>\n\n### Installation Process Control\n\n<ParamField path=\"--dry-run\" type=\"boolean\">\n  Don't install anything\n</ParamField>\n\n<ParamField path=\"--force\" type=\"boolean\">\n  Always request the latest versions from the registry & reinstall all dependencies\n</ParamField>\n\n<ParamField path=\"--global\" type=\"boolean\">\n  Install globally\n</ParamField>\n\n<ParamField path=\"--backend\" type=\"string\" default=\"clonefile\">\n  Platform-specific optimizations: \"clonefile\", \"hardlink\", \"symlink\", \"copyfile\"\n</ParamField>\n\n<ParamField path=\"--filter\" type=\"string\">\n  Install packages for the matching workspaces\n</ParamField>\n\n<ParamField path=\"--analyze\" type=\"boolean\">\n  Analyze & install all dependencies of files passed as arguments recursively\n</ParamField>\n\n### Caching Options\n\n<ParamField path=\"--cache-dir\" type=\"string\">\n  Store & load cached data from a specific directory path\n</ParamField>\n\n<ParamField path=\"--no-cache\" type=\"boolean\">\n  Ignore manifest cache entirely\n</ParamField>\n\n### Output & Logging\n\n<ParamField path=\"--silent\" type=\"boolean\">\n  Don't log anything\n</ParamField>\n\n<ParamField path=\"--verbose\" type=\"boolean\">\n  Excessively verbose logging\n</ParamField>\n\n<ParamField path=\"--no-progress\" type=\"boolean\">\n  Disable the progress bar\n</ParamField>\n\n<ParamField path=\"--no-summary\" type=\"boolean\">\n  Don't print a summary\n</ParamField>\n\n### Security & Integrity\n\n<ParamField path=\"--no-verify\" type=\"boolean\">\n  Skip verifying integrity of newly downloaded packages\n</ParamField>\n\n<ParamField path=\"--trust\" type=\"boolean\">\n  Add to trustedDependencies in the project's package.json and install the package(s)\n</ParamField>\n\n### Concurrency & Performance\n\n<ParamField path=\"--concurrent-scripts\" type=\"number\" default=\"5\">\n  Maximum number of concurrent jobs for lifecycle scripts\n</ParamField>\n\n<ParamField path=\"--network-concurrency\" type=\"number\" default=\"48\">\n  Maximum number of concurrent network requests\n</ParamField>\n\n### Lifecycle Script Management\n\n<ParamField path=\"--ignore-scripts\" type=\"boolean\">\n  Skip lifecycle scripts in the project's package.json (dependency scripts are never run)\n</ParamField>\n\n### Help Information\n\n<ParamField path=\"--help\" type=\"boolean\">\n  Print this help menu\n</ParamField>\n",
       "sections": [
         {
           "title": "Basic Usage",
-          "anchor": "basic-usage"
+          "anchor": "basic-usage",
+          "url": "https://bun.com/docs/pm/cli/install.md#basic-usage"
         },
         {
           "title": "Logging",
-          "anchor": "logging"
+          "anchor": "logging",
+          "url": "https://bun.com/docs/pm/cli/install.md#logging"
         },
         {
           "title": "Lifecycle scripts",
-          "anchor": "lifecycle-scripts"
+          "anchor": "lifecycle-scripts",
+          "url": "https://bun.com/docs/pm/cli/install.md#lifecycle-scripts"
         },
         {
           "title": "Workspaces",
-          "anchor": "workspaces"
+          "anchor": "workspaces",
+          "url": "https://bun.com/docs/pm/cli/install.md#workspaces"
         },
         {
           "title": "Installing dependencies for specific packages",
-          "anchor": "installing-dependencies-for-specific-packages"
+          "anchor": "installing-dependencies-for-specific-packages",
+          "url": "https://bun.com/docs/pm/cli/install.md#installing-dependencies-for-specific-packages"
         },
         {
           "title": "Overrides and resolutions",
-          "anchor": "overrides-and-resolutions"
+          "anchor": "overrides-and-resolutions",
+          "url": "https://bun.com/docs/pm/cli/install.md#overrides-and-resolutions"
         },
         {
           "title": "Global packages",
-          "anchor": "global-packages"
+          "anchor": "global-packages",
+          "url": "https://bun.com/docs/pm/cli/install.md#global-packages"
         },
         {
           "title": "Production mode",
-          "anchor": "production-mode"
+          "anchor": "production-mode",
+          "url": "https://bun.com/docs/pm/cli/install.md#production-mode"
         },
         {
           "title": "Omitting dependencies",
-          "anchor": "omitting-dependencies"
+          "anchor": "omitting-dependencies",
+          "url": "https://bun.com/docs/pm/cli/install.md#omitting-dependencies"
         },
         {
           "title": "Dry run",
-          "anchor": "dry-run"
+          "anchor": "dry-run",
+          "url": "https://bun.com/docs/pm/cli/install.md#dry-run"
         },
         {
           "title": "Non-npm dependencies",
-          "anchor": "non-npm-dependencies"
+          "anchor": "non-npm-dependencies",
+          "url": "https://bun.com/docs/pm/cli/install.md#non-npm-dependencies"
         },
         {
           "title": "Installation strategies",
-          "anchor": "installation-strategies"
+          "anchor": "installation-strategies",
+          "url": "https://bun.com/docs/pm/cli/install.md#installation-strategies"
         },
         {
           "title": "Hoisted installs",
-          "anchor": "hoisted-installs"
+          "anchor": "hoisted-installs",
+          "url": "https://bun.com/docs/pm/cli/install.md#hoisted-installs"
         },
         {
           "title": "Isolated installs",
-          "anchor": "isolated-installs"
+          "anchor": "isolated-installs",
+          "url": "https://bun.com/docs/pm/cli/install.md#isolated-installs"
         },
         {
           "title": "Default strategy",
-          "anchor": "default-strategy"
+          "anchor": "default-strategy",
+          "url": "https://bun.com/docs/pm/cli/install.md#default-strategy"
         },
         {
           "title": "Minimum release age",
-          "anchor": "minimum-release-age"
+          "anchor": "minimum-release-age",
+          "url": "https://bun.com/docs/pm/cli/install.md#minimum-release-age"
         },
         {
           "title": "Configuration",
-          "anchor": "configuration"
+          "anchor": "configuration",
+          "url": "https://bun.com/docs/pm/cli/install.md#configuration"
         },
         {
           "title": "Configuring bun install with bunfig.toml",
-          "anchor": "configuring-bun-install-with-bunfigtoml"
+          "anchor": "configuring-bun-install-with-bunfigtoml",
+          "url": "https://bun.com/docs/pm/cli/install.md#configuring-bun-install-with-bunfigtoml"
         },
         {
           "title": "Configuring with environment variables",
-          "anchor": "configuring-with-environment-variables"
+          "anchor": "configuring-with-environment-variables",
+          "url": "https://bun.com/docs/pm/cli/install.md#configuring-with-environment-variables"
         },
         {
           "title": "CI/CD",
-          "anchor": "cicd"
+          "anchor": "cicd",
+          "url": "https://bun.com/docs/pm/cli/install.md#cicd"
         },
         {
           "title": "Platform-specific dependencies?",
-          "anchor": "platform-specific-dependencies"
+          "anchor": "platform-specific-dependencies",
+          "url": "https://bun.com/docs/pm/cli/install.md#platform-specific-dependencies"
         },
         {
           "title": "--cpu and --os flags",
-          "anchor": "cpu-and-os-flags"
+          "anchor": "cpu-and-os-flags",
+          "url": "https://bun.com/docs/pm/cli/install.md#cpu-and-os-flags"
         },
         {
           "title": "Peer dependencies?",
-          "anchor": "peer-dependencies"
+          "anchor": "peer-dependencies",
+          "url": "https://bun.com/docs/pm/cli/install.md#peer-dependencies"
         },
         {
           "title": "Lockfile",
-          "anchor": "lockfile"
+          "anchor": "lockfile",
+          "url": "https://bun.com/docs/pm/cli/install.md#lockfile"
         },
         {
           "title": "Cache",
-          "anchor": "cache"
+          "anchor": "cache",
+          "url": "https://bun.com/docs/pm/cli/install.md#cache"
         },
         {
           "title": "Platform-specific backends",
-          "anchor": "platform-specific-backends"
+          "anchor": "platform-specific-backends",
+          "url": "https://bun.com/docs/pm/cli/install.md#platform-specific-backends"
         },
         {
           "title": "npm registry metadata",
-          "anchor": "npm-registry-metadata"
+          "anchor": "npm-registry-metadata",
+          "url": "https://bun.com/docs/pm/cli/install.md#npm-registry-metadata"
         },
         {
           "title": "pnpm migration",
-          "anchor": "pnpm-migration"
+          "anchor": "pnpm-migration",
+          "url": "https://bun.com/docs/pm/cli/install.md#pnpm-migration"
         },
         {
           "title": "Lockfile Migration",
-          "anchor": "lockfile-migration"
+          "anchor": "lockfile-migration",
+          "url": "https://bun.com/docs/pm/cli/install.md#lockfile-migration"
         },
         {
           "title": "Workspace Configuration",
-          "anchor": "workspace-configuration"
+          "anchor": "workspace-configuration",
+          "url": "https://bun.com/docs/pm/cli/install.md#workspace-configuration"
         },
         {
           "title": "Catalog Dependencies",
-          "anchor": "catalog-dependencies"
+          "anchor": "catalog-dependencies",
+          "url": "https://bun.com/docs/pm/cli/install.md#catalog-dependencies"
         },
         {
           "title": "Configuration Migration",
-          "anchor": "configuration-migration"
+          "anchor": "configuration-migration",
+          "url": "https://bun.com/docs/pm/cli/install.md#configuration-migration"
         },
         {
           "title": "Requirements",
-          "anchor": "requirements"
+          "anchor": "requirements",
+          "url": "https://bun.com/docs/pm/cli/install.md#requirements"
         },
         {
           "title": "CLI Usage",
-          "anchor": "cli-usage"
+          "anchor": "cli-usage",
+          "url": "https://bun.com/docs/pm/cli/install.md#cli-usage"
         },
         {
           "title": "General Configuration",
-          "anchor": "general-configuration"
+          "anchor": "general-configuration",
+          "url": "https://bun.com/docs/pm/cli/install.md#general-configuration"
         },
         {
           "title": "Dependency Scope & Management",
-          "anchor": "dependency-scope-management"
+          "anchor": "dependency-scope-management",
+          "url": "https://bun.com/docs/pm/cli/install.md#dependency-scope-management"
         },
         {
           "title": "Dependency Type & Versioning",
-          "anchor": "dependency-type-versioning"
+          "anchor": "dependency-type-versioning",
+          "url": "https://bun.com/docs/pm/cli/install.md#dependency-type-versioning"
         },
         {
           "title": "Lockfile Control",
-          "anchor": "lockfile-control"
+          "anchor": "lockfile-control",
+          "url": "https://bun.com/docs/pm/cli/install.md#lockfile-control"
         },
         {
           "title": "Network & Registry Settings",
-          "anchor": "network-registry-settings"
+          "anchor": "network-registry-settings",
+          "url": "https://bun.com/docs/pm/cli/install.md#network-registry-settings"
         },
         {
           "title": "Installation Process Control",
-          "anchor": "installation-process-control"
+          "anchor": "installation-process-control",
+          "url": "https://bun.com/docs/pm/cli/install.md#installation-process-control"
         },
         {
           "title": "Caching Options",
-          "anchor": "caching-options"
+          "anchor": "caching-options",
+          "url": "https://bun.com/docs/pm/cli/install.md#caching-options"
         },
         {
           "title": "Output & Logging",
-          "anchor": "output-logging"
+          "anchor": "output-logging",
+          "url": "https://bun.com/docs/pm/cli/install.md#output-logging"
         },
         {
           "title": "Security & Integrity",
-          "anchor": "security-integrity"
+          "anchor": "security-integrity",
+          "url": "https://bun.com/docs/pm/cli/install.md#security-integrity"
         },
         {
           "title": "Concurrency & Performance",
-          "anchor": "concurrency-performance"
+          "anchor": "concurrency-performance",
+          "url": "https://bun.com/docs/pm/cli/install.md#concurrency-performance"
         },
         {
           "title": "Lifecycle Script Management",
-          "anchor": "lifecycle-script-management"
+          "anchor": "lifecycle-script-management",
+          "url": "https://bun.com/docs/pm/cli/install.md#lifecycle-script-management"
         },
         {
           "title": "Help Information",
-          "anchor": "help-information"
+          "anchor": "help-information",
+          "url": "https://bun.com/docs/pm/cli/install.md#help-information"
         }
       ]
     },
@@ -4131,79 +4178,98 @@
       "dynamicCompletions": {
         "packages": true
       },
+      "docUrl": "https://bun.com/docs/pm/cli/add.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun add\n\n> Add packages to your project with Bun's fast package manager\n\nTo add a particular package:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add preact\n```\n\nTo specify a version, version range, or tag:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add zod@3.20.0\nbun add zod@^3.0.0\nbun add zod@latest\n```\n\n## `--dev`\n\n<Note>**Alias** — `--development`, `-d`, `-D`</Note>\n\nTo add a package as a dev dependency (`\"devDependencies\"`):\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add --dev @types/react\nbun add -d @types/react\n```\n\n## `--optional`\n\nTo add a package as an optional dependency (`\"optionalDependencies\"`):\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add --optional lodash\n```\n\n## `--peer`\n\nTo add a package as a peer dependency (`\"peerDependencies\"`):\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add --peer @types/bun\n```\n\n## `--exact`\n\n<Note>**Alias** — `-E`</Note>\n\nTo add a package and pin to the resolved version, use `--exact`. This will resolve the version of the package and add it to your `package.json` with an exact version number instead of a version range.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add react --exact\nbun add react -E\n```\n\nThis will add the following to your `package.json`:\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"dependencies\": {\n    // without --exact\n    \"react\": \"^18.2.0\", // this matches >= 18.2.0 < 19.0.0\n\n    // with --exact\n    \"react\": \"18.2.0\" // this matches only 18.2.0 exactly\n  }\n}\n```\n\nTo view a complete list of options for this command:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add --help\n```\n\n## `--global`\n\n<Note>\n  **Note** — This would not modify package.json of your current project folder. **Alias** - `bun add --global`, `bun add\n      -g`, `bun install --global` and `bun install -g`\n</Note>\n\nTo install a package globally, use the `-g`/`--global` flag. This will not modify the `package.json` of your current project. Typically this is used for installing command-line tools.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add --global cowsay # or `bun add -g cowsay`\ncowsay \"Bun!\"\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n ______\n< Bun! >\n ------\n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n                ||----w |\n                ||     ||\n```\n\n<Accordion title=\"Configuring global installation behavior\">\n  ```toml bunfig.toml icon=\"settings\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  [install]\n  # where `bun add --global` installs packages\n  globalDir = \"~/.bun/install/global\"\n\n  # where globally-installed package bins are linked\n  globalBinDir = \"~/.bun/bin\"\n  ```\n</Accordion>\n\n## Trusted dependencies\n\nUnlike other npm clients, Bun does not execute arbitrary lifecycle scripts for installed dependencies, such as `postinstall`. These scripts represent a potential security risk, as they can execute arbitrary code on your machine.\n\nTo tell Bun to allow lifecycle scripts for a particular package, add the package to `trustedDependencies` in your package.json.\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"name\": \"my-app\",\n  \"version\": \"1.0.0\",\n  \"trustedDependencies\": [\"my-trusted-package\"] // [!code ++]\n}\n```\n\nBun reads this field and will run lifecycle scripts for `my-trusted-package`.\n\n## Git dependencies\n\nTo add a dependency from a public or private git repository:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add git@github.com:moment/moment.git\n```\n\n<Note>\n  To install private repositories, your system needs the appropriate SSH credentials to access the repository.\n</Note>\n\nBun supports a variety of protocols, including [`github`](https://docs.npmjs.com/cli/v9/configuring-npm/package-json#github-urls), [`git`](https://docs.npmjs.com/cli/v9/configuring-npm/package-json#git-urls-as-dependencies), `git+ssh`, `git+https`, and many more.\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"dependencies\": {\n    \"dayjs\": \"git+https://github.com/iamkun/dayjs.git\",\n    \"lodash\": \"git+ssh://github.com/lodash/lodash.git#4.17.21\",\n    \"moment\": \"git@github.com:moment/moment.git\",\n    \"zod\": \"github:colinhacks/zod\"\n  }\n}\n```\n\n## Tarball dependencies\n\nA package name can correspond to a publicly hosted `.tgz` file. During installation, Bun will download and install the package from the specified tarball URL, rather than from the package registry.\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add zod@https://registry.npmjs.org/zod/-/zod-3.21.4.tgz\n```\n\nThis will add the following line to your `package.json`:\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"dependencies\": {\n    \"zod\": \"https://registry.npmjs.org/zod/-/zod-3.21.4.tgz\"\n  }\n}\n```\n\n***\n\n## CLI Usage\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun add <package> <@version>\n```\n\n### Dependency Management\n\n<ParamField path=\"--production\" type=\"boolean\">\n  Don't install devDependencies. Alias: <code>-p</code>\n</ParamField>\n\n<ParamField path=\"--omit\" type=\"string\">\n  Exclude <code>dev</code>, <code>optional</code>, or <code>peer</code> dependencies from install\n</ParamField>\n\n<ParamField path=\"--global\" type=\"boolean\">\n  Install globally. Alias: <code>-g</code>\n</ParamField>\n\n<ParamField path=\"--dev\" type=\"boolean\">\n  Add dependency to <code>devDependencies</code>. Alias: <code>-d</code>\n</ParamField>\n\n<ParamField path=\"--optional\" type=\"boolean\">\n  Add dependency to <code>optionalDependencies</code>\n</ParamField>\n\n<ParamField path=\"--peer\" type=\"boolean\">\n  Add dependency to <code>peerDependencies</code>\n</ParamField>\n\n<ParamField path=\"--exact\" type=\"boolean\">\n  Add the exact version instead of the <code>^</code> range. Alias: <code>-E</code>\n</ParamField>\n\n<ParamField path=\"--only-missing\" type=\"boolean\">\n  Only add dependencies to <code>package.json</code> if they are not already present\n</ParamField>\n\n### Project Files & Lockfiles\n\n<ParamField path=\"--yarn\" type=\"boolean\">\n  Write a <code>yarn.lock</code> file (yarn v1). Alias: <code>-y</code>\n</ParamField>\n\n<ParamField path=\"--no-save\" type=\"boolean\">\n  Don't update <code>package.json</code> or save a lockfile\n</ParamField>\n\n<ParamField path=\"--save\" type=\"boolean\" default=\"true\">\n  Save to <code>package.json</code> (true by default)\n</ParamField>\n\n<ParamField path=\"--frozen-lockfile\" type=\"boolean\">\n  Disallow changes to lockfile\n</ParamField>\n\n<ParamField path=\"--trust\" type=\"boolean\">\n  Add to <code>trustedDependencies</code> in the project's <code>package.json</code> and install the package(s)\n</ParamField>\n\n<ParamField path=\"--save-text-lockfile\" type=\"boolean\">\n  Save a text-based lockfile\n</ParamField>\n\n<ParamField path=\"--lockfile-only\" type=\"boolean\">\n  Generate a lockfile without installing dependencies\n</ParamField>\n\n### Installation Control\n\n<ParamField path=\"--dry-run\" type=\"boolean\">\n  Don't install anything\n</ParamField>\n\n<ParamField path=\"--force\" type=\"boolean\">\n  Always request the latest versions from the registry & reinstall all dependencies. Alias: <code>-f</code>\n</ParamField>\n\n<ParamField path=\"--no-verify\" type=\"boolean\">\n  Skip verifying integrity of newly downloaded packages\n</ParamField>\n\n<ParamField path=\"--ignore-scripts\" type=\"boolean\">\n  Skip lifecycle scripts in the project's <code>package.json</code> (dependency scripts are never run)\n</ParamField>\n\n<ParamField path=\"--analyze\" type=\"boolean\">\n  Recursively analyze & install dependencies of files passed as arguments (using Bun's bundler). Alias:{\" \"}\n  <code>-a</code>\n</ParamField>\n\n### Network & Registry\n\n<ParamField path=\"--ca\" type=\"string\">\n  Provide a Certificate Authority signing certificate\n</ParamField>\n\n<ParamField path=\"--cafile\" type=\"string\">\n  Same as <code>--ca</code>, but as a file path to the certificate\n</ParamField>\n\n<ParamField path=\"--registry\" type=\"string\">\n  Use a specific registry by default, overriding <code>.npmrc</code>, <code>bunfig.toml</code>, and environment\n  variables\n</ParamField>\n\n<ParamField path=\"--network-concurrency\" type=\"number\" default=\"48\">\n  Maximum number of concurrent network requests (default 48)\n</ParamField>\n\n### Performance & Resource\n\n<ParamField path=\"--backend\" type=\"string\" default=\"clonefile\">\n  Platform-specific optimizations for installing dependencies. Possible values: <code>clonefile</code> (default),{\" \"}\n  <code>hardlink</code>, <code>symlink</code>, <code>copyfile</code>\n</ParamField>\n\n<ParamField path=\"--concurrent-scripts\" type=\"number\" default=\"5\">\n  Maximum number of concurrent jobs for lifecycle scripts (default 5)\n</ParamField>\n\n### Caching\n\n<ParamField path=\"--cache-dir\" type=\"string\">\n  Store & load cached data from a specific directory path\n</ParamField>\n\n<ParamField path=\"--no-cache\" type=\"boolean\">\n  Ignore manifest cache entirely\n</ParamField>\n\n### Output & Logging\n\n<ParamField path=\"--silent\" type=\"boolean\">\n  Don't log anything\n</ParamField>\n\n<ParamField path=\"--verbose\" type=\"boolean\">\n  Excessively verbose logging\n</ParamField>\n\n<ParamField path=\"--no-progress\" type=\"boolean\">\n  Disable the progress bar\n</ParamField>\n\n<ParamField path=\"--no-summary\" type=\"boolean\">\n  Don't print a summary\n</ParamField>\n\n### Global Configuration & Context\n\n<ParamField path=\"--config\" type=\"string\">\n  Specify path to config file (<code>bunfig.toml</code>). Alias: <code>-c</code>\n</ParamField>\n\n<ParamField path=\"--cwd\" type=\"string\">\n  Set a specific current working directory\n</ParamField>\n\n### Help\n\n<ParamField path=\"--help\" type=\"boolean\">\n  Print this help menu. Alias: <code>-h</code>\n</ParamField>\n",
       "sections": [
         {
           "title": "--dev",
-          "anchor": "dev"
+          "anchor": "dev",
+          "url": "https://bun.com/docs/pm/cli/add.md#dev"
         },
         {
           "title": "--optional",
-          "anchor": "optional"
+          "anchor": "optional",
+          "url": "https://bun.com/docs/pm/cli/add.md#optional"
         },
         {
           "title": "--peer",
-          "anchor": "peer"
+          "anchor": "peer",
+          "url": "https://bun.com/docs/pm/cli/add.md#peer"
         },
         {
           "title": "--exact",
-          "anchor": "exact"
+          "anchor": "exact",
+          "url": "https://bun.com/docs/pm/cli/add.md#exact"
         },
         {
           "title": "--global",
-          "anchor": "global"
+          "anchor": "global",
+          "url": "https://bun.com/docs/pm/cli/add.md#global"
         },
         {
           "title": "Trusted dependencies",
-          "anchor": "trusted-dependencies"
+          "anchor": "trusted-dependencies",
+          "url": "https://bun.com/docs/pm/cli/add.md#trusted-dependencies"
         },
         {
           "title": "Git dependencies",
-          "anchor": "git-dependencies"
+          "anchor": "git-dependencies",
+          "url": "https://bun.com/docs/pm/cli/add.md#git-dependencies"
         },
         {
           "title": "Tarball dependencies",
-          "anchor": "tarball-dependencies"
+          "anchor": "tarball-dependencies",
+          "url": "https://bun.com/docs/pm/cli/add.md#tarball-dependencies"
         },
         {
           "title": "CLI Usage",
-          "anchor": "cli-usage"
+          "anchor": "cli-usage",
+          "url": "https://bun.com/docs/pm/cli/add.md#cli-usage"
         },
         {
           "title": "Dependency Management",
-          "anchor": "dependency-management"
+          "anchor": "dependency-management",
+          "url": "https://bun.com/docs/pm/cli/add.md#dependency-management"
         },
         {
           "title": "Project Files & Lockfiles",
-          "anchor": "project-files-lockfiles"
+          "anchor": "project-files-lockfiles",
+          "url": "https://bun.com/docs/pm/cli/add.md#project-files-lockfiles"
         },
         {
           "title": "Installation Control",
-          "anchor": "installation-control"
+          "anchor": "installation-control",
+          "url": "https://bun.com/docs/pm/cli/add.md#installation-control"
         },
         {
           "title": "Network & Registry",
-          "anchor": "network-registry"
+          "anchor": "network-registry",
+          "url": "https://bun.com/docs/pm/cli/add.md#network-registry"
         },
         {
           "title": "Performance & Resource",
-          "anchor": "performance-resource"
+          "anchor": "performance-resource",
+          "url": "https://bun.com/docs/pm/cli/add.md#performance-resource"
         },
         {
           "title": "Caching",
-          "anchor": "caching"
+          "anchor": "caching",
+          "url": "https://bun.com/docs/pm/cli/add.md#caching"
         },
         {
           "title": "Output & Logging",
-          "anchor": "output-logging"
+          "anchor": "output-logging",
+          "url": "https://bun.com/docs/pm/cli/add.md#output-logging"
         },
         {
           "title": "Global Configuration & Context",
-          "anchor": "global-configuration-context"
+          "anchor": "global-configuration-context",
+          "url": "https://bun.com/docs/pm/cli/add.md#global-configuration-context"
         },
         {
           "title": "Help",
-          "anchor": "help"
+          "anchor": "help",
+          "url": "https://bun.com/docs/pm/cli/add.md#help"
         }
       ]
     },
@@ -4486,63 +4552,78 @@
       "dynamicCompletions": {
         "packages": true
       },
+      "docUrl": "https://bun.com/docs/pm/cli/remove.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun remove\n\n> Remove dependencies from your project\n\n## Basic Usage\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun remove ts-node\n```\n\n***\n\n## CLI Usage\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun remove <package>\n```\n\n### General Information\n\n<ParamField path=\"--help\" type=\"boolean\">\n  Print this help menu. Alias: <code>-h</code>\n</ParamField>\n\n### Configuration\n\n<ParamField path=\"--config\" type=\"string\">\n  Specify path to config file (<code>bunfig.toml</code>). Alias: <code>-c</code>\n</ParamField>\n\n### Package.json Interaction\n\n<ParamField path=\"--no-save\" type=\"boolean\">\n  Don't update <code>package.json</code> or save a lockfile\n</ParamField>\n\n<ParamField path=\"--save\" type=\"boolean\" default=\"true\">\n  Save to <code>package.json</code> (true by default)\n</ParamField>\n\n<ParamField path=\"--trust\" type=\"boolean\">\n  Add to <code>trustedDependencies</code> in the project's <code>package.json</code> and install the package(s)\n</ParamField>\n\n### Lockfile Behavior\n\n<ParamField path=\"--yarn\" type=\"boolean\">\n  Write a <code>yarn.lock</code> file (yarn v1). Alias: <code>-y</code>\n</ParamField>\n\n<ParamField path=\"--frozen-lockfile\" type=\"boolean\">\n  Disallow changes to lockfile\n</ParamField>\n\n<ParamField path=\"--save-text-lockfile\" type=\"boolean\">\n  Save a text-based lockfile\n</ParamField>\n\n<ParamField path=\"--lockfile-only\" type=\"boolean\">\n  Generate a lockfile without installing dependencies\n</ParamField>\n\n### Dependency Filtering\n\n<ParamField path=\"--production\" type=\"boolean\">\n  Don't install devDependencies. Alias: <code>-p</code>\n</ParamField>\n\n<ParamField path=\"--omit\" type=\"string\">\n  Exclude <code>dev</code>, <code>optional</code>, or <code>peer</code> dependencies from install\n</ParamField>\n\n### Network & Registry\n\n<ParamField path=\"--ca\" type=\"string\">\n  Provide a Certificate Authority signing certificate\n</ParamField>\n\n<ParamField path=\"--cafile\" type=\"string\">\n  Same as <code>--ca</code>, but as a file path to the certificate\n</ParamField>\n\n<ParamField path=\"--registry\" type=\"string\">\n  Use a specific registry by default, overriding <code>.npmrc</code>, <code>bunfig.toml</code> and environment variables\n</ParamField>\n\n### Execution Control & Validation\n\n<ParamField path=\"--dry-run\" type=\"boolean\">\n  Don't install anything\n</ParamField>\n\n<ParamField path=\"--force\" type=\"boolean\">\n  Always request the latest versions from the registry & reinstall all dependencies. Alias: <code>-f</code>\n</ParamField>\n\n<ParamField path=\"--no-verify\" type=\"boolean\">\n  Skip verifying integrity of newly downloaded packages\n</ParamField>\n\n### Output & Logging\n\n<ParamField path=\"--silent\" type=\"boolean\">\n  Don't log anything\n</ParamField>\n\n<ParamField path=\"--verbose\" type=\"boolean\">\n  Excessively verbose logging\n</ParamField>\n\n<ParamField path=\"--no-progress\" type=\"boolean\">\n  Disable the progress bar\n</ParamField>\n\n<ParamField path=\"--no-summary\" type=\"boolean\">\n  Don't print a summary\n</ParamField>\n\n### Caching\n\n<ParamField path=\"--cache-dir\" type=\"string\">\n  Store & load cached data from a specific directory path\n</ParamField>\n\n<ParamField path=\"--no-cache\" type=\"boolean\">\n  Ignore manifest cache entirely\n</ParamField>\n\n### Script Execution\n\n<ParamField path=\"--ignore-scripts\" type=\"boolean\">\n  Skip lifecycle scripts in the project's <code>package.json</code> (dependency scripts are never run)\n</ParamField>\n\n<ParamField path=\"--concurrent-scripts\" type=\"number\" default=\"5\">\n  Maximum number of concurrent jobs for lifecycle scripts (default 5)\n</ParamField>\n\n### Scope & Path\n\n<ParamField path=\"--global\" type=\"boolean\">\n  Install globally. Alias: <code>-g</code>\n</ParamField>\n\n<ParamField path=\"--cwd\" type=\"string\">\n  Set a specific cwd\n</ParamField>\n\n### Advanced & Performance\n\n<ParamField path=\"--backend\" type=\"string\" default=\"clonefile\">\n  Platform-specific optimizations for installing dependencies. Possible values: <code>clonefile</code> (default),{\" \"}\n  <code>hardlink</code>, <code>symlink</code>, <code>copyfile</code>\n</ParamField>\n\n<ParamField path=\"--network-concurrency\" type=\"number\" default=\"48\">\n  Maximum number of concurrent network requests (default 48)\n</ParamField>\n",
       "sections": [
         {
           "title": "Basic Usage",
-          "anchor": "basic-usage"
+          "anchor": "basic-usage",
+          "url": "https://bun.com/docs/pm/cli/remove.md#basic-usage"
         },
         {
           "title": "CLI Usage",
-          "anchor": "cli-usage"
+          "anchor": "cli-usage",
+          "url": "https://bun.com/docs/pm/cli/remove.md#cli-usage"
         },
         {
           "title": "General Information",
-          "anchor": "general-information"
+          "anchor": "general-information",
+          "url": "https://bun.com/docs/pm/cli/remove.md#general-information"
         },
         {
           "title": "Configuration",
-          "anchor": "configuration"
+          "anchor": "configuration",
+          "url": "https://bun.com/docs/pm/cli/remove.md#configuration"
         },
         {
           "title": "Package.json Interaction",
-          "anchor": "packagejson-interaction"
+          "anchor": "packagejson-interaction",
+          "url": "https://bun.com/docs/pm/cli/remove.md#packagejson-interaction"
         },
         {
           "title": "Lockfile Behavior",
-          "anchor": "lockfile-behavior"
+          "anchor": "lockfile-behavior",
+          "url": "https://bun.com/docs/pm/cli/remove.md#lockfile-behavior"
         },
         {
           "title": "Dependency Filtering",
-          "anchor": "dependency-filtering"
+          "anchor": "dependency-filtering",
+          "url": "https://bun.com/docs/pm/cli/remove.md#dependency-filtering"
         },
         {
           "title": "Network & Registry",
-          "anchor": "network-registry"
+          "anchor": "network-registry",
+          "url": "https://bun.com/docs/pm/cli/remove.md#network-registry"
         },
         {
           "title": "Execution Control & Validation",
-          "anchor": "execution-control-validation"
+          "anchor": "execution-control-validation",
+          "url": "https://bun.com/docs/pm/cli/remove.md#execution-control-validation"
         },
         {
           "title": "Output & Logging",
-          "anchor": "output-logging"
+          "anchor": "output-logging",
+          "url": "https://bun.com/docs/pm/cli/remove.md#output-logging"
         },
         {
           "title": "Caching",
-          "anchor": "caching"
+          "anchor": "caching",
+          "url": "https://bun.com/docs/pm/cli/remove.md#caching"
         },
         {
           "title": "Script Execution",
-          "anchor": "script-execution"
+          "anchor": "script-execution",
+          "url": "https://bun.com/docs/pm/cli/remove.md#script-execution"
         },
         {
           "title": "Scope & Path",
-          "anchor": "scope-path"
+          "anchor": "scope-path",
+          "url": "https://bun.com/docs/pm/cli/remove.md#scope-path"
         },
         {
           "title": "Advanced & Performance",
-          "anchor": "advanced-performance"
+          "anchor": "advanced-performance",
+          "url": "https://bun.com/docs/pm/cli/remove.md#advanced-performance"
         }
       ]
     },
@@ -4853,75 +4934,93 @@
       "usage": "Usage: bun update [flags] @",
       "documentationUrl": "https://bun.com/docs/cli/update",
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/pm/cli/update.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun update\n\n> Update dependencies to latest versions\n\n<Note>To upgrade your Bun CLI version, see [`bun upgrade`](/installation#upgrading).</Note>\n\nTo update all dependencies to the latest version:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun update\n```\n\nTo update a specific dependency to the latest version:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun update [package]\n```\n\n## `--interactive`\n\nFor a more controlled update experience, use the `--interactive` flag to select which packages to update:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun update --interactive\nbun update -i\n```\n\nThis launches an interactive terminal interface that shows all outdated packages with their current and target versions. You can then select which packages to update.\n\n### Interactive Interface\n\nThe interface displays packages grouped by dependency type:\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n? Select packages to update - Space to toggle, Enter to confirm, a to select all, n to select none, i to invert, l to toggle latest\n\n  dependencies                Current  Target   Latest\n    □ react                   17.0.2   18.2.0   18.3.1\n    □ lodash                  4.17.20  4.17.21  4.17.21\n\n  devDependencies             Current  Target   Latest\n    □ typescript              4.8.0    5.0.0    5.3.3\n    □ @types/node             16.11.7  18.0.0   20.11.5\n\n  optionalDependencies        Current  Target   Latest\n    □ some-optional-package   1.0.0    1.1.0    1.2.0\n```\n\n**Sections:**\n\n* Packages are grouped under section headers: `dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`\n* Each section shows column headers aligned with the package data\n\n**Columns:**\n\n* **Package**: Package name (may have suffix like ` dev`, ` peer`, ` optional` for clarity)\n* **Current**: Currently installed version\n* **Target**: Version that would be installed (respects semver constraints)\n* **Latest**: Latest available version\n\n### Keyboard Controls\n\n**Selection:**\n\n* **Space**: Toggle package selection\n* **Enter**: Confirm selections and update\n* **a/A**: Select all packages\n* **n/N**: Select none\n* **i/I**: Invert selection\n\n**Navigation:**\n\n* **↑/↓ Arrow keys** or **j/k**: Move cursor\n* **l/L**: Toggle between target and latest version for current package\n\n**Exit:**\n\n* **Ctrl+C** or **Ctrl+D**: Cancel without updating\n\n### Visual Indicators\n\n* **☑** Selected packages (will be updated)\n* **□** Unselected packages\n* **>** Current cursor position\n* **Colors**: Red (major), yellow (minor), green (patch) version changes\n* **Underlined**: Currently selected update target\n\n### Package Grouping\n\nPackages are organized in sections by dependency type:\n\n* **dependencies** - Regular runtime dependencies\n* **devDependencies** - Development dependencies\n* **peerDependencies** - Peer dependencies\n* **optionalDependencies** - Optional dependencies\n\nWithin each section, individual packages may have additional suffixes (` dev`, ` peer`, ` optional`) for extra clarity.\n\n## `--recursive`\n\nUse the `--recursive` flag with `--interactive` to update dependencies across all workspaces in a monorepo:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun update --interactive --recursive\nbun update -i -r\n```\n\nThis displays an additional \"Workspace\" column showing which workspace each dependency belongs to.\n\n## `--latest`\n\nBy default, `bun update` will update to the latest version of a dependency that satisfies the version range specified in your `package.json`.\n\nTo update to the latest version, regardless of if it's compatible with the current version range, use the `--latest` flag:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun update --latest\n```\n\nIn interactive mode, you can toggle individual packages between their target version (respecting semver) and latest version using the **l** key.\n\nFor example, with the following `package.json`:\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"dependencies\": {\n    \"react\": \"^17.0.2\"\n  }\n}\n```\n\n* `bun update` would update to a version that matches `17.x`.\n* `bun update --latest` would update to a version that matches `18.x` or later.\n\n***\n\n## CLI Usage\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun update <package> <version>\n```\n\n### Update Strategy\n\n<ParamField path=\"--force\" type=\"boolean\">\n  Always request the latest versions from the registry & reinstall all dependencies. Alias: <code>-f</code>\n</ParamField>\n\n<ParamField path=\"--latest\" type=\"boolean\">\n  Update packages to their latest versions\n</ParamField>\n\n### Dependency Scope\n\n<ParamField path=\"--production\" type=\"boolean\">\n  Don't install devDependencies. Alias: <code>-p</code>\n</ParamField>\n\n<ParamField path=\"--global\" type=\"boolean\">\n  Install globally. Alias: <code>-g</code>\n</ParamField>\n\n<ParamField path=\"--omit\" type=\"string\">\n  Exclude <code>dev</code>, <code>optional</code>, or <code>peer</code> dependencies from install\n</ParamField>\n\n### Project File Management\n\n<ParamField path=\"--yarn\" type=\"boolean\">\n  Write a <code>yarn.lock</code> file (yarn v1). Alias: <code>-y</code>\n</ParamField>\n\n<ParamField path=\"--no-save\" type=\"boolean\">\n  Don't update <code>package.json</code> or save a lockfile\n</ParamField>\n\n<ParamField path=\"--save\" type=\"boolean\" default=\"true\">\n  Save to <code>package.json</code> (true by default)\n</ParamField>\n\n<ParamField path=\"--frozen-lockfile\" type=\"boolean\">\n  Disallow changes to lockfile\n</ParamField>\n\n<ParamField path=\"--save-text-lockfile\" type=\"boolean\">\n  Save a text-based lockfile\n</ParamField>\n\n<ParamField path=\"--lockfile-only\" type=\"boolean\">\n  Generate a lockfile without installing dependencies\n</ParamField>\n\n### Network & Registry\n\n<ParamField path=\"--ca\" type=\"string\">\n  Provide a Certificate Authority signing certificate\n</ParamField>\n\n<ParamField path=\"--cafile\" type=\"string\">\n  Same as <code>--ca</code>, but as a file path to the certificate\n</ParamField>\n\n<ParamField path=\"--registry\" type=\"string\">\n  Use a specific registry by default, overriding <code>.npmrc</code>, <code>bunfig.toml</code> and environment variables\n</ParamField>\n\n<ParamField path=\"--network-concurrency\" type=\"number\" default=\"48\">\n  Maximum number of concurrent network requests (default 48)\n</ParamField>\n\n### Caching\n\n<ParamField path=\"--cache-dir\" type=\"string\">\n  Store & load cached data from a specific directory path\n</ParamField>\n\n<ParamField path=\"--no-cache\" type=\"boolean\">\n  Ignore manifest cache entirely\n</ParamField>\n\n### Output & Logging\n\n<ParamField path=\"--silent\" type=\"boolean\">\n  Don't log anything\n</ParamField>\n\n<ParamField path=\"--verbose\" type=\"boolean\">\n  Excessively verbose logging\n</ParamField>\n\n<ParamField path=\"--no-progress\" type=\"boolean\">\n  Disable the progress bar\n</ParamField>\n\n<ParamField path=\"--no-summary\" type=\"boolean\">\n  Don't print a summary\n</ParamField>\n\n### Script Execution\n\n<ParamField path=\"--ignore-scripts\" type=\"boolean\">\n  Skip lifecycle scripts in the project's <code>package.json</code> (dependency scripts are never run)\n</ParamField>\n\n<ParamField path=\"--concurrent-scripts\" type=\"number\" default=\"5\">\n  Maximum number of concurrent jobs for lifecycle scripts (default 5)\n</ParamField>\n\n### Installation Controls\n\n<ParamField path=\"--no-verify\" type=\"boolean\">\n  Skip verifying integrity of newly downloaded packages\n</ParamField>\n\n<ParamField path=\"--trust\" type=\"boolean\">\n  Add to <code>trustedDependencies</code> in the project's <code>package.json</code> and install the package(s)\n</ParamField>\n\n<ParamField path=\"--backend\" type=\"string\" default=\"clonefile\">\n  Platform-specific optimizations for installing dependencies. Possible values: <code>clonefile</code> (default),{\" \"}\n  <code>hardlink</code>, <code>symlink</code>, <code>copyfile</code>\n</ParamField>\n\n### General & Environment\n\n<ParamField path=\"--config\" type=\"string\">\n  Specify path to config file (<code>bunfig.toml</code>). Alias: <code>-c</code>\n</ParamField>\n\n<ParamField path=\"--dry-run\" type=\"boolean\">\n  Don't install anything\n</ParamField>\n\n<ParamField path=\"--cwd\" type=\"string\">\n  Set a specific cwd\n</ParamField>\n\n<ParamField path=\"--help\" type=\"boolean\">\n  Print this help menu. Alias: <code>-h</code>\n</ParamField>\n",
       "sections": [
         {
           "title": "--interactive",
-          "anchor": "interactive"
+          "anchor": "interactive",
+          "url": "https://bun.com/docs/pm/cli/update.md#interactive"
         },
         {
           "title": "Interactive Interface",
-          "anchor": "interactive-interface"
+          "anchor": "interactive-interface",
+          "url": "https://bun.com/docs/pm/cli/update.md#interactive-interface"
         },
         {
           "title": "Keyboard Controls",
-          "anchor": "keyboard-controls"
+          "anchor": "keyboard-controls",
+          "url": "https://bun.com/docs/pm/cli/update.md#keyboard-controls"
         },
         {
           "title": "Visual Indicators",
-          "anchor": "visual-indicators"
+          "anchor": "visual-indicators",
+          "url": "https://bun.com/docs/pm/cli/update.md#visual-indicators"
         },
         {
           "title": "Package Grouping",
-          "anchor": "package-grouping"
+          "anchor": "package-grouping",
+          "url": "https://bun.com/docs/pm/cli/update.md#package-grouping"
         },
         {
           "title": "--recursive",
-          "anchor": "recursive"
+          "anchor": "recursive",
+          "url": "https://bun.com/docs/pm/cli/update.md#recursive"
         },
         {
           "title": "--latest",
-          "anchor": "latest"
+          "anchor": "latest",
+          "url": "https://bun.com/docs/pm/cli/update.md#latest"
         },
         {
           "title": "CLI Usage",
-          "anchor": "cli-usage"
+          "anchor": "cli-usage",
+          "url": "https://bun.com/docs/pm/cli/update.md#cli-usage"
         },
         {
           "title": "Update Strategy",
-          "anchor": "update-strategy"
+          "anchor": "update-strategy",
+          "url": "https://bun.com/docs/pm/cli/update.md#update-strategy"
         },
         {
           "title": "Dependency Scope",
-          "anchor": "dependency-scope"
+          "anchor": "dependency-scope",
+          "url": "https://bun.com/docs/pm/cli/update.md#dependency-scope"
         },
         {
           "title": "Project File Management",
-          "anchor": "project-file-management"
+          "anchor": "project-file-management",
+          "url": "https://bun.com/docs/pm/cli/update.md#project-file-management"
         },
         {
           "title": "Network & Registry",
-          "anchor": "network-registry"
+          "anchor": "network-registry",
+          "url": "https://bun.com/docs/pm/cli/update.md#network-registry"
         },
         {
           "title": "Caching",
-          "anchor": "caching"
+          "anchor": "caching",
+          "url": "https://bun.com/docs/pm/cli/update.md#caching"
         },
         {
           "title": "Output & Logging",
-          "anchor": "output-logging"
+          "anchor": "output-logging",
+          "url": "https://bun.com/docs/pm/cli/update.md#output-logging"
         },
         {
           "title": "Script Execution",
-          "anchor": "script-execution"
+          "anchor": "script-execution",
+          "url": "https://bun.com/docs/pm/cli/update.md#script-execution"
         },
         {
           "title": "Installation Controls",
-          "anchor": "installation-controls"
+          "anchor": "installation-controls",
+          "url": "https://bun.com/docs/pm/cli/update.md#installation-controls"
         },
         {
           "title": "General & Environment",
-          "anchor": "general-environment"
+          "anchor": "general-environment",
+          "url": "https://bun.com/docs/pm/cli/update.md#general-environment"
         }
       ]
     },
@@ -4965,19 +5064,23 @@
       "usage": "Usage: bun audit [flags]",
       "documentationUrl": "https://bun.com/docs/install/audit",
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/pm/cli/audit.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun audit\n\n> Check your installed packages for known security vulnerabilities\n\nRun the command in a project with a `bun.lock` file:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun audit\n```\n\nBun sends the list of installed packages and versions to NPM, and prints a report of any vulnerabilities that were found. Packages installed from registries other than the default registry are skipped.\n\nIf no vulnerabilities are found, the command prints:\n\n```\nNo vulnerabilities found\n```\n\nWhen vulnerabilities are detected, each affected package is listed along with the severity, a short description and a link to the advisory. At the end of the report Bun prints a summary and hints for updating:\n\n```\n3 vulnerabilities (1 high, 2 moderate)\nTo update all dependencies to the latest compatible versions:\n  bun update\nTo update all dependencies to the latest versions (including breaking changes):\n  bun update --latest\n```\n\n### Filtering options\n\n**`--audit-level=<low|moderate|high|critical>`** - Only show vulnerabilities at this severity level or higher:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun audit --audit-level=high\n```\n\n**`--prod`** - Audit only production dependencies (excludes devDependencies):\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun audit --prod\n```\n\n**`--ignore <CVE>`** - Ignore specific CVEs (can be used multiple times):\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun audit --ignore CVE-2022-25883 --ignore CVE-2023-26136\n```\n\n### `--json`\n\nUse the `--json` flag to print the raw JSON response from the registry instead of the formatted report:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun audit --json\n```\n\n### Exit code\n\n`bun audit` will exit with code `0` if no vulnerabilities are found and `1` if the report lists any vulnerabilities. This will still happen even if `--json` is passed.\n",
       "sections": [
         {
           "title": "Filtering options",
-          "anchor": "filtering-options"
+          "anchor": "filtering-options",
+          "url": "https://bun.com/docs/pm/cli/audit.md#filtering-options"
         },
         {
           "title": "--json",
-          "anchor": "json"
+          "anchor": "json",
+          "url": "https://bun.com/docs/pm/cli/audit.md#json"
         },
         {
           "title": "Exit code",
-          "anchor": "exit-code"
+          "anchor": "exit-code",
+          "url": "https://bun.com/docs/pm/cli/audit.md#exit-code"
         }
       ]
     },
@@ -5288,55 +5391,68 @@
       "usage": "Usage: bun outdated [flags] [filter]",
       "documentationUrl": "https://bun.com/docs/cli/outdated",
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/pm/cli/outdated.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun outdated\n\n> Check for outdated dependencies\n\nUse `bun outdated` to check for outdated dependencies in your project. This command displays a table of dependencies that have newer versions available.\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun outdated\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n| Package                        | Current | Update    | Latest     |\n| ------------------------------ | ------- | --------- | ---------- |\n| @sinclair/typebox              | 0.34.15 | 0.34.16   | 0.34.16    |\n| @types/bun (dev)               | 1.3.0   | 1.3.3     | 1.3.3      |\n| eslint (dev)                   | 8.57.1  | 8.57.1    | 9.20.0     |\n| eslint-plugin-security (dev)   | 2.1.1   | 2.1.1     | 3.0.1      |\n| eslint-plugin-sonarjs (dev)    | 0.23.0  | 0.23.0    | 3.0.1      |\n| expect-type (dev)              | 0.16.0  | 0.16.0    | 1.1.0      |\n| prettier (dev)                 | 3.4.2   | 3.5.0     | 3.5.0      |\n| tsup (dev)                     | 8.3.5   | 8.3.6     | 8.3.6      |\n| typescript (dev)               | 5.7.2   | 5.7.3     | 5.7.3      |\n\n```\n\n## Version Information\n\nThe output table shows three version columns:\n\n* **Current**: The version currently installed\n* **Update**: The latest version that satisfies your package.json version range\n* **Latest**: The latest version published to the registry\n\n### Dependency Filters\n\n`bun outdated` supports searching for outdated dependencies by package names and glob patterns.\n\nTo check if specific dependencies are outdated, pass the package names as positional arguments:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun outdated eslint-plugin-security eslint-plugin-sonarjs\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n| Package                        | Current | Update | Latest    |\n| ------------------------------ | ------- | ------ | --------- |\n| eslint-plugin-security (dev)   | 2.1.1   | 2.1.1  | 3.0.1     |\n| eslint-plugin-sonarjs (dev)    | 0.23.0  | 0.23.0 | 3.0.1     |\n\n```\n\nYou can also pass glob patterns to check for outdated packages:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun outdated 'eslint*'\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n| Package                        | Current | Update | Latest     |\n| ------------------------------ | ------- | ------ | ---------- |\n| eslint (dev)                   | 8.57.1  | 8.57.1 | 9.20.0     |\n| eslint-plugin-security (dev)   | 2.1.1   | 2.1.1  | 3.0.1      |\n| eslint-plugin-sonarjs (dev)    | 0.23.0  | 0.23.0 | 3.0.1      |\n```\n\nFor example, to check for outdated `@types/*` packages:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun outdated '@types/*'\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n| Package            | Current | Update | Latest |\n| ------------------ | ------- | ------ | ------ |\n| @types/bun (dev)   | 1.3.0   | 1.3.3  | 1.3.3 |\n```\n\nOr to exclude all `@types/*` packages:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun outdated '!@types/*'\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n| Package                        | Current | Update    | Latest     |\n| ------------------------------ | ------- | --------- | ---------- |\n| @sinclair/typebox              | 0.34.15 | 0.34.16   | 0.34.16    |\n| eslint (dev)                   | 8.57.1  | 8.57.1    | 9.20.0     |\n| eslint-plugin-security (dev)   | 2.1.1   | 2.1.1     | 3.0.1      |\n| eslint-plugin-sonarjs (dev)    | 0.23.0  | 0.23.0    | 3.0.1      |\n| expect-type (dev)              | 0.16.0  | 0.16.0    | 1.1.0      |\n| prettier (dev)                 | 3.4.2   | 3.5.0     | 3.5.0      |\n| tsup (dev)                     | 8.3.5   | 8.3.6     | 8.3.6      |\n| typescript (dev)               | 5.7.2   | 5.7.3     | 5.7.3      |\n```\n\n### Workspace Filters\n\nUse the `--filter` flag to check for outdated dependencies in a different workspace package:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun outdated --filter='@monorepo/types'\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n| Package            | Current | Update | Latest |\n| ------------------ | ------- | ------ | ------ |\n| tsup (dev)         | 8.3.5   | 8.3.6  | 8.3.6  |\n| typescript (dev)   | 5.7.2   | 5.7.3  | 5.7.3  |\n```\n\nYou can pass multiple `--filter` flags to check multiple workspaces:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun outdated --filter @monorepo/types --filter @monorepo/cli\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n| Package                        | Current | Update | Latest     |\n| ------------------------------ | ------- | ------ | ---------- |\n| eslint (dev)                 \t | 8.57.1  | 8.57.1 | 9.20.0     |\n| eslint-plugin-security (dev)   | 2.1.1   | 2.1.1  | 3.0.1      |\n| eslint-plugin-sonarjs (dev)    | 0.23.0  | 0.23.0 | 3.0.1      |\n| expect-type (dev)              | 0.16.0  | 0.16.0 | 1.1.0      |\n| tsup (dev)                     | 8.3.5   | 8.3.6  | 8.3.6      |\n| typescript (dev)               | 5.7.2   | 5.7.3  | 5.7.3      |\n```\n\nYou can also pass glob patterns to filter by workspace names:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun outdated --filter='@monorepo/{types,cli}'\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n| Package                        | Current | Update | Latest     |\n| ------------------------------ | ------- | ------ | ---------- |\n| eslint (dev)                   | 8.57.1  | 8.57.1 | 9.20.0     |\n| eslint-plugin-security (dev)   | 2.1.1   | 2.1.1  | 3.0.1      |\n| eslint-plugin-sonarjs (dev)    | 0.23.0  | 0.23.0 | 3.0.1      |\n| expect-type (dev)              | 0.16.0  | 0.16.0 | 1.1.0      |\n| tsup (dev)                     | 8.3.5   | 8.3.6  | 8.3.6      |\n| typescript (dev)               | 5.7.2   | 5.7.3  | 5.7.3      |\n```\n\n### Catalog Dependencies\n\n`bun outdated` supports checking catalog dependencies defined in`package.json`:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun outdated -r\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n┌────────────────────┬─────────┬─────────┬─────────┬────────────────────────────────┐\n│ Package            │ Current │ Update  │ Latest  │ Workspace                      │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ body-parser        │ 1.19.0  │ 1.19.0  │ 2.2.0   │ @test/shared                   │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ cors               │ 2.8.0   │ 2.8.0   │ 2.8.5   │ @test/shared                   │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ chalk              │ 4.0.0   │ 4.0.0   │ 5.6.2   │ @test/utils                    │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ uuid               │ 8.0.0   │ 8.0.0   │ 13.0.0  │ @test/utils                    │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ axios              │ 0.21.0  │ 0.21.0  │ 1.12.2  │ catalog (@test/app)            │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ lodash             │ 4.17.15 │ 4.17.15 │ 4.17.21 │ catalog (@test/app, @test/app) │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ react              │ 17.0.0  │ 17.0.0  │ 19.1.1  │ catalog (@test/app)            │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ react-dom          │ 17.0.0  │ 17.0.0  │ 19.1.1  │ catalog (@test/app)            │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ express            │ 4.17.0  │ 4.17.0  │ 5.1.0   │ catalog (@test/shared)         │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ moment             │ 2.24.0  │ 2.24.0  │ 2.30.1  │ catalog (@test/utils)          │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ @types/node (dev)  │ 14.0.0  │ 14.0.0  │ 24.5.2  │ @test/shared                   │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ @types/react (dev) │ 17.0.0  │ 17.0.0  │ 19.1.15 │ catalog:testing (@test/app)    │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ eslint (dev)       │ 7.0.0   │ 7.0.0   │ 9.36.0  │ catalog:testing (@test/app)    │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ typescript (dev)   │ 4.9.5   │ 4.9.5   │ 5.9.2   │ catalog:build (@test/app)      │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ jest (dev)         │ 26.0.0  │ 26.0.0  │ 30.2.0  │ catalog:testing (@test/shared) │\n├────────────────────┼─────────┼─────────┼─────────┼────────────────────────────────┤\n│ prettier (dev)     │ 2.0.0   │ 2.0.0   │ 3.6.2   │ catalog:build (@test/utils)    │\n└────────────────────┴─────────┴─────────┴─────────┴────────────────────────────────┘\n```\n\n***\n\n## CLI Usage\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun outdated <filter>\n```\n\n### General Options\n\n<ParamField path=\"-c, --config\" type=\"string\">\n  Specify path to config file (<code>bunfig.toml</code>)\n</ParamField>\n\n<ParamField path=\"--cwd\" type=\"string\">\n  Set a specific cwd\n</ParamField>\n\n<ParamField path=\"-h, --help\" type=\"boolean\">\n  Print this help menu\n</ParamField>\n\n<ParamField path=\"-F, --filter\" type=\"string\">\n  Display outdated dependencies for each matching workspace\n</ParamField>\n\n### Output & Logging\n\n<ParamField path=\"--silent\" type=\"boolean\">\n  Don't log anything\n</ParamField>\n\n<ParamField path=\"--verbose\" type=\"boolean\">\n  Excessively verbose logging\n</ParamField>\n\n<ParamField path=\"--no-progress\" type=\"boolean\">\n  Disable the progress bar\n</ParamField>\n\n<ParamField path=\"--no-summary\" type=\"boolean\">\n  Don't print a summary\n</ParamField>\n\n### Dependency Scope & Target\n\n<ParamField path=\"-p, --production\" type=\"boolean\">\n  Don't install devDependencies\n</ParamField>\n\n<ParamField path=\"--omit\" type=\"string\">\n  Exclude <code>dev</code>, <code>optional</code>, or <code>peer</code> dependencies from install\n</ParamField>\n\n<ParamField path=\"-g, --global\" type=\"boolean\">\n  Install globally\n</ParamField>\n\n### Lockfile & Package.json\n\n<ParamField path=\"-y, --yarn\" type=\"boolean\">\n  Write a <code>yarn.lock</code> file (yarn v1)\n</ParamField>\n\n<ParamField path=\"--no-save\" type=\"boolean\">\n  Don't update <code>package.json</code> or save a lockfile\n</ParamField>\n\n<ParamField path=\"--save\" type=\"boolean\" default=\"true\">\n  Save to <code>package.json</code> (true by default)\n</ParamField>\n\n<ParamField path=\"--frozen-lockfile\" type=\"boolean\">\n  Disallow changes to lockfile\n</ParamField>\n\n<ParamField path=\"--save-text-lockfile\" type=\"boolean\">\n  Save a text-based lockfile\n</ParamField>\n\n<ParamField path=\"--lockfile-only\" type=\"boolean\">\n  Generate a lockfile without installing dependencies\n</ParamField>\n\n<ParamField path=\"--trust\" type=\"boolean\">\n  Add to <code>trustedDependencies</code> in the project's <code>package.json</code> and install the package(s)\n</ParamField>\n\n### Network & Registry\n\n<ParamField path=\"--ca\" type=\"string\">\n  Provide a Certificate Authority signing certificate\n</ParamField>\n\n<ParamField path=\"--cafile\" type=\"string\">\n  Same as <code>--ca</code>, but as a file path to the certificate\n</ParamField>\n\n<ParamField path=\"--registry\" type=\"string\">\n  Use a specific registry by default, overriding <code>.npmrc</code>, <code>bunfig.toml</code> and environment variables\n</ParamField>\n\n<ParamField path=\"--network-concurrency\" type=\"number\" default=\"48\">\n  Maximum number of concurrent network requests (default 48)\n</ParamField>\n\n### Caching\n\n<ParamField path=\"--cache-dir\" type=\"string\">\n  Store & load cached data from a specific directory path\n</ParamField>\n\n<ParamField path=\"--no-cache\" type=\"boolean\">\n  Ignore manifest cache entirely\n</ParamField>\n\n### Execution Behavior\n\n<ParamField path=\"--dry-run\" type=\"boolean\">\n  Don't install anything\n</ParamField>\n\n<ParamField path=\"-f, --force\" type=\"boolean\">\n  Always request the latest versions from the registry & reinstall all dependencies\n</ParamField>\n\n<ParamField path=\"--no-verify\" type=\"boolean\">\n  Skip verifying integrity of newly downloaded packages\n</ParamField>\n\n<ParamField path=\"--ignore-scripts\" type=\"boolean\">\n  Skip lifecycle scripts in the project's <code>package.json</code> (dependency scripts are never run)\n</ParamField>\n\n<ParamField path=\"--backend\" type=\"string\" default=\"clonefile\">\n  Platform-specific optimizations for installing dependencies. Possible values: <code>clonefile</code> (default),{\" \"}\n  <code>hardlink</code>, <code>symlink</code>, <code>copyfile</code>\n</ParamField>\n\n<ParamField path=\"--concurrent-scripts\" type=\"number\" default=\"5\">\n  Maximum number of concurrent jobs for lifecycle scripts (default 5)\n</ParamField>\n",
       "sections": [
         {
           "title": "Version Information",
-          "anchor": "version-information"
+          "anchor": "version-information",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#version-information"
         },
         {
           "title": "Dependency Filters",
-          "anchor": "dependency-filters"
+          "anchor": "dependency-filters",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#dependency-filters"
         },
         {
           "title": "Workspace Filters",
-          "anchor": "workspace-filters"
+          "anchor": "workspace-filters",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#workspace-filters"
         },
         {
           "title": "Catalog Dependencies",
-          "anchor": "catalog-dependencies"
+          "anchor": "catalog-dependencies",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#catalog-dependencies"
         },
         {
           "title": "CLI Usage",
-          "anchor": "cli-usage"
+          "anchor": "cli-usage",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#cli-usage"
         },
         {
           "title": "General Options",
-          "anchor": "general-options"
+          "anchor": "general-options",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#general-options"
         },
         {
           "title": "Output & Logging",
-          "anchor": "output-logging"
+          "anchor": "output-logging",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#output-logging"
         },
         {
           "title": "Dependency Scope & Target",
-          "anchor": "dependency-scope-target"
+          "anchor": "dependency-scope-target",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#dependency-scope-target"
         },
         {
           "title": "Lockfile & Package.json",
-          "anchor": "lockfile-packagejson"
+          "anchor": "lockfile-packagejson",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#lockfile-packagejson"
         },
         {
           "title": "Network & Registry",
-          "anchor": "network-registry"
+          "anchor": "network-registry",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#network-registry"
         },
         {
           "title": "Caching",
-          "anchor": "caching"
+          "anchor": "caching",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#caching"
         },
         {
           "title": "Execution Behavior",
-          "anchor": "execution-behavior"
+          "anchor": "execution-behavior",
+          "url": "https://bun.com/docs/pm/cli/outdated.md#execution-behavior"
         }
       ]
     },
@@ -5616,55 +5732,68 @@
       "usage": "Usage: bun link [flags] []",
       "documentationUrl": "https://bun.com/docs/cli/link",
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/pm/cli/link.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun link\n\n> Link local packages for development\n\nUse `bun link` in a local directory to register the current package as a \"linkable\" package.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\ncd /path/to/cool-pkg\ncat package.json\nbun link\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun link v1.3.3 (7416672e)\nSuccess! Registered \"cool-pkg\"\n\nTo use cool-pkg in a project, run:\n  bun link cool-pkg\n\nOr add it in dependencies in your package.json file:\n  \"cool-pkg\": \"link:cool-pkg\"\n```\n\nThis package can now be \"linked\" into other projects using `bun link cool-pkg`. This will create a symlink in the `node_modules` directory of the target project, pointing to the local directory.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\ncd /path/to/my-app\nbun link cool-pkg\n```\n\nIn addition, the `--save` flag can be used to add `cool-pkg` to the `dependencies` field of your app's package.json with a special version specifier that tells Bun to load from the registered local directory instead of installing from `npm`:\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"name\": \"my-app\",\n  \"version\": \"1.0.0\",\n  \"dependencies\": {\n    \"cool-pkg\": \"link:cool-pkg\" // [!code ++]\n  }\n}\n```\n\n## Unlinking\n\nUse `bun unlink` in the root directory to unregister a local package.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\ncd /path/to/cool-pkg\nbun unlink\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun unlink v1.3.3 (7416672e)\n```\n\n***\n\n# CLI Usage\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun link <packages>\n```\n\n### Installation Scope\n\n<ParamField path=\"--global\" type=\"boolean\">\n  Install globally. Alias: <code>-g</code>\n</ParamField>\n\n### Dependency Management\n\n<ParamField path=\"--production\" type=\"boolean\">\n  Don't install devDependencies. Alias: <code>-p</code>\n</ParamField>\n\n<ParamField path=\"--omit\" type=\"string\">\n  Exclude <code>dev</code>, <code>optional</code>, or <code>peer</code> dependencies from install\n</ParamField>\n\n### Project Files & Lockfiles\n\n<ParamField path=\"--yarn\" type=\"boolean\">\n  Write a <code>yarn.lock</code> file (yarn v1). Alias: <code>-y</code>\n</ParamField>\n\n<ParamField path=\"--frozen-lockfile\" type=\"boolean\">\n  Disallow changes to lockfile\n</ParamField>\n\n<ParamField path=\"--save-text-lockfile\" type=\"boolean\">\n  Save a text-based lockfile\n</ParamField>\n\n<ParamField path=\"--lockfile-only\" type=\"boolean\">\n  Generate a lockfile without installing dependencies\n</ParamField>\n\n<ParamField path=\"--no-save\" type=\"boolean\">\n  Don't update <code>package.json</code> or save a lockfile\n</ParamField>\n\n<ParamField path=\"--save\" type=\"boolean\" default=\"true\">\n  Save to <code>package.json</code> (true by default)\n</ParamField>\n\n<ParamField path=\"--trust\" type=\"boolean\">\n  Add to <code>trustedDependencies</code> in the project's <code>package.json</code> and install the package(s)\n</ParamField>\n\n### Installation Control\n\n<ParamField path=\"--force\" type=\"boolean\">\n  Always request the latest versions from the registry & reinstall all dependencies. Alias: <code>-f</code>\n</ParamField>\n\n<ParamField path=\"--no-verify\" type=\"boolean\">\n  Skip verifying integrity of newly downloaded packages\n</ParamField>\n\n<ParamField path=\"--backend\" type=\"string\" default=\"clonefile\">\n  Platform-specific optimizations for installing dependencies. Possible values: <code>clonefile</code> (default),{\" \"}\n  <code>hardlink</code>, <code>symlink</code>, <code>copyfile</code>\n</ParamField>\n\n<ParamField path=\"--linker\" type=\"string\">\n  Linker strategy (one of <code>isolated</code> or <code>hoisted</code>)\n</ParamField>\n\n<ParamField path=\"--dry-run\" type=\"boolean\">\n  Don't install anything\n</ParamField>\n\n<ParamField path=\"--ignore-scripts\" type=\"boolean\">\n  Skip lifecycle scripts in the project's <code>package.json</code> (dependency scripts are never run)\n</ParamField>\n\n### Network & Registry\n\n<ParamField path=\"--ca\" type=\"string\">\n  Provide a Certificate Authority signing certificate\n</ParamField>\n\n<ParamField path=\"--cafile\" type=\"string\">\n  Same as <code>--ca</code>, but as a file path to the certificate\n</ParamField>\n\n<ParamField path=\"--registry\" type=\"string\">\n  Use a specific registry by default, overriding <code>.npmrc</code>, <code>bunfig.toml</code>, and environment\n  variables\n</ParamField>\n\n<ParamField path=\"--network-concurrency\" type=\"number\" default=\"48\">\n  Maximum number of concurrent network requests (default 48)\n</ParamField>\n\n### Performance & Resource\n\n<ParamField path=\"--concurrent-scripts\" type=\"number\" default=\"5\">\n  Maximum number of concurrent jobs for lifecycle scripts (default 5)\n</ParamField>\n\n### Caching\n\n<ParamField path=\"--cache-dir\" type=\"string\">\n  Store & load cached data from a specific directory path\n</ParamField>\n\n<ParamField path=\"--no-cache\" type=\"boolean\">\n  Ignore manifest cache entirely\n</ParamField>\n\n### Output & Logging\n\n<ParamField path=\"--silent\" type=\"boolean\">\n  Don't log anything\n</ParamField>\n\n<ParamField path=\"--quiet\" type=\"boolean\">\n  Only show tarball name when packing\n</ParamField>\n\n<ParamField path=\"--verbose\" type=\"boolean\">\n  Excessively verbose logging\n</ParamField>\n\n<ParamField path=\"--no-progress\" type=\"boolean\">\n  Disable the progress bar\n</ParamField>\n\n<ParamField path=\"--no-summary\" type=\"boolean\">\n  Don't print a summary\n</ParamField>\n\n### Platform Targeting\n\n<ParamField path=\"--cpu\" type=\"string\">\n  Override CPU architecture for optional dependencies (e.g., <code>x64</code>, <code>arm64</code>, <code>\\*</code> for\n  all)\n</ParamField>\n\n<ParamField path=\"--os\" type=\"string\">\n  Override operating system for optional dependencies (e.g., <code>linux</code>, <code>darwin</code>, <code>\\*</code> for\n  all)\n</ParamField>\n\n### Global Configuration & Context\n\n<ParamField path=\"--config\" type=\"string\">\n  Specify path to config file (<code>bunfig.toml</code>). Alias: <code>-c</code>\n</ParamField>\n\n<ParamField path=\"--cwd\" type=\"string\">\n  Set a specific current working directory\n</ParamField>\n\n### Help\n\n<ParamField path=\"--help\" type=\"boolean\">\n  Print this help menu. Alias: <code>-h</code>\n</ParamField>\n",
       "sections": [
         {
           "title": "Unlinking",
-          "anchor": "unlinking"
+          "anchor": "unlinking",
+          "url": "https://bun.com/docs/pm/cli/link.md#unlinking"
         },
         {
           "title": "Installation Scope",
-          "anchor": "installation-scope"
+          "anchor": "installation-scope",
+          "url": "https://bun.com/docs/pm/cli/link.md#installation-scope"
         },
         {
           "title": "Dependency Management",
-          "anchor": "dependency-management"
+          "anchor": "dependency-management",
+          "url": "https://bun.com/docs/pm/cli/link.md#dependency-management"
         },
         {
           "title": "Project Files & Lockfiles",
-          "anchor": "project-files-lockfiles"
+          "anchor": "project-files-lockfiles",
+          "url": "https://bun.com/docs/pm/cli/link.md#project-files-lockfiles"
         },
         {
           "title": "Installation Control",
-          "anchor": "installation-control"
+          "anchor": "installation-control",
+          "url": "https://bun.com/docs/pm/cli/link.md#installation-control"
         },
         {
           "title": "Network & Registry",
-          "anchor": "network-registry"
+          "anchor": "network-registry",
+          "url": "https://bun.com/docs/pm/cli/link.md#network-registry"
         },
         {
           "title": "Performance & Resource",
-          "anchor": "performance-resource"
+          "anchor": "performance-resource",
+          "url": "https://bun.com/docs/pm/cli/link.md#performance-resource"
         },
         {
           "title": "Caching",
-          "anchor": "caching"
+          "anchor": "caching",
+          "url": "https://bun.com/docs/pm/cli/link.md#caching"
         },
         {
           "title": "Output & Logging",
-          "anchor": "output-logging"
+          "anchor": "output-logging",
+          "url": "https://bun.com/docs/pm/cli/link.md#output-logging"
         },
         {
           "title": "Platform Targeting",
-          "anchor": "platform-targeting"
+          "anchor": "platform-targeting",
+          "url": "https://bun.com/docs/pm/cli/link.md#platform-targeting"
         },
         {
           "title": "Global Configuration & Context",
-          "anchor": "global-configuration-context"
+          "anchor": "global-configuration-context",
+          "url": "https://bun.com/docs/pm/cli/link.md#global-configuration-context"
         },
         {
           "title": "Help",
-          "anchor": "help"
+          "anchor": "help",
+          "url": "https://bun.com/docs/pm/cli/link.md#help"
         }
       ]
     },
@@ -6282,79 +6411,98 @@
       "usage": "Usage: bun publish [flags] [dist]",
       "documentationUrl": "https://bun.com/docs/cli/publish",
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/pm/cli/publish.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun publish\n\n> Use `bun publish` to publish a package to the npm registry\n\n`bun publish` will automatically pack your package into a tarball, strip catalog and workspace protocols from the `package.json` (resolving versions if necessary), and publish to the registry specified in your configuration files. Both `bunfig.toml` and `.npmrc` files are supported.\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n## Publishing the package from the current working directory\nbun publish\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun publish v1.3.3 (ca7428e9)\n\npacked 203B package.json\npacked 224B README.md\npacked 30B index.ts\npacked 0.64KB tsconfig.json\n\nTotal files: 4\nShasum: 79e2b4377b63f4de38dc7ea6e5e9dbee08311a69\nIntegrity: sha512-6QSNlDdSwyG/+[...]X6wXHriDWr6fA==\nUnpacked size: 1.1KB\nPacked size: 0.76KB\nTag: latest\nAccess: default\nRegistry: http://localhost:4873/\n\n + publish-1@1.0.0\n```\n\nAlternatively, you can pack and publish your package separately by using `bun pm pack` followed by `bun publish` with the path to the output tarball.\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm pack\n...\nbun publish ./package.tgz\n```\n\n<Note>\n  `bun publish` will not run lifecycle scripts (`prepublishOnly/prepack/prepare/postpack/publish/postpublish`) if a\n  tarball path is provided. Scripts will only be run if the package is packed by `bun publish`.\n</Note>\n\n### `--access`\n\nThe `--access` flag can be used to set the access level of the package being published. The access level can be one of `public` or `restricted`. Unscoped packages are always public, and attempting to publish an unscoped package with `--access restricted` will result in an error.\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun publish --access public\n```\n\n`--access` can also be set in the `publishConfig` field of your `package.json`.\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"publishConfig\": {\n    \"access\": \"restricted\"\n  }\n}\n```\n\n### `--tag`\n\nSet the tag of the package version being published. By default, the tag is `latest`. The initial version of a package is always given the `latest` tag in addition to the specified tag.\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun publish --tag alpha\n```\n\n`--tag` can also be set in the `publishConfig` field of your `package.json`.\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"publishConfig\": {\n    \"tag\": \"next\"\n  }\n}\n```\n\n### `--dry-run`\n\nThe `--dry-run` flag can be used to simulate the publish process without actually publishing the package. This is useful for verifying the contents of the published package without actually publishing the package.\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun publish --dry-run\n```\n\n### `--tolerate-republish`\n\nExit with code 0 instead of 1 if the package version already exists. Useful in CI/CD where jobs may be re-run.\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun publish --tolerate-republish\n```\n\n### `--gzip-level`\n\nSpecify the level of gzip compression to use when packing the package. Only applies to `bun publish` without a tarball path argument. Values range from `0` to `9` (default is `9`).\n\n### `--auth-type`\n\nIf you have 2FA enabled for your npm account, `bun publish` will prompt you for a one-time password. This can be done through a browser or the CLI. The `--auth-type` flag can be used to tell the npm registry which method you prefer. The possible values are `web` and `legacy`, with `web` being the default.\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun publish --auth-type legacy\n...\nThis operation requires a one-time password.\nEnter OTP: 123456\n...\n```\n\n### `--otp`\n\nProvide a one-time password directly to the CLI. If the password is valid, this will skip the extra prompt for a one-time password before publishing. Example usage:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun publish --otp 123456\n```\n\n<Note>\n  `bun publish` respects the `NPM_CONFIG_TOKEN` environment variable which can be used when publishing in github actions\n  or automated workflows.\n</Note>\n\n***\n\n## CLI Usage\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun publish dist\n```\n\n### Publishing Options\n\n<ParamField path=\"--access\" type=\"string\">\n  The `--access` flag can be used to set the access level of the package being published. The access level can be one of `public` or `restricted`. Unscoped packages are always public, and attempting to publish an unscoped package with `--access restricted` will result in an error.\n\n  ```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun publish --access public\n  ```\n\n  `--access` can also be set in the `publishConfig` field of your `package.json`.\n\n  ```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  {\n    \"publishConfig\": {\n      \"access\": \"restricted\" // [!code ++]\n    }\n  }\n  ```\n</ParamField>\n\n<ParamField path=\"--tag\" type=\"string\" default=\"latest\">\n  Set the tag of the package version being published. By default, the tag is `latest`. The initial version of a package is always given the `latest` tag in addition to the specified tag.\n\n  ```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun publish --tag alpha\n  ```\n\n  `--tag` can also be set in the `publishConfig` field of your `package.json`.\n\n  ```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  {\n    \"publishConfig\": {\n      \"tag\": \"next\" // [!code ++]\n    }\n  }\n  ```\n</ParamField>\n\n<ParamField path=\"--dry-run=<val>\" type=\"string\">\n  The `--dry-run` flag can be used to simulate the publish process without actually publishing the package. This is useful for verifying the contents of the published package without actually publishing the package.\n\n  ```sh theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun publish --dry-run\n  ```\n</ParamField>\n\n<ParamField path=\"--gzip-level\" type=\"string\" default=\"9\">\n  Specify the level of gzip compression to use when packing the package. Only applies to `bun publish` without a tarball\n  path argument. Values range from `0` to `9` (default is `9`).\n</ParamField>\n\n<ParamField path=\"--auth-type\" type=\"string\" default=\"web\">\n  If you have 2FA enabled for your npm account, `bun publish` will prompt you for a one-time password. This can be done through a browser or the CLI. The `--auth-type` flag can be used to tell the npm registry which method you prefer. The possible values are `web` and `legacy`, with `web` being the default.\n\n  ```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun publish --auth-type legacy\n  ...\n  This operation requires a one-time password.\n  Enter OTP: 123456\n  ...\n  ```\n</ParamField>\n\n<ParamField path=\"--otp\" type=\"string\" default=\"web\">\n  Provide a one-time password directly to the CLI. If the password is valid, this will skip the extra prompt for a one-time password before publishing. Example usage:\n\n  ```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun publish --otp 123456\n  ```\n\n  <Note>\n    `bun publish` respects the `NPM_CONFIG_TOKEN` environment variable which can be used when publishing in github actions\n    or automated workflows.\n  </Note>\n</ParamField>\n\n### Registry Configuration\n\n#### Custom Registry\n\n<ParamField path=\"--registry\" type=\"string\">\n  Specify registry URL, overriding .npmrc and bunfig.toml\n</ParamField>\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun publish --registry https://my-private-registry.com\n```\n\n#### SSL Certificates\n\n<ParamField path=\"--ca\" type=\"string\">\n  Provide Certificate Authority signing certificate\n</ParamField>\n\n<ParamField path=\"--cafile\" type=\"string\">\n  Path to Certificate Authority certificate file\n</ParamField>\n\n<CodeGroup>\n  ```bash Inline Certificate theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun publish --ca \"-----BEGIN CERTIFICATE-----...\"\n  ```\n\n  ```bash Certificate File theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun publish --cafile ./ca-cert.pem\n  ```\n</CodeGroup>\n\n### Publishing Options\n\n#### Dependency Management\n\n<ParamField path=\"-p, --production\" type=\"boolean\">\n  Don't install devDependencies\n</ParamField>\n\n<ParamField path=\"--omit\" type=\"string\">\n  Exclude dependency types: `dev`, `optional`, or `peer`\n</ParamField>\n\n<ParamField path=\"-f, --force\" type=\"boolean\">\n  Always request the latest versions from the registry & reinstall all dependencies\n</ParamField>\n\n#### Script Control\n\n<ParamField path=\"--ignore-scripts\" type=\"boolean\">\n  Skip lifecycle scripts during packing and publishing\n</ParamField>\n\n<ParamField path=\"--trust\" type=\"boolean\">\n  Add packages to trustedDependencies and run their scripts\n</ParamField>\n\n<Note>\n  **Lifecycle Scripts** — When providing a pre-built tarball, lifecycle scripts (prepublishOnly, prepack, etc.) are not\n  executed. Scripts only run when Bun packs the package itself.\n</Note>\n\n#### File Management\n\n<ParamField path=\"--no-save\" type=\"boolean\">\n  Don't update package.json or lockfile\n</ParamField>\n\n<ParamField path=\"--frozen-lockfile\" type=\"boolean\">\n  Disallow changes to lockfile\n</ParamField>\n\n<ParamField path=\"--yarn\" type=\"boolean\">\n  Generate yarn.lock file (yarn v1 compatible)\n</ParamField>\n\n#### Performance\n\n<ParamField path=\"--backend\" type=\"string\">\n  Platform optimizations: `clonefile` (default), `hardlink`, `symlink`, or `copyfile`\n</ParamField>\n\n<ParamField path=\"--network-concurrency\" type=\"number\" default=\"48\">\n  Maximum concurrent network requests\n</ParamField>\n\n<ParamField path=\"--concurrent-scripts\" type=\"number\" default=\"5\">\n  Maximum concurrent lifecycle scripts\n</ParamField>\n\n#### Output Control\n\n<ParamField path=\"--silent\" type=\"boolean\">\n  Suppress all output\n</ParamField>\n\n<ParamField path=\"--verbose\" type=\"boolean\">\n  Show detailed logging\n</ParamField>\n\n<ParamField path=\"--no-progress\" type=\"boolean\">\n  Hide progress bar\n</ParamField>\n\n<ParamField path=\"--no-summary\" type=\"boolean\">\n  Don't print publish summary\n</ParamField>\n",
       "sections": [
         {
           "title": "Publishing the package from the current working directory",
-          "anchor": "publishing-the-package-from-the-current-working-directory"
+          "anchor": "publishing-the-package-from-the-current-working-directory",
+          "url": "https://bun.com/docs/pm/cli/publish.md#publishing-the-package-from-the-current-working-directory"
         },
         {
           "title": "--access",
-          "anchor": "access"
+          "anchor": "access",
+          "url": "https://bun.com/docs/pm/cli/publish.md#access"
         },
         {
           "title": "--tag",
-          "anchor": "tag"
+          "anchor": "tag",
+          "url": "https://bun.com/docs/pm/cli/publish.md#tag"
         },
         {
           "title": "--dry-run",
-          "anchor": "dry-run"
+          "anchor": "dry-run",
+          "url": "https://bun.com/docs/pm/cli/publish.md#dry-run"
         },
         {
           "title": "--tolerate-republish",
-          "anchor": "tolerate-republish"
+          "anchor": "tolerate-republish",
+          "url": "https://bun.com/docs/pm/cli/publish.md#tolerate-republish"
         },
         {
           "title": "--gzip-level",
-          "anchor": "gzip-level"
+          "anchor": "gzip-level",
+          "url": "https://bun.com/docs/pm/cli/publish.md#gzip-level"
         },
         {
           "title": "--auth-type",
-          "anchor": "auth-type"
+          "anchor": "auth-type",
+          "url": "https://bun.com/docs/pm/cli/publish.md#auth-type"
         },
         {
           "title": "--otp",
-          "anchor": "otp"
+          "anchor": "otp",
+          "url": "https://bun.com/docs/pm/cli/publish.md#otp"
         },
         {
           "title": "CLI Usage",
-          "anchor": "cli-usage"
+          "anchor": "cli-usage",
+          "url": "https://bun.com/docs/pm/cli/publish.md#cli-usage"
         },
         {
           "title": "Publishing Options",
-          "anchor": "publishing-options"
+          "anchor": "publishing-options",
+          "url": "https://bun.com/docs/pm/cli/publish.md#publishing-options"
         },
         {
           "title": "Registry Configuration",
-          "anchor": "registry-configuration"
+          "anchor": "registry-configuration",
+          "url": "https://bun.com/docs/pm/cli/publish.md#registry-configuration"
         },
         {
           "title": "Custom Registry",
-          "anchor": "custom-registry"
+          "anchor": "custom-registry",
+          "url": "https://bun.com/docs/pm/cli/publish.md#custom-registry"
         },
         {
           "title": "SSL Certificates",
-          "anchor": "ssl-certificates"
+          "anchor": "ssl-certificates",
+          "url": "https://bun.com/docs/pm/cli/publish.md#ssl-certificates"
         },
         {
           "title": "Dependency Management",
-          "anchor": "dependency-management"
+          "anchor": "dependency-management",
+          "url": "https://bun.com/docs/pm/cli/publish.md#dependency-management"
         },
         {
           "title": "Script Control",
-          "anchor": "script-control"
+          "anchor": "script-control",
+          "url": "https://bun.com/docs/pm/cli/publish.md#script-control"
         },
         {
           "title": "File Management",
-          "anchor": "file-management"
+          "anchor": "file-management",
+          "url": "https://bun.com/docs/pm/cli/publish.md#file-management"
         },
         {
           "title": "Performance",
-          "anchor": "performance"
+          "anchor": "performance",
+          "url": "https://bun.com/docs/pm/cli/publish.md#performance"
         },
         {
           "title": "Output Control",
-          "anchor": "output-control"
+          "anchor": "output-control",
+          "url": "https://bun.com/docs/pm/cli/publish.md#output-control"
         }
       ]
     },
@@ -6653,63 +6801,78 @@
       "usage": "Usage: bun patch [flags or options] @",
       "documentationUrl": "https://bun.com/docs/install/patch",
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/pm/cli/patch.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun patch\n\n> Persistently patch node_modules packages in a git-friendly way\n\n`bun patch` lets you persistently patch node\\_modules in a maintainable, git-friendly way.\n\nSometimes, you need to make a small change to a package in `node_modules/` to fix a bug or add a feature. `bun patch` lets you do this without vendoring the entire package and reuse the patch across multiple installs, multiple projects, and multiple machines.\n\nFeatures:\n\n* Generates `.patch` files applied to dependencies in `node_modules` on install\n* `.patch` files can be committed to your repository, reused across multiple installs, projects, and machines\n* `\"patchedDependencies\"` in `package.json` keeps track of patched packages\n* `bun patch` lets you patch packages in `node_modules/` while preserving the integrity of Bun's [Global Cache](/pm/global-cache)\n* Test your changes locally before committing them with `bun patch --commit <pkg>`\n* To preserve disk space and keep `bun install` fast, patched packages are committed to the Global Cache and shared across projects where possible\n\n#### Step 1. Prepare the package for patching\n\nTo get started, use `bun patch <pkg>` to prepare the package for patching:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n# you can supply the package name\nbun patch react\n\n# ...and a precise version in case multiple versions are installed\nbun patch react@17.0.2\n\n# or the path to the package\nbun patch node_modules/react\n```\n\n<Note>\n  Don't forget to call `bun patch <pkg>`! This ensures the package folder in `node_modules/` contains a fresh copy of the package with no symlinks/hardlinks to Bun's cache.\n\n  If you forget to do this, you might end up editing the package globally in the cache!\n</Note>\n\n#### Step 2. Test your changes locally\n\n`bun patch <pkg>` makes it safe to edit the `<pkg>` in `node_modules/` directly, while preserving the integrity of Bun's [Global Cache](/pm/global-cache). This works by re-creating an unlinked clone of the package in `node_modules/` and diffing it against the original package in the Global Cache.\n\n#### Step 3. Commit your changes\n\nOnce you're happy with your changes, run `bun patch --commit <path or pkg>`.\n\nBun will generate a patch file in `patches/`, update your `package.json` and lockfile, and Bun will start using the patched package:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n# you can supply the path to the patched package\nbun patch --commit node_modules/react\n\n# ... or the package name and optionally the version\nbun patch --commit react@17.0.2\n\n# choose the directory to store the patch files\nbun patch --commit react --patches-dir=mypatches\n\n# `patch-commit` is available for compatibility with pnpm\nbun patch-commit react\n```\n\n***\n\n# CLI Usage\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun patch <package>@<version>\n```\n\n### Patch Generation\n\n<ParamField path=\"--commit\" type=\"boolean\">\n  Install a package containing modifications in <code>dir</code>\n</ParamField>\n\n<ParamField path=\"--patches-dir\" type=\"string\">\n  The directory to put the patch file in (only if --commit is used)\n</ParamField>\n\n### Dependency Management\n\n<ParamField path=\"--production\" type=\"boolean\">\n  Don't install devDependencies. Alias: <code>-p</code>\n</ParamField>\n\n<ParamField path=\"--ignore-scripts\" type=\"boolean\">\n  Skip lifecycle scripts in the project's <code>package.json</code> (dependency scripts are never run)\n</ParamField>\n\n<ParamField path=\"--trust\" type=\"boolean\">\n  Add to <code>trustedDependencies</code> in the project's <code>package.json</code> and install the package(s)\n</ParamField>\n\n<ParamField path=\"--global\" type=\"boolean\">\n  Install globally. Alias: <code>-g</code>\n</ParamField>\n\n<ParamField path=\"--omit\" type=\"string\">\n  Exclude <code>dev</code>, <code>optional</code>, or <code>peer</code> dependencies from install\n</ParamField>\n\n### Project Files & Lockfiles\n\n<ParamField path=\"--yarn\" type=\"boolean\">\n  Write a <code>yarn.lock</code> file (yarn v1). Alias: <code>-y</code>\n</ParamField>\n\n<ParamField path=\"--no-save\" type=\"boolean\">\n  Don't update <code>package.json</code> or save a lockfile\n</ParamField>\n\n<ParamField path=\"--save\" type=\"boolean\" default=\"true\">\n  Save to <code>package.json</code> (true by default)\n</ParamField>\n\n<ParamField path=\"--frozen-lockfile\" type=\"boolean\">\n  Disallow changes to lockfile\n</ParamField>\n\n<ParamField path=\"--save-text-lockfile\" type=\"boolean\">\n  Save a text-based lockfile\n</ParamField>\n\n<ParamField path=\"--lockfile-only\" type=\"boolean\">\n  Generate a lockfile without installing dependencies\n</ParamField>\n\n### Installation Control\n\n<ParamField path=\"--backend\" type=\"string\" default=\"clonefile\">\n  Platform-specific optimizations for installing dependencies. Possible values: <code>clonefile</code> (default),{\" \"}\n  <code>hardlink</code>, <code>symlink</code>, <code>copyfile</code>\n</ParamField>\n\n<ParamField path=\"--linker\" type=\"string\">\n  Linker strategy (one of <code>isolated</code> or <code>hoisted</code>)\n</ParamField>\n\n<ParamField path=\"--dry-run\" type=\"boolean\">\n  Don't install anything\n</ParamField>\n\n<ParamField path=\"--force\" type=\"boolean\">\n  Always request the latest versions from the registry & reinstall all dependencies. Alias: <code>-f</code>\n</ParamField>\n\n<ParamField path=\"--no-verify\" type=\"boolean\">\n  Skip verifying integrity of newly downloaded packages\n</ParamField>\n\n### Network & Registry\n\n<ParamField path=\"--ca\" type=\"string\">\n  Provide a Certificate Authority signing certificate\n</ParamField>\n\n<ParamField path=\"--cafile\" type=\"string\">\n  Same as <code>--ca</code>, but as a file path to the certificate\n</ParamField>\n\n<ParamField path=\"--registry\" type=\"string\">\n  Use a specific registry by default, overriding <code>.npmrc</code>, <code>bunfig.toml</code>, and environment\n  variables\n</ParamField>\n\n<ParamField path=\"--network-concurrency\" type=\"number\" default=\"48\">\n  Maximum number of concurrent network requests (default 48)\n</ParamField>\n\n### Performance & Resource\n\n<ParamField path=\"--concurrent-scripts\" type=\"number\" default=\"5\">\n  Maximum number of concurrent jobs for lifecycle scripts (default 5)\n</ParamField>\n\n### Caching\n\n<ParamField path=\"--cache-dir\" type=\"string\">\n  Store & load cached data from a specific directory path\n</ParamField>\n\n<ParamField path=\"--no-cache\" type=\"boolean\">\n  Ignore manifest cache entirely\n</ParamField>\n\n### Output & Logging\n\n<ParamField path=\"--silent\" type=\"boolean\">\n  Don't log anything\n</ParamField>\n\n<ParamField path=\"--quiet\" type=\"boolean\">\n  Only show tarball name when packing\n</ParamField>\n\n<ParamField path=\"--verbose\" type=\"boolean\">\n  Excessively verbose logging\n</ParamField>\n\n<ParamField path=\"--no-progress\" type=\"boolean\">\n  Disable the progress bar\n</ParamField>\n\n<ParamField path=\"--no-summary\" type=\"boolean\">\n  Don't print a summary\n</ParamField>\n\n### Platform Targeting\n\n<ParamField path=\"--cpu\" type=\"string\">\n  Override CPU architecture for optional dependencies (e.g., <code>x64</code>, <code>arm64</code>, <code>\\*</code> for\n  all)\n</ParamField>\n\n<ParamField path=\"--os\" type=\"string\">\n  Override operating system for optional dependencies (e.g., <code>linux</code>, <code>darwin</code>, <code>\\*</code> for\n  all)\n</ParamField>\n\n### Global Configuration & Context\n\n<ParamField path=\"--config\" type=\"string\">\n  Specify path to config file (<code>bunfig.toml</code>). Alias: <code>-c</code>\n</ParamField>\n\n<ParamField path=\"--cwd\" type=\"string\">\n  Set a specific current working directory\n</ParamField>\n\n### Help\n\n<ParamField path=\"--help\" type=\"boolean\">\n  Print this help menu. Alias: <code>-h</code>\n</ParamField>\n",
       "sections": [
         {
           "title": "Step 1. Prepare the package for patching",
-          "anchor": "step-1-prepare-the-package-for-patching"
+          "anchor": "step-1-prepare-the-package-for-patching",
+          "url": "https://bun.com/docs/pm/cli/patch.md#step-1-prepare-the-package-for-patching"
         },
         {
           "title": "Step 2. Test your changes locally",
-          "anchor": "step-2-test-your-changes-locally"
+          "anchor": "step-2-test-your-changes-locally",
+          "url": "https://bun.com/docs/pm/cli/patch.md#step-2-test-your-changes-locally"
         },
         {
           "title": "Step 3. Commit your changes",
-          "anchor": "step-3-commit-your-changes"
+          "anchor": "step-3-commit-your-changes",
+          "url": "https://bun.com/docs/pm/cli/patch.md#step-3-commit-your-changes"
         },
         {
           "title": "Patch Generation",
-          "anchor": "patch-generation"
+          "anchor": "patch-generation",
+          "url": "https://bun.com/docs/pm/cli/patch.md#patch-generation"
         },
         {
           "title": "Dependency Management",
-          "anchor": "dependency-management"
+          "anchor": "dependency-management",
+          "url": "https://bun.com/docs/pm/cli/patch.md#dependency-management"
         },
         {
           "title": "Project Files & Lockfiles",
-          "anchor": "project-files-lockfiles"
+          "anchor": "project-files-lockfiles",
+          "url": "https://bun.com/docs/pm/cli/patch.md#project-files-lockfiles"
         },
         {
           "title": "Installation Control",
-          "anchor": "installation-control"
+          "anchor": "installation-control",
+          "url": "https://bun.com/docs/pm/cli/patch.md#installation-control"
         },
         {
           "title": "Network & Registry",
-          "anchor": "network-registry"
+          "anchor": "network-registry",
+          "url": "https://bun.com/docs/pm/cli/patch.md#network-registry"
         },
         {
           "title": "Performance & Resource",
-          "anchor": "performance-resource"
+          "anchor": "performance-resource",
+          "url": "https://bun.com/docs/pm/cli/patch.md#performance-resource"
         },
         {
           "title": "Caching",
-          "anchor": "caching"
+          "anchor": "caching",
+          "url": "https://bun.com/docs/pm/cli/patch.md#caching"
         },
         {
           "title": "Output & Logging",
-          "anchor": "output-logging"
+          "anchor": "output-logging",
+          "url": "https://bun.com/docs/pm/cli/patch.md#output-logging"
         },
         {
           "title": "Platform Targeting",
-          "anchor": "platform-targeting"
+          "anchor": "platform-targeting",
+          "url": "https://bun.com/docs/pm/cli/patch.md#platform-targeting"
         },
         {
           "title": "Global Configuration & Context",
-          "anchor": "global-configuration-context"
+          "anchor": "global-configuration-context",
+          "url": "https://bun.com/docs/pm/cli/patch.md#global-configuration-context"
         },
         {
           "title": "Help",
-          "anchor": "help"
+          "anchor": "help",
+          "url": "https://bun.com/docs/pm/cli/patch.md#help"
         }
       ]
     },
@@ -6857,67 +7020,83 @@
         }
       },
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/pm/cli/pm.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun pm\n\n> Package manager utilities\n\nThe `bun pm` command group provides a set of utilities for working with Bun's package manager.\n\n## pack\n\nTo create a tarball of the current workspace:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm pack\n```\n\nThis command creates a `.tgz` file containing all files that would be published to npm, following the same rules as `npm pack`.\n\n## Examples\n\nBasic usage:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm pack\n# Creates my-package-1.0.0.tgz in current directory\n```\n\nQuiet mode for scripting:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nTARBALL=$(bun pm pack --quiet)\necho \"Created: $TARBALL\"\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nCreated: my-package-1.0.0.tgz\n```\n\nCustom destination:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm pack --destination ./dist\n# Saves tarball in ./dist/ directory\n```\n\n## Options\n\n* `--dry-run`: Perform all tasks except writing the tarball to disk. Shows what would be included.\n* `--destination <dir>`: Specify the directory where the tarball will be saved.\n* `--filename <name>`: Specify an exact file name for the tarball to be saved at.\n* `--ignore-scripts`: Skip running pre/postpack and prepare scripts.\n* `--gzip-level <0-9>`: Set a custom compression level for gzip, ranging from 0 to 9 (default is 9).\n* `--quiet`: Only output the tarball filename, suppressing verbose output. Ideal for scripts and automation.\n\n> **Note:** `--filename` and `--destination` cannot be used at the same time.\n\n## Output Modes\n\n**Default output:**\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm pack\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pack v1.2.19\n\npacked 131B package.json\npacked 40B index.js\n\nmy-package-1.0.0.tgz\n\nTotal files: 2\nShasum: f2451d6eb1e818f500a791d9aace80b394258a90\nUnpacked size: 171B\nPacked size: 249B\n```\n\n**Quiet output:**\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm pack --quiet\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nmy-package-1.0.0.tgz\n```\n\nThe `--quiet` flag is particularly useful for automation workflows where you need to capture the generated tarball filename for further processing.\n\n## bin\n\nTo print the path to the `bin` directory for the local project:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm bin\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n/path/to/current/project/node_modules/.bin\n```\n\nTo print the path to the global `bin` directory:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm bin -g\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n<$HOME>/.bun/bin\n```\n\n## ls\n\nTo print a list of installed dependencies in the current project and their resolved versions, excluding their dependencies.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm ls\n# or\nbun list\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n/path/to/project node_modules (135)\n├── eslint@8.38.0\n├── react@18.2.0\n├── react-dom@18.2.0\n├── typescript@5.0.4\n└── zod@3.21.4\n```\n\nTo print all installed dependencies, including nth-order dependencies.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm ls --all\n# or\nbun list --all\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n/path/to/project node_modules (135)\n├── @eslint-community/eslint-utils@4.4.0\n├── @eslint-community/regexpp@4.5.0\n├── @eslint/eslintrc@2.0.2\n├── @eslint/js@8.38.0\n├── @nodelib/fs.scandir@2.1.5\n├── @nodelib/fs.stat@2.0.5\n├── @nodelib/fs.walk@1.2.8\n├── acorn@8.8.2\n├── acorn-jsx@5.3.2\n├── ajv@6.12.6\n├── ansi-regex@5.0.1\n├── ...\n```\n\nTo print only trusted dependencies (those allowed to run lifecycle scripts). When `trustedDependencies` is set in `package.json`, packages from that list are shown; otherwise packages from Bun's [default trusted dependencies](https://github.com/oven-sh/bun/blob/main/src/install/default-trusted-dependencies.txt) list are shown.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm ls --trusted\n# or\nbun list --trusted\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n/path/to/project node_modules (135)\n└── esbuild@0.21.5\n```\n\n## whoami\n\nPrint your npm username. Requires you to be logged in (`bunx npm login`) with credentials in either `bunfig.toml` or `.npmrc`:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm whoami\n```\n\n## hash\n\nTo generate and print the hash of the current lockfile:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm hash\n```\n\nTo print the string used to hash the lockfile:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm hash-string\n```\n\nTo print the hash stored in the current lockfile:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm hash-print\n```\n\n## cache\n\nTo print the path to Bun's global module cache:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm cache\n```\n\nTo clear Bun's global module cache:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm cache rm\n```\n\n## migrate\n\nTo migrate another package manager's lockfile without installing anything:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm migrate\n```\n\n## untrusted\n\nTo print current untrusted dependencies with scripts:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm untrusted\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n./node_modules/@biomejs/biome @1.8.3\n » [postinstall]: node scripts/postinstall.js\n\nThese dependencies had their lifecycle scripts blocked during install.\n```\n\n## trust\n\nTo run scripts for untrusted dependencies and add to `trustedDependencies`:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm trust <names>\n```\n\nOptions for the `trust` command:\n\n* `--all`: Trust all untrusted dependencies.\n\n## default-trusted\n\nTo print the default trusted dependencies list:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm default-trusted\n```\n\nsee the current list on GitHub [here](https://github.com/oven-sh/bun/blob/main/src/install/default-trusted-dependencies.txt)\n\n## version\n\nTo display current package version and help:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm version\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm version v1.3.3 (ca7428e9)\nCurrent package version: v1.0.0\n\nIncrement:\n  patch      1.0.0 → 1.0.1\n  minor      1.0.0 → 1.1.0\n  major      1.0.0 → 2.0.0\n  prerelease 1.0.0 → 1.0.1-0\n  prepatch   1.0.0 → 1.0.1-0\n  preminor   1.0.0 → 1.1.0-0\n  premajor   1.0.0 → 2.0.0-0\n  from-git   Use version from latest git tag\n  1.2.3      Set specific version\n\nOptions:\n  --no-git-tag-version Skip git operations\n  --allow-same-version Prevents throwing error if version is the same\n  --message=<val>, -m  Custom commit message, use %s for version substitution\n  --preid=<val>        Prerelease identifier (i.e beta → 1.0.1-beta.0)\n  --force, -f          Bypass dirty git history check\n\nExamples:\n  bun pm version patch\n  bun pm version 1.2.3 --no-git-tag-version\n  bun pm version prerelease --preid beta --message \"Release beta: %s\"\n```\n\nTo bump the version in `package.json`:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm version patch\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nv1.0.1\n```\n\nSupports `patch`, `minor`, `major`, `premajor`, `preminor`, `prepatch`, `prerelease`, `from-git`, or specific versions like `1.2.3`. By default creates git commit and tag unless `--no-git-tag-version` was used to skip.\n\n## pkg\n\nManage `package.json` data with get, set, delete, and fix operations.\n\nAll commands support dot and bracket notation:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nscripts.build              # dot notation\ncontributors[0]            # array access\nworkspaces.0               # dot with numeric index\nscripts[test:watch]        # bracket for special chars\n```\n\nExamples:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n# get\nbun pm pkg get name                               # single property\nbun pm pkg get name version                       # multiple properties\nbun pm pkg get                                    # entire package.json\nbun pm pkg get scripts.build                      # nested property\n\n# set\nbun pm pkg set name=\"my-package\"                  # simple property\nbun pm pkg set scripts.test=\"jest\" version=2.0.0  # multiple properties\nbun pm pkg set {\"private\":\"true\"} --json          # JSON values with --json flag\n\n# delete\nbun pm pkg delete description                     # single property\nbun pm pkg delete scripts.test contributors[0]    # multiple/nested\n\n# fix\nbun pm pkg fix                                    # auto-fix common issues\n```\n",
       "sections": [
         {
           "title": "pack",
-          "anchor": "pack"
+          "anchor": "pack",
+          "url": "https://bun.com/docs/pm/cli/pm.md#pack"
         },
         {
           "title": "Examples",
-          "anchor": "examples"
+          "anchor": "examples",
+          "url": "https://bun.com/docs/pm/cli/pm.md#examples"
         },
         {
           "title": "Options",
-          "anchor": "options"
+          "anchor": "options",
+          "url": "https://bun.com/docs/pm/cli/pm.md#options"
         },
         {
           "title": "Output Modes",
-          "anchor": "output-modes"
+          "anchor": "output-modes",
+          "url": "https://bun.com/docs/pm/cli/pm.md#output-modes"
         },
         {
           "title": "bin",
-          "anchor": "bin"
+          "anchor": "bin",
+          "url": "https://bun.com/docs/pm/cli/pm.md#bin"
         },
         {
           "title": "ls",
-          "anchor": "ls"
+          "anchor": "ls",
+          "url": "https://bun.com/docs/pm/cli/pm.md#ls"
         },
         {
           "title": "whoami",
-          "anchor": "whoami"
+          "anchor": "whoami",
+          "url": "https://bun.com/docs/pm/cli/pm.md#whoami"
         },
         {
           "title": "hash",
-          "anchor": "hash"
+          "anchor": "hash",
+          "url": "https://bun.com/docs/pm/cli/pm.md#hash"
         },
         {
           "title": "cache",
-          "anchor": "cache"
+          "anchor": "cache",
+          "url": "https://bun.com/docs/pm/cli/pm.md#cache"
         },
         {
           "title": "migrate",
-          "anchor": "migrate"
+          "anchor": "migrate",
+          "url": "https://bun.com/docs/pm/cli/pm.md#migrate"
         },
         {
           "title": "untrusted",
-          "anchor": "untrusted"
+          "anchor": "untrusted",
+          "url": "https://bun.com/docs/pm/cli/pm.md#untrusted"
         },
         {
           "title": "trust",
-          "anchor": "trust"
+          "anchor": "trust",
+          "url": "https://bun.com/docs/pm/cli/pm.md#trust"
         },
         {
           "title": "default-trusted",
-          "anchor": "default-trusted"
+          "anchor": "default-trusted",
+          "url": "https://bun.com/docs/pm/cli/pm.md#default-trusted"
         },
         {
           "title": "version",
-          "anchor": "version"
+          "anchor": "version",
+          "url": "https://bun.com/docs/pm/cli/pm.md#version"
         },
         {
           "title": "pkg",
-          "anchor": "pkg"
+          "anchor": "pkg",
+          "url": "https://bun.com/docs/pm/cli/pm.md#pkg"
         }
       ]
     },
@@ -7210,31 +7389,38 @@
       "usage": "Usage: bun info [flags] [@]",
       "documentationUrl": "https://bun.com/docs/cli/info",
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/pm/cli/info.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun info\n\n> Display package metadata from the npm registry\n\n`bun info` displays package metadata from the npm registry.\n\n## Usage\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun info react\n```\n\nThis will display information about the `react` package, including its latest version, description, homepage, dependencies, and more.\n\n## Viewing specific versions\n\nTo view information about a specific version:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun info react@18.0.0\n```\n\n## Viewing specific properties\n\nYou can also query specific properties from the package metadata:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun info react version\nbun info react dependencies\nbun info react repository.url\n```\n\n## JSON output\n\nTo get the output in JSON format, use the `--json` flag:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun info react --json\n```\n\n## Alias\n\n`bun pm view` is an alias for `bun info`:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun pm view react  # equivalent to: bun info react\n```\n\n## Examples\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n# View basic package information\nbun info is-number\n\n# View a specific version\nbun info is-number@7.0.0\n\n# View all available versions\nbun info is-number versions\n\n# View package dependencies\nbun info express dependencies\n\n# View package homepage\nbun info lodash homepage\n\n# Get JSON output\nbun info react --json\n```\n",
       "sections": [
         {
           "title": "Usage",
-          "anchor": "usage"
+          "anchor": "usage",
+          "url": "https://bun.com/docs/pm/cli/info.md#usage"
         },
         {
           "title": "Viewing specific versions",
-          "anchor": "viewing-specific-versions"
+          "anchor": "viewing-specific-versions",
+          "url": "https://bun.com/docs/pm/cli/info.md#viewing-specific-versions"
         },
         {
           "title": "Viewing specific properties",
-          "anchor": "viewing-specific-properties"
+          "anchor": "viewing-specific-properties",
+          "url": "https://bun.com/docs/pm/cli/info.md#viewing-specific-properties"
         },
         {
           "title": "JSON output",
-          "anchor": "json-output"
+          "anchor": "json-output",
+          "url": "https://bun.com/docs/pm/cli/info.md#json-output"
         },
         {
           "title": "Alias",
-          "anchor": "alias"
+          "anchor": "alias",
+          "url": "https://bun.com/docs/pm/cli/info.md#alias"
         },
         {
           "title": "Examples",
-          "anchor": "examples"
+          "anchor": "examples",
+          "url": "https://bun.com/docs/pm/cli/info.md#examples"
         }
       ]
     },
@@ -7267,27 +7453,33 @@
       "usage": "Usage: bun why [flags] <package><@version> [property path]",
       "documentationUrl": "https://bun.com/docs/cli/why",
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/pm/cli/why.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun why\n\n> Explain why a package is installed\n\nThe `bun why` command explains why a package is installed in your project by showing the dependency chain that led to its installation.\n\n## Usage\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun why <package>\n```\n\n## Arguments\n\n* `<package>`: The name of the package to explain. Supports glob patterns like `@org/*` or `*-lodash`.\n\n## Options\n\n* `--top`: Show only the top-level dependencies instead of the complete dependency tree.\n* `--depth <number>`: Maximum depth of the dependency tree to display.\n\n## Examples\n\nCheck why a specific package is installed:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun why react\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nreact@18.2.0\n  └─ my-app@1.0.0 (requires ^18.0.0)\n```\n\nCheck why all packages with a specific pattern are installed:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun why \"@types/*\"\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n@types/react@18.2.15\n  └─ dev my-app@1.0.0 (requires ^18.0.0)\n\n@types/react-dom@18.2.7\n  └─ dev my-app@1.0.0 (requires ^18.0.0)\n```\n\nShow only top-level dependencies:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun why express --top\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nexpress@4.18.2\n  └─ my-app@1.0.0 (requires ^4.18.2)\n```\n\nLimit the dependency tree depth:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun why express --depth 2\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nexpress@4.18.2\n  └─ express-pollyfill@1.20.1 (requires ^4.18.2)\n     └─ body-parser@1.20.1 (requires ^1.20.1)\n     └─ accepts@1.3.8 (requires ^1.3.8)\n        └─ (deeper dependencies hidden)\n```\n\n## Understanding the Output\n\nThe output shows:\n\n* The package name and version being queried\n* The dependency chain that led to its installation\n* The type of dependency (dev, peer, optional, or production)\n* The version requirement specified in each package's dependencies\n\nFor nested dependencies, the command shows the complete dependency tree by default, with indentation indicating the relationship hierarchy.\n",
       "sections": [
         {
           "title": "Usage",
-          "anchor": "usage"
+          "anchor": "usage",
+          "url": "https://bun.com/docs/pm/cli/why.md#usage"
         },
         {
           "title": "Arguments",
-          "anchor": "arguments"
+          "anchor": "arguments",
+          "url": "https://bun.com/docs/pm/cli/why.md#arguments"
         },
         {
           "title": "Options",
-          "anchor": "options"
+          "anchor": "options",
+          "url": "https://bun.com/docs/pm/cli/why.md#options"
         },
         {
           "title": "Examples",
-          "anchor": "examples"
+          "anchor": "examples",
+          "url": "https://bun.com/docs/pm/cli/why.md#examples"
         },
         {
           "title": "Understanding the Output",
-          "anchor": "understanding-the-output"
+          "anchor": "understanding-the-output",
+          "url": "https://bun.com/docs/pm/cli/why.md#understanding-the-output"
         }
       ]
     },
@@ -7821,35 +8013,43 @@
       ],
       "usage": "Usage: bun init [flags] [<folder>]",
       "dynamicCompletions": {},
+      "docUrl": "https://bun.com/docs/runtime/templating/init.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun init\n\n> Scaffold an empty Bun project with the interactive `bun init` command\n\nGet started with Bun by scaffolding a new project with `bun init`.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun init my-app\n```\n\n```txt theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n? Select a project template - Press return to submit.\n❯ Blank\n  React\n  Library\n\n✓ Select a project template: Blank\n\n + .gitignore\n + CLAUDE.md\n + .cursor/rules/use-bun-instead-of-node-vite-npm-pnpm.mdc -> CLAUDE.md\n + index.ts\n + tsconfig.json (for editor autocomplete)\n + README.md\n```\n\nPress `enter` to accept the default answer for each prompt, or pass the `-y` flag to auto-accept the defaults.\n\n***\n\n`bun init` scaffolds a new project with Bun. It infers settings with sane defaults and is non-destructive when run multiple times.\n\n<Frame>\n  ![Demo](https://user-images.githubusercontent.com/709451/183006613-271960a3-ff22-4f7c-83f5-5e18f684c836.gif)\n</Frame>\n\nIt creates:\n\n* a `package.json` file with a name that defaults to the current directory name\n* a `tsconfig.json` file or a `jsconfig.json` file, depending if the entry point is a TypeScript file or not\n* an entry point which defaults to `index.ts` unless any of `index.{tsx, jsx, js, mts, mjs}` exist or the `package.json` specifies a `module` or `main` field\n* a `README.md` file\n\nAI Agent rules (disable with `$BUN_AGENT_RULE_DISABLED=1`):\n\n* a `CLAUDE.md` file when Claude CLI is detected (disable with `CLAUDE_CODE_AGENT_RULE_DISABLED` env var)\n* a `.cursor/rules/*.mdc` file to guide [Cursor AI](https://cursor.sh) to use Bun instead of Node.js and npm when Cursor is detected\n\nIf you pass `-y` or `--yes`, it will assume you want to continue without asking questions.\n\nAt the end, it runs `bun install` to install `@types/bun`.\n\n***\n\n## CLI Usage\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun init <folder?>\n```\n\n### Initialization Options\n\n<ParamField path=\"--yes\" type=\"boolean\">\n  {\" \"}\n\n  Accept all default prompts without asking questions. Alias: <code>-y</code>{\" \"}\n</ParamField>\n\n<ParamField path=\"--minimal\" type=\"boolean\">\n  {\" \"}\n\n  Only initialize type definitions (skip app scaffolding). Alias: <code>-m</code>{\" \"}\n</ParamField>\n\n### Project Templates\n\n<ParamField path=\"--react\" type=\"string|boolean\">\n  {\" \"}\n\n  Scaffold a React project. When used without a value, creates a baseline React app.\n  <br /> Accepts values for presets:{\" \"}\n\n  <ul>\n    {\" \"}\n\n    <li>\n      <code>tailwind</code> – React app preconfigured with Tailwind CSS\n    </li>\n\n    {\" \"}\n\n    <li>\n      <code>shadcn</code> – React app with <code>@shadcn/ui</code> and Tailwind CSS\n    </li>\n\n    {\" \"}\n  </ul>\n\n  {\" \"}\n\n  Examples:{\" \"}\n\n  <pre>\n    <code>bun init --react bun init --react=tailwind bun init --react=shadcn</code>\n  </pre>\n\n  {\" \"}\n</ParamField>\n\n### Output & Files\n\n<ParamField path=\"(result)\" type=\"info\">\n  {\" \"}\n\n  Initializes project files and configuration for the chosen options (e.g., creating essential config files and a\n  starter directory structure). Exact files vary by template.{\" \"}\n</ParamField>\n\n### Global Configuration & Context\n\n<ParamField path=\"--cwd\" type=\"string\">\n  {\" \"}\n\n  Run <code>bun init</code> as if started in a different working directory (useful in scripts).{\" \"}\n</ParamField>\n\n### Help\n\n<ParamField path=\"--help\" type=\"boolean\">\n  {\" \"}\n\n  Print this help menu. Alias: <code>-h</code>{\" \"}\n</ParamField>\n\n### Examples\n\n* Accept all defaults\n\n  ```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun init -y\n  ```\n\n* React\n\n  ```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun init --react\n  ```\n\n* React + Tailwind CSS\n\n  ```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun init --react=tailwind\n  ```\n\n* React + @shadcn/ui\n  ```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n  bun init --react=shadcn\n  ```\n",
       "sections": [
         {
           "title": "CLI Usage",
-          "anchor": "cli-usage"
+          "anchor": "cli-usage",
+          "url": "https://bun.com/docs/runtime/templating/init.md#cli-usage"
         },
         {
           "title": "Initialization Options",
-          "anchor": "initialization-options"
+          "anchor": "initialization-options",
+          "url": "https://bun.com/docs/runtime/templating/init.md#initialization-options"
         },
         {
           "title": "Project Templates",
-          "anchor": "project-templates"
+          "anchor": "project-templates",
+          "url": "https://bun.com/docs/runtime/templating/init.md#project-templates"
         },
         {
           "title": "Output & Files",
-          "anchor": "output-files"
+          "anchor": "output-files",
+          "url": "https://bun.com/docs/runtime/templating/init.md#output-files"
         },
         {
           "title": "Global Configuration & Context",
-          "anchor": "global-configuration-context"
+          "anchor": "global-configuration-context",
+          "url": "https://bun.com/docs/runtime/templating/init.md#global-configuration-context"
         },
         {
           "title": "Help",
-          "anchor": "help"
+          "anchor": "help",
+          "url": "https://bun.com/docs/runtime/templating/init.md#help"
         },
         {
           "title": "Examples",
-          "anchor": "examples"
+          "anchor": "examples",
+          "url": "https://bun.com/docs/runtime/templating/init.md#examples"
         }
       ]
     },
@@ -7863,51 +8063,63 @@
       "documentationUrl": "https://bun.com/docs/cli/bun-create",
       "dynamicCompletions": {},
       "aliases": ["c"],
+      "docUrl": "https://bun.com/docs/runtime/templating/create.md",
       "docContent": "> ## Documentation Index\n> Fetch the complete documentation index at: https://bun.com/docs/llms.txt\n> Use this file to discover all available pages before exploring further.\n\n# bun create\n\n> Create a new Bun project from a React component, a `create-<template>` npm package, a GitHub repo, or a local template\n\n<Note>\n  `bun create` is optional — Bun works without any configuration. This command exists to make getting started faster.\n</Note>\n\n***\n\nTemplate a new Bun project with `bun create`. This is a flexible command that can be used to create a new project from a React component, a `create-<template>` npm package, a GitHub repo, or a local template.\n\nIf you're looking to create a brand new empty project, use [`bun init`](/runtime/templating/init).\n\n## From a React component\n\n`bun create ./MyComponent.tsx` turns an existing React component into a complete dev environment with hot reload and production builds in one command.\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun create ./MyComponent.jsx # .tsx also supported\n```\n\n<Frame>\n  <video style={{ aspectRatio: \"2062 / 1344\", width: \"100%\", height: \"100%\", objectFit: \"contain\" }} loop autoPlay muted playsInline>\n    <source src=\"https://mintcdn.com/bun-1dd33a4e/q61zoUYDXrVRu-tH/images/bun-create-shadcn.mp4?fit=max&auto=format&n=q61zoUYDXrVRu-tH&q=85&s=92fcea5a9d403b155e943508fbb40a21\" style={{ width: \"100%\", height: \"100%\", objectFit: \"contain\" }} type=\"video/mp4\" data-path=\"images/bun-create-shadcn.mp4\" />\n  </video>\n</Frame>\n\n<Note>\n  🚀 **Create React App Successor** — `bun create <component>` provides everything developers loved about Create React App, but with modern tooling, faster builds, and backend support.\n</Note>\n\n#### How this works\n\nWhen you run `bun create <component>`, Bun:\n\n1. Uses [Bun's JavaScript bundler](/bundler) to analyze your module graph.\n2. Collects all the dependencies needed to run the component.\n3. Scans the exports of the entry point for a React component.\n4. Generates a `package.json` file with the dependencies and scripts needed to run the component.\n5. Installs any missing dependencies using [`bun install --only-missing`](/pm/cli/install).\n6. Generates the following files:\n   * `${component}.html`\n   * `${component}.client.tsx` (entry point for the frontend)\n   * `${component}.css` (css file)\n7. Starts a frontend dev server automatically.\n\n### Using TailwindCSS with Bun\n\n[TailwindCSS](https://tailwindcss.com/) is an extremely popular utility-first CSS framework used to style web applications.\n\nWhen you run `bun create <component>`, Bun scans your JSX/TSX file for TailwindCSS class names (and any files it imports). If it detects TailwindCSS class names, it will add the following dependencies to your `package.json`:\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"dependencies\": {\n    \"tailwindcss\": \"^4\",\n    \"bun-plugin-tailwind\": \"latest\"\n  }\n}\n```\n\nWe also configure `bunfig.toml` to use Bun's TailwindCSS plugin with `Bun.serve()`\n\n```toml bunfig.toml icon=\"settings\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n[serve.static]\nplugins = [\"bun-plugin-tailwind\"]\n```\n\nAnd a `${component}.css` file with `@import \"tailwindcss\";` at the top:\n\n```css MyComponent.css icon=\"file-code\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n@import \"tailwindcss\";\n```\n\n### Using `shadcn/ui` with Bun\n\n[`shadcn/ui`](https://ui.shadcn.com/) is an extremely popular component library tool for building web applications.\n\n`bun create <component>` scans for any shadcn/ui components imported from `@/components/ui`.\n\nIf it finds any, it runs:\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n# Assuming bun detected imports to @/components/ui/accordion and @/components/ui/button\nbunx shadcn@canary add accordion button # and any other components\n```\n\nSince `shadcn/ui` itself uses TailwindCSS, `bun create` also adds the necessary TailwindCSS dependencies to your `package.json` and configures `bunfig.toml` to use Bun's TailwindCSS plugin with `Bun.serve()` as described above.\n\nAdditionally, we setup the following:\n\n* `tsconfig.json` to alias `\"@/*\"` to `\"src/*\"` or `.` (depending on if there is a `src/` directory)\n* `components.json` so that shadcn/ui knows its a shadcn/ui project\n* `styles/globals.css` file that configures Tailwind v4 in the way that shadcn/ui expects\n* `${component}.build.ts` file that builds the component for production with `bun-plugin-tailwind` configured\n\n`bun create ./MyComponent.jsx` is one of the easiest ways to run code generated from LLMs like [Claude](https://claude.ai) or ChatGPT locally.\n\n## From `npm`\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun create <template> [<destination>]\n```\n\nAssuming you don't have a [local template](#from-a-local-template) with the same name, this command will download and execute the `create-<template>` package from npm. The following two commands will behave identically:\n\n```sh terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun create remix\nbunx create-remix\n```\n\nRefer to the documentation of the associated `create-<template>` package for complete documentation and usage instructions.\n\n## From GitHub\n\nThis will download the contents of the GitHub repo to disk.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun create <user>/<repo>\nbun create github.com/<user>/<repo>\n```\n\nOptionally specify a name for the destination folder. If no destination is specified, the repo name will be used.\n\n```bash terminal icon=\"terminal\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\nbun create <user>/<repo> mydir\nbun create github.com/<user>/<repo> mydir\n```\n\nBun will perform the following steps:\n\n* Download the template\n* Copy all template files into the destination folder\n* Install dependencies with `bun install`.\n* Initialize a fresh Git repo. Opt out with the `--no-git` flag.\n* Run the template's configured `start` script, if defined.\n\n<Note>By default Bun will *not overwrite* any existing files. Use the `--force` flag to overwrite existing files.</Note>\n\n## From a local template\n\n<Warning>\n  Unlike remote templates, running `bun create` with a local template will delete the entire destination folder if it\n  already exists! Be careful.\n</Warning>\n\nBun's templater can be extended to support custom templates defined on your local file system. These templates should live in one of the following directories:\n\n* `$HOME/.bun-create/<name>`: global templates\n* `<project root>/.bun-create/<name>`: project-specific templates\n\n<Note>You can customize the global template path by setting the `BUN_CREATE_DIR` environment variable.</Note>\n\nTo create a local template, navigate to `$HOME/.bun-create` and create a new directory with the desired name of your template.\n\n```bash theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\ncd $HOME/.bun-create\nmkdir foo\ncd foo\n```\n\nThen, create a `package.json` file in that directory with the following contents:\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"name\": \"foo\"\n}\n```\n\nYou can run `bun create foo` elsewhere on your file system to verify that Bun is correctly finding your local template.\n\n#### Setup logic\n\nYou can specify pre- and post-install setup scripts in the `\"bun-create\"` section of your local template's `package.json`.\n\n```json package.json icon=\"file-json\" theme={\"theme\":{\"light\":\"github-light\",\"dark\":\"dracula\"}}\n{\n  \"name\": \"@bun-examples/simplereact\",\n  \"version\": \"0.0.1\",\n  \"main\": \"index.js\",\n  \"dependencies\": {\n    \"react\": \"^17.0.2\",\n    \"react-dom\": \"^17.0.2\"\n  },\n  \"bun-create\": {\n    \"preinstall\": \"echo 'Installing...'\", // a single command\n    \"postinstall\": [\"echo 'Done!'\"], // an array of commands\n    \"start\": \"bun run echo 'Hello world!'\"\n  }\n}\n```\n\nThe following fields are supported. Each of these can correspond to a string or array of strings. An array of commands will be executed in order.\n\n| Field         | Description                         |\n| ------------- | ----------------------------------- |\n| `postinstall` | runs after installing dependencies  |\n| `preinstall`  | runs before installing dependencies |\n\nAfter cloning a template, `bun create` will automatically remove the `\"bun-create\"` section from `package.json` before writing it to the destination folder.\n\n## Reference\n\n### CLI flags\n\n| Flag           | Description                            |\n| -------------- | -------------------------------------- |\n| `--force`      | Overwrite existing files               |\n| `--no-install` | Skip installing `node_modules` & tasks |\n| `--no-git`     | Don't initialize a git repository      |\n| `--open`       | Start & open in-browser after finish   |\n\n### Environment variables\n\n| Name                                      | Description                                                                                                                                          |\n| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |\n| `GITHUB_API_DOMAIN`                       | If you're using a GitHub enterprise or a proxy, you can customize the GitHub domain Bun pings for downloads                                          |\n| `GITHUB_TOKEN` (or `GITHUB_ACCESS_TOKEN`) | This lets `bun create` work with private repositories or if you get rate-limited. `GITHUB_TOKEN` is chosen over `GITHUB_ACCESS_TOKEN` if both exist. |\n\n<Accordion title={<span>How <code>bun create</code> works</span>}>\n  When you run `bun create ${template} ${destination}`, here’s what happens:\n\n  IF remote template\n\n  1. GET `registry.npmjs.org/@bun-examples/${template}/latest` and parse it\n  2. GET `registry.npmjs.org/@bun-examples/${template}/-/${template}-${latestVersion}.tgz`\n  3. Decompress & extract `${template}-${latestVersion}.tgz` into `${destination}`\n     * If there are files that would overwrite, warn and exit unless `--force` is passed\n\n  IF GitHub repo\n\n  1. Download the tarball from GitHub’s API\n  2. Decompress & extract into `${destination}`\n     * If there are files that would overwrite, warn and exit unless `--force` is passed\n\n  ELSE IF local template\n\n  1. Open local template folder\n\n  2. Delete destination directory recursively\n\n  3. Copy files recursively using the fastest system calls available (on macOS `fcopyfile` and Linux, `copy_file_range`). Do not copy or traverse into `node_modules` folder if exists (this alone makes it faster than `cp`)\n\n  4. Parse the `package.json` (again!), update `name` to be `${basename(destination)}`, remove the `bun-create` section from the `package.json` and save the updated `package.json` to disk.\n     * IF Next.js is detected, add `bun-framework-next` to the list of dependencies\n     * IF Create React App is detected, add the entry point in `/src/index.{js,jsx,ts,tsx}` to `public/index.html`\n     * IF Relay is detected, add `bun-macro-relay` so that Relay works\n\n  5. Auto-detect the npm client, preferring `pnpm`, `yarn` (v1), and lastly `npm`\n\n  6. Run any tasks defined in `\"bun-create\": { \"preinstall\" }` with the npm client\n\n  7. Run `${npmClient} install` unless `--no-install` is passed OR no dependencies are in package.json\n\n  8. Run any tasks defined in `\"bun-create\": { \"postinstall\" }` with the npm client\n\n  9. Run `git init; git add -A .; git commit -am \"Initial Commit\";`\n     * Rename `gitignore` to `.gitignore`. NPM automatically removes `.gitignore` files from appearing in packages.\n     * If there are dependencies, this runs in a separate thread concurrently while node\\_modules are being installed\n     * Using libgit2 if available was tested and performed 3x slower in microbenchmarks\n</Accordion>\n",
       "sections": [
         {
           "title": "From a React component",
-          "anchor": "from-a-react-component"
+          "anchor": "from-a-react-component",
+          "url": "https://bun.com/docs/runtime/templating/create.md#from-a-react-component"
         },
         {
           "title": "How this works",
-          "anchor": "how-this-works"
+          "anchor": "how-this-works",
+          "url": "https://bun.com/docs/runtime/templating/create.md#how-this-works"
         },
         {
           "title": "Using TailwindCSS with Bun",
-          "anchor": "using-tailwindcss-with-bun"
+          "anchor": "using-tailwindcss-with-bun",
+          "url": "https://bun.com/docs/runtime/templating/create.md#using-tailwindcss-with-bun"
         },
         {
           "title": "Using shadcn/ui with Bun",
-          "anchor": "using-shadcnui-with-bun"
+          "anchor": "using-shadcnui-with-bun",
+          "url": "https://bun.com/docs/runtime/templating/create.md#using-shadcnui-with-bun"
         },
         {
           "title": "From npm",
-          "anchor": "from-npm"
+          "anchor": "from-npm",
+          "url": "https://bun.com/docs/runtime/templating/create.md#from-npm"
         },
         {
           "title": "From GitHub",
-          "anchor": "from-github"
+          "anchor": "from-github",
+          "url": "https://bun.com/docs/runtime/templating/create.md#from-github"
         },
         {
           "title": "From a local template",
-          "anchor": "from-a-local-template"
+          "anchor": "from-a-local-template",
+          "url": "https://bun.com/docs/runtime/templating/create.md#from-a-local-template"
         },
         {
           "title": "Setup logic",
-          "anchor": "setup-logic"
+          "anchor": "setup-logic",
+          "url": "https://bun.com/docs/runtime/templating/create.md#setup-logic"
         },
         {
           "title": "Reference",
-          "anchor": "reference"
+          "anchor": "reference",
+          "url": "https://bun.com/docs/runtime/templating/create.md#reference"
         },
         {
           "title": "CLI flags",
-          "anchor": "cli-flags"
+          "anchor": "cli-flags",
+          "url": "https://bun.com/docs/runtime/templating/create.md#cli-flags"
         },
         {
           "title": "Environment variables",
-          "anchor": "environment-variables"
+          "anchor": "environment-variables",
+          "url": "https://bun.com/docs/runtime/templating/create.md#environment-variables"
         }
       ]
     },
