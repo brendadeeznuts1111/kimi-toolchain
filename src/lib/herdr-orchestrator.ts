@@ -1328,7 +1328,7 @@ export async function reactHerdrOrchestrator(
 
     const logTrigger = options.logTrigger ?? "react";
     for (const [index, xw] of xwResults.entries()) {
-      recordHandoffRuleEvaluation({
+      await recordHandoffRuleEvaluation({
         rule: xw.rule,
         ruleIndex: index + 1,
         detail: xw.detail,

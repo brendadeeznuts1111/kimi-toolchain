@@ -6,6 +6,7 @@ import { getCachedCommandOutputAsync } from "./proc-cache.ts";
 import { DEFAULTS } from "./governor-state.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { nowMs } from "./timing.ts";
+import { readableStreamToText } from "./bun-utils.ts";
 
 export interface ResourceLimits {
   maxMemoryMB?: number;
@@ -140,8 +141,8 @@ export async function governedSpawn(
 
       const [exitCode, stdout, stderr] = await Promise.all([
         proc.exited,
-        proc.stdout.text(),
-        proc.stderr.text(),
+        readableStreamToText(proc.stdout),
+        readableStreamToText(proc.stderr),
       ]);
       clearTimeout(timeout);
 

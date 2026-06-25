@@ -161,8 +161,8 @@ describe.concurrent("release:info CLI", () => {
     });
 
     const [stdout, stderr, exitCode] = await Promise.all([
-      proc.stdout.text(),
-      proc.stderr.text(),
+      Bun.readableStreamToText(proc.stdout),
+      Bun.readableStreamToText(proc.stderr),
       proc.exited,
     ]);
 

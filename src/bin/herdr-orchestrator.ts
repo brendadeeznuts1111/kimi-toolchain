@@ -411,7 +411,7 @@ if (isDirectRun(import.meta.path)) {
                 `  ${dname}: ${d.hosts.length} hosts, ${dRules} rules, ${d.notifications?.webhookUrl ? "notify ✓" : "notify ✗"}`
               );
             }
-            const historyEntries = getHandoffHistory(5);
+            const historyEntries = await getHandoffHistory(5);
             if (historyEntries.length > 0) {
               await writeOut(`Recent handoffs: ${historyEntries.length}`);
               for (const e of historyEntries.slice(0, 3)) {
@@ -1164,12 +1164,12 @@ if (isDirectRun(import.meta.path)) {
       if (argv.includes("--failed")) query.ok = false;
       if (argv.includes("--ok")) query.ok = true;
 
-      const printHistoryEntries = async (entries: ReturnType<typeof queryHandoffHistory>) => {
+      const printHistoryEntries = async (entries: HandoffLogEntry[]) => {
         if (json) {
           await writeJson({ ok: true, logPath: getHandoffLogPath(), query, entries });
           return;
         }
-        if (!entries.length) {
+        if (entries.length === 0) {
           await writeOut(`No handoff history matches filters. Log: ${getHandoffLogPath()}`);
           return;
         }
@@ -1226,7 +1226,7 @@ if (isDirectRun(import.meta.path)) {
           }
         };
         await writeOut(`Following ${logPath} (Ctrl+C to stop)…`);
-        await printHistoryEntries(queryHandoffHistory(query));
+        await printHistoryEntries(await queryHandoffHistory(query));
         await renderNew();
 
         using followCtx = {
@@ -1250,7 +1250,7 @@ if (isDirectRun(import.meta.path)) {
         followCtx._sigHandler = () => process.exit(0);
         process.on("SIGINT", followCtx._sigHandler);
       } else {
-        await printHistoryEntries(queryHandoffHistory(query));
+        await printHistoryEntries(await queryHandoffHistory(query));
         process.exit(0);
       }
     }
@@ -3686,7 +3686,7 @@ if (isDirectRun(import.meta.path)) {
                     ? `[${fromSess}] `
                     : "";
               for (const xw of xwResults) {
-                recordHandoffRuleEvaluation({
+                await recordHandoffRuleEvaluation({
                   rule,
                   ruleIndex: ri,
                   detail: xw.detail,

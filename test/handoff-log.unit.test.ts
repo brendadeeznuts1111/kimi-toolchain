@@ -26,12 +26,12 @@ describe("handoff-log", () => {
     tempDir = "";
   });
 
-  test("logHandoff writes checksum-verified JSONL entries", () => {
+  test("logHandoff writes checksum-verified JSONL entries", async () => {
     tempDir = testTempDir("handoff-log-");
     const logPath = join(tempDir, "handoff-log.jsonl");
     configureHandoffLog({ path: logPath, enabled: true });
 
-    logHandoff({
+    await logHandoff({
       workspace: "w1",
       agent: "kimi",
       rule: 1,
@@ -42,7 +42,7 @@ describe("handoff-log", () => {
     });
 
     expect(verifyHandoffLog()).toEqual([]);
-    const entries = getHandoffHistory(5);
+    const entries = await getHandoffHistory(5);
     expect(entries).toHaveLength(1);
     expect(entries[0]?.agent).toBe("kimi");
     expect(entries[0]?.checksum).toMatch(/^[a-f0-9]{64}$/);
@@ -65,7 +65,7 @@ describe("handoff-log", () => {
     const preRotationContent = `${"x".repeat(300)}\n`;
     writeText(logPath, preRotationContent);
 
-    logHandoff({
+    await logHandoff({
       workspace: "w1",
       agent: "codex",
       rule: 2,
@@ -91,7 +91,7 @@ describe("handoff-log", () => {
     expect(decompressed).toBe(preRotationContent);
   });
 
-  test("getHandoffHistory reads from both live log and rotation archives", () => {
+  test("getHandoffHistory reads from both live log and rotation archives", async () => {
     tempDir = testTempDir("handoff-log-");
     const logPath = join(tempDir, "handoff-log.jsonl");
     configureHandoffLog({ path: logPath, enabled: true, maxBytes: 256 });
@@ -112,7 +112,7 @@ describe("handoff-log", () => {
     writeText(logPath, `${preEntry}\n${"y".repeat(300)}\n`);
 
     // Phase 2: logHandoff triggers rotation, archiving the old content
-    logHandoff({
+    await logHandoff({
       workspace: "w1",
       agent: "live-agent",
       rule: 2,
@@ -123,19 +123,19 @@ describe("handoff-log", () => {
     });
 
     // Phase 3: getHandoffHistory should return entries from BOTH the archive AND the live log
-    const history = getHandoffHistory(50);
+    const history = await getHandoffHistory(50);
     const agents = history.map((e) => e.agent);
     expect(agents).toContain("archive-agent");
     expect(agents).toContain("live-agent");
     expect(history.length).toBeGreaterThanOrEqual(2);
   });
 
-  test("queryHandoffHistory filters by workspace and trigger", () => {
+  test("queryHandoffHistory filters by workspace and trigger", async () => {
     tempDir = testTempDir("handoff-log-");
     const logPath = join(tempDir, "handoff-log.jsonl");
     configureHandoffLog({ path: logPath, enabled: true });
 
-    logHandoff({
+    await logHandoff({
       workspace: "wB",
       agent: "kimi",
       rule: 1,
@@ -144,7 +144,7 @@ describe("handoff-log", () => {
       detail: "probe not satisfied",
       ok: false,
     });
-    logHandoff({
+    await logHandoff({
       workspace: "w1",
       agent: "test-agent",
       rule: 2,
@@ -154,7 +154,11 @@ describe("handoff-log", () => {
       ok: true,
     });
 
-    const filtered = queryHandoffHistory({ workspace: "wB", trigger: "watch-events", limit: 10 });
+    const filtered = await queryHandoffHistory({
+      workspace: "wB",
+      trigger: "watch-events",
+      limit: 10,
+    });
     expect(filtered).toHaveLength(1);
     expect(filtered[0]?.workspace).toBe("wB");
   });
@@ -166,12 +170,12 @@ describe("handoff-log", () => {
     );
   });
 
-  test("recordHandoffRuleEvaluation writes audit entry", () => {
+  test("recordHandoffRuleEvaluation writes audit entry", async () => {
     tempDir = testTempDir("handoff-log-");
     const logPath = join(tempDir, "handoff-log.jsonl");
     configureHandoffLog({ path: logPath, enabled: true });
 
-    recordHandoffRuleEvaluation({
+    await recordHandoffRuleEvaluation({
       rule: {
         fromWorkspace: "wB",
         fromAgent: "kimi",
@@ -188,7 +192,7 @@ describe("handoff-log", () => {
       context: { evalDurationMs: 42 },
     });
 
-    const entries = queryHandoffHistory({ workspace: "wB", limit: 5 });
+    const entries = await queryHandoffHistory({ workspace: "wB", limit: 5 });
     expect(entries[0]?.trigger).toBe("watch-events");
     expect(entries[0]?.action).toBe("skip");
     expect(entries[0]?.durationMs).toBe(42);

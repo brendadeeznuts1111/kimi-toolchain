@@ -50,8 +50,8 @@ describe("herdr-dashboard-server", () => {
     expect(DEFAULT_DASHBOARD_PORT).toBe(18412);
   });
 
-  test("fetchDashboardRules returns rule rows for kimi-toolchain", () => {
-    const payload = fetchDashboardRules(REPO_ROOT, false);
+  test("fetchDashboardRules returns rule rows for kimi-toolchain", async () => {
+    const payload = await fetchDashboardRules(REPO_ROOT, false);
     expect(payload.ok).toBe(true);
     expect(payload.logPath).toContain("handoff-log.jsonl");
     expect(Array.isArray(payload.rules)).toBe(true);

@@ -290,7 +290,7 @@ export async function handleDashboardRequest(
     if (!bytes) {
       return jsonResponse({ ok: false, error: "bun mark encode failed" }, 500);
     }
-    return new Response(bytes, {
+    return new Response(bytes as BodyInit, {
       headers: withCorsHeaders({
         "content-type": effectImageMarkMime(),
         "cache-control": "no-store",
@@ -324,7 +324,7 @@ export async function handleDashboardRequest(
     const cacheKey = thumbnailCacheKey(png, width, height, quality, format);
     const cached = thumbnailCache.get(cacheKey);
     if (cached) {
-      return new Response(cached, {
+      return new Response(cached as BodyInit, {
         headers: withCorsHeaders({
           "content-type": thumbnailFormatMime(format),
           "cache-control": "no-store",
@@ -339,7 +339,7 @@ export async function handleDashboardRequest(
         return jsonResponse({ ok: false, error: "thumbnail encode failed" }, 500);
       }
       thumbnailCache.set(cacheKey, bytes);
-      return new Response(bytes, {
+      return new Response(bytes as BodyInit, {
         headers: withCorsHeaders({
           "content-type": thumbnailFormatMime(format),
           "cache-control": "no-store",
@@ -412,11 +412,11 @@ export async function handleDashboardRequest(
 
   if (path === "/api/handoffs") {
     const limit = Number(url.searchParams.get("limit") || "50");
-    return jsonResponse(fetchDashboardHandoffs(options.projectPath, limit));
+    return jsonResponse(await fetchDashboardHandoffs(options.projectPath, limit));
   }
 
   if (path === "/api/rules") {
-    return jsonResponse(fetchDashboardRules(options.projectPath, options.dryRun ?? false));
+    return jsonResponse(await fetchDashboardRules(options.projectPath, options.dryRun ?? false));
   }
 
   if (path === "/api/scan") {

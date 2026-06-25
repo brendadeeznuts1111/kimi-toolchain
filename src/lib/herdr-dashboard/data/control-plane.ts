@@ -101,7 +101,10 @@ export interface DashboardUpgradeScanPayload {
 }
 
 /** Handoff rules with last-fired metadata from the audit log. */
-export function fetchDashboardRules(projectPath: string, dryRun = false): DashboardRulesPayload {
+export async function fetchDashboardRules(
+  projectPath: string,
+  dryRun = false
+): Promise<DashboardRulesPayload> {
   const fetchedAt = new Date().toISOString();
   const config = discoverHerdrProjectConfig(projectPath);
   if (!config?.enabled) {
@@ -125,7 +128,7 @@ export function fetchDashboardRules(projectPath: string, dryRun = false): Dashbo
   })();
 
   const orch = resolveOrchestratorConfig({ ...config, projectPath }, doc);
-  const history = getHandoffHistory(200);
+  const history = await getHandoffHistory(200);
   const rules: DashboardRuleRow[] = orch.handoffRules.map((rule, index) => {
     const last = history.find((entry) => entry.rule === index);
     return {
@@ -149,11 +152,14 @@ export function fetchDashboardRules(projectPath: string, dryRun = false): Dashbo
   };
 }
 
-export function fetchDashboardHandoffs(projectPath: string, limit = 50): DashboardHandoffsPayload {
+export async function fetchDashboardHandoffs(
+  projectPath: string,
+  limit = 50
+): Promise<DashboardHandoffsPayload> {
   return {
     ok: true,
     projectPath,
-    entries: getHandoffHistory(limit),
+    entries: await getHandoffHistory(limit),
     fetchedAt: new Date().toISOString(),
   };
 }
@@ -215,10 +221,8 @@ export async function runDashboardIpcCommand(
 
   if (command === "audit.tail") {
     const limit = Number(args.lines ?? 20);
-    const entries = fetchDashboardHandoffs(
-      projectPath,
-      Number.isFinite(limit) ? limit : 20
-    ).entries;
+    const entries = (await fetchDashboardHandoffs(projectPath, Number.isFinite(limit) ? limit : 20))
+      .entries;
     return {
       ok: true,
       command,
