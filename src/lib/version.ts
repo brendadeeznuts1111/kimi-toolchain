@@ -9,6 +9,7 @@
 
 import { dirname, join } from "path";
 import { buildInfo } from "./build-info.ts";
+import { gitStatus } from "./git-helpers.ts";
 import { $ } from "bun";
 import { makeDir, movePath, pathExists, readText } from "./bun-io.ts";
 import { manifestPath } from "./paths.ts";
@@ -86,8 +87,8 @@ export async function getRepoHead(): Promise<string | null> {
 
 /** Check if the repo has uncommitted changes */
 export async function hasUncommittedChanges(): Promise<boolean> {
-  const result = await $`git status --porcelain`.quiet().nothrow();
-  return (result.stdout?.toString().trim().length ?? 0) > 0;
+  const status = await gitStatus(process.cwd());
+  return status.length > 0;
 }
 
 // ── Version gating & diagnostics ───────────────────────────────────────
