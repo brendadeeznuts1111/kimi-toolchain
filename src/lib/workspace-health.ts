@@ -3,7 +3,8 @@
  */
 
 import { basename, join, resolve } from "path";
-import { listDir, pathExists, removeFile, resolveRealPath } from "./bun-io.ts";
+import { listDir, pathExists, removeFile } from "./bun-io.ts";
+import { realpathSync } from "node:fs";
 import { homeDir } from "./paths.ts";
 import { readPackageJson, readPackageManifest, safeParse } from "./utils.ts";
 
@@ -257,7 +258,7 @@ export async function auditWorkspaceHealth(
   const repoName = basename(resolvedRoot);
   let physicalName = repoName;
   try {
-    physicalName = basename(resolveRealPath(resolvedRoot));
+    physicalName = basename(realpathSync(resolvedRoot));
   } catch {
     /* keep repoName */
   }

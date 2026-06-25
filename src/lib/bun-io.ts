@@ -5,7 +5,6 @@
 
 import {
   appendFileSync,
-  copyFileSync,
   cpSync,
   existsSync,
   lstatSync,
@@ -84,20 +83,12 @@ export function movePath(oldPath: PathLike, newPath: PathLike): void {
   renameSync(oldPath, newPath);
 }
 
-export function readLink(path: PathLike): string {
-  return readlinkSync(path);
-}
-
 export function copyTree(
   src: PathLike,
   dest: PathLike,
   options?: Parameters<typeof cpSync>[2]
 ): void {
   cpSync(String(src), String(dest), options);
-}
-
-export function resolveRealPath(path: PathLike): string {
-  return realpathSync(path);
 }
 
 export function watchPath(path: PathLike, listener: () => void): FSWatcher;
