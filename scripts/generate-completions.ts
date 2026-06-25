@@ -81,6 +81,7 @@ interface CommandInfo {
 
 interface CompletionData {
   version: string;
+  referenceUrl: string;
   commands: Record<string, CommandInfo>;
   globalFlags: FlagInfo[];
   specialHandling: {
@@ -472,7 +473,7 @@ function parseHelpOutput(helpText: string, commandName: string): CommandInfo {
     ) {
       const urlMatch = trimmed.match(/https?:\/\/[^\s]+/);
       if (urlMatch) {
-        command.documentationUrl = urlMatch[0];
+        command.documentationUrl = urlMatch[0].replace(/[.,;:!?)]+$/, "");
       }
       inFlags = false;
       inExamples = false;
@@ -672,6 +673,7 @@ async function generateCompletions(): Promise<void> {
 
   const completionData: CompletionData = {
     version: "1.2.0",
+    referenceUrl: "https://bun.com/reference",
     commands: {},
     globalFlags,
     specialHandling: {
