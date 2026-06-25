@@ -2,17 +2,17 @@
  * Bun-native structural validation for canonical reference manifests and TOML link tables.
  */
 
-import type {
-  EcosystemReference,
-  EcosystemReferenceStatus,
-  LocalDocReference,
-  ReferenceKind,
-  RepoFramework,
-  RepoLanguage,
-  RepoReference,
-  RepoRole,
-} from "./canonical-references-types.ts";
-import { CANONICAL_REFERENCES_SCHEMA_VERSION } from "./canonical-references-types.ts";
+import {
+  CANONICAL_REFERENCES_SCHEMA_VERSION,
+  type EcosystemReference,
+  type EcosystemReferenceStatus,
+  type LocalDocReference,
+  type ReferenceKind,
+  type RepoFramework,
+  type RepoLanguage,
+  type RepoReference,
+  type RepoRole,
+} from "./canonical-references-data.ts";
 
 const VALID_REFERENCE_KINDS = new Set<ReferenceKind>([
   "runtime",

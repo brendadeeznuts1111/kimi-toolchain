@@ -21,12 +21,15 @@ import {
   formatChangedOnlyBanner,
   formatChangedOnlyEmptyWarning,
   resolveChangedContext,
+  type CheckFailure,
+  type CheckOptions,
+  type CheckRunResult,
+  type StepSummary,
 } from "./check-changed.ts";
 import { shouldRunScopedLint } from "./check-lint-scoped.ts";
 import { SCOPED_ANY_TS, writeScopedGatePass } from "./scoped-gate-cache.ts";
 import { isKimiToolchainRepo } from "./workspace-health.ts";
 import { pathExists } from "./bun-io.ts";
-import type { CheckFailure, CheckOptions, CheckRunResult, StepSummary } from "./check-types.ts";
 import { join } from "path";
 
 function checkOut(message: string): void {

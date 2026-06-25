@@ -16,7 +16,7 @@ import {
   runCheckPipeline,
   runTestOnlyPipeline,
 } from "../src/lib/check-pipeline.ts";
-import type { CheckOptions } from "../src/lib/check-types.ts";
+import type { CheckOptions } from "../src/lib/check-changed.ts";
 import {
   gateSpawnEnv,
   scrubEphemeralBunNodeDirs,

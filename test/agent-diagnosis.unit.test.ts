@@ -11,7 +11,7 @@ import type {
   FailureLedgerSummary,
   HealthCheck,
   TuningSetVersionReport,
-} from "../src/lib/agent-types.ts";
+} from "../src/lib/agent-diagnosis.ts";
 
 function coverageFixture(coverage: number): ErrorCoverageAudit {
   const total = 10;

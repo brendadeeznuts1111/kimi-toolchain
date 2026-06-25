@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { pathExists, removePath } from "../src/lib/bun-io.ts";
 import { buildSteps } from "../src/lib/check-pipeline.ts";
-import type { CheckOptions } from "../src/lib/check-types.ts";
+import type { CheckOptions } from "../src/lib/check-changed.ts";
 import { testTempDir } from "./helpers.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";

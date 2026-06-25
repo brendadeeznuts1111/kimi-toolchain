@@ -809,7 +809,7 @@ describe("canonical-references", () => {
     expect(tsModule.ECOSYSTEM_REFERENCES).toEqual(source.ecosystem);
     expect(tsModule.LOCAL_DOC_REFERENCES).toEqual(source.localDocs);
     expect(tsModule.REPO_REFERENCES).toEqual(source.repos);
-    expect(tsOnDisk).toContain("Auto-generated from canonical-references.toml");
+    expect(tsOnDisk).toContain("Auto-generated arrays from canonical-references.toml");
 
     const jsonOnDisk = await Bun.file(join(REPO_ROOT, "canonical-references.json")).text();
     const existing = JSON.parse(jsonOnDisk) as CanonicalReferencesManifest;

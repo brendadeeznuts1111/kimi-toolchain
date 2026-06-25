@@ -20,7 +20,7 @@ import {
   type RepoLanguage,
   type RepoReference,
   type RepoRole,
-} from "./canonical-references-types.ts";
+} from "./canonical-references-data.ts";
 
 export {
   CANONICAL_REFERENCES_SCHEMA_VERSION,

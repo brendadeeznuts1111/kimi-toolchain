@@ -10,7 +10,7 @@ import {
   formatChangedOnlyEmptyWarning,
   resolveChangedContext,
 } from "../src/lib/check-changed.ts";
-import type { CheckOptions } from "../src/lib/check-types.ts";
+import type { CheckOptions } from "../src/lib/check-changed.ts";
 
 function gitSpawnEnv(): Record<string, string> {
   const env = { ...Bun.env } as Record<string, string>;

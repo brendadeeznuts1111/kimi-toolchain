@@ -1,6 +1,6 @@
 import { join } from "path";
 import { listChangedFiles, resolveChangedContext } from "../../../../src/lib/check-changed.ts";
-import type { CheckOptions } from "../../../../src/lib/check-types.ts";
+import type { CheckOptions } from "../../../../src/lib/check-changed.ts";
 
 /** Kimi-toolchain monorepo root (parent of examples/dashboard). */
 export const TOOLCHAIN_ROOT = join(import.meta.dir, "../../../..");
