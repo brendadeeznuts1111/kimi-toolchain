@@ -10,3 +10,7 @@ rule:
     - pattern: if (path === $ROUTE) { $$$BODY }
     - pattern: if (path === $ROUTE && $COND) { $$$BODY }
     - pattern: if (path === $ROUTE || path === $ROUTE2) { $$$BODY }
+    - pattern: if (path.startsWith($PREFIX)) { $$$BODY }
+    - pattern: if (path.startsWith($PREFIX) && $COND) { $$$BODY }
+    - pattern: if (path.endsWith($SUFFIX)) { $$$BODY }
+    - pattern: if (path.includes($SUBSTR)) { $$$BODY }

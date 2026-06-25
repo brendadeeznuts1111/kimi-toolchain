@@ -26,10 +26,11 @@ export const EXEMPT_FILES: Record<string, string[]> = {
     "src/lib/bun-utils.ts",
   ],
   "node-fs-in-bun": ["src/lib/bun-io.ts"],
+  // Grandfathered legacy router — hard block is scripts/lint-serve-routes-staged.ts on staged +lines.
   "prefer-bun-serve-routes": ["src/lib/herdr-dashboard/server/router.ts"],
 };
 
-/** Bun hygiene profile — mirrors Projects ast-grep `bun` scan profile. */
+/** Bun hygiene profile — error-severity rules only; prefer-bun-serve-routes stays warning + staged rg. */
 export const BUN_HYGIENE_RULES = [
   "node-fs-in-bun",
   "prefer-bun-spawn",
