@@ -60,7 +60,7 @@ Usage:
   }
 
   for (const entry of entries) {
-    removePath(`${artifactsDir}/${entry}`);
+    removePath(`${artifactsDir}/${entry}`, { recursive: true, force: true });
   }
 
   console.log(`Removed ${entries.length} item(s) from ${GENERATED_ARTIFACTS_DIR}/`);
