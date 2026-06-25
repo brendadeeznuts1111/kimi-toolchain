@@ -27,14 +27,6 @@ interface BunCreateSyncResult {
   skipped: number;
 }
 
-async function readTextOrNull(path: string): Promise<string | null> {
-  try {
-    return await Bun.file(path).text();
-  } catch {
-    return null;
-  }
-}
-
 async function syncBunCreateMirror(repoRoot: string): Promise<BunCreateSyncResult> {
   const srcDir = join(repoRoot, "templates", "bun-create");
   const dstDir = join(repoRoot, ".bun-create");
@@ -45,10 +37,14 @@ async function syncBunCreateMirror(repoRoot: string): Promise<BunCreateSyncResul
   for await (const rel of glob.scan({ cwd: srcDir, onlyFiles: true, dot: true })) {
     const srcPath = join(srcDir, rel);
     const dstPath = join(dstDir, rel);
-    const srcText = await readTextOrNull(srcPath);
+    const srcText = await Bun.file(srcPath)
+      .text()
+      .catch(() => null);
     if (srcText === null) continue;
 
-    const dstText = await readTextOrNull(dstPath);
+    const dstText = await Bun.file(dstPath)
+      .text()
+      .catch(() => null);
     if (srcText !== dstText) {
       await Bun.write(dstPath, srcText);
       result.updated.push(`.bun-create/${rel}`);
@@ -61,7 +57,11 @@ async function syncBunCreateMirror(repoRoot: string): Promise<BunCreateSyncResul
   const dstGlob = new Bun.Glob("**/*");
   for await (const rel of dstGlob.scan({ cwd: dstDir, onlyFiles: true, dot: true })) {
     const srcPath = join(srcDir, rel);
-    if ((await readTextOrNull(srcPath)) === null) {
+    if (
+      (await Bun.file(srcPath)
+        .text()
+        .catch(() => null)) === null
+    ) {
       try {
         await Bun.file(join(dstDir, rel)).delete();
         result.removed.push(`.bun-create/${rel}`);

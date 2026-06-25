@@ -10,7 +10,7 @@
 
 import { $ } from "bun";
 import { isDirectRun, readableStreamToText } from "../lib/bun-utils.ts";
-import { pathExists, readJsonFile, readJsonFileOr } from "../lib/bun-io.ts";
+import { pathExists, readJsonFileOr } from "../lib/bun-io.ts";
 import { join } from "path";
 import {
   ensureDir,
@@ -230,7 +230,7 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
         let hitLines = 0;
         for (const line of lcov.split("\n")) {
           if (line.startsWith("DA:")) {
-            const [, , hits] = line.split(":")[1].split(",");
+            const [, hits] = line.split(":")[1].split(",");
             totalLines++;
             if (parseInt(hits, 10) > 0) hitLines++;
           }
@@ -259,7 +259,7 @@ async function latestCoverageHistory(projectDir: string): Promise<CoverageReport
   if (!pathExists(COVERAGE_HISTORY)) return null;
   let history: CoverageHistoryEntry[];
   try {
-    const raw = await readJsonFile(COVERAGE_HISTORY);
+    const raw = await Bun.file(COVERAGE_HISTORY).json();
     if (!isCoverageHistoryEntryArray(raw)) return null;
     history = raw;
   } catch {

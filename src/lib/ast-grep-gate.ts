@@ -7,7 +7,7 @@
 
 import { $ } from "bun";
 import { join, relative } from "path";
-import { writeTextAsync, makeDir } from "./bun-io.ts";
+import { makeDir } from "./bun-io.ts";
 
 /** Per-rule exempt files — these are the legitimate sources of the patterns. */
 export const EXEMPT_FILES: Record<string, string[]> = {
@@ -269,8 +269,8 @@ export async function writeReportFiles(
   makeDir(reportDir, { recursive: true });
   const jsonPath = join(reportDir, "gate-report.json");
   const htmlPath = join(reportDir, "gate-report.html");
-  await writeTextAsync(jsonPath, JSON.stringify(report, null, 2) + "\n");
-  await writeTextAsync(htmlPath, renderHtmlReport(report));
+  await Bun.write(jsonPath, JSON.stringify(report, null, 2) + "\n");
+  await Bun.write(htmlPath, renderHtmlReport(report));
   return { jsonPath, htmlPath };
 }
 

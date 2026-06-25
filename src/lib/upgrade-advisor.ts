@@ -6,7 +6,7 @@
  */
 
 import { join, relative } from "path";
-import { pathExists, readTextAsync } from "./bun-io.ts";
+import { pathExists } from "./bun-io.ts";
 import { safeToml } from "./utils.ts";
 
 /** Result of applying an auto-fix to a finding. */
@@ -298,7 +298,7 @@ async function scanSourceTree(
         if (file.includes("node_modules")) continue;
         const abs = join(absDir, file);
         const rel = relative(projectRoot, abs);
-        const text = await readTextAsync(abs);
+        const text = await Bun.file(abs).text();
         scanSourceFile(rel, abs, text.split("\n"), findings, options);
       }
     }
@@ -314,7 +314,7 @@ async function scanBunfig(
   const bunfigPath = join(projectRoot, "bunfig.toml");
   if (!pathExists(bunfigPath)) return [];
 
-  const text = await readTextAsync(bunfigPath);
+  const text = await Bun.file(bunfigPath).text();
   const parsed = safeToml<{ install?: { linker?: string; globalStore?: boolean } }>(text, {});
   const install = parsed?.install;
   if (!install) return [];
@@ -359,7 +359,7 @@ async function scanPackageJson(
   if (!pathExists(pkgPath)) return [];
 
   const findings: UpgradeFinding[] = [];
-  const text = await readTextAsync(pkgPath);
+  const text = await Bun.file(pkgPath).text();
   const pkg = JSON.parse(text) as {
     scripts?: Record<string, string>;
     dependencies?: Record<string, string>;

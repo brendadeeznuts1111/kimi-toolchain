@@ -28,11 +28,10 @@ import {
 
 export { BUN_BINARY_DATA_CONVERSION_DOC_URL };
 import { isPlainObject, recordField } from "./boundary.ts";
-import { pathExists, readJsonFile } from "./bun-io.ts";
+import { pathExists } from "./bun-io.ts";
 import { parseTomlValue } from "./toml-config.ts";
 import { readPackageManifest } from "./utils.ts";
 import { spawnBun } from "./tool-runner.ts";
-import { join } from "path";
 import { TOML } from "bun";
 import { SecretKeys } from "./secrets-constants.ts";
 import { readSecretFromEnv } from "./secrets-env.ts";
@@ -2017,7 +2016,7 @@ async function readProjectInstallMeta(projectDir: string): Promise<{
   cacheDir: string | null;
   packageMeta: PackageJsonInstallMeta | null;
 }> {
-  const bunfigPath = join(projectDir, "bunfig.toml");
+  const bunfigPath = `${projectDir}/bunfig.toml`;
   let install: BunfigInstallSection | null = null;
   let cacheDir: string | null = null;
 
@@ -2033,11 +2032,11 @@ async function readProjectInstallMeta(projectDir: string): Promise<{
     }
   }
 
-  const pkgPath = join(projectDir, "package.json");
+  const pkgPath = `${projectDir}/package.json`;
   let packageMeta: PackageJsonInstallMeta | null = null;
   if (pathExists(pkgPath)) {
     try {
-      const raw = await readJsonFile(pkgPath);
+      const raw = await Bun.file(pkgPath).json();
       packageMeta = isPackageJsonInstallMeta(raw) ? raw : null;
     } catch {
       packageMeta = null;
@@ -2078,10 +2077,10 @@ async function resolveWorkspaceCurrent(
     return resolvePackageCurrent("workspaces", packageMeta);
   }
   if (key === "rootConsumerLink") {
-    const dashboardPkg = join(projectDir, "examples/dashboard/package.json");
+    const dashboardPkg = `${projectDir}/examples/dashboard/package.json`;
     if (!pathExists(dashboardPkg)) return null;
     try {
-      const parsed = await readPackageManifest(join(projectDir, "examples/dashboard"));
+      const parsed = await readPackageManifest(`${projectDir}/examples/dashboard`);
       return parsed?.dependencies?.["kimi-toolchain"] ?? null;
     } catch {
       return null;

@@ -203,9 +203,9 @@ describe("bun-release-compliance Bun.spawn stderr", () => {
     expect(text).toContain("Bun.spawn");
   });
 
-  test("governor-spawn.ts reads stderr via readableStreamToText", () => {
+  test("governor-spawn.ts reads stderr with Bun stream text", () => {
     const text = readSrc("src/lib/governor-spawn.ts");
-    expect(text).toContain("readableStreamToText");
+    expect(text).toContain("proc.stderr.text()");
   });
 
   test("Bun.spawn with stderr pipe captures error output", async () => {
@@ -934,7 +934,7 @@ describe("bun-release-compliance console-bun-terminal", () => {
     "src/lib/bun-cli-test-changed-probes.ts",
     "src/lib/bun-cli-markdown-probes.ts",
     "src/lib/bun-cli-fixture.ts",
-    "src/lib/workflow-effects.ts",
+
     "src/lib/workflow/loop.ts",
     "src/lib/workflow/effects.ts",
     "src/lib/restore-baseline.ts",

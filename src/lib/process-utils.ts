@@ -4,12 +4,11 @@
  */
 
 import { guardDir } from "./paths.ts";
-import { join } from "path";
 import { getOrphanCandidates, type OrphanProcessInfo } from "./proc-cache.ts";
 
 export async function clearStaleLocks(): Promise<string[]> {
   const cleared: string[] = [];
-  const locks = [join(guardDir(), "test-runner.pid"), join(guardDir(), "kimi-test.lock")];
+  const locks = [`${guardDir()}/test-runner.pid`, `${guardDir()}/kimi-test.lock`];
   for (const lock of locks) {
     await Bun.file(lock).delete();
     cleared.push(lock);

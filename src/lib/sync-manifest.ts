@@ -7,8 +7,11 @@
 
 import { writeSyncSnapshotArchive } from "./archive-persistence.ts";
 import { pathExists } from "./bun-io.ts";
-import { LABEL_PREFIX, SYNC_ROOT_INFRA } from "./desktop-sync.ts";
 import { computeSyncHashes, detectSyncDrift, type SyncDriftReport } from "./sync-hashes.ts";
+import { canonicalRepoRoot } from "./paths.ts";
+import { resolveSyncManagedSourcePath } from "./sync-paths.ts";
+
+export { resolveSyncManagedSourcePath } from "./sync-paths.ts";
 import {
   TOOLCHAIN_VERSION,
   getDesktopVersion,
@@ -17,8 +20,6 @@ import {
   writeManifest,
   type ToolchainManifest,
 } from "./version.ts";
-import { collectLocalDocSyncPaths } from "./canonical-references.ts";
-import { join } from "path";
 
 export interface WriteSyncManifestOptions {
   files?: string[];
@@ -39,6 +40,7 @@ export async function buildSyncManifest(
   repoRoot: string,
   options: WriteSyncManifestOptions = {}
 ): Promise<ToolchainManifest> {
+  repoRoot = canonicalRepoRoot(repoRoot);
   const [desktopVersion, gitHead, fileHashes] = await Promise.all([
     getDesktopVersion(),
     getRepoHead(),
@@ -61,47 +63,6 @@ export async function writeSyncManifest(
   const manifest = await buildSyncManifest(repoRoot, options);
   await writeManifest(manifest);
   return manifest;
-}
-
-/** Resolve a sync-managed desktop key to its repo source path (or null). */
-export function resolveSyncManagedSourcePath(repoRoot: string, key: string): string | null {
-  if (key.startsWith(LABEL_PREFIX.TOOLS)) {
-    return join(repoRoot, "src", "bin", key.slice(LABEL_PREFIX.TOOLS.length));
-  }
-  if (key.startsWith(LABEL_PREFIX.LIB)) {
-    return join(repoRoot, "src", "lib", key.slice(LABEL_PREFIX.LIB.length));
-  }
-  if (key.startsWith(LABEL_PREFIX.CANVASES)) {
-    return join(repoRoot, "src", "canvases", key.slice(LABEL_PREFIX.CANVASES.length));
-  }
-  if (key.startsWith(LABEL_PREFIX.GATES)) {
-    return join(repoRoot, "src", "gates", key.slice(LABEL_PREFIX.GATES.length));
-  }
-  if (key.startsWith(LABEL_PREFIX.HARNESS)) {
-    return join(repoRoot, "src", "harness", key.slice(LABEL_PREFIX.HARNESS.length));
-  }
-  if (key.startsWith(LABEL_PREFIX.SCRIPTS)) {
-    return join(repoRoot, "scripts", key.slice(LABEL_PREFIX.SCRIPTS.length));
-  }
-  if (key.startsWith(LABEL_PREFIX.KIMI_HOOKS)) {
-    return join(repoRoot, "src", "kimi-hooks", key.slice(LABEL_PREFIX.KIMI_HOOKS.length));
-  }
-  if (key.startsWith(LABEL_PREFIX.TEMPLATES)) {
-    return join(repoRoot, "templates", key.slice(LABEL_PREFIX.TEMPLATES.length));
-  }
-  if (key.startsWith(LABEL_PREFIX.AGENTS_SKILL)) {
-    return join(repoRoot, "skills", "kimi-toolchain", key.slice(LABEL_PREFIX.AGENTS_SKILL.length));
-  }
-  if (key.startsWith(LABEL_PREFIX.KIMI_SKILL)) {
-    return join(repoRoot, "skills", "kimi-toolchain", key.slice(LABEL_PREFIX.KIMI_SKILL.length));
-  }
-  if (
-    collectLocalDocSyncPaths().includes(key) ||
-    (SYNC_ROOT_INFRA as readonly string[]).includes(key)
-  ) {
-    return join(repoRoot, key);
-  }
-  return null;
 }
 
 async function collectSyncArchiveContents(
@@ -147,6 +108,7 @@ export async function writeSyncManifestWithArchive(
 }
 
 export async function verifySyncManifest(repoRoot: string): Promise<SyncManifestVerification> {
+  repoRoot = canonicalRepoRoot(repoRoot);
   const [manifest, expectedHashes, drift] = await Promise.all([
     readManifest(),
     computeSyncHashes(repoRoot),

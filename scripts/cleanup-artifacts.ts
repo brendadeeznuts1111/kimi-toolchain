@@ -7,7 +7,6 @@
  *   bun run cleanup:artifacts -- --dry-run
  */
 
-import { join, resolve } from "path";
 import { listDir, pathExists, removePath } from "../src/lib/bun-io.ts";
 import { GENERATED_ARTIFACTS_DIR } from "../src/lib/artifacts.ts";
 import { resolveEffectiveWorkspaceRoot } from "../src/lib/workspace-health.ts";
@@ -38,9 +37,11 @@ Usage:
   }
 
   const repoRoot = root
-    ? resolve(root)
-    : resolveEffectiveWorkspaceRoot(join(import.meta.dir, "..")).root;
-  const artifactsDir = join(repoRoot, GENERATED_ARTIFACTS_DIR);
+    ? root.startsWith("/")
+      ? root
+      : `${process.cwd()}/${root}`
+    : resolveEffectiveWorkspaceRoot(`${import.meta.dir}/..`).root;
+  const artifactsDir = `${repoRoot}/${GENERATED_ARTIFACTS_DIR}`;
   if (!pathExists(artifactsDir)) {
     console.log(`${GENERATED_ARTIFACTS_DIR}/ not present — nothing to clean`);
     return 0;
@@ -59,7 +60,7 @@ Usage:
   }
 
   for (const entry of entries) {
-    removePath(join(artifactsDir, entry));
+    removePath(`${artifactsDir}/${entry}`);
   }
 
   console.log(`Removed ${entries.length} item(s) from ${GENERATED_ARTIFACTS_DIR}/`);

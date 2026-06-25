@@ -4,7 +4,7 @@
  */
 
 import { join } from "path";
-import { pathExists, readTextAsync, writeTextAsync } from "../src/lib/bun-io.ts";
+import { pathExists } from "../src/lib/bun-io.ts";
 import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import {
   buildBaselineFromViolations,
@@ -65,12 +65,12 @@ function printHelp(): void {
 
 async function loadConfig(): Promise<BunNativeLintConfig> {
   if (!pathExists(CONFIG_PATH)) return defaultConfig();
-  return parseConfigToml(await readTextAsync(CONFIG_PATH));
+  return parseConfigToml(await Bun.file(CONFIG_PATH).text());
 }
 
 async function loadBaseline(): Promise<BaselineFile | null> {
   if (!pathExists(BASELINE_PATH)) return null;
-  return parseBaselineJson(await readTextAsync(BASELINE_PATH));
+  return parseBaselineJson(await Bun.file(BASELINE_PATH).text());
 }
 
 function filterViolations(violations: Violation[], ruleId?: string): Violation[] {
@@ -113,7 +113,7 @@ async function main(): Promise<number> {
 
   if (opts.updateBaseline) {
     const next = buildBaselineFromViolations(violations, config, baseline, opts.ruleFilter);
-    await writeTextAsync(BASELINE_PATH, JSON.stringify(next, null, 2) + "\n");
+    await Bun.write(BASELINE_PATH, JSON.stringify(next, null, 2) + "\n");
     console.log(
       `  ✓ Updated baseline${opts.ruleFilter ? ` for "${opts.ruleFilter}"` : ""} (${next.entries.length} entries)`
     );

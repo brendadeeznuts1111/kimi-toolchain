@@ -244,8 +244,7 @@ const server = Bun.serve({
   async fetch(request) {
     if (request.headers.get("User-Agent") === "${expected}") process.exit(0);
     process.exit(1);
-  },
-});
+  } });
 try { await fetch(\`http://localhost:\${server.port}/test\`); } catch { process.exit(1); }
 `;
   }
@@ -256,8 +255,7 @@ const server = Bun.serve({
     const ua = request.headers.get("User-Agent");
     if (ua && ua.includes("Bun/")) process.exit(0);
     process.exit(1);
-  },
-});
+  } });
 try { await fetch(\`http://localhost:\${server.port}/test\`); } catch { process.exit(1); }
 `;
 }

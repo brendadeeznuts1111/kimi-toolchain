@@ -115,8 +115,7 @@ export const SERVICE_META = {
   domain: "${domain}",
   app: "${service}",
   secretCount: ${secretNames.length},
-  createdAt: "${new Date().toISOString()}",
-} as const;
+  createdAt: "${new Date().toISOString()}" } as const;
 `;
   await Bun.write(join(secretsDir, "_registry.ts"), registry);
 
@@ -156,13 +155,11 @@ export const secrets = {
           service: SERVICE_ID,
           name: n,
           key: ${bt}\${SERVICE_ID}/\${n}${bt},
-          status: (await this.get(n)) ? "✅" : "❌",
-        }))
+          status: (await this.get(n)) ? "✅" : "❌" }))
       ),
       ["service", "name", "key", "status"]
     );
-  },
-};
+  } };
 `;
   await Bun.write(join(secretsDir, "access.ts"), access);
 

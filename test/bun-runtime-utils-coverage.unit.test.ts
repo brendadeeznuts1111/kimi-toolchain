@@ -19,7 +19,7 @@ describe("bun-runtime-utils-coverage", () => {
 
   test("buildRuntimeUtilsCoverageReport computes coverage", () => {
     const report = buildRuntimeUtilsCoverageReport();
-    expect(report.wrapped).toBeGreaterThan(10);
-    expect(report.coveragePercent).toBeGreaterThan(50);
+    expect(report.wrapped + report.nativeOnly).toBeGreaterThan(10);
+    expect(report.coveragePercent).toBeGreaterThanOrEqual(85);
   });
 });

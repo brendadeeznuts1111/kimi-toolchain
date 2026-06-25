@@ -2,7 +2,6 @@
  * Live data extractors for AGENTS.md marker sync.
  */
 
-import { join } from "path";
 import { safeParse } from "./utils.ts";
 import { extractMarkdownTablesFallback } from "./bun-markdown.ts";
 import { listBuiltinGateDefinitions } from "../gates/registry.ts";
@@ -42,7 +41,7 @@ export interface LibDomainRow {
 }
 
 export async function readPackageBins(projectDir: string): Promise<Record<string, string> | null> {
-  const pkgFile = Bun.file(join(projectDir, "package.json"));
+  const pkgFile = Bun.file(`${projectDir}/package.json`);
   if (!(await pkgFile.exists())) return null;
   const pkgRaw = safeParse(await pkgFile.text(), null, isPackageJson);
   if (pkgRaw === null) return null;
@@ -52,7 +51,7 @@ export async function readPackageBins(projectDir: string): Promise<Record<string
 export async function readDxEndpoints(
   projectDir: string
 ): Promise<Array<{ name: string; url: string }> | null> {
-  const configFile = Bun.file(join(projectDir, DX_CONFIG_REL));
+  const configFile = Bun.file(`${projectDir}/${DX_CONFIG_REL}`);
   if (!(await configFile.exists())) return null;
   const parsed = Bun.TOML.parse(await configFile.text());
   if (!isDxConfigToml(parsed)) return null;
@@ -69,7 +68,7 @@ export async function readDxEndpoints(
 }
 
 export async function readFinishWorkGates(projectDir: string): Promise<string[] | null> {
-  const configFile = Bun.file(join(projectDir, DX_CONFIG_REL));
+  const configFile = Bun.file(`${projectDir}/${DX_CONFIG_REL}`);
   if (!(await configFile.exists())) return null;
   const parsed = Bun.TOML.parse(await configFile.text());
   if (!isDxConfigToml(parsed)) return null;
@@ -80,12 +79,17 @@ export async function readFinishWorkGates(projectDir: string): Promise<string[] 
 }
 
 export async function readLibDomainRows(projectDir: string): Promise<LibDomainRow[] | null> {
-  const readmeFile = Bun.file(join(projectDir, LIB_README_REL));
+  const readmeFile = Bun.file(`${projectDir}/${LIB_README_REL}`);
   if (!(await readmeFile.exists())) return null;
 
   const text = await readmeFile.text();
-  const section = text.match(/## Domains\s*\n+([\s\S]*?)(?=\n## |\n# |\s*$)/);
-  const table = extractMarkdownTablesFallback(section?.[1] ?? "")[0];
+  const heading = text.match(/^## Domains[ \t]*$/m);
+  if (!heading) return [];
+  const body = text.slice(heading.index! + heading[0].length);
+  const nextHeading = body.search(/\n#{1,6}\s+/);
+  const table = extractMarkdownTablesFallback(
+    nextHeading >= 0 ? body.slice(0, nextHeading) : body
+  )[0];
   if (!table) return [];
 
   const domainIdx = table.headers.findIndex((header) => /domain/i.test(header));

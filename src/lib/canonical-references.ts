@@ -4,7 +4,7 @@
  */
 
 import { join } from "path";
-import { pathExists, readJsonFile, readText } from "./bun-io.ts";
+import { pathExists, readText } from "./bun-io.ts";
 import { canonicalReferencesPath, homeDir } from "./paths.ts";
 import { readPackageManifest, safeParse } from "./utils.ts";
 import { TOOLCHAIN_VERSION } from "./version.ts";
@@ -145,7 +145,7 @@ export async function readCanonicalReferencesFile(
 ): Promise<CanonicalReferencesManifest | null> {
   if (!pathExists(filePath)) return null;
   try {
-    const parsed = await readJsonFile(filePath);
+    const parsed = await Bun.file(filePath).json();
     return isCanonicalReferencesManifest(parsed) ? parsed : null;
   } catch {
     return null;

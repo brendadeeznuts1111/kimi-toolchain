@@ -12,7 +12,6 @@
 
 import type { HealthCheck, HealthReport } from "./health-check.ts";
 import { statusIcon as healthStatusIcon, aggregateChecks } from "./health-check.ts";
-import { dirname } from "path";
 import { appendText, makeDir } from "./bun-io.ts";
 import { inspectAgent } from "./inspect.ts";
 import { isAgentContext } from "./tool-runner.ts";
@@ -470,7 +469,7 @@ export class Logger {
   /** Append logs as JSONL for persistent telemetry (matches tool-failures.jsonl semantics). */
   async flushToFile(path: string): Promise<void> {
     if (this.logs.length === 0) return;
-    makeDir(dirname(path), { recursive: true });
+    makeDir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
     const lines = this.logs.map((l) => inspectAgent(l)).join("\n") + "\n";
     appendText(path, lines);
     this.logs.length = 0;

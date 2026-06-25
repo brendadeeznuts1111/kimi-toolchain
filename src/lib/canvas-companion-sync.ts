@@ -4,7 +4,7 @@
 
 import { tmpdir } from "os";
 import { join } from "path";
-import { makeDir, readText, removePath, writeTextAsync } from "./bun-io.ts";
+import { makeDir, readText, removePath } from "./bun-io.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import {
   canvasCompanionFiles,
@@ -62,7 +62,7 @@ async function formatCanvasSources(
   for (let i = 0; i < entries.length; i++) {
     const tmp = join(dir, `${i}.tsx`);
     relToTmp.set(entries[i].relPath, tmp);
-    await writeTextAsync(tmp, entries[i].source);
+    await Bun.write(tmp, entries[i].source);
   }
   try {
     const proc = Bun.spawn(
@@ -121,11 +121,12 @@ export async function syncCanvasCompanions(repoRoot: string): Promise<CanvasComp
 
   const hubAbs = join(repoRoot, HUB_CANVAS);
   const hubBefore = await readText(hubAbs);
+  const hubWithRouting = patchCanvasRouting(hubBefore, HUB_CANVAS);
   patches.push({
     relPath: HUB_CANVAS,
     abs: hubAbs,
     before: hubBefore,
-    after: patchHubToolchainCanvas(hubBefore, stats, binNames),
+    after: patchHubToolchainCanvas(hubWithRouting, stats, binNames),
   });
 
   const afters = patches.map((p) => ({ relPath: p.relPath, source: p.after }));
@@ -134,7 +135,7 @@ export async function syncCanvasCompanions(repoRoot: string): Promise<CanvasComp
   for (const patch of patches) {
     const after = formatted.get(patch.relPath)!;
     if (after !== patch.before) {
-      await writeTextAsync(patch.abs, after);
+      await Bun.write(patch.abs, after);
       result.updated.push(patch.relPath);
     } else {
       result.unchanged.push(patch.relPath);

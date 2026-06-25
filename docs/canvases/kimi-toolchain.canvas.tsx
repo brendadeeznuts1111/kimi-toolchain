@@ -196,6 +196,18 @@ const CANVAS_ROUTING = [
     path: "docs/canvases/artifact-lineage.canvas.tsx",
     detail: "Run manifests · /api/artifacts · /api/runs · lineage URLPatterns",
   },
+  {
+    id: "gate-health",
+    page: "Gate Health",
+    path: "docs/canvases/gate-health.canvas.tsx",
+    detail: "GET /api/doctor/gates · #gate-health overlay · 30s poll",
+  },
+  {
+    id: "benchmark",
+    page: "Effect Benchmark",
+    path: "docs/canvases/benchmark.canvas.tsx",
+    detail: "GET /api/effect-benchmark · serve-probe · 30s poll",
+  },
 ] as const;
 
 /** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
@@ -213,11 +225,13 @@ const CANVAS_ROUTING_ROW_TONE = [
   "warning",
   "neutral",
   "neutral",
+  "neutral",
+  "neutral",
 ] as const;
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "438 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "431 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -244,8 +258,8 @@ const TOOL_CATEGORIES = [
 ] as const;
 
 const BIN_COUNT = 31;
-const LIB_COUNT = 487;
-const UNIT_COUNT = 438;
+const LIB_COUNT = 473;
+const UNIT_COUNT = 431;
 const INTEGRATION_COUNT = 18;
 const SMOKE_COUNT = 10;
 const CURSOR_CANVAS_COUNT = 13;

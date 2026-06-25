@@ -39,9 +39,7 @@ export async function apiBuildCompile(): Promise<Response> {
   compile: {
     target: "bun-windows-x64",
     outfile: "./my-app-windows",
-    windows: { icon: "./icon.ico" },
-  },
-});`,
+    windows: { icon: "./icon.ico" } } });`,
       },
       {
         label: "Embed runtime flags",

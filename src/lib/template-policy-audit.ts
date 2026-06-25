@@ -14,7 +14,7 @@ import { $ } from "bun";
 import { auditHardcodedSecretsInGlob } from "./hardcoded-secret-audit.ts";
 import { auditSecretLeaksInGlob } from "../doctor/secret-audit.ts";
 import { TEMPLATE_MARKERS } from "./scaffold-templates.ts";
-import { readJsonFile, readJsonValidated } from "./bun-io.ts";
+import { readJsonValidated } from "./bun-io.ts";
 import { readPackageManifest, safeJsonc } from "./utils.ts";
 
 export interface TemplatePolicyViolation {
@@ -463,7 +463,7 @@ export async function auditTemplateRegistry(root: string): Promise<TemplatePolic
 
   for (const path of packages) {
     const relPath = rel(root, path);
-    const raw = await readJsonFile(path);
+    const raw = await Bun.file(path).json();
     if (typeof raw !== "object" || raw === null) continue;
     const pkg = raw as {
       name?: string;

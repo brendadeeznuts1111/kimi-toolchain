@@ -13,9 +13,8 @@ import { $ } from "bun";
 import { Database } from "bun:sqlite";
 import { isDirectRun } from "../lib/bun-utils.ts";
 import { isPlainObject, recordField } from "../lib/boundary.ts";
-import { makeDir, pathExists, readJsonFile } from "../lib/bun-io.ts";
+import { makeDir, pathExists } from "../lib/bun-io.ts";
 import { parseTomlValue } from "../lib/toml-config.ts";
-import { join } from "path";
 import { Schema } from "effect";
 import {
   ensureDir,
@@ -37,8 +36,8 @@ import { CliError } from "../lib/effect/errors.ts";
 const logger = createLogger(Bun.argv, "kimi-guardian");
 
 const GUARDIAN_DIR = guardianDir();
-const HASH_FILE = join(GUARDIAN_DIR, "lockfile.hash");
-const MANIFEST_DB = join(GUARDIAN_DIR, "manifests.sqlite");
+const HASH_FILE = `${GUARDIAN_DIR}/lockfile.hash`;
+const MANIFEST_DB = `${GUARDIAN_DIR}/manifests.sqlite`;
 const KEY_NAME = "kimi-guardian-lockfile";
 
 interface LockfileManifest {
@@ -205,7 +204,7 @@ async function getSigningKey(): Promise<string | null> {
     }
   } catch {
     // Fallback to file-based key
-    const keyPath = join(GUARDIAN_DIR, ".key");
+    const keyPath = `${GUARDIAN_DIR}/.key`;
     if (pathExists(keyPath)) {
       return (await Bun.file(keyPath).text()).trim();
     }
@@ -221,8 +220,8 @@ async function createSigningKey(): Promise<string> {
       .nothrow()
       .quiet();
   } catch {
-    await Bun.write(join(GUARDIAN_DIR, ".key"), key);
-    await $`chmod 600 ${join(GUARDIAN_DIR, ".key")}`.nothrow().quiet();
+    await Bun.write(`${GUARDIAN_DIR}/.key`, key);
+    await $`chmod 600 ${`${GUARDIAN_DIR}/.key`}`.nothrow().quiet();
   }
 
   return key;
@@ -236,8 +235,8 @@ interface BunOutdatedEntry {
 // ── Lockfile Integrity ───────────────────────────────────────────────
 
 async function checkLockfile(projectDir: string): Promise<GuardianReport["lockfile"]> {
-  const lockPath = join(projectDir, "bun.lock");
-  const pkgPath = join(projectDir, "package.json");
+  const lockPath = `${projectDir}/bun.lock`;
+  const pkgPath = `${projectDir}/package.json`;
 
   if (!pathExists(lockPath)) {
     return { path: lockPath, hash: "", hashMatch: null, stale: false, manifestValid: null };
@@ -266,7 +265,7 @@ async function checkLockfile(projectDir: string): Promise<GuardianReport["lockfi
 }
 
 async function storeLockfileHash(projectDir: string) {
-  const lockPath = join(projectDir, "bun.lock");
+  const lockPath = `${projectDir}/bun.lock`;
   if (!pathExists(lockPath)) return;
   ensureDir(GUARDIAN_DIR);
   const hash = await sha256File(lockPath);
@@ -346,8 +345,8 @@ async function checkCVEs(
 // ── Trusted Dependency Gate ──────────────────────────────────────────
 
 async function checkTrustedDeps(projectDir: string): Promise<string[]> {
-  const bunfigPath = join(projectDir, "bunfig.toml");
-  const pkgPath = join(projectDir, "package.json");
+  const bunfigPath = `${projectDir}/bunfig.toml`;
+  const pkgPath = `${projectDir}/package.json`;
 
   if (!pathExists(pkgPath)) return [];
 
@@ -385,11 +384,11 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
 
   const untrusted: string[] = [];
   for (const dep of allDeps) {
-    const depPkgPath = join(projectDir, "node_modules", dep, "package.json");
+    const depPkgPath = `${projectDir}/node_modules/${dep}/package.json`;
     if (!pathExists(depPkgPath)) continue;
 
     const depPkg = await readPackageJson(
-      join(projectDir, "node_modules", dep),
+      `${projectDir}/node_modules/${dep}`,
       isPackageJsonManifest
     );
     if (!depPkg) continue;
@@ -405,7 +404,7 @@ async function checkTrustedDeps(projectDir: string): Promise<string[]> {
 }
 
 async function addTrustedDeps(projectDir: string, deps: string[]) {
-  const pkgPath = join(projectDir, "package.json");
+  const pkgPath = `${projectDir}/package.json`;
   if (!pathExists(pkgPath)) return;
 
   const pkg = await readPackageJson(projectDir, isPackageJsonManifest);
@@ -428,12 +427,12 @@ async function checkProvenance(
   const lowBusFactor: string[] = [];
 
   const glob = new Bun.Glob("**/package.json");
-  const nmPath = join(projectDir, "node_modules");
+  const nmPath = `${projectDir}/node_modules`;
   if (!pathExists(nmPath)) return { postinstallScripts, lowBusFactor };
 
   for await (const file of glob.scan({ cwd: nmPath, absolute: true })) {
     try {
-      const raw = await readJsonFile(file);
+      const raw = await Bun.file(file).json();
       if (!isPackageJsonManifest(raw)) continue;
       const pkg = raw;
       const scripts = pkg.scripts || {};
@@ -492,7 +491,7 @@ async function doctor(
   });
 
   // Lockfile
-  const lockPath = join(projectDir, "bun.lock");
+  const lockPath = `${projectDir}/bun.lock`;
   checks.push({
     name: "lockfile",
     status: pathExists(lockPath) ? "ok" : "warn",
@@ -539,7 +538,7 @@ async function main(): Promise<number> {
 
   if (command === "sign") {
     logger.section("Sign Lockfile Manifest");
-    const lockPath = join(projectDir, "bun.lock");
+    const lockPath = `${projectDir}/bun.lock`;
     if (!pathExists(lockPath)) {
       logger.error("No bun.lock found");
       return 1;
@@ -555,7 +554,7 @@ async function main(): Promise<number> {
 
   if (command === "verify") {
     logger.section("Verify Signed Manifest");
-    const lockPath = join(projectDir, "bun.lock");
+    const lockPath = `${projectDir}/bun.lock`;
     if (!pathExists(lockPath)) {
       logger.warn("No bun.lock found");
       return 0;
@@ -628,7 +627,7 @@ async function main(): Promise<number> {
   }
 
   logger.section("Trusted Dependency Gate");
-  const pkgPath = join(projectDir, "package.json");
+  const pkgPath = `${projectDir}/package.json`;
   if (!pathExists(pkgPath)) {
     logger.warn("No package.json — skipping trusted dependency check");
   } else {

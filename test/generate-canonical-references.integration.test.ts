@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { join } from "path";
-import { readText, writeTextAsync } from "../src/lib/bun-io.ts";
+import { readText } from "../src/lib/bun-io.ts";
 import { repoCanonicalReferencesPath } from "../src/lib/canonical-references.ts";
 
 const ROOT = join(import.meta.dir, "..");
@@ -34,13 +34,13 @@ describe("generate-canonical-references integration", () => {
 
   test("--check fails when data TS is stale", async () => {
     const originalDataTs = readText(DATA_TS_PATH);
-    await writeTextAsync(DATA_TS_PATH, `${originalDataTs}\n// stale-stamp`);
+    await Bun.write(DATA_TS_PATH, `${originalDataTs}\n// stale-stamp`);
     try {
       const { exit, stderr } = await runGenerate(["--check"]);
       expect(exit).toBe(1);
       expect(stderr).toContain("src/lib/canonical-references-data.ts is stale");
     } finally {
-      await writeTextAsync(DATA_TS_PATH, originalDataTs);
+      await Bun.write(DATA_TS_PATH, originalDataTs);
     }
   });
 
@@ -51,13 +51,13 @@ describe("generate-canonical-references integration", () => {
       ...(json.ecosystem ?? []),
       { id: "stale-trigger", name: "Stale", kind: "docs" },
     ];
-    await writeTextAsync(MANIFEST_PATH, JSON.stringify(json, null, 2));
+    await Bun.write(MANIFEST_PATH, JSON.stringify(json, null, 2));
     try {
       const { exit, stderr } = await runGenerate(["--check"]);
       expect(exit).toBe(1);
       expect(stderr).toContain("canonical-references.json is stale");
     } finally {
-      await writeTextAsync(MANIFEST_PATH, originalJson);
+      await Bun.write(MANIFEST_PATH, originalJson);
     }
   });
 
@@ -73,14 +73,14 @@ describe("generate-canonical-references integration", () => {
 
   test("regenerates stale data TS when run without --check", async () => {
     const originalDataTs = readText(DATA_TS_PATH);
-    await writeTextAsync(DATA_TS_PATH, `${originalDataTs}\n// stale-stamp`);
+    await Bun.write(DATA_TS_PATH, `${originalDataTs}\n// stale-stamp`);
     try {
       const { exit } = await runGenerate([]);
       expect(exit).toBe(0);
       const regenerated = readText(DATA_TS_PATH);
       expect(regenerated).not.toContain("// stale-stamp");
     } finally {
-      await writeTextAsync(DATA_TS_PATH, originalDataTs);
+      await Bun.write(DATA_TS_PATH, originalDataTs);
     }
   });
 });

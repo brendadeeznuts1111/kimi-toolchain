@@ -2,12 +2,13 @@ import { describe, expect, test } from "bun:test";
 import {
   decodeBase64Bytes,
   decodeBase64UrlBytes,
-  decodeUtf8,
   encodeBase64Bytes,
   encodeBase64UrlBytes,
-  encodeUtf8,
 } from "../src/lib/bun-utils.ts";
 import { signJwt, verifyJwt } from "../src/lib/jwt.ts";
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
 
 describe("base64 encoding wrapper", () => {
   test("guide example: btoa/atob round-trip for hello world", () => {
@@ -24,10 +25,10 @@ describe("base64 encoding wrapper", () => {
 
   test("bytes helpers round-trip UTF-8 text", () => {
     const text = "hello world";
-    const bytes = encodeUtf8(text);
+    const bytes = textEncoder.encode(text);
     const encoded = encodeBase64Bytes(bytes);
     expect(encoded).toBe("aGVsbG8gd29ybGQ=");
-    expect(decodeUtf8(decodeBase64Bytes(encoded))).toBe(text);
+    expect(textDecoder.decode(decodeBase64Bytes(encoded))).toBe(text);
   });
 
   test("bytes helpers round-trip arbitrary binary", () => {
@@ -37,12 +38,12 @@ describe("base64 encoding wrapper", () => {
   });
 
   test("base64url helpers round-trip JWT-shaped JSON bytes", () => {
-    const payload = encodeUtf8(JSON.stringify({ sub: "user", exp: 9_999_999_999 }));
+    const payload = textEncoder.encode(JSON.stringify({ sub: "user", exp: 9_999_999_999 }));
     const encoded = encodeBase64UrlBytes(payload);
     expect(encoded).not.toContain("+");
     expect(encoded).not.toContain("/");
     expect(encoded).not.toContain("=");
-    expect(decodeUtf8(decodeBase64UrlBytes(encoded))).toBe(
+    expect(textDecoder.decode(decodeBase64UrlBytes(encoded))).toBe(
       JSON.stringify({ sub: "user", exp: 9_999_999_999 })
     );
   });

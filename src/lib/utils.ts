@@ -9,7 +9,7 @@
  * For paths: import { toolsDir, homeDir } from "./paths.ts"
  */
 
-import { makeDir, pathExists, readJsonFile } from "./bun-io.ts";
+import { makeDir, pathExists } from "./bun-io.ts";
 import { join } from "path";
 import { $ } from "bun";
 import { runTool, invokeTool, toolsDir } from "./tool-runner.ts";
@@ -24,8 +24,6 @@ const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 export function ensureDir(dir: string) {
   if (!pathExists(dir)) makeDir(dir, { recursive: true });
 }
-
-// ── Logging ──────────────────────────────────────────────────────────
 
 // ── Hashing ──────────────────────────────────────────────────────────
 // Canonical implementations live in hash.ts to avoid circular imports.
@@ -63,7 +61,7 @@ export async function readPackageJson<T extends Record<string, unknown>>(
   const pkgPath = join(projectDir, "package.json");
   if (!pathExists(pkgPath)) return null;
   try {
-    const pkg = await readJsonFile(pkgPath);
+    const pkg = await Bun.file(pkgPath).json();
     if (validator) return validator(pkg) ? pkg : null;
     return isPackageJsonManifest(pkg) ? (pkg as T) : null;
   } catch {
@@ -124,6 +122,17 @@ export async function fetchWithTimeout(
 // ── Tool Runner (for cross-tool integration) ─────────────────────────
 
 export { runTool, invokeTool, toolsDir };
+
+export {
+  type HealthCheck,
+  type HealthReport,
+  type DoctorCheck,
+  type DoctorReport,
+  type CheckStatus,
+  aggregateChecks,
+  buildDoctorReport,
+  statusIcon as healthStatusIcon,
+} from "./health-check.ts";
 
 // Re-export doctor persistence (canonical impl in doctor-runs.ts)
 export {

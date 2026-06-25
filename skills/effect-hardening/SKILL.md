@@ -66,10 +66,10 @@ Pre-push enforces effect-gates. Escape hatch: `KIMI_SKIP_EFFECT_GATES=1` only in
 - [ ] Methods return `Effect.Effect<Success, Error>` or `Stream.Stream<Success, Error>`
 - [ ] Errors use `Data.TaggedError` with discriminant `_tag` (see `src/lib/effect/errors.ts`)
 - [ ] Live layer uses `Layer.effect` + `Effect.gen` or `Layer.succeed` for thin wrappers
-- [ ] Test layer uses `Layer.succeed` with stubs (`DecisionQueryLive` pattern in `decision-services.ts`)
+- [ ] Test layer uses `Layer.succeed` with stubs close to the service boundary
 - [ ] No `async`/`await` on the public service interface
 
-**Repo exemplars:** `src/lib/effect/decision-services.ts`, `src/lib/effect/institutional-memory-services.ts`.
+**Repo exemplars:** `src/lib/effect/errors.ts`, `src/lib/effect/cli-runtime.ts`.
 
 ## Module 2 — Structured error pipeline
 
@@ -117,7 +117,7 @@ Pre-push enforces effect-gates. Escape hatch: `KIMI_SKIP_EFFECT_GATES=1` only in
 - [ ] `Effect.provide` / `Layer.provide` at program boundary (`runCliExit`), not inside domain helpers
 - [ ] Fatal errors logged with `_tag` + context before `Effect.exit`
 
-**Repo exemplars:** `src/lib/effect/decision-services.ts` (`DecisionLayer`), `src/lib/effect/cli-runtime.ts`.
+**Repo exemplars:** `src/lib/effect/cli-runtime.ts`, `src/lib/effect/tool-runner-effect.ts`.
 
 ## Module 5 — Validation at boundaries
 

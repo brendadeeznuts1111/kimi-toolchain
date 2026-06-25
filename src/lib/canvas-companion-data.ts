@@ -237,8 +237,7 @@ export function renderExtendedCanvasRoutingBlock(): string {
     layer: "${escapeTsString(route.layer ?? route.page)}",
     openWhen: "${escapeTsString(route.openWhen ?? route.page)}",
     path: \`\${CANVAS_PREFIX}${route.canvasId}.canvas.tsx\`,
-    repoPath: \`\${CANVAS_PREFIX}${route.canvasId}.canvas.tsx\`,
-  }`;
+    repoPath: \`\${CANVAS_PREFIX}${route.canvasId}.canvas.tsx\` }`;
   });
   return `const CANVAS_ROUTING = [\n${lines.join(",\n")},\n] as const;`;
 }

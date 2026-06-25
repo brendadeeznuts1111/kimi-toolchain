@@ -247,7 +247,7 @@ function parseMimallocRow(
   const lineMatch = raw.match(linePattern);
   if (!lineMatch) return undefined;
   const columns = lineMatch[0]
-    .split(/\s{2,}/)
+    .split(/\s{2 }/)
     .map((c) => c.trim())
     .filter(Boolean);
   if (columns.length < 5) return undefined;

@@ -4,9 +4,8 @@
  */
 
 import { asRecord } from "./boundary.ts";
-import { pathExists, readJsonFile } from "./bun-io.ts";
+import { pathExists } from "./bun-io.ts";
 
-import { join } from "path";
 import { homeDir } from "./paths.ts";
 
 export interface DefineEntry {
@@ -93,9 +92,9 @@ function record(value: unknown): Record<string, unknown> {
 export function expandRepoPath(path: string, projectRoot: string): string {
   const trimmed = path.trim();
   if (trimmed === "." || trimmed === "./") return projectRoot;
-  if (trimmed.startsWith("~/")) return join(homeDir(), trimmed.slice(2));
+  if (trimmed.startsWith("~/")) return `${homeDir()}/${trimmed.slice(2)}`;
   if (trimmed.startsWith("/")) return trimmed;
-  return join(projectRoot, trimmed);
+  return `${projectRoot}/${trimmed}`;
 }
 
 export function parseDefineRawValue(raw: string): string | number | boolean {
@@ -354,7 +353,7 @@ export async function loadRepoDefineMap(
   repoRoot: string,
   bunfigRel = "bunfig.toml"
 ): Promise<Map<string, DefineEntry>> {
-  const bunfigPath = join(repoRoot, bunfigRel);
+  const bunfigPath = `${repoRoot}/${bunfigRel}`;
   if (!pathExists(bunfigPath)) return new Map();
 
   const defines = parseBunfigDefines(await Bun.file(bunfigPath).text());
@@ -384,7 +383,7 @@ export function buildManifestDomains(
 }
 
 export async function loadParityConfig(projectRoot: string): Promise<ParityConfig | null> {
-  const path = join(projectRoot, "constants-parity.toml");
+  const path = `${projectRoot}/constants-parity.toml`;
   if (!pathExists(path)) return null;
 
   try {
@@ -509,8 +508,8 @@ export async function evaluateParityShared(
 }
 
 export async function generateConstantsManifest(projectRoot: string): Promise<ConstantsManifest> {
-  const bunfigPath = join(projectRoot, "bunfig.toml");
-  const typesPath = join(projectRoot, "types/build-constants.d.ts");
+  const bunfigPath = `${projectRoot}/bunfig.toml`;
+  const typesPath = `${projectRoot}/types/build-constants.d.ts`;
   const defines = parseBunfigDefines(await Bun.file(bunfigPath).text());
   const types = parseBuildConstantsTypes(await Bun.file(typesPath).text());
   const domains = buildManifestDomains(defines, types);
@@ -523,7 +522,7 @@ export async function generateConstantsManifest(projectRoot: string): Promise<Co
 
   let repoName = "kimi-toolchain";
   try {
-    const pkg = record(await readJsonFile(join(projectRoot, "package.json")));
+    const pkg = record(await Bun.file(`${projectRoot}/package.json`).json());
     if (typeof pkg.name === "string") repoName = pkg.name;
   } catch {
     // keep default
@@ -568,10 +567,10 @@ function isConstantsManifest(value: unknown): value is ConstantsManifest {
 export async function readConstantsManifest(
   projectRoot: string
 ): Promise<ConstantsManifest | null> {
-  const path = join(projectRoot, "constants-manifest.json");
+  const path = `${projectRoot}/constants-manifest.json`;
   if (!pathExists(path)) return null;
   try {
-    const raw = await readJsonFile(path);
+    const raw = await Bun.file(path).json();
     return isConstantsManifest(raw) ? raw : null;
   } catch {
     return null;

@@ -6,7 +6,6 @@
  */
 
 import { join } from "path";
-import { readTextAsync } from "./bun-io.ts";
 import { REQUIRED_PACKAGE_SCRIPT_ENTRIES } from "./scaffold-templates.ts";
 import { INTEGRATION_TEST_FILES, SMOKE_TEST_FILES, UNIT_TEST_FILES } from "./test-gates.ts";
 
@@ -405,7 +404,7 @@ export async function auditTemplatesTestFastParity(
   root: string
 ): Promise<TestingDocIssue | undefined> {
   const templatesPath = join(root, "TEMPLATES.md");
-  const text = await readTextAsync(templatesPath);
+  const text = await Bun.file(templatesPath).text();
   const expected = REQUIRED_PACKAGE_SCRIPT_ENTRIES["test:fast"];
   const lines = text.split("\n");
   let lineNo = 0;
@@ -453,7 +452,7 @@ export async function auditTestingDocs(
     const abs = join(root, rel);
     let text: string;
     try {
-      text = await readTextAsync(abs);
+      text = await Bun.file(abs).text();
     } catch {
       continue;
     }
@@ -464,7 +463,7 @@ export async function auditTestingDocs(
 
   // Scaffold parity + repo-wide stale script scan (scaffold injectors).
   for (const rel of ["src/lib/scaffold-templates.ts", "src/lib/scaffold-quality.ts"] as const) {
-    const text = await readTextAsync(join(root, rel));
+    const text = await Bun.file(join(root, rel)).text();
     issues.push(...scanText(rel, text));
   }
 

@@ -1,8 +1,7 @@
 /**
- * Feature flag runtime helpers — reads env toggles; bundle flags stay in features.ts.
+ * Feature flag runtime helpers — reads env toggles; bundle keys in feature-flags-constants.ts.
  *
- * @see feature-flags-constants.ts — SSOT definitions
- * @see features.ts — `bun:bundle` compile-time flags
+ * @see feature-flags-constants.ts — SSOT definitions (`bun:bundle` compile-time flags)
  */
 
 import {

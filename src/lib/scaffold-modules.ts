@@ -47,7 +47,6 @@ const DOCTOR_COPY_PATHS = [
   { from: "examples/dashboard/src/harness", to: "src/harness" },
   { from: "examples/dashboard/src/bin/perf-doctor.ts", to: "src/bin/perf-doctor.ts" },
   { from: "examples/dashboard/src/lib/isolation", to: "src/lib/isolation" },
-  { from: "examples/dashboard/src/lib/symbols.ts", to: "src/lib/symbols.ts" },
   { from: "examples/dashboard/src/harness/__fixtures__", to: "src/harness/__fixtures__" },
 ] as const;
 

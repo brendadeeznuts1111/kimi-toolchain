@@ -3,7 +3,7 @@
  */
 
 import { dirname } from "path";
-import { makeDir, pathExistsAsync, writeTextAsync } from "./bun-io.ts";
+import { makeDir } from "./bun-io.ts";
 import { clusterPlaybooksPath } from "./paths.ts";
 import { safeParse } from "./utils.ts";
 
@@ -25,7 +25,7 @@ export interface ClusterPlaybookStore {
 export async function readClusterPlaybooks(
   path: string = clusterPlaybooksPath()
 ): Promise<ClusterPlaybookStore> {
-  if (!(await pathExistsAsync(path))) return emptyStore();
+  if (!(await Bun.file(path).exists())) return emptyStore();
   const text = await Bun.file(path).text();
   const parsed = safeParse<ClusterPlaybookStore | null>(text, null);
   if (!parsed || parsed.schemaVersion !== 1) return emptyStore();
@@ -37,7 +37,7 @@ export async function writeClusterPlaybooks(
   path: string = clusterPlaybooksPath()
 ): Promise<void> {
   makeDir(dirname(path), { recursive: true });
-  await writeTextAsync(path, `${JSON.stringify(store, null, 2)}\n`);
+  await Bun.write(path, `${JSON.stringify(store, null, 2)}\n`);
 }
 
 export async function recordClusterPlaybook(

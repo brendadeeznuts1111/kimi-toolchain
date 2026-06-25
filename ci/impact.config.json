@@ -115,7 +115,7 @@
         "src/lib/effect/cli-runtime.ts",
         "src/lib/effect/errors.ts",
         "src/lib/effect/config.ts",
-        "src/lib/effect/index.ts"
+        "src/lib/effect/identity-service.ts"
       ],
       "tests": [
         "test/tool-runner.unit.test.ts",

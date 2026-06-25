@@ -13,7 +13,7 @@ import { dirname, join } from "path";
 /** @see {@link BUN_ARCHIVE_RELEASE_URL} */
 export { BUN_ARCHIVE_RELEASE_URL };
 import { isStringRecord, recordField } from "./boundary.ts";
-import { makeDir, parseJsonValue, readJsonFile } from "./bun-io.ts";
+import { makeDir, parseJsonValue } from "./bun-io.ts";
 import { scanTreeSync } from "./globs.ts";
 import { isToolchainManifest, type ToolchainManifest } from "./version.ts";
 
@@ -217,17 +217,17 @@ export async function extractSyncSnapshotArchive(
   await archive.extract(outDir, options.glob ? { glob: options.glob } : undefined);
 
   const manifest = parseJsonValue(
-    await readJsonFile(join(outDir, "manifest.json")),
+    await Bun.file(join(outDir, "manifest.json")).json(),
     isToolchainManifest,
     "manifest.json"
   );
   const meta = parseJsonValue(
-    await readJsonFile(join(outDir, "meta.json")),
+    await Bun.file(join(outDir, "meta.json")).json(),
     isSnapshotArchiveMeta,
     "meta.json"
   );
   const fileHashes = parseJsonValue(
-    await readJsonFile(join(outDir, "files.json")),
+    await Bun.file(join(outDir, "files.json")).json(),
     isStringRecord,
     "files.json"
   );

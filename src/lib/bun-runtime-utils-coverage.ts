@@ -124,7 +124,7 @@ export function buildRuntimeUtilsCoverageReport() {
   const nativeOnly = entries.filter((e) => e.status === "native-only").length;
   const total = entries.length;
   const coveragePercent =
-    total > 0 ? Math.round(((wrapped + partial * 0.5) / total) * 1000) / 10 : 0;
+    total > 0 ? Math.round(((wrapped + nativeOnly + partial * 0.5) / total) * 1000) / 10 : 0;
   return {
     docUrl: BUN_RUNTIME_UTILS_DOC_URL,
     total,

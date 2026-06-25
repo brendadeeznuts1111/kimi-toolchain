@@ -41,8 +41,7 @@ describe("upgrade-advisor", () => {
       join(root, "src", "server.ts"),
       `Bun.serve({
   tls: { cert: "", key: "" },
-  fetch() { return new Response("ok"); },
-});
+  fetch() { return new Response("ok"); } });
 `
     );
     const report = await scanUpgradeAdvisor(root, { rules: ["bun-serve-http3"] });

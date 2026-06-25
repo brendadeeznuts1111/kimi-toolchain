@@ -74,6 +74,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 
 | Command                                 | Description                            |
 | --------------------------------------- | -------------------------------------- |
+| `bun run agent:commit`                  | scripts/agent-commit.ts                |
 | `bun run agents:sync`                   | scripts/sync-agents-md.ts              |
 | `bun run agents:sync:check`             | scripts/sync-agents-md.ts              |
 | `bun run ast-grep:scan`                 | scripts/ast-grep-scan.ts               |
@@ -90,6 +91,11 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run audit:network`                 | Audit script                           |
 | `bun run audit:parallel`                | Audit script                           |
 | `bun run audit:perf`                    | Audit script                           |
+| `bun run audit:phase1`                  | Audit script                           |
+| `bun run audit:phase2`                  | Audit script                           |
+| `bun run audit:phase3`                  | Audit script                           |
+| `bun run audit:phase4`                  | Audit script                           |
+| `bun run audit:phase5`                  | Audit script                           |
 | `bun run audit:release-blogs`           | Audit script                           |
 | `bun run audit:secrets`                 | Audit script                           |
 | `bun run autophagy:scan`                | scripts/autophagy-scan.ts              |
@@ -103,17 +109,20 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run build:portal:json`             | Artifact Portal publish script         |
 | `bun run build:portal:local`            | Artifact Portal publish script         |
 | `bun run build:portal:local:json`       | Artifact Portal publish script         |
-| `bun run bun-hygiene:audit`             | scripts/bun-hygiene-scan.ts            |
+| `bun run bun-hygiene:audit`             | scripts/bun-hygiene-audit.ts           |
+| `bun run bun-hygiene:gate`              | scripts/bun-hygiene-scan.ts            |
 | `bun run bun-hygiene:scan`              | scripts/bun-hygiene-scan.ts            |
 | `bun run bun-install:status`            | scripts/bun-install-status.ts          |
 | `bun run canvas:generate`               | scripts/generate-canvas-companions.ts  |
 | `bun run capabilities`                  | Run kimi-capabilities from repo        |
 | `bun run check`                         | scripts/check.ts                       |
+| `bun run check:deletion-metric`         | Quality gate                           |
 | `bun run check:dry-run`                 | Quality gate                           |
 | `bun run check:env-drift`               | Quality gate                           |
 | `bun run check:fast`                    | Quality gate                           |
 | `bun run check:fast:changed`            | Quality gate                           |
 | `bun run check:fast:skip-tests`         | Quality gate                           |
+| `bun run check:identity`                | Quality gate                           |
 | `bun run check:lockfile`                | Quality gate                           |
 | `bun run check:secret-leaks`            | Quality gate                           |
 | `bun run check:secret-resolution`       | Quality gate                           |
@@ -167,6 +176,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run format:check`                  | See package.json scripts               |
 | `bun run format:check:ci`               | See package.json scripts               |
 | `bun run gate-report`                   | scripts/ast-grep-scan.ts               |
+| `bun run git:metrics`                   | scripts/git-contribution-metrics.ts    |
 | `bun run governance`                    | Run kimi-governance from repo          |
 | `bun run heal`                          | Run kimi-heal from repo                |
 | `bun run inspect:bun-upstream-refs`     | scripts/inspect-bun-upstream-refs.ts   |

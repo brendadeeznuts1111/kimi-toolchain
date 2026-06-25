@@ -18,7 +18,7 @@ describe("feature-flags-constants", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  test("bundle keys align with features.ts exports", () => {
+  test("bundle keys align with FEATURE_FLAG_DEFINITIONS", () => {
     const fromDefs = FEATURE_FLAG_DEFINITIONS.filter((d) => d.kind === "bundle").map((d) => d.key);
     expect([...BUNDLE_FEATURE_KEYS]).toEqual(fromDefs);
   });

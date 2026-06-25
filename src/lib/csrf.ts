@@ -16,7 +16,7 @@
  * @see identity-types.ts for type definitions
  */
 
-import type { CsrfConfig, CsrfError } from "./identity-types.ts";
+import type { CsrfError } from "./identity-types.ts";
 import { constantTimeEqual } from "./crypto-utils.ts";
 
 export { constantTimeEqual };
@@ -157,70 +157,6 @@ export function verifyCsrfTokenOrThrow(
   const result = verifyCsrfTokenDetailed(token, secret, options);
   if (!result.valid) {
     throw { type: result.reason ?? "csrf_token_invalid" } as { type: CsrfError };
-  }
-}
-
-// ── Config Wrapper ───────────────────────────────────────────────────
-
-/**
- * Config-based CSRF helper. Stores secret and defaults so callers
- * don't need to pass them on every call.
- */
-export class CsrfManager {
-  private readonly secret: string;
-  private readonly config: Required<CsrfConfig> & {
-    algorithm: CsrfAlgorithm;
-    encoding: CsrfEncoding;
-  };
-
-  constructor(
-    secret: string,
-    config: CsrfConfig & {
-      algorithm?: CsrfAlgorithm;
-      encoding?: CsrfEncoding;
-    } = {}
-  ) {
-    this.secret = secret;
-    this.config = {
-      ttlSeconds: config.ttlSeconds ?? 3600,
-      tokenLength: config.tokenLength ?? 32,
-      algorithm: config.algorithm ?? DEFAULT_ALGORITHM,
-      encoding: config.encoding ?? DEFAULT_ENCODING,
-    };
-  }
-
-  generate(sessionId: string): string {
-    return generateCsrfToken(this.secret, {
-      sessionId,
-      expiresIn: this.config.ttlSeconds * 1000,
-      algorithm: this.config.algorithm,
-      encoding: this.config.encoding,
-    });
-  }
-
-  verify(token: string, sessionId: string): boolean {
-    return verifyCsrfToken(token, this.secret, {
-      sessionId,
-      maxAge: this.config.ttlSeconds * 1000,
-      algorithm: this.config.algorithm,
-      encoding: this.config.encoding,
-    });
-  }
-
-  verifyDetailed(token: string, sessionId: string): CsrfVerifyResult {
-    return verifyCsrfTokenDetailed(token, this.secret, {
-      sessionId,
-      maxAge: this.config.ttlSeconds * 1000,
-      algorithm: this.config.algorithm,
-      encoding: this.config.encoding,
-    });
-  }
-
-  verifyOrThrow(token: string, sessionId: string): void {
-    const result = this.verifyDetailed(token, sessionId);
-    if (!result.valid) {
-      throw { type: result.reason ?? "csrf_token_invalid" } as { type: CsrfError };
-    }
   }
 }
 

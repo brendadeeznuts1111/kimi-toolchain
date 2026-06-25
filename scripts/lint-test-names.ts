@@ -19,7 +19,7 @@
 
 import { parseArgs } from "util";
 import { basename, join } from "path";
-import { pathExists, readTextAsync } from "../src/lib/bun-io.ts";
+import { pathExists } from "../src/lib/bun-io.ts";
 import { UNIT_TEST_FILES } from "../src/lib/test-gates.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -132,7 +132,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "secrets-domain": "src/lib/secrets.ts",
   "token-auth": "src/lib/jwt.ts",
   workflow: "src/lib/workflow/loop.ts",
-  "workflow-effects": "src/lib/workflow-effects.ts",
+
   "bunfig-policy-gate": "src/gates/bunfig-policy.ts",
   "gate-registry": "src/gates/registry.ts",
   "hardcoded-secrets-gate": "src/gates/hardcoded-secrets.ts",
@@ -173,7 +173,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "bun-test-handler": "examples/dashboard/src/handlers/bun-test.ts",
   "ci-pipeline": "src/lib/effect/ci-pipeline.ts",
   "ci-impact": "src/lib/ci-impact.ts",
-  "agent-context-quality": "src/lib/agent-context-quality.ts",
+
   "kimi-dashboard-daemon": "src/bin/kimi-dashboard.ts",
   "kimi-dashboard-mcp": "src/bin/kimi-dashboard-mcp.ts",
   "email-i18n-gate": "src/gates/email-i18n.ts",
@@ -239,7 +239,7 @@ const DESCRIBE_STEM_ALIAS: Record<string, string> = {
   "telemetry-schema": "telemetry",
   "introspection-docs": "introspection",
   "trace-ledger": "trace",
-  "agent-context-quality": "agent",
+
   "error-clustering": "error-embedding",
   "kimi-dashboard-daemon": "kimi-dashboard",
   "email-i18n-gate": "email-i18n",
@@ -430,7 +430,7 @@ export async function lintTestConventions(
       if (rel === HELPERS) continue;
       let text: string;
       try {
-        text = await readTextAsync(join(root, rel));
+        text = await Bun.file(join(root, rel)).text();
       } catch {
         continue;
       }
@@ -442,7 +442,7 @@ export async function lintTestConventions(
   }
   const convGlob = new Bun.Glob("test/**/*.ts");
   for await (const rel of convGlob.scan({ cwd: root, onlyFiles: true })) {
-    const text = await readTextAsync(join(root, rel));
+    const text = await Bun.file(join(root, rel)).text();
     for (const v of scanConventions(rel, text)) {
       violations.push(`${v.file}:${v.line} [${v.ruleId}] ${v.message}\n    ${v.snippet}`);
     }
@@ -475,7 +475,7 @@ export async function lintTestNames(
       }
     }
 
-    const text = await readTextAsync(join(root, rel));
+    const text = await Bun.file(join(root, rel)).text();
     const describeLabel = firstTopLevelDescribe(text);
     if (!describeLabel || LEGACY_DESCRIBE_EXEMPT.has(rel)) return;
 

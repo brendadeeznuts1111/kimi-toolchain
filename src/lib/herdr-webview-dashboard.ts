@@ -65,9 +65,7 @@ export async function installDashboardIpcBridge(view: Bun.WebView): Promise<void
           fetch("/api/ipc", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify(payload),
-          }).then((r) => r.json()),
-      };
+            body: JSON.stringify(payload) }).then((r) => r.json()) };
     })()
   `);
 }

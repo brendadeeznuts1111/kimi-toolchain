@@ -113,8 +113,7 @@ export function buildExamplesDashboardMetadataEval(): string {
         cardLiveStatus: el.querySelector(".card-live-status")?.textContent?.trim() ?? null,
         loading: !!el.querySelector(".loading"),
         hasError: !!el.querySelector(".status.err, .badge-err"),
-        snippet: text.slice(0, 160),
-      };
+        snippet: text.slice(0, 160) };
     });
 
     const landing = {};
@@ -126,8 +125,7 @@ export function buildExamplesDashboardMetadataEval(): string {
         label: stat.querySelector(".label")?.textContent?.trim() ?? null,
         sub: stat.querySelector(".sub")?.textContent?.trim() ?? null,
         detail: stat.querySelector(".detail")?.textContent?.trim() ?? null,
-        stale: stat.classList.contains("stale"),
-      };
+        stale: stat.classList.contains("stale") };
     }
 
     return {
@@ -138,8 +136,7 @@ export function buildExamplesDashboardMetadataEval(): string {
       loadingCards: cards.filter((c) => c.loading).length,
       errorCards: cards.filter((c) => c.hasError || c.liveClass === "error").length,
       cards,
-      landing,
-    };
+      landing };
   })()`;
 }
 

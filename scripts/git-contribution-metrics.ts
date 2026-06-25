@@ -10,11 +10,10 @@
  *   bun run scripts/git-contribution-metrics.ts --json
  */
 
-import { join } from "path";
 import { $ } from "bun";
 import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 
-const REPO_ROOT = join(import.meta.dir, "..");
+const REPO_ROOT = `${import.meta.dir}/..`;
 
 const HUMAN_AUTHOR = "nolarose";
 const AGENT_AUTHOR = "kimi-agent";

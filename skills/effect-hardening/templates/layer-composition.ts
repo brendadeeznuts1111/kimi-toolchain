@@ -1,6 +1,6 @@
 /**
  * Module 4 — Layer composition (reference template).
- * Exemplar in repo: src/lib/effect/decision-services.ts, src/lib/effect/cli-runtime.ts
+ * Exemplar in repo: src/lib/effect/tool-runner-effect.ts, src/lib/effect/cli-runtime.ts
  */
 import { Context, Effect, Layer, Stream } from "effect";
 import { AgentServiceLive, AgentServiceTag, AgentServiceTest, HerdrClient } from "./service.ts";

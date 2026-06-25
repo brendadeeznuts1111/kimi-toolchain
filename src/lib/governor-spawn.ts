@@ -50,10 +50,10 @@ export function checkLimits(usage: ResourceUsage, limits: ResourceLimits): strin
   return violations;
 }
 
-/** Recursively collect all descendant PIDs (BFS) */
-export async function getProcessTreePids(pid: number): Promise<number[]> {
+/** Kill a process tree: SIGTERM all, wait, then SIGKILL survivors */
+export async function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGKILL") {
   const all = new Set<number>();
-  const queue = [pid];
+  const queue = [rootPid];
   while (queue.length > 0) {
     const current = queue.shift()!;
     if (all.has(current)) continue;
@@ -69,14 +69,8 @@ export async function getProcessTreePids(pid: number): Promise<number[]> {
       if (!all.has(child)) queue.push(child);
     }
   }
-  all.delete(pid);
-  return Array.from(all);
-}
-
-/** Kill a process tree: SIGTERM all, wait, then SIGKILL survivors */
-export async function killProcessTree(rootPid: number, signal: "SIGTERM" | "SIGKILL") {
-  const descendants = await getProcessTreePids(rootPid);
-  for (const pid of descendants) {
+  all.delete(rootPid);
+  for (const pid of all) {
     try {
       process.kill(pid, signal);
     } catch {}

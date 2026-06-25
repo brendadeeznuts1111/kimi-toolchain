@@ -6,7 +6,7 @@
  */
 
 import { dirname, join, normalize } from "path";
-import { pathExists, readTextAsync } from "./bun-io.ts";
+import { pathExists } from "./bun-io.ts";
 import { markdownRenderSupported } from "./bun-markdown.ts";
 
 /** Fast offline scope (aligned with testing-docs-lint agent set). */
@@ -260,7 +260,7 @@ export async function auditMarkdownDeadLinks(
   const externalChecks: Array<{ file: string; line: number; href: string }> = [];
 
   for (const rel of paths) {
-    const text = await readTextAsync(join(root, rel));
+    const text = await Bun.file(join(root, rel)).text();
     for (const href of extractMarkdownLinks(text)) {
       const line = lineForHref(text, href);
       const kind = classifyMarkdownHref(href);

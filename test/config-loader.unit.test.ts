@@ -15,8 +15,7 @@ describe("config-loader", () => {
       `{
         // line comment
         "host": "localhost",
-        "port": 5432,
-      }`,
+        "port": 5432 }`,
       { host: "", port: 0 }
     );
     expect(parsed.host).toBe("localhost");

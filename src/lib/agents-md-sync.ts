@@ -2,7 +2,6 @@
  * AGENTS.md marker-based sync — live code/config → architecture tables.
  */
 
-import { join } from "path";
 import {
   readBuiltinGateNames,
   readDxEndpoints,
@@ -68,10 +67,6 @@ const SYNC_BLOCKS: SyncBlockSpec[] = [
     insertAfter: "**There is no build step.** TypeScript is run directly via `bun run`.",
   },
 ];
-
-function agentsPath(projectDir: string): string {
-  return join(projectDir, AGENTS_FILE);
-}
 
 function buildMarkerBlock(begin: string, end: string, tableLines: string[]): string {
   return [begin, "", ...tableLines, "", end].join("\n");
@@ -269,7 +264,7 @@ async function evaluateSyncStatus(
 
 /** Compare all AGENTS.md sync blocks against live project sources. */
 export async function checkAgentsMdSync(projectDir: string): Promise<AgentsMdSyncStatus | null> {
-  const agentsFile = Bun.file(agentsPath(projectDir));
+  const agentsFile = Bun.file(`${projectDir}/${AGENTS_FILE}`);
   if (!(await agentsFile.exists())) {
     const expected = await buildExpectedBlocks(projectDir);
     if (!expected) return null;
@@ -287,24 +282,12 @@ export async function checkAgentsMdSync(projectDir: string): Promise<AgentsMdSyn
   return evaluateSyncStatus(projectDir, await agentsFile.text());
 }
 
-/** @deprecated Use checkAgentsMdSync */
-export async function checkAgentsMdBins(projectDir: string) {
-  const status = await checkAgentsMdSync(projectDir);
-  if (!status) return null;
-  return {
-    fresh: status.fresh,
-    binCount: status.binCount,
-    expectedBlock: status.expected.bins ?? "",
-    actualBlock: status.actual.bins,
-  };
-}
-
 /** Rewrite all marker blocks and prose patches in AGENTS.md. */
 export async function syncAgentsMd(projectDir: string): Promise<number> {
   const expected = await buildExpectedBlocks(projectDir);
   if (!expected) return -1;
 
-  const path = agentsPath(projectDir);
+  const path = `${projectDir}/${AGENTS_FILE}`;
   const agentsFile = Bun.file(path);
   if (!(await agentsFile.exists())) return -1;
 
@@ -343,9 +326,6 @@ export async function syncAgentsMd(projectDir: string): Promise<number> {
   await Bun.write(path, agentsMd);
   return updates > 0 ? updates : 1;
 }
-
-/** @deprecated Use syncAgentsMd */
-export const syncAgentsMdBins = syncAgentsMd;
 
 export interface AgentsMdSyncCliResult {
   exitCode: number;

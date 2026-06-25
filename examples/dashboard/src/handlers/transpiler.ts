@@ -17,8 +17,7 @@ serve({
   fetch(req: Request): Response {
     const u: User = { name: "Bun", age: 3 };
     return new Response(greet(u));
-  },
-});`;
+  } });`;
 
   const t = new Bun.Transpiler({ loader: "ts" });
   const js = t.transformSync(tsCode);

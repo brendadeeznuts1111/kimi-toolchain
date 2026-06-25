@@ -8,10 +8,12 @@
 /** Unit tests included in fast local gates; includes subprocess-heavy contract tests. */
 export const UNIT_TEST_FILES = [
   "test/lib.unit.test.ts",
+  "test/agents-md-sync.unit.test.ts",
+  "test/boundary.unit.test.ts",
   "test/r-score.unit.test.ts",
   "test/sync.unit.test.ts",
   "test/deletion-metric.unit.test.ts",
-  "test/preservation-protocol.unit.test.ts",
+  "test/paths.unit.test.ts",
   "test/desktop-sync.unit.test.ts",
   "test/test-gates.unit.test.ts",
   "test/test-runtime.unit.test.ts",
@@ -83,7 +85,6 @@ export const UNIT_TEST_FILES = [
   "test/bun-cli-markdown.unit.test.ts",
   "test/bun-utils-password.unit.test.ts",
   "test/bun-utils-base64.unit.test.ts",
-  "test/bun-utils-gzip.unit.test.ts",
   "test/compression.unit.test.ts",
   "test/archive-persistence.unit.test.ts",
   "test/archive-package.unit.test.ts",
@@ -97,7 +98,6 @@ export const UNIT_TEST_FILES = [
   "test/bun-utils-editor.unit.test.ts",
   "test/bun-utils-jsc.unit.test.ts",
   "test/bun-utils-memory.unit.test.ts",
-  "test/bun-utils-sleep.unit.test.ts",
   "test/bun-utils-streams.unit.test.ts",
   "test/bun-color-formats.unit.test.ts",
   "test/verify-bun-features-runner.unit.test.ts",
@@ -132,7 +132,7 @@ export const UNIT_TEST_FILES = [
   "test/autophagy-scan.unit.test.ts",
   "test/doctor-secret-isolation.unit.test.ts",
   "test/doctor-network-audit.unit.test.ts",
-  "test/ci-profile.unit.test.ts",
+
   "test/gates-trading.unit.test.ts",
   "test/dashboard-audit-store.unit.test.ts",
   "test/dashboard-route-patterns.unit.test.ts",
@@ -204,7 +204,7 @@ export const UNIT_TEST_FILES = [
   "test/bun-spawn-env.unit.test.ts",
   "test/path-alignment.unit.test.ts",
   "test/workspace-known-blockers.unit.test.ts",
-  "test/workflow-effects.unit.test.ts",
+
   "test/workflow.unit.test.ts",
   "test/mcp-config.unit.test.ts",
   "test/mcp-probe.unit.test.ts",
@@ -271,7 +271,7 @@ export const UNIT_TEST_FILES = [
   "test/lint-build-constants.unit.test.ts",
   "test/lint-test-names.unit.test.ts",
   "test/tuning-set-version.unit.test.ts",
-  "test/trusted-dependencies.unit.test.ts",
+
   "test/constants-heal.unit.test.ts",
   "test/effect/constants-registry.unit.test.ts",
   "test/decision-ledger.unit.test.ts",
@@ -317,7 +317,7 @@ export const UNIT_TEST_FILES = [
   "test/governance-preflight.unit.test.ts",
   "test/canonical-references.unit.test.ts",
   "test/references-inspect-watch.unit.test.ts",
-  "test/cursor-canvas-lint.unit.test.ts",
+
   "test/dashboard-card-registry.unit.test.ts",
   "test/bun-runtime-dashboard.unit.test.ts",
   "test/bun-pm-dashboard.unit.test.ts",
@@ -336,7 +336,7 @@ export const UNIT_TEST_FILES = [
   "test/handoff-target-resolver.unit.test.ts",
   "test/scope-preflight.unit.test.ts",
   "test/hook-failure-text.unit.test.ts",
-  "test/agent-context-quality.unit.test.ts",
+
   "test/agent-diagnosis.unit.test.ts",
   "test/artifact-identity.unit.test.ts",
   "test/artifact-index.unit.test.ts",
@@ -350,7 +350,7 @@ export const UNIT_TEST_FILES = [
   "test/ci-impact.unit.test.ts",
   "test/ci-pipeline.unit.test.ts",
   "test/cli-contract.unit.test.ts",
-  "test/cloudflare-integration-status.unit.test.ts",
+
   "test/config-lifecycle.unit.test.ts",
   "test/contract-signing.unit.test.ts",
   "test/dashboard-settings.unit.test.ts",
@@ -393,14 +393,13 @@ export const UNIT_TEST_FILES = [
   "test/mcp-bridge-scaffold.unit.test.ts",
   "test/deep-audit-webview-report.unit.test.ts",
   "test/mcp-registry.unit.test.ts",
-  "test/mcp-telemetry.unit.test.ts",
+
   "test/ndjson.unit.test.ts",
   "test/predictive-doctor.unit.test.ts",
   "test/scaffold-profiles.unit.test.ts",
   "test/scoped-gate-cache.unit.test.ts",
   "test/scoped-test-cache.unit.test.ts",
   "test/self-healing.unit.test.ts",
-  "test/toolchain-paths.unit.test.ts",
   // IPC/cron + mock.module + git subprocess gates — single-file fast chunks (--isolate batches can hang)
   "test/herdr-dashboard-server.unit.test.ts",
   "test/herdr-remote-host-probe.unit.test.ts",

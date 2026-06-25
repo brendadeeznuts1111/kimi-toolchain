@@ -15,19 +15,11 @@ import {
 } from "../../../../src/lib/serve-session.ts";
 import { structuredErrorFields } from "../../../../src/lib/error-format.ts";
 import { decodeJwt, isJwtError, signJwt, verifyJwt } from "../../../../src/lib/jwt.ts";
-import { resolveJwtSecret } from "../../../../src/lib/serve-secrets.ts";
+import { SecretKeys } from "../../../../src/lib/secrets-constants.ts";
+import { readSecretFromEnv } from "../../../../src/lib/secrets-env.ts";
 import { jsonErrorResponse, jsonResponse } from "./shared.ts";
 
-interface ReadableBody {
-  text(): Promise<string>;
-  headers: { get(name: string): string | null };
-}
-
-function asReadable(req: Request): ReadableBody {
-  return req as unknown as ReadableBody;
-}
-
-async function readJson<T>(req: ReadableBody): Promise<T | null> {
+async function readJson<T>(req: Request): Promise<T | null> {
   try {
     const raw = await req.text();
     return raw ? (JSON.parse(raw) as T) : null;
@@ -48,10 +40,13 @@ function cleanupExpiredRevocations(): void {
 }
 
 const JWT_DOMAIN = "identity-jwt" as const;
+const DEV_JWT_SECRET = "kimi-toolchain-jwt-dev-secret"; // kimi-audit:ignore-hardcoded-secret
 
 function requireJwtSecret(): string | Response {
-  const secret = resolveJwtSecret();
-  if (!secret) {
+  const secret =
+    readSecretFromEnv(SecretKeys.JWT_SECRET.service, SecretKeys.JWT_SECRET.name) ??
+    ((Bun.env.NODE_ENV ?? "").toLowerCase() === "production" ? null : DEV_JWT_SECRET);
+  if (secret === null) {
     return jsonErrorResponse({
       domain: JWT_DOMAIN,
       code: "jwt_secret_missing",
@@ -67,7 +62,7 @@ async function apiJwtSign(req: Request): Promise<Response> {
     sub?: string;
     payload?: Record<string, unknown>;
     expiresIn?: number;
-  }>(asReadable(req));
+  }>(req);
   if (!body) {
     return jsonErrorResponse({
       domain: JWT_DOMAIN,
@@ -112,7 +107,7 @@ async function apiJwtSign(req: Request): Promise<Response> {
 }
 
 async function apiJwtVerify(req: Request): Promise<Response> {
-  const body = await readJson<{ token?: string }>(asReadable(req));
+  const body = await readJson<{ token?: string }>(req);
   if (!body) {
     return jsonErrorResponse({
       domain: JWT_DOMAIN,
@@ -247,7 +242,7 @@ async function apiJwtVerify(req: Request): Promise<Response> {
 }
 
 async function apiJwtRevoke(req: Request): Promise<Response> {
-  const body = await readJson<{ token?: string }>(asReadable(req));
+  const body = await readJson<{ token?: string }>(req);
   if (!body) {
     return jsonErrorResponse({
       domain: JWT_DOMAIN,

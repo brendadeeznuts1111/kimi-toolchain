@@ -1,7 +1,7 @@
 /**
  * boundary.ts — Shared unknown→typed narrowing at I/O boundaries.
  *
- * Use with readJsonFile/parseJsonValue (JSON) and parseTomlValue/safeToml (TOML).
+ * Use with Bun.file().json()/parseJsonValue (JSON) and parseTomlValue/safeToml (TOML).
  * No schema library — type guards only.
  */
 

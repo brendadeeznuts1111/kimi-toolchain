@@ -1,6 +1,6 @@
 /**
  * Preferred I/O boundary for call sites — use these names instead of *Sync fs APIs.
- * Sync I/O boundary — prefer async Bun.file/Bun.write in new code.
+ * Sync I/O boundary — async reads/writes use Bun.file/Bun.write at call sites.
  */
 
 import {
@@ -121,17 +121,7 @@ export function watchPath(
   return watch(path, optionsOrListener, listener as never);
 }
 
-/** Bun-native async read — prefer in new async code. */
-export async function readTextAsync(path: string): Promise<string> {
-  return Bun.file(path).text();
-}
-
 export type JsonValidator<T> = (value: unknown) => value is T;
-
-/** Raw Bun JSON read — returns `unknown` (no type assertion). */
-export async function readJsonFile(path: string): Promise<unknown> {
-  return Bun.file(path).json();
-}
 
 /** Validate parsed JSON with a type guard; throws on mismatch. */
 export function parseJsonValue<T>(raw: unknown, validate: JsonValidator<T>, label = "JSON"): T {
@@ -143,7 +133,7 @@ export function parseJsonValue<T>(raw: unknown, validate: JsonValidator<T>, labe
 
 /** Read JSON file and validate; throws on parse or validation failure. */
 export async function readJsonValidated<T>(path: string, validate: JsonValidator<T>): Promise<T> {
-  const raw = await readJsonFile(path);
+  const raw = await Bun.file(path).json();
   return parseJsonValue(raw, validate, path);
 }
 
@@ -155,7 +145,7 @@ export async function readJsonFileOr<T>(
 ): Promise<T> {
   if (!pathExists(path)) return fallback;
   try {
-    const raw = await readJsonFile(path);
+    const raw = await Bun.file(path).json();
     return validate(raw) ? raw : fallback;
   } catch {
     return fallback;
@@ -169,19 +159,9 @@ export async function tryReadJsonValidated<T>(
 ): Promise<T | null> {
   if (!pathExists(path)) return null;
   try {
-    const raw = await readJsonFile(path);
+    const raw = await Bun.file(path).json();
     return validate(raw) ? raw : null;
   } catch {
     return null;
   }
-}
-
-/** Bun-native async write — prefer in new async code. */
-export async function writeTextAsync(path: string, data: string): Promise<void> {
-  await Bun.write(path, data);
-}
-
-/** Bun-native async existence check — prefer in new async code. */
-export async function pathExistsAsync(path: string): Promise<boolean> {
-  return Bun.file(path).exists();
 }

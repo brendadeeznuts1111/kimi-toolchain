@@ -18,7 +18,7 @@ See `UNIFIED.md` for Kimi Code vs toolchain boundaries.
 | `create-template`   | L2    | `scaffold-templates.ts`, `template-policy-audit.ts`     | Authoring `templates/scaffold/` or `templates/bun-create/`; run `check:template-policy` after edits |
 | `cloudflare-access` | L2    | `cloudflare-access.ts`, `cloudflare-access-policy.ts`   | Access tokens, `.cloudflare-access.yml`, service token hygiene                                      |
 | `effect-discipline` | L2    | `effect-gates.ts`, `cli-runtime.ts`                     | `runCliExit`, effect-gates, typed CLI boundaries                                                    |
-| `effect-hardening`  | L3    | `effect-gates.ts`, `decision-services.ts`               | Effect services, layers, event streams                                                              |
+| `effect-hardening`  | L3    | `effect-gates.ts`, `tool-runner-effect.ts`              | Effect services, layers, event streams                                                              |
 | `herdr`             | L2    | `herdr-orchestrator.ts`, `herdr-orchestrator-events.ts` | Herdr workspace/socket control (`HERDR_ENV=1`)                                                      |
 | `orchestrator`      | L3    | `herdr-orchestrator.ts`, `herdr-orchestrator-events.ts` | Cross-pane handoffs, watch-events (`HERDR_ENV=1`)                                                   |
 | `finish-work`       | L2    | `finish-work-herdr.ts`, `finish-work-config.ts`         | Close-loop commit/push with gates (`HERDR_ENV=1`)                                                   |

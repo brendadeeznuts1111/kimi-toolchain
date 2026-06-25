@@ -146,8 +146,8 @@ function tokenize(text: string): string[] {
 function normalize(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/g, " uuid ")
-    .replace(/[0-9a-f]{32,}/g, " hash ")
+    .replace(/[0-9a-f]{8}-[0-9a-f-]{27 }/g, " uuid ")
+    .replace(/[0-9a-f]{32 }/g, " hash ")
     .replace(/\/[^\s"'`]+/g, " path ")
     .replace(
       /\b\d+(\.\d+)?\s*(ms|s|sec|secs|second|seconds|m|min|mins|minute|minutes)\b/g,

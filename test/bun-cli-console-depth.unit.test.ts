@@ -55,10 +55,7 @@ describe("bun-cli-console-depth", () => {
 "{
   level1: {
     level2: {
-      level3: [Object ...],
-    },
-  },
-}"
+      level3: [Object ...] } } }"
 `);
     });
   });
@@ -75,10 +72,7 @@ describe("bun-cli-console-depth", () => {
 "{
   level1: {
     level2: {
-      level3: [Object ...],
-    },
-  },
-}"
+      level3: [Object ...] } } }"
 `);
     });
   });

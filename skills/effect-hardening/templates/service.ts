@@ -1,6 +1,6 @@
 /**
  * Module 1 — Effect service scaffold (reference template).
- * Exemplar in repo: src/lib/effect/decision-services.ts
+ * Exemplar in repo: src/lib/effect/tool-runner-effect.ts
  */
 import { Context, Data, Effect, Layer, Stream } from "effect";
 

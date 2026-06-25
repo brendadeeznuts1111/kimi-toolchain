@@ -820,8 +820,7 @@ async () => {
     const resp = await cloudflare.request({
       method: "PUT",
       path: \`/accounts/\${accountId}/access/apps/\${u.appId}/policies/\${u.policyId}\`,
-      body: u.body,
-    });
+      body: u.body });
     results.push({ app: u.appName, policy: u.policyName, status: resp.status, success: resp.success, errors: resp.errors });
   }
   return results;

@@ -75,6 +75,7 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 
 | File                         | Purpose                                                                                                                                                                                                           |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DIRECTIVE.md`               | Pattern-Hardened Preservation Protocol (v2.0.0) — Bun-native absolutism, 3× deletion metric, §V anti-pattern playbook, mandatory `[SURVIVORSHIP AUDIT]` / `[SELF-REJECT]`.                                        |
 | `package.json`               | Project metadata, `bin` map (31 registered CLI tools), npm scripts, dependencies (`effect`, `js-yaml`), `trustedDependencies` policy, devDependencies (`@types/bun`, `oxfmt`, `oxlint`, `ts-morph`, `typescript`) |
 | `bunfig.toml`                | Bun install policy (`[install]`), test defaults (`[test]`), and build-time define constants (`[define]`)                                                                                                          |
 | `tsconfig.json`              | TypeScript strict, ESNext, bundler resolution, `noEmit`, includes `src/`, `test/`, `scripts/`, `types/*.d.ts`                                                                                                     |

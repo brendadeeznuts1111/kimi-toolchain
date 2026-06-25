@@ -20,8 +20,7 @@ const server = Bun.serve({
       process.exit(0);
     }
     process.exit(1);
-  },
-});
+  } });
 try {
   await fetch(\`http://localhost:\${server.port}/test\`);
 } catch {
@@ -38,8 +37,7 @@ const server = Bun.serve({
       process.exit(0);
     }
     process.exit(1);
-  },
-});
+  } });
 try {
   await fetch(\`http://localhost:\${server.port}/test\`);
 } catch {

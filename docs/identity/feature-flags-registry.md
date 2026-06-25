@@ -2,7 +2,7 @@
 
 Single source of truth for flag definitions: `src/lib/feature-flags-constants.ts`.
 
-Runtime helpers: `src/lib/feature-flags.ts`. Bundle flags: `src/lib/features.ts` (`bun:bundle`).
+Runtime helpers: `src/lib/feature-flags.ts`. Bundle flag constants: `src/lib/feature-flags-constants.ts`.
 
 Lint: `bun run scripts/lint-feature-flags.ts` (wired into `bun run lint`).
 

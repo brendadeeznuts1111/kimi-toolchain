@@ -7,7 +7,7 @@
 
 import { Effect } from "effect";
 import { dirname } from "path";
-import { makeDir, writeTextAsync } from "./bun-io.ts";
+import { makeDir } from "./bun-io.ts";
 import {
   cosineSimilarity,
   decodeEmbedding,
@@ -487,7 +487,7 @@ function dominantTaxonomy(counts: Record<string, number>): string {
 
 async function writeClusterMetadata(report: ErrorClusterReport, path: string): Promise<void> {
   makeDir(dirname(path), { recursive: true });
-  await writeTextAsync(
+  await Bun.write(
     path,
     `${JSON.stringify(
       {

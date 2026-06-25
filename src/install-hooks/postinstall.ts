@@ -6,14 +6,10 @@
 
 import { pathExists } from "../lib/bun-io.ts";
 import { readableStreamToText } from "../lib/bun-utils.ts";
-import { join, resolve } from "path";
+import { join } from "path";
 import { Database } from "bun:sqlite";
-import {
-  desktopRoot,
-  AGENTS_SKILLS_ROOT,
-  ensureDesktopLayout,
-  syncDesktop,
-} from "../lib/desktop-sync.ts";
+import { desktopRoot, ensureDesktopLayout, syncDesktop } from "../lib/desktop-sync.ts";
+import { agentsSkillsRoot, canonicalRepoRoot } from "../lib/paths.ts";
 import { DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
 import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
 import { provisionUserMcp } from "../lib/mcp-config.ts";
@@ -22,7 +18,7 @@ import { scrubProcessBunInstallCacheEnv } from "../lib/root-hygiene.ts";
 
 scrubProcessBunInstallCacheEnv();
 
-const REPO_ROOT = resolve(import.meta.dir, "../..");
+const REPO_ROOT = canonicalRepoRoot(import.meta.dir);
 const VAR_DIR = join(desktopRoot(), "var");
 const GOVERNOR_DIR = join(desktopRoot(), "governor");
 
@@ -64,7 +60,7 @@ async function main() {
     }
   }
 
-  ensureDir(AGENTS_SKILLS_ROOT);
+  ensureDir(agentsSkillsRoot());
   console.log("   Skill: ~/.agents/skills/kimi-toolchain/");
   console.log(`   Skill: ${join(desktopRoot(), "skills/kimi-toolchain/")}`);
   console.log("✅ kimi-toolchain ready");

@@ -1,5 +1,4 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import {
   safeParse,
@@ -8,16 +7,13 @@ import {
   sha256File,
   getProjectName,
   ensureDir,
-  findExecutable,
   resolveProjectRoot,
-  log,
-  printSection,
-  printToolBanner,
   buildDoctorReport,
-  printDoctorReport,
   runTool,
   fetchWithTimeout,
 } from "../src/lib/utils.ts";
+import { log, logger } from "../src/lib/logger.ts";
+import { makeDir, pathExists, writeText } from "../src/lib/bun-io.ts";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { TOOLCHAIN_VERSION, TOOLCHAIN_NAME } from "../src/lib/version.ts";
 import { artifactPath } from "../src/lib/artifacts.ts";
@@ -97,8 +93,8 @@ describe("lib/utils", () => {
 
   test("getProjectName prefers package.json name over directory", async () => {
     const dir = artifactPath(REPO_ROOT, "tmp", "test-project-name");
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "my-real-app" }));
+    makeDir(dir, { recursive: true });
+    writeText(join(dir, "package.json"), JSON.stringify({ name: "my-real-app" }));
     expect(await getProjectName(dir)).toBe("my-real-app");
     Bun.spawnSync(["rm", "-rf", dir]);
   });
@@ -111,12 +107,12 @@ describe("lib/utils", () => {
   test("ensureDir creates missing directories", () => {
     const dir = artifactPath(REPO_ROOT, "tmp", "test-ensure-dir");
     ensureDir(dir);
-    expect(existsSync(dir)).toBe(true);
+    expect(pathExists(dir)).toBe(true);
     Bun.spawnSync(["rm", "-rf", dir]);
   });
 
-  test("findExecutable resolves bun on PATH", () => {
-    expect(findExecutable("bun")).toBeTruthy();
+  test("Bun.which resolves bun on PATH", () => {
+    expect(Bun.which("bun")).toBeTruthy();
   });
 
   test("sha256File hashes on-disk content", async () => {
@@ -129,7 +125,7 @@ describe("lib/utils", () => {
   test("resolveProjectRoot returns git toplevel in repo", async () => {
     const root = await resolveProjectRoot(REPO_ROOT);
     expect(root).toContain("kimi-toolchain");
-    expect(existsSync(join(root, "package.json"))).toBe(true);
+    expect(pathExists(join(root, "package.json"))).toBe(true);
   });
 
   test("log and print helpers emit formatted output", () => {
@@ -137,13 +133,13 @@ describe("lib/utils", () => {
     try {
       log("info", "ok");
       log("warn", "caution");
-      printSection("Section");
-      printToolBanner("Banner");
+      logger.section("Section");
+      logger.banner("Banner");
       const report = buildDoctorReport("tool", [
         { name: "a", status: "ok", message: "fine", fixable: false },
         { name: "b", status: "warn", message: "fix me", fixable: true },
       ]);
-      printDoctorReport(report);
+      logger.printHealthReport(report);
       expect(capture.lines.some((l) => l.includes("✓ ok"))).toBe(true);
       expect(capture.lines.some((l) => l.includes("Section"))).toBe(true);
       expect(capture.lines.some((l) => l.includes("Banner"))).toBe(true);
@@ -202,7 +198,7 @@ describe("lib/utils", () => {
     beforeEach(() => {
       prevHome = Bun.env.HOME;
       Bun.env.HOME = Bun.env.KIMI_TEST_HOME || artifactPath(REPO_ROOT, "test-home");
-      mkdirSync(Bun.env.HOME, { recursive: true });
+      makeDir(Bun.env.HOME, { recursive: true });
     });
 
     afterEach(() => {
@@ -215,11 +211,8 @@ describe("lib/utils", () => {
 
     test("runs tool from ~/.kimi-code/tools", async () => {
       const toolsDir = join(Bun.env.HOME!, ".kimi-code", "tools");
-      mkdirSync(toolsDir, { recursive: true });
-      writeFileSync(
-        join(toolsDir, "stub-tool.ts"),
-        "#!/usr/bin/env bun\nconsole.log('stub-ok');\n"
-      );
+      makeDir(toolsDir, { recursive: true });
+      writeText(join(toolsDir, "stub-tool.ts"), "#!/usr/bin/env bun\nconsole.log('stub-ok');\n");
       const { stdout, exitCode } = await runTool("stub-tool", [], { timeoutMs: 5000 });
       expect(exitCode).toBe(0);
       expect(stdout).toContain("stub-ok");

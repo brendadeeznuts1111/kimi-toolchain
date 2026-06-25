@@ -2,7 +2,7 @@
  * Auto-healing for bunfig [define] constants via golden template diff + repair.
  */
 
-import { listDir, pathExists, readJsonFile, removeFile } from "./bun-io.ts";
+import { listDir, pathExists, removeFile } from "./bun-io.ts";
 
 import { join } from "path";
 import {
@@ -174,7 +174,7 @@ export async function listGoldenArchives(projectRoot: string): Promise<GoldenArc
 
   for (const name of names) {
     const path = join(archiveDir, name);
-    const golden = parseConstantsGolden(await readJsonFile(path));
+    const golden = parseConstantsGolden(await Bun.file(path).json());
     if (!golden) continue;
     entries.push({
       name,
@@ -198,7 +198,7 @@ export async function restoreGoldenFromArchive(
     throw new Error(`Golden archive not found: ${archiveName}`);
   }
 
-  const golden = parseConstantsGolden(await readJsonFile(archivePath));
+  const golden = parseConstantsGolden(await Bun.file(archivePath).json());
   if (!golden) {
     throw new Error(`Invalid golden archive: ${archiveName}`);
   }
@@ -254,7 +254,7 @@ export async function loadConstantsGolden(projectRoot: string): Promise<Constant
   const path = constantsGoldenPath(projectRoot);
   if (!pathExists(path)) return null;
   try {
-    return parseConstantsGolden(await readJsonFile(path));
+    return parseConstantsGolden(await Bun.file(path).json());
   } catch {
     return null;
   }

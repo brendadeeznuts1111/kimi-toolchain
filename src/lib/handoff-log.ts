@@ -11,7 +11,6 @@ import {
 import { appendNdjsonRecordSync, parseNdjsonText } from "./ndjson.ts";
 
 import { homeDir } from "./paths.ts";
-import { join } from "path";
 // ── Types ────────────────────────────────────────────────────────────────
 
 export interface HandoffLogEntry {
@@ -38,8 +37,8 @@ export interface HandoffLogEntry {
 
 // ── Paths ────────────────────────────────────────────────────────────────
 
-const DEFAULT_LOG_DIR = join(homeDir(), ".herdr", "orchestrator");
-const DEFAULT_LOG_PATH = join(DEFAULT_LOG_DIR, "handoff-log.jsonl");
+const DEFAULT_LOG_DIR = `${homeDir()}/.herdr/orchestrator`;
+const DEFAULT_LOG_PATH = `${DEFAULT_LOG_DIR}/handoff-log.jsonl`;
 const DEFAULT_MAX_LOG_BYTES = 50 * 1024 * 1024; // 50MB
 
 let logPath = DEFAULT_LOG_PATH;
@@ -66,7 +65,7 @@ export function remoteHandoffContext(
 }
 
 function ensureLogDir() {
-  makeDir(join(logPath, ".."), { recursive: true });
+  makeDir(logPath.slice(0, logPath.lastIndexOf("/")), { recursive: true });
 }
 
 // ── Checksums ────────────────────────────────────────────────────────────
@@ -88,7 +87,7 @@ function rotateIfNeeded() {
   const date = iso.slice(0, 10); // YYYY-MM-DD
   const time = iso.slice(11, 23).replace(/:/g, ""); // HHMMSS.sss
   const archiveName = `handoff-history.${date}.${time}.jsonl.gz`;
-  const archivePath = join(join(logPath, ".."), archiveName);
+  const archivePath = `${logPath.slice(0, logPath.lastIndexOf("/"))}/${archiveName}`;
 
   const raw = new Uint8Array(readBytes(logPath)) as Uint8Array<ArrayBuffer>;
   writeBytes(archivePath, Bun.gzipSync(raw));
@@ -150,14 +149,14 @@ export function getHandoffHistory(limit = 20): HandoffLogEntry[] {
   const allEntries = readLogFile(logPath);
 
   // Also check archives for older entries
-  const logDir = join(logPath, "..");
+  const logDir = logPath.slice(0, logPath.lastIndexOf("/"));
   try {
     const files = listDir(logDir);
     const archivePattern = /^handoff-history\.\d{4}-\d{2}-\d{2}\..+\.jsonl\.gz$/;
     for (const file of files) {
       if (!archivePattern.test(file)) continue;
       try {
-        const archivePath = join(logDir, file);
+        const archivePath = `${logDir}/${file}`;
         const compressed = readBytes(archivePath);
         const raw = new TextDecoder().decode(Bun.gunzipSync(new Uint8Array(compressed)));
         allEntries.push(...readLogLines(raw));

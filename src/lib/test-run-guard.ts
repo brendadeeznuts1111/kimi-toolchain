@@ -5,7 +5,6 @@
  * survives quiet/verbose runner variants and is released when the wrapper ends.
  */
 
-import { join, resolve } from "path";
 import { makeDir, pathExists, readText, removePath, writeText } from "./bun-io.ts";
 
 const LOCK_DIR_NAME = "test-gate.lock";
@@ -37,18 +36,10 @@ export type TestGateAcquireResult =
   | { ok: false; conflict: TestGateConflict };
 
 export function resolveTestGateLockPath(projectRoot: string): string {
-  const normalized = resolve(projectRoot);
+  const normalized = projectRoot.startsWith("/") ? projectRoot : `${process.cwd()}/${projectRoot}`;
   const hash = new Bun.CryptoHasher("sha256").update(normalized).digest("hex").slice(0, 16);
-  const base = Bun.env.KIMI_TEST_LOCK_DIR ?? join(normalized, ".kimi-test-locks");
-  return join(base, `${hash}-${LOCK_DIR_NAME}`);
-}
-
-function lockPath(projectRoot: string): string {
-  return resolveTestGateLockPath(projectRoot);
-}
-
-function ownerPath(lockDir: string): string {
-  return join(lockDir, OWNER_FILE);
+  const base = Bun.env.KIMI_TEST_LOCK_DIR ?? `${normalized}/.kimi-test-locks`;
+  return `${base}/${hash}-${LOCK_DIR_NAME}`;
 }
 
 function currentCommand(): string {
@@ -57,7 +48,7 @@ function currentCommand(): string {
 
 function parseOwner(path: string): TestGateOwner | null {
   try {
-    const raw = JSON.parse(readText(ownerPath(path))) as Partial<TestGateOwner>;
+    const raw = JSON.parse(readText(`${path}/${OWNER_FILE}`)) as Partial<TestGateOwner>;
     if (typeof raw.pid !== "number" || raw.pid <= 0) return null;
     return {
       pid: raw.pid,
@@ -105,7 +96,9 @@ export function acquireTestGateLock(
   projectRoot: string,
   reason = "test gate"
 ): TestGateAcquireResult {
-  const normalizedProjectRoot = resolve(projectRoot);
+  const normalizedProjectRoot = projectRoot.startsWith("/")
+    ? projectRoot
+    : `${process.cwd()}/${projectRoot}`;
   if (Bun.env.KIMI_ALLOW_CONCURRENT_TESTS === "1") {
     return {
       ok: true,
@@ -124,8 +117,8 @@ export function acquireTestGateLock(
     };
   }
 
-  const path = lockPath(normalizedProjectRoot);
-  const parent = join(path, "..");
+  const path = resolveTestGateLockPath(normalizedProjectRoot);
+  const parent = path.slice(0, path.lastIndexOf("/"));
   makeDir(parent, { recursive: true });
 
   while (true) {
@@ -157,7 +150,7 @@ export function acquireTestGateLock(
     startedAt: new Date().toISOString(),
     reason,
   };
-  writeText(ownerPath(path), `${JSON.stringify(owner, null, 2)}\n`);
+  writeText(`${path}/${OWNER_FILE}`, `${JSON.stringify(owner, null, 2)}\n`);
 
   let released = false;
   const release = () => {

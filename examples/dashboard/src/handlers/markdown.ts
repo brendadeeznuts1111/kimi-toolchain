@@ -32,8 +32,7 @@ import { serve } from "bun";
 serve({
   fetch(req) {
     return new Response("Hello Bun!");
-  },
-});
+  } });
 \`\`\`
 
 > Blockquote: Bun is a fast all-in-one JavaScript runtime.

@@ -14,7 +14,7 @@ import {
   parseSessionCookie,
   clearSessionCookie,
 } from "../session.ts";
-import { CsrfManager } from "../csrf.ts";
+import { generateCsrfToken, verifyCsrfTokenDetailed } from "../csrf.ts";
 import { hashPassword, verifyPassword } from "../bun-utils.ts";
 import { Secrets } from "./secrets-service.ts";
 import type { SecretsService } from "./secrets-service.ts";
@@ -173,17 +173,14 @@ export const IdentityLive = Layer.effect(
   Effect.gen(function* () {
     const secrets = yield* Secrets;
     const sessionStore = new SessionStore();
-    let csrfManager: CsrfManager | null = null;
+    let csrfSecret: string | null = null;
 
-    function getCsrfManager(): Effect.Effect<
-      CsrfManager,
-      JwtMissingSecret | SecretPolicyViolation
-    > {
-      if (csrfManager) return Effect.succeed(csrfManager);
+    function getCsrfSecret(): Effect.Effect<string, JwtMissingSecret | SecretPolicyViolation> {
+      if (csrfSecret) return Effect.succeed(csrfSecret);
       return resolveCsrfSecret(secrets).pipe(
         Effect.map((secret) => {
-          csrfManager = new CsrfManager(secret);
-          return csrfManager;
+          csrfSecret = secret;
+          return csrfSecret;
         })
       );
     }
@@ -237,14 +234,14 @@ export const IdentityLive = Layer.effect(
       // ── CSRF ──
       generateCsrf: (sessionId) =>
         Effect.gen(function* () {
-          const mgr = yield* getCsrfManager();
-          return mgr.generate(sessionId);
+          const secret = yield* getCsrfSecret();
+          return generateCsrfToken(secret, { sessionId });
         }),
 
       verifyCsrf: (token, sessionId) =>
         Effect.gen(function* () {
-          const mgr = yield* getCsrfManager();
-          const result = mgr.verifyDetailed(token, sessionId);
+          const secret = yield* getCsrfSecret();
+          const result = verifyCsrfTokenDetailed(token, secret, { sessionId });
           if (!result.valid) {
             yield* Effect.fail(
               result.reason === "csrf_token_expired"
@@ -271,7 +268,7 @@ export function IdentityTest(options: {
   csrfConfig?: CsrfConfig;
 }): Layer.Layer<Identity> {
   const sessionStore = new SessionStore(options.sessionConfig);
-  const csrfManager = new CsrfManager(options.csrfSecret, options.csrfConfig);
+  const csrfTtlMs = (options.csrfConfig?.ttlSeconds ?? 3600) * 1000;
 
   return Layer.succeed(Identity, {
     signToken: (claims, config = {}) =>
@@ -309,10 +306,14 @@ export function IdentityTest(options: {
 
     clearSessionCookie: () => clearSessionCookie(),
 
-    generateCsrf: (sessionId) => Effect.sync(() => csrfManager.generate(sessionId)),
+    generateCsrf: (sessionId) =>
+      Effect.sync(() => generateCsrfToken(options.csrfSecret, { sessionId, expiresIn: csrfTtlMs })),
 
     verifyCsrf: (token, sessionId) => {
-      const result = csrfManager.verifyDetailed(token, sessionId);
+      const result = verifyCsrfTokenDetailed(token, options.csrfSecret, {
+        sessionId,
+        maxAge: csrfTtlMs,
+      });
       if (result.valid) return Effect.void;
       return Effect.fail(
         result.reason === "csrf_token_expired"

@@ -15,7 +15,6 @@ import {
   runScopePreflight,
   type ScopePreflightReport,
 } from "../src/lib/scope-preflight.ts";
-import { readTextAsync, writeTextAsync } from "../src/lib/bun-io.ts";
 import { projectKimiDir } from "../src/lib/paths.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -58,9 +57,11 @@ async function persistRunLog(projectRoot: string, report: ScopePreflightReport):
   const latest = join(dir, "scope-run-latest.json");
   const jsonl = join(dir, "scope-runs.jsonl");
   const line = `${JSON.stringify(report)}\n`;
-  await writeTextAsync(latest, `${JSON.stringify(report, null, 2)}\n`);
-  const prior = await readTextAsync(jsonl).catch(() => "");
-  await writeTextAsync(jsonl, `${prior}${line}`);
+  await Bun.write(latest, `${JSON.stringify(report, null, 2)}\n`);
+  const prior = await Bun.file(jsonl)
+    .text()
+    .catch(() => "");
+  await Bun.write(jsonl, `${prior}${line}`);
   return latest;
 }
 

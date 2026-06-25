@@ -100,8 +100,7 @@ async function handleRequest(request: { method: string; params?: Record<string, 
       tools: [
         { name: "read_file", description: "Read a file within allowed roots", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
         { name: "list_dir", description: "List a directory within allowed roots", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-      ],
-    };
+      ] };
   }
   if (method === "tools/call") {
     const tool = params.name as string;
@@ -140,16 +139,14 @@ async function handleRequest(request: { method: string; params?: Record<string, 
     const response = await fetch(TARGET_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: request.params }),
-    });
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: request.params }) });
     return await response.json();
   }
   if (request.method === "tools/call") {
     const response = await fetch(TARGET_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: request.params }),
-    });
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: request.params }) });
     return await response.json();
   }
   return { error: { code: -32601, message: "Method not found" } };
@@ -170,8 +167,7 @@ const DASHBOARD_PATH = join(homedir(), ".kimi-code", "tools", "kimi-dashboard-mc
 
 const proc = Bun.spawn(["bun", "run", DASHBOARD_PATH], {
   stdio: ["inherit", "inherit", "inherit"],
-  env: Bun.env,
-});
+  env: Bun.env });
 
 await proc.exited;
 `;
@@ -189,8 +185,7 @@ async function handleRequest(request: { method: string; params?: Record<string, 
     return {
       tools: [
         { name: "execute", description: "Logs the command instead of running it", inputSchema: { type: "object", properties: { command: { type: "string" } }, required: ["command"] } },
-      ],
-    };
+      ] };
   }
   if (request.method === "tools/call") {
     const args = (request.params?.arguments ?? {}) as Record<string, unknown>;

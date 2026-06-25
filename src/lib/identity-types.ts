@@ -92,7 +92,7 @@ export interface SessionConfig {
 /**
  * CSRF token object — used when you need metadata alongside the token string.
  * For the common case (stateless signed tokens via Bun.CSRF), use the raw
- * string returned by `generateCsrfToken()` / `CsrfManager.generate()`.
+ * string returned by `generateCsrfToken()`.
  */
 export interface CsrfToken {
   /** Token value. */

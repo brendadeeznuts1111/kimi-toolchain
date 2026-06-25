@@ -3,7 +3,7 @@
  */
 
 import { Data, Effect } from "effect";
-import { decodeHex, encodeHex } from "./bun-utils.ts";
+
 import { makeDir, pathExists } from "./bun-io.ts";
 import { dirname, extname, join, relative } from "path";
 import yaml from "js-yaml";
@@ -151,7 +151,7 @@ export async function signContract(
     schemaVersion: 1,
     algorithm: "ed25519",
     keyId,
-    signatureHex: encodeHex(signature),
+    signatureHex: signature.toHex(),
     payloadSha256,
     signedAt: new Date().toISOString(),
   };
@@ -347,7 +347,7 @@ async function verifyWithTrustedKeys(
     return a.localeCompare(b);
   });
   const payload = new TextEncoder().encode(normalized);
-  const signatureBytes = decodeHex(signature.signatureHex);
+  const signatureBytes = Uint8Array.fromHex(signature.signatureHex);
   for (const [keyId, trusted] of candidates) {
     try {
       const publicKey = await importEd25519PublicKey(trusted.publicKey);

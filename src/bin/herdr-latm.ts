@@ -66,7 +66,7 @@ Examples:
 if (!isDirectRun(import.meta.path)) {
   // Imported as a module — skip CLI dispatch.
 } else {
-  const [, , cmd, ...args] = Bun.argv;
+  const [, cmd, ...args] = Bun.argv;
   const json = parseFlag(args, "--json");
 
   if (!cmd || cmd === "--help" || cmd === "-h") {

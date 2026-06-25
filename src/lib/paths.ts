@@ -5,11 +5,23 @@
  * Use these helpers instead of repeating `Bun.env.HOME || "/tmp"`.
  */
 
-import { join } from "path";
+import { dirname, join, resolve } from "path";
+import { pathExists } from "./bun-io.ts";
+
+/** Walk upward until `package.json` exists — prevents `src/src/bin` when cwd is inside `src/`. */
+export function canonicalRepoRoot(start: string): string {
+  let dir = resolve(start);
+  for (;;) {
+    if (pathExists(join(dir, "package.json"))) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) return resolve(start);
+    dir = parent;
+  }
+}
 
 /** Repo root when invoked from `scripts/<name>.ts` — prefer over `process.cwd()`. */
 export function scriptRepoRoot(scriptDir: string = import.meta.dir): string {
-  return join(scriptDir, "..");
+  return canonicalRepoRoot(join(scriptDir, ".."));
 }
 
 /** Fallback home directory when HOME is not set. */

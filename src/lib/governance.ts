@@ -6,8 +6,7 @@
  */
 
 import { recordField } from "./boundary.ts";
-import { pathExists, readJsonFile, readJsonFileOr } from "./bun-io.ts";
-import { join } from "path";
+import { pathExists, readJsonFileOr } from "./bun-io.ts";
 import { $ } from "bun";
 import { readableStreamToText } from "./bun-utils.ts";
 import { ensureDir, getProjectName, readPackageManifest } from "./utils.ts";
@@ -24,7 +23,7 @@ function governanceDir(): string {
 }
 
 function coverageHistoryPath(): string {
-  return join(governanceDir(), "coverage-history.json");
+  return `${governanceDir()}/coverage-history.json`;
 }
 
 export interface RScore {
@@ -96,9 +95,7 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
   if (!pkg) return report;
 
   const hasTests =
-    pkg.scripts?.test ||
-    pathExists(join(projectDir, "test")) ||
-    pathExists(join(projectDir, "tests"));
+    pkg.scripts?.test || pathExists(`${projectDir}/test`) || pathExists(`${projectDir}/tests`);
   if (!hasTests) return report;
 
   const fastCoverage = useFastUnitCoverage(pkg.name);
@@ -217,14 +214,14 @@ export async function checkCoverage(projectDir: string, _threshold = 70): Promis
     }
 
     if (report.total === 0) {
-      const lcovPath = join(projectDir, ARTIFACTS_COVERAGE_DIR, "lcov.info");
+      const lcovPath = `${projectDir}/${ARTIFACTS_COVERAGE_DIR}/lcov.info`;
       if (pathExists(lcovPath)) {
         const lcov = await Bun.file(lcovPath).text();
         let totalLines = 0;
         let hitLines = 0;
         for (const line of lcov.split("\n")) {
           if (line.startsWith("DA:")) {
-            const [, , hits] = line.split(":")[1]!.split(",");
+            const [, hits] = line.split(":")[1]!.split(",");
             totalLines++;
             if (parseInt(hits!, 10) > 0) hitLines++;
           }
@@ -280,7 +277,7 @@ export async function loadCachedCoverage(projectDir: string): Promise<CoverageRe
   if (!pathExists(historyPath)) return null;
   let history: CoverageHistoryEntry[];
   try {
-    const raw = await readJsonFile(historyPath);
+    const raw = await Bun.file(historyPath).json();
     if (!isCoverageHistoryEntryArray(raw)) return null;
     history = raw;
   } catch {
@@ -302,8 +299,8 @@ export async function loadCachedCoverage(projectDir: string): Promise<CoverageRe
 // ── Stale Lockfile Refresh ───────────────────────────────────────────
 
 export async function refreshStaleLockfile(projectDir: string): Promise<boolean> {
-  const lockPath = join(projectDir, "bun.lock");
-  const pkgPath = join(projectDir, "package.json");
+  const lockPath = `${projectDir}/bun.lock`;
+  const pkgPath = `${projectDir}/package.json`;
   if (!pathExists(lockPath) || !pathExists(pkgPath)) return false;
 
   const pkgMtime = Bun.file(pkgPath).lastModified;
@@ -366,7 +363,7 @@ What becomes easier or more difficult to do because of this change?
 `;
 
 export async function scaffoldAdr(projectDir: string, title: string): Promise<string> {
-  const adrDir = join(projectDir, "docs", "adr");
+  const adrDir = `${projectDir}/docs/adr`;
   ensureDir(adrDir);
 
   const existing = [];
@@ -383,7 +380,7 @@ export async function scaffoldAdr(projectDir: string, title: string): Promise<st
     .replace(/[^\w]+/g, "-")
     .replace(/^-|-$/g, "");
   const filename = `${paddedNum}-${slug}.md`;
-  const filepath = join(adrDir, filename);
+  const filepath = `${adrDir}/${filename}`;
 
   const content = ADR_TEMPLATE.replace("{{DATE}}", new Date().toISOString().split("T")[0]!)
     .replace("{{DECIDERS}}", "@team")

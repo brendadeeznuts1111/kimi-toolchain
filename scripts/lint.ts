@@ -9,7 +9,6 @@
  */
 
 import { $ } from "bun";
-import { join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
 import { filterLintPaths } from "../src/lib/check-changed.ts";
 import {
@@ -22,7 +21,7 @@ import { formatDocLinkViolation, lintDocLinks } from "../src/lib/doc-links-lint.
 import { lintBannedTerms } from "./lint-banned-terms.ts";
 import { lintTestNames } from "./lint-test-names.ts";
 
-const REPO_ROOT = join(import.meta.dir, "..");
+const REPO_ROOT = `${import.meta.dir}/..`;
 
 const NAMING_RULES = `
 id: acronym-casing
@@ -136,7 +135,7 @@ async function runScopedLint(files: string[]): Promise<void> {
     if (skillResult.exitCode !== 0) process.exit(1);
   }
 
-  if (!pathExists(join(REPO_ROOT, ".oxlintrc.json"))) {
+  if (!pathExists(`${REPO_ROOT}/.oxlintrc.json`)) {
     console.warn("  \u26A0 .oxlintrc.json missing");
   }
 }
@@ -201,7 +200,7 @@ async function runFullLint(namesOnly: boolean): Promise<void> {
 async function main(): Promise<void> {
   const { files, namesOnly } = parseArgs();
 
-  if (process.env.KIMI_QUIET !== "1") {
+  if (Bun.env.KIMI_QUIET !== "1") {
     console.log(`Bun ${Bun.version} (${Bun.revision})`);
   }
 

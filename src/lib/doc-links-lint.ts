@@ -7,8 +7,6 @@
 
 import { join } from "path";
 import { BUN_RELEASE_BLOG_URL, BUN_RELEASE_HISTORY } from "./bun-release-registry.ts";
-import { readTextAsync } from "./bun-io.ts";
-
 const RELEASE_BLOG_PATHNAME = new URL(BUN_RELEASE_BLOG_URL).pathname;
 const RELEASE_1_3_6_BLOG_PATHNAME = new URL(BUN_RELEASE_HISTORY["1.3.6"].blogUrl).pathname;
 
@@ -897,7 +895,7 @@ export async function lintDocLinks(
       if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) continue;
       let text: string;
       try {
-        text = await readTextAsync(join(root, rel));
+        text = await Bun.file(join(root, rel)).text();
       } catch {
         continue;
       }
@@ -910,7 +908,7 @@ export async function lintDocLinks(
     if (rel.split("/").some((seg) => SKIP_DIRS.has(seg))) continue;
     let text: string;
     try {
-      text = await readTextAsync(join(root, rel));
+      text = await Bun.file(join(root, rel)).text();
     } catch {
       continue;
     }

@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { join } from "path";
-import { readText, writeTextAsync } from "../src/lib/bun-io.ts";
+import { readText } from "../src/lib/bun-io.ts";
 import { repoCanonicalReferencesTomlPath } from "../src/lib/canonical-references-toml.ts";
 
 const ROOT = join(import.meta.dir, "..");
@@ -31,7 +31,7 @@ describe("lint-references-examples integration", () => {
   test("fails when an example TOML has a duplicate id", async () => {
     const path = repoCanonicalReferencesTomlPath(join(ROOT, "examples", "dashboard"));
     const original = readText(path);
-    await writeTextAsync(
+    await Bun.write(
       path,
       `${original}\n[[ecosystem]]\nid = "bun"\nname = "Duplicate Bun"\nkind = "runtime"\nhomepage = "https://bun.sh"\ndocs = "https://bun.sh/docs"\npackage = "bun"\nusage = "duplicate"\nminVersion = "1.4.0"\nnoRepo = true\n`
     );
@@ -40,7 +40,7 @@ describe("lint-references-examples integration", () => {
       expect(exit).toBe(1);
       expect(stderr).toContain("duplicate id");
     } finally {
-      await writeTextAsync(path, original);
+      await Bun.write(path, original);
     }
   });
 });

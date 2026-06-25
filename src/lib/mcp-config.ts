@@ -3,7 +3,7 @@
  * @see https://moonshotai.github.io/kimi-code/en/customization/mcp.html
  */
 
-import { pathExists, readJsonFile } from "./bun-io.ts";
+import { pathExists } from "./bun-io.ts";
 import { join, resolve } from "path";
 import { ensureDir } from "./utils.ts";
 import { homeDir, mcpPath, toolsDir } from "./paths.ts";
@@ -107,7 +107,7 @@ export function projectMcpPath(projectRoot: string): string {
 export async function readMcpJson(path: string): Promise<ReadMcpJsonResult> {
   if (!pathExists(path)) return { data: null };
   try {
-    const raw = await readJsonFile(path);
+    const raw = await Bun.file(path).json();
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { data: null };
     const servers = Reflect.get(raw, "mcpServers");
     return {

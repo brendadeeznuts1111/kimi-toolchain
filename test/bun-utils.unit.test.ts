@@ -37,8 +37,11 @@ describe("bun-utils", () => {
     expect(rows.find((r) => r.version === BUN_RELEASE_PREVIOUS.version)).toEqual(
       expect.objectContaining({
         role: "previous",
-        breakingCount: 1,
-        breaking: "bun build --compile NAPI regression",
+        breakingCount: BUN_RELEASE_PREVIOUS.breaking.filter((item) => item !== "none").length,
+        breaking:
+          BUN_RELEASE_PREVIOUS.breaking.filter((item) => item !== "none").length > 0
+            ? BUN_RELEASE_PREVIOUS.breaking.join("; ")
+            : "—",
       })
     );
     expect(rows.at(-1)).toEqual(
@@ -57,7 +60,7 @@ describe("bun-utils", () => {
 
   test("measureReleaseHistoryRows reports registry footprint", () => {
     const metrics = measureReleaseHistoryRows(buildReleaseHistoryRows());
-    expect(metrics.rowCount).toBe(3);
+    expect(metrics.rowCount).toBe(Object.keys(BUN_RELEASE_HISTORY).length);
     expect(metrics.jsonSerializedLength).toBeGreaterThan(0);
     expect(metrics.currentEqualsPrevious).toBe(false);
   });

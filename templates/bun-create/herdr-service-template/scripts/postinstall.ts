@@ -52,8 +52,7 @@ export const SERVICE_META = {
   domain: "${domain}",
   app: "${service}",
   secretCount: ${secrets.length},
-  createdAt: "${new Date().toISOString()}",
-} as const;
+  createdAt: "${new Date().toISOString()}" } as const;
 `
 );
 
@@ -128,12 +127,10 @@ export const secrets = {
         service: SERVICE_ID,
         name: n,
         key: \`\${SERVICE_ID}/\${n}\`,
-        status: (await this.get(n)) ? "✅" : "❌",
-      }))
+        status: (await this.get(n)) ? "✅" : "❌" }))
     );
     console.table(rows, ["service", "name", "key", "status"]);
-  },
-};
+  } };
 `
 );
 

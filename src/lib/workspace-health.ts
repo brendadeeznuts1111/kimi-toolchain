@@ -3,14 +3,7 @@
  */
 
 import { basename, join, resolve } from "path";
-import {
-  listDir,
-  pathExists,
-  pathExistsAsync,
-  readTextAsync,
-  removeFile,
-  resolveRealPath,
-} from "./bun-io.ts";
+import { listDir, pathExists, removeFile, resolveRealPath } from "./bun-io.ts";
 import { homeDir } from "./paths.ts";
 import { readPackageJson, readPackageManifest, safeParse } from "./utils.ts";
 
@@ -118,7 +111,7 @@ export async function listMissingWrappers(repoRoot: string, binDir: string): Pro
   const expected = await listExpectedWrapperNames(repoRoot);
   const missing: string[] = [];
   for (const name of expected) {
-    if (!(await pathExistsAsync(join(binDir, name)))) missing.push(name);
+    if (!(await Bun.file(join(binDir, name)).exists())) missing.push(name);
   }
   return missing;
 }
@@ -211,11 +204,11 @@ async function countMismatchedSessionCwds(
   sessionIndexPath: string,
   expectedCwd: string
 ): Promise<number> {
-  if (!(await pathExistsAsync(sessionIndexPath))) return 0;
+  if (!(await Bun.file(sessionIndexPath).exists())) return 0;
   const expected = resolve(expectedCwd);
   let mismatched = 0;
   try {
-    const lines = (await readTextAsync(sessionIndexPath)).split("\n").filter(Boolean);
+    const lines = (await Bun.file(sessionIndexPath).text()).split("\n").filter(Boolean);
     for (const line of lines) {
       const entry = safeParse(line, null as { cwd?: string; workDir?: string } | null);
       const cwd = entry?.cwd || entry?.workDir;
@@ -228,19 +221,19 @@ async function countMismatchedSessionCwds(
 }
 
 async function countOrphanedSnapshots(snapshotDir: string): Promise<number> {
-  if (!(await pathExistsAsync(snapshotDir))) return 0;
+  if (!(await Bun.file(snapshotDir).exists())) return 0;
   let orphaned = 0;
   const glob = new Bun.Glob("*.json");
   for (const file of glob.scanSync({ cwd: snapshotDir, absolute: true })) {
-    const snap = safeParse(await readTextAsync(file), null as { projectPath?: string } | null);
-    if (snap?.projectPath && !(await pathExistsAsync(snap.projectPath))) orphaned++;
+    const snap = safeParse(await Bun.file(file).text(), null as { projectPath?: string } | null);
+    if (snap?.projectPath && !(await Bun.file(snap.projectPath).exists())) orphaned++;
   }
   return orphaned;
 }
 
 export async function isKimiToolchainRepo(projectRoot: string): Promise<boolean> {
   const pkgPath = join(projectRoot, "package.json");
-  if (!(await pathExistsAsync(pkgPath))) return false;
+  if (!(await Bun.file(pkgPath).exists())) return false;
   try {
     const pkg = await readPackageManifest(projectRoot);
     return pkg?.name === CANONICAL_REPO_NAME;
@@ -282,10 +275,10 @@ export async function auditWorkspaceHealth(
 
   const isToolchain = pkgName === CANONICAL_REPO_NAME;
   const canonicalPath = canonicalClonePath(home);
-  const canonicalClonePresent = await pathExistsAsync(join(canonicalPath, "package.json"));
+  const canonicalClonePresent = await Bun.file(join(canonicalPath, "package.json")).exists();
   const legacyCursorSlugs = listLegacyCursorSlugs(home);
 
-  if (!(await pathExistsAsync(join(projectRoot, "package.json")))) {
+  if (!(await Bun.file(join(projectRoot, "package.json")).exists())) {
     checks.push({
       name: "package-json",
       status: "error",
@@ -344,7 +337,7 @@ export async function auditWorkspaceHealth(
   }
 
   const legacyPath = legacyClonePath(home);
-  if (await pathExistsAsync(legacyPath)) {
+  if (await Bun.file(legacyPath).exists()) {
     checks.push({
       name: "legacy-clone",
       status: "warn",
@@ -479,7 +472,7 @@ export async function auditWorkspaceHealth(
   );
 
   const sessionIndex = join(sessionsDir, "session_index.jsonl");
-  if (isToolchain && (await pathExistsAsync(sessionIndex))) {
+  if (isToolchain && (await Bun.file(sessionIndex).exists())) {
     const mismatched = await countMismatchedSessionCwds(sessionIndex, canonicalPath);
     const cwdStatus = mismatched === 0 ? "ok" : strict ? "error" : "warn";
     checks.push(
@@ -548,9 +541,9 @@ export async function auditWorkspaceHealth(
   }
 
   const indexPath = join(home, ".kimi-code", "sessions", "session_index.jsonl");
-  if (isToolchain && (await pathExistsAsync(indexPath))) {
+  if (isToolchain && (await Bun.file(indexPath).exists())) {
     let legacyIndexLines = 0;
-    for (const line of (await readTextAsync(indexPath)).split("\n").filter(Boolean)) {
+    for (const line of (await Bun.file(indexPath).text()).split("\n").filter(Boolean)) {
       const entry = safeParse(line, null as { cwd?: string; workDir?: string } | null);
       const cwd = entry?.cwd || entry?.workDir || "";
       if (LEGACY_REPO_NAMES.some((l) => cwd.includes(l))) legacyIndexLines++;
@@ -681,7 +674,7 @@ export async function removeOrphanedSnapshots(snapshotDir: string): Promise<numb
   for (const file of glob.scanSync({ cwd: snapshotDir, absolute: true })) {
     let remove = false;
     const snap = safeParse(
-      await readTextAsync(file),
+      await Bun.file(file).text(),
       null as {
         id?: string;
         project?: string;
@@ -690,7 +683,7 @@ export async function removeOrphanedSnapshots(snapshotDir: string): Promise<numb
       } | null
     );
     if (!snap?.id || !snap?.project || !snap?.commit) remove = true;
-    else if (snap.projectPath && !(await pathExistsAsync(snap.projectPath))) remove = true;
+    else if (snap.projectPath && !(await Bun.file(snap.projectPath).exists())) remove = true;
     if (remove) {
       removeFile(file);
       removed++;
@@ -730,7 +723,7 @@ export async function fixWorkspaceHealth(
     report.checks.some((c) => c.name === "desktop-tools" && c.status === "error");
   if (needsSync) {
     const syncScript = join(options.projectRoot, "scripts", "sync-to-desktop.ts");
-    if (await pathExistsAsync(syncScript)) {
+    if (await Bun.file(syncScript).exists()) {
       const proc = Bun.spawn(["bun", "run", syncScript], {
         cwd: options.projectRoot,
         stdout: "inherit",
@@ -744,7 +737,7 @@ export async function fixWorkspaceHealth(
   const needsWrappers = options.installWrappers ?? report.missingWrappers.length > 0;
   if (needsWrappers) {
     const wrapperScript = join(options.projectRoot, "scripts", "install-bin-wrappers.sh");
-    if (await pathExistsAsync(wrapperScript)) {
+    if (await Bun.file(wrapperScript).exists()) {
       const proc = Bun.spawn(["bash", wrapperScript], {
         cwd: options.projectRoot,
         stdout: "inherit",

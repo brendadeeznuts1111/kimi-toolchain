@@ -4,7 +4,7 @@
 
 import yaml from "js-yaml";
 import { resolve } from "path";
-import { parseToml } from "./bun-utils.ts";
+
 import { pathExists } from "./bun-io.ts";
 import { formatTable } from "./inspect.ts";
 
@@ -52,7 +52,7 @@ export function parseFrontmatterText(text: string, file = ""): ParsedFrontmatter
   const body = text.slice(match[0].length).replace(/^\r?\n/, "");
 
   const data =
-    delimiter === "+++" ? (parseToml(raw) as Record<string, unknown>) : asRecord(yaml.load(raw));
+    delimiter === "+++" ? (Bun.TOML.parse(raw) as Record<string, unknown>) : asRecord(yaml.load(raw));
 
   return {
     data,

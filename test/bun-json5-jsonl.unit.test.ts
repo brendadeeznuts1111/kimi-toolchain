@@ -13,8 +13,7 @@ const JSON5_CONFIG = `{
   host: 'localhost',
   port: 5432,
   ssl: true,  // trailing comma
-  hex: 0xDEAD,
-}`;
+  hex: 0xDEAD }`;
 
 const JSONL_INPUT = `{"name":"Alice"}
 {"name":"Bob","age":30}

@@ -289,7 +289,7 @@ export const REPO_SKILL_CODE_COVERAGE: Record<
   "skills/effect-hardening/SKILL.md": {
     libModules: [
       "src/lib/effect-gates.ts",
-      "src/lib/effect/decision-services.ts",
+      "src/lib/effect/tool-runner-effect.ts",
       "src/lib/herdr-orchestrator-events.ts",
     ],
     testFiles: ["test/effect-gates.unit.test.ts", "test/herdr-orchestrator-events.unit.test.ts"],

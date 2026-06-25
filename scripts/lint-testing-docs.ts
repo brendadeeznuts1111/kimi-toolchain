@@ -17,8 +17,6 @@ import {
   TESTING_DOCS_AUDIT_COMMANDS,
   TESTING_DOCS_DEFAULT_PATHS,
 } from "../src/lib/testing-docs-lint.ts";
-import { readTextAsync } from "../src/lib/bun-io.ts";
-
 const REPO_ROOT = join(import.meta.dir, "..");
 const json = Bun.argv.includes("--json");
 const report = Bun.argv.includes("--report");
@@ -34,7 +32,7 @@ async function main(): Promise<number> {
     console.log("bun test inventory (agent docs):\n");
     for (const rel of TESTING_DOCS_DEFAULT_PATHS) {
       if (!rel.endsWith(".md")) continue;
-      const text = await readTextAsync(join(REPO_ROOT, rel));
+      const text = await Bun.file(join(REPO_ROOT, rel)).text();
       const hits = inventoryBunTestMentions(rel, text);
       if (hits.length === 0) continue;
       console.log(`${rel}:`);
@@ -45,7 +43,7 @@ async function main(): Promise<number> {
     console.log("\nheading audit (agent docs, fence-aware; rg recipes above are repo-wide):\n");
     for (const rel of TESTING_DOCS_DEFAULT_PATHS) {
       if (!rel.endsWith(".md")) continue;
-      const text = await readTextAsync(join(REPO_ROOT, rel));
+      const text = await Bun.file(join(REPO_ROOT, rel)).text();
       const headingIssues = auditMarkdownHeadings(rel, text);
       if (headingIssues.length === 0) continue;
       console.log(`${rel}:`);
@@ -56,7 +54,7 @@ async function main(): Promise<number> {
     console.log("\nfence languages (agent docs):\n");
     for (const rel of TESTING_DOCS_DEFAULT_PATHS) {
       if (!rel.endsWith(".md")) continue;
-      const text = await readTextAsync(join(REPO_ROOT, rel));
+      const text = await Bun.file(join(REPO_ROOT, rel)).text();
       const fences = listMarkdownFences(text);
       if (fences.length === 0) continue;
       const fenceIssues = auditMarkdownFenceLanguages(rel, text);

@@ -21,55 +21,22 @@ import {
   guardianDir,
   governorDir,
   skillsDir,
+  canonicalRepoRoot,
 } from "./paths.ts";
+import { LABEL_PREFIX, SYNC_ROOT_INFRA } from "./sync-paths.ts";
+
+export { LABEL_PREFIX, SYNC_ROOT_INFRA } from "./sync-paths.ts";
 
 export const desktopRoot = _desktopRoot;
-
-/** @deprecated Resolve dynamically with agentsSkillsRoot() instead. */
-export const AGENTS_SKILLS_ROOT = agentsSkillsRoot();
-
-/** @deprecated Use skillsDir() from paths.ts instead. */
-export function kimiCodeSkillsRoot(): string {
-  return skillsDir();
-}
-
-/** Root repo files synced to ~/.kimi-code/ but not indexed in LOCAL_DOC_REFERENCES. */
-export const SYNC_ROOT_INFRA = [
-  "CONTRIBUTING.md",
-  "dx.config.toml",
-  "kimi-toolchain.code-workspace",
-  "error-taxonomy.yml",
-] as const;
 
 /** All manifest-indexed files + infra extras copied as static paths under ~/.kimi-code/. */
 export function collectStaticFileSyncPaths(): readonly string[] {
   return [...collectLocalDocSyncPaths(), ...SYNC_ROOT_INFRA].sort();
 }
 
-/** @deprecated Prefer collectStaticFileSyncPaths() */
-export function collectRootSyncPaths(): readonly string[] {
-  return collectStaticFileSyncPaths();
-}
-
-/** @deprecated Prefer collectStaticFileSyncPaths() — computed from LOCAL_DOC_REFERENCES + SYNC_ROOT_INFRA. */
-export const ROOT_TEMPLATES: readonly string[] = collectStaticFileSyncPaths();
-
 export const OPTIONAL_CONFIG_FILES = ["bunfig.toml", ".gitignore"] as const;
 
 export const TOOL_ORPHANS = ["kimi-utils.ts"] as const;
-
-export const LABEL_PREFIX = {
-  TOOLS: "tools/",
-  LIB: "lib/",
-  CANVASES: "canvases/",
-  GATES: "gates/",
-  HARNESS: "harness/",
-  SCRIPTS: "scripts/",
-  KIMI_HOOKS: "kimi-hooks/",
-  TEMPLATES: "templates/",
-  AGENTS_SKILL: "agents-skill/",
-  KIMI_SKILL: "kimi-skill/",
-} as const;
 
 export interface DesktopPaths {
   repoRoot: string;
@@ -96,6 +63,7 @@ export interface DesktopPaths {
 }
 
 export function resolveDesktopPaths(repoRoot: string): DesktopPaths {
+  repoRoot = canonicalRepoRoot(repoRoot);
   const dRoot = desktopRoot();
   return {
     repoRoot,
@@ -147,16 +115,6 @@ export interface SyncFileResult {
   skipped: number;
 }
 
-async function readTextOrNull(path: string): Promise<string | null> {
-  try {
-    return await Bun.file(path).text();
-  } catch {
-    // File not found or unreadable — expected when destination does not exist yet.
-    // Permission errors are intentionally treated as "missing" for sync idempotency.
-    return null;
-  }
-}
-
 async function copyIfChanged(
   srcPath: string,
   dstPath: string,
@@ -164,10 +122,14 @@ async function copyIfChanged(
   force: boolean,
   result: SyncFileResult
 ): Promise<void> {
-  const srcText = await readTextOrNull(srcPath);
+  const srcText = await Bun.file(srcPath)
+    .text()
+    .catch(() => null);
   if (srcText === null) return;
 
-  const dstText = await readTextOrNull(dstPath);
+  const dstText = await Bun.file(dstPath)
+    .text()
+    .catch(() => null);
   if (force || srcText !== dstText) {
     ensureDir(dirname(dstPath));
     await Bun.write(dstPath, srcText);
@@ -202,6 +164,7 @@ export async function syncDesktop(
   repoRoot: string,
   options: { force?: boolean } = {}
 ): Promise<SyncFileResult> {
+  repoRoot = canonicalRepoRoot(repoRoot);
   const force = options.force ?? false;
   const paths = resolveDesktopPaths(repoRoot);
   const result: SyncFileResult = { updated: [], removed: [], skipped: 0 };
@@ -326,7 +289,11 @@ export async function syncDesktop(
 
   for (const orphan of TOOL_ORPHANS) {
     const orphanPath = join(paths.binDst, orphan);
-    if ((await readTextOrNull(orphanPath)) !== null) {
+    if (
+      (await Bun.file(orphanPath)
+        .text()
+        .catch(() => null)) !== null
+    ) {
       try {
         await Bun.file(orphanPath).delete();
       } catch {

@@ -10,8 +10,7 @@
 import { $ } from "bun";
 import { bunVersion, isDirectRun } from "../lib/bun-utils.ts";
 import { recordField } from "../lib/boundary.ts";
-import { pathExists, readJsonFile } from "../lib/bun-io.ts";
-import { join } from "path";
+import { pathExists } from "../lib/bun-io.ts";
 import {
   ensureDir,
   getProjectName,
@@ -30,7 +29,7 @@ import { CliError } from "../lib/effect/errors.ts";
 const logger = createLogger(Bun.argv, "kimi-context-gen");
 
 const GUARDIAN_DIR = guardianDir();
-const CONTEXT_META = join(GUARDIAN_DIR, "context-meta.json");
+const CONTEXT_META = `${GUARDIAN_DIR}/context-meta.json`;
 
 interface TechStack {
   runtime?: string;
@@ -82,12 +81,12 @@ function isContextMeta(value: unknown): value is ContextMeta {
 async function inferTechStack(projectDir: string): Promise<TechStack> {
   const stack: TechStack = {};
 
-  const pkgPath = join(projectDir, "package.json");
-  const bunfigPath = join(projectDir, "bunfig.toml");
-  const wranglerPath = join(projectDir, "wrangler.toml");
-  const dockerPath = join(projectDir, "Dockerfile");
+  const pkgPath = `${projectDir}/package.json`;
+  const bunfigPath = `${projectDir}/bunfig.toml`;
+  const wranglerPath = `${projectDir}/wrangler.toml`;
+  const dockerPath = `${projectDir}/Dockerfile`;
 
-  if (pathExists(bunfigPath) || pathExists(join(projectDir, "bun.lock"))) {
+  if (pathExists(bunfigPath) || pathExists(`${projectDir}/bun.lock`)) {
     stack.runtime = "Bun >=1.3.14";
     if (pathExists(bunfigPath)) {
       const config = safeToml<{ install?: { registry?: string } }>(
@@ -133,16 +132,15 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
     }
   }
 
-  const hasPrisma = pathExists(join(projectDir, "prisma", "schema.prisma"));
-  const hasDrizzle = pathExists(join(projectDir, "drizzle.config.ts"));
+  const hasPrisma = pathExists(`${projectDir}/prisma/schema.prisma`);
+  const hasDrizzle = pathExists(`${projectDir}/drizzle.config.ts`);
   if (hasPrisma) stack.database = "Prisma + SQLite/PostgreSQL";
   else if (hasDrizzle) stack.database = "Drizzle + SQLite";
-  else if (pathExists(join(projectDir, "migrations")))
-    stack.database = "D1/SQLite (migrations found)";
+  else if (pathExists(`${projectDir}/migrations`)) stack.database = "D1/SQLite (migrations found)";
 
   if (pathExists(wranglerPath)) stack.deploy = "Cloudflare Workers";
   else if (pathExists(dockerPath)) stack.deploy = "Docker";
-  else if (pathExists(join(projectDir, "fly.toml"))) stack.deploy = "Fly.io";
+  else if (pathExists(`${projectDir}/fly.toml`)) stack.deploy = "Fly.io";
 
   return stack;
 }
@@ -154,7 +152,7 @@ async function hashConfigs(projectDir: string): Promise<ConfigHash[]> {
   const hashes: ConfigHash[] = [];
 
   for (const cfg of configs) {
-    const path = join(projectDir, cfg);
+    const path = `${projectDir}/${cfg}`;
     if (!pathExists(path)) continue;
     const file = Bun.file(path);
     const content = await file.arrayBuffer();
@@ -187,7 +185,7 @@ async function checkReadmeDrift(projectDir: string): Promise<FreshnessResult["re
 }
 
 async function checkAdrStaleness(projectDir: string): Promise<FreshnessResult["adrStaleness"]> {
-  const adrDir = join(projectDir, "docs", "adr");
+  const adrDir = `${projectDir}/docs/adr`;
   let count = 0;
   if (pathExists(adrDir)) {
     const glob = new Bun.Glob("*.md");
@@ -246,7 +244,7 @@ async function computeFreshness(
   let meta: ContextMeta | null = null;
   if (pathExists(CONTEXT_META)) {
     try {
-      const raw = await readJsonFile(CONTEXT_META);
+      const raw = await Bun.file(CONTEXT_META).json();
       meta = isContextMeta(raw) ? raw : null;
     } catch {
       meta = null;
@@ -331,8 +329,8 @@ async function generateContext(projectDir: string): Promise<string> {
   const licenseFiles = ["LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING"];
   let licenseType: string | null = null;
   for (const f of licenseFiles) {
-    if (pathExists(join(projectDir, f))) {
-      const content = (await Bun.file(join(projectDir, f)).text()).slice(0, 500).toLowerCase();
+    if (pathExists(`${projectDir}/${f}`)) {
+      const content = (await Bun.file(`${projectDir}/${f}`).text()).slice(0, 500).toLowerCase();
       if (content.includes("mit")) licenseType = "MIT";
       else if (content.includes("apache")) licenseType = "Apache-2.0";
       else if (content.includes("bsd")) licenseType = "BSD";
@@ -343,13 +341,13 @@ async function generateContext(projectDir: string): Promise<string> {
   }
   govLines.push(`| License | ${licenseType || "missing — add LICENSE"} |`);
   govLines.push(
-    `| CONTRIBUTING.md | ${pathExists(join(projectDir, "CONTRIBUTING.md")) ? "present" : "missing"} |`
+    `| CONTRIBUTING.md | ${pathExists(`${projectDir}/CONTRIBUTING.md`) ? "present" : "missing"} |`
   );
 
   const codeownersPaths = [
-    join(projectDir, "CODEOWNERS"),
-    join(projectDir, ".github", "CODEOWNERS"),
-    join(projectDir, "docs", "CODEOWNERS"),
+    `${projectDir}/CODEOWNERS`,
+    `${projectDir}/.github/CODEOWNERS`,
+    `${projectDir}/docs/CODEOWNERS`,
   ];
   let codeownersPresent = false;
   let codeownersList: string[] = [];
@@ -371,7 +369,7 @@ async function generateContext(projectDir: string): Promise<string> {
     `| CODEOWNERS | ${codeownersPresent ? codeownersList.join(", ") || "present" : "missing"} |`
   );
 
-  const adrDir = join(projectDir, "docs", "adr");
+  const adrDir = `${projectDir}/docs/adr`;
   const adrs: string[] = [];
   if (pathExists(adrDir)) {
     const glob = new Bun.Glob("*.md");
@@ -380,7 +378,7 @@ async function generateContext(projectDir: string): Promise<string> {
     }
   }
   const agentReferenceLines = ["AGENTS.md", "CODE_REFERENCES.md", "UNIFIED.md", "TEMPLATES.md"]
-    .filter((file) => pathExists(join(projectDir, file)))
+    .filter((file) => pathExists(`${projectDir}/${file}`))
     .map((file) => `- \`${file}\``);
 
   return `# CONTEXT — ${name}
@@ -460,7 +458,7 @@ async function doctor(
     fixable: boolean;
   }> = [];
 
-  const contextPath = join(projectDir, "CONTEXT.md");
+  const contextPath = `${projectDir}/CONTEXT.md`;
   checks.push({
     name: "CONTEXT.md",
     status: pathExists(contextPath) ? "ok" : "warn",
@@ -504,14 +502,14 @@ async function doctor(
   });
 
   // Check for broken ADR links
-  const adrDir = join(projectDir, "docs", "adr");
+  const adrDir = `${projectDir}/docs/adr`;
   if (pathExists(adrDir) && pathExists(contextPath)) {
     const ctxContent = await Bun.file(contextPath).text();
     const adrMatches = ctxContent.match(/docs\/adr\/[^`\]]+/g) || [];
     let broken = 0;
     for (const adrRef of adrMatches) {
       const adrFile = adrRef.replace(/^docs\/adr\//, "").replace(/\/$/, "") + ".md";
-      if (!pathExists(join(adrDir, adrFile))) broken++;
+      if (!pathExists(`${adrDir}/${adrFile}`)) broken++;
     }
     if (broken > 0) {
       checks.push({
@@ -558,18 +556,18 @@ async function main(): Promise<number> {
 
     await storeMeta(projectDir, hashes, score);
 
-    const contextPath = join(projectDir, "CONTEXT.md");
+    const contextPath = `${projectDir}/CONTEXT.md`;
     if (!pathExists(contextPath)) {
       logger.info("CONTEXT.md missing. Run 'kimi-context-gen update' to create.");
     }
   } else if (command === "update") {
     logger.section("Generating CONTEXT.md");
     const content = await generateContext(projectDir);
-    const contextPath = join(projectDir, "CONTEXT.md");
+    const contextPath = `${projectDir}/CONTEXT.md`;
 
     if (pathExists(contextPath)) {
       logger.warn("CONTEXT.md exists — backing up to CONTEXT.md.bak");
-      await Bun.write(join(projectDir, "CONTEXT.md.bak"), await Bun.file(contextPath).text());
+      await Bun.write(`${projectDir}/CONTEXT.md.bak`, await Bun.file(contextPath).text());
     }
 
     await Bun.write(contextPath, content);
@@ -609,9 +607,9 @@ async function main(): Promise<number> {
     if (score < threshold) {
       logger.warn(`Freshness ${score}/10 < threshold ${threshold}/10 — regenerating`);
       const content = await generateContext(projectDir);
-      const contextPath = join(projectDir, "CONTEXT.md");
+      const contextPath = `${projectDir}/CONTEXT.md`;
       if (pathExists(contextPath)) {
-        await Bun.write(join(projectDir, "CONTEXT.md.bak"), await Bun.file(contextPath).text());
+        await Bun.write(`${projectDir}/CONTEXT.md.bak`, await Bun.file(contextPath).text());
       }
       await Bun.write(contextPath, content);
       await storeMeta(projectDir, hashes, 10);

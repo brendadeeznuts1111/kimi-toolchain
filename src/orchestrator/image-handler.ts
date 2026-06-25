@@ -4,11 +4,7 @@
  * Provides thumbnail generation and placeholder responses that can be wired
  * into the herdr orchestrator's HTTP/dashboard paths or report rendering.
  */
-import {
-  dashboardThumbnailResponse,
-  imagePlaceholderDataUrl,
-  type DashboardThumbnailFormat,
-} from "../lib/bun-image.ts";
+import { dashboardThumbnailResponse, type DashboardThumbnailFormat } from "../lib/bun-image.ts";
 
 /**
  * Serve a WebP thumbnail of an image file.

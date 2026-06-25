@@ -10,7 +10,7 @@ import { join } from "path";
 import { ensureDir, getProjectName } from "./utils.ts";
 import { snapshotDir } from "./paths.ts";
 import { isPlainObject, isStringArray, isStringRecord } from "./boundary.ts";
-import { readJsonFile, readJsonValidated, tryReadJsonValidated } from "./bun-io.ts";
+import { readJsonValidated, tryReadJsonValidated } from "./bun-io.ts";
 
 const SNAPSHOT_DIR = snapshotDir();
 
@@ -50,7 +50,7 @@ export async function tryReadSnapshot(path: string): Promise<Snapshot | null> {
 
 /** Strict read — throws when missing, corrupt, or failing validation. */
 export async function readSnapshot(path: string): Promise<Snapshot> {
-  const raw = await readJsonFile(path);
+  const raw = await Bun.file(path).json();
   if (!isSnapshot(raw)) {
     throw new Error(`Invalid snapshot: ${path}`);
   }

@@ -3,8 +3,6 @@
  * CLI wrapper: scripts/lint-bun-native.ts
  */
 
-import { join } from "path";
-
 export type RuleMode = "off" | "report" | "enforce";
 
 export interface Violation {
@@ -478,7 +476,7 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
   },
   {
     id: "shell-template-opportunity",
-    message: 'Shell command via Bun.spawn(["sh","-c",…]) — consider Bun `$` template',
+    message: "Shell command via Bun.spawn sh -c — consider Bun `$` template",
     replacement: 'import { $ } from "bun"; $`cmd`',
     defaultMode: "off",
     detect(ctx) {
@@ -665,7 +663,7 @@ export async function scanFile(
   config: BunNativeLintConfig
 ): Promise<Violation[]> {
   const rules = activeRules(config);
-  const path = join(repoRoot, rel);
+  const path = `${repoRoot}/${rel}`;
   let text: string;
   try {
     text = await Bun.file(path).text();

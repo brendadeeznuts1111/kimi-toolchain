@@ -9,15 +9,9 @@
  *   bun run bun-hygiene:audit
  */
 
-import { join } from "path";
 import { $ } from "bun";
 
-const REPO_ROOT = join(import.meta.dir, "..");
-
-function extractWarningCount(stdout: string): number {
-  const match = stdout.match(/bun-hygiene — (\d+) finding/);
-  return match ? Number.parseInt(match[1]!, 10) : 0;
-}
+const REPO_ROOT = `${import.meta.dir}/..`;
 
 async function main(): Promise<number> {
   const result = await $`bun run scripts/bun-hygiene-scan.ts`.cwd(REPO_ROOT).nothrow().quiet();
@@ -27,7 +21,7 @@ async function main(): Promise<number> {
   if (stdout) process.stdout.write(stdout);
   if (stderr) process.stderr.write(stderr);
 
-  const count = extractWarningCount(stdout);
+  const count = Number.parseInt(stdout.match(/bun-hygiene — (\d+) finding/)?.[1] ?? "0", 10);
   console.log(`[bun-hygiene] ${count} warnings (reporting only)`);
   return 0;
 }

@@ -9,7 +9,7 @@
  */
 
 import { join } from "path";
-import { pathExists, readText, readTextAsync, writeTextAsync } from "../src/lib/bun-io.ts";
+import { pathExists, readText } from "../src/lib/bun-io.ts";
 import {
   buildCanonicalReferencesManifestFromTables,
   finalizeCanonicalReferencesManifest,
@@ -50,7 +50,7 @@ async function oxfmtDataTs(source: string): Promise<string> {
 }
 
 async function loadTomlSource(): Promise<{ raw: string; source: CanonicalReferencesTomlSource }> {
-  const raw = pathExists(TOML_PATH) ? readText(TOML_PATH) : await readTextAsync(TOML_PATH);
+  const raw = pathExists(TOML_PATH) ? readText(TOML_PATH) : await Bun.file(TOML_PATH).text();
   return { raw, source: parseCanonicalReferencesToml(raw) };
 }
 
@@ -118,13 +118,13 @@ async function main(): Promise<void> {
   }
 
   if (existingDataTs !== generatedTs) {
-    await writeTextAsync(DATA_TS_PATH, generatedTs);
+    await Bun.write(DATA_TS_PATH, generatedTs);
     console.log("wrote src/lib/canonical-references-data.ts");
   }
 
   assertRepoReferenceLint(ROOT);
 
-  await writeTextAsync(
+  await Bun.write(
     MANIFEST_PATH,
     stableStringify(finalizeCanonicalReferencesManifest(generated, existing))
   );
