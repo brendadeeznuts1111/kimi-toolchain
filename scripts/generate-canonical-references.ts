@@ -42,9 +42,9 @@ async function oxfmtDataTs(source: string): Promise<string> {
     stderr: "pipe",
   });
   const exit = await proc.exited;
-  const out = await Bun.readableStreamToText(proc.stdout);
+  const out = await proc.stdout.text();
   if (exit !== 0) {
-    const err = await Bun.readableStreamToText(proc.stderr);
+    const err = await proc.stderr.text();
     throw new Error(`oxfmt failed on canonical-references-data.ts: ${err.trim()}`);
   }
   return out;
