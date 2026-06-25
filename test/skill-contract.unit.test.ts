@@ -103,6 +103,9 @@ describe("skill-contract", () => {
       "domain-purity",
       "run-promise-boundary",
       "event-stream",
+      "console-boundary",
+      "process-env-boundary",
+      "node-fs-plugin",
     ]);
   });
 

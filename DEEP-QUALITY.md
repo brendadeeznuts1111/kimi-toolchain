@@ -43,18 +43,26 @@ interface EffectGatesThresholds {
 | `layer-circularity`    | `scanLayerCircularity`   | Error when `layerCircularityTolerance <= 0` and a circular relative import is detected.                                                                                        |
 | `missing-service-tag`  | `scanMissingServiceTags` | Error in `strict` mode, `warn` in `gradual` mode, skipped when `off` or `serviceTagRequired === false`. Classes extending `Error` or `Data.TaggedError` are excluded.          |
 | `domain-purity`        | `scanDomainPurity`       | Flags `process.env`, `Bun.env`, `fs`, `child_process`, `node:fs`, `node:child_process` in files under `src/domain/`. Error in `strict`, warn in `gradual`, skipped when `off`. |
-| `run-promise-boundary` | `scanRunPromiseBoundary` | Error when `runPromiseBoundaryEnabled === true` and `Effect.runPromise` is called outside allowed paths.                                                                       |
+| `run-promise-boundary` | `scanRunPromiseBoundary` | Error when `runPromiseBoundaryEnabled === true` and `.runPromise` / `.runPromiseExit` is called outside allowed paths.                                                         |
 | `event-stream`         | `scanEventStreams`       | Error when `eventStreamsEnabled === true` and the file is under `src/services/` and references `EventEmitter`, `CustomEmitter`, or the `events` module.                        |
+| `console-boundary`     | `scanConsoleBoundary`    | Error when `console.log/warn/error/...` appears outside `scripts/` and `src/bin/` (probe fixtures and logger exempt).                                                          |
+| `process-env-boundary` | `scanProcessEnvBoundary` | Error when `process.env` appears outside `scripts/` and `src/bin/` (secret-audit catalog and probe fixtures exempt).                                                           |
+| `node-fs-plugin`       | `scanNodeFsInPlugin`     | Error when `fs` / `node:fs` is imported under `**/plugins/**` or `**/megaliner/**`.                                                                                            |
 
 ### `Effect.runPromise` Boundary
 
 Allowed paths are hardcoded in `RUN_PROMISE_ALLOWED_PATHS`:
 
 - `src/bin/`
+- `scripts/`
 - `src/lib/effect/`
 - `test/`
 
-Any `Effect.runPromise` call outside these locations is a `run-promise-boundary` error when the boundary is enabled.
+Plus outer-shell allowlist `OUTER_SHELL_ALLOWED_FILES` / `OUTER_SHELL_ALLOWED_DIRS` (hooks, drift, guardian, deep-audit CLIs) — same boundary policy as `scripts/`.
+
+Any `.runPromise` / `.runPromiseExit` call outside these locations is a `run-promise-boundary` error when the boundary is enabled.
+
+Human-readable audit canon (console/scripts/test/plugin-TOML boundaries): `skills/effect-discipline/references/AUDIT-PROMPT.md`. Companion lint: `scripts/lint-patterns.ts`.
 
 > **Comment and string exclusion:** All regex-based scanners (`direct-promise`, `run-promise-boundary`, `domain-purity`, `event-stream`) pre-compute a set of comment and string/template-literal ranges and skip matches that fall inside them. This prevents JSDoc examples and string literals from being flagged.
 

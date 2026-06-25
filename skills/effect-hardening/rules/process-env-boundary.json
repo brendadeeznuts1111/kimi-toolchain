@@ -1,0 +1,9 @@
+{
+  "gate": "process-env-boundary",
+  "scanner": "src/lib/effect-gates.ts:scanProcessEnvBoundary",
+  "description": "process.env must not be used in src/ outside scripts/ and src/bin/; use Bun.env.",
+  "allowedPaths": ["scripts/**", "src/bin/**"],
+  "allowedFiles": ["src/doctor/secret-audit.ts"],
+  "forbiddenPatterns": ["process.env.SECRET in src/lib/", "process.env in plugin onLoad contents"],
+  "verify": ["kimi-doctor --effect-gates", "bun run scripts/lint-patterns.ts"]
+}

@@ -130,6 +130,74 @@ describe("effect-gates", () => {
     expect(boundaryViolations[0].location).toContain("src/lib/service.ts");
   });
 
+  test("detects console.* outside scripts and src/bin", async () => {
+    await mkdir(join(tmpDir, "src", "lib"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "src", "lib", "service.ts"),
+      `export function run() { console.log("hi"); }`
+    );
+
+    const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
+    const consoleViolations = report.violations.filter(
+      (v) => v.gate === EFFECT_GATES.consoleBoundary
+    );
+    expect(consoleViolations.length).toBe(1);
+    expect(consoleViolations[0].message).toContain("console.*");
+  });
+
+  test("allows console.* in src/bin", async () => {
+    await mkdir(join(tmpDir, "src", "bin"), { recursive: true });
+    await writeFile(join(tmpDir, "src", "bin", "run.ts"), `console.log("cli");`);
+
+    const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
+    const consoleViolations = report.violations.filter(
+      (v) => v.gate === EFFECT_GATES.consoleBoundary
+    );
+    expect(consoleViolations).toHaveLength(0);
+  });
+
+  test("detects process.env outside scripts and src/bin", async () => {
+    await mkdir(join(tmpDir, "src", "lib"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "src", "lib", "service.ts"),
+      `export function cfg() { return process.env.FOO; }`
+    );
+
+    const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
+    const envViolations = report.violations.filter(
+      (v) => v.gate === EFFECT_GATES.processEnvBoundary
+    );
+    expect(envViolations.length).toBe(1);
+    expect(envViolations[0].message).toContain("Bun.env");
+  });
+
+  test("detects fs imports in plugin paths", async () => {
+    await mkdir(join(tmpDir, "src", "plugins"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "src", "plugins", "toml.ts"),
+      `import { readFile } from "fs/promises"; export const plugin = { name: "toml" };`
+    );
+
+    const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
+    const fsViolations = report.violations.filter((v) => v.gate === EFFECT_GATES.nodeFsPlugin);
+    expect(fsViolations.length).toBe(1);
+    expect(fsViolations[0].message).toContain("Bun.file");
+  });
+
+  test("skips bare Promise scan under src/lib/effect", async () => {
+    await mkdir(join(tmpDir, "src", "lib", "effect"), { recursive: true });
+    await writeFile(
+      join(tmpDir, "src", "lib", "effect", "runtime.ts"),
+      `export function demo() { return new Promise((resolve) => resolve(1)); }`
+    );
+
+    const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
+    const promiseViolations = report.violations.filter(
+      (v) => v.gate === EFFECT_GATES.directPromise
+    );
+    expect(promiseViolations).toHaveLength(0);
+  });
+
   test("allows Effect.runPromise inside permitted boundaries", async () => {
     await mkdir(join(tmpDir, "src", "bin"), { recursive: true });
     await mkdir(join(tmpDir, "test"), { recursive: true });
@@ -269,6 +337,9 @@ describe("effect-gates", () => {
         domainPurity: 0,
         runPromiseBoundary: 0,
         eventStream: 0,
+        consoleBoundary: 0,
+        processEnvBoundary: 0,
+        nodeFsPlugin: 0,
       },
       summary: { total: 1, errors: 1, warnings: 0 },
       violations: [],
@@ -283,6 +354,9 @@ describe("effect-gates", () => {
         domainPurity: 0,
         runPromiseBoundary: 0,
         eventStream: 0,
+        consoleBoundary: 0,
+        processEnvBoundary: 0,
+        nodeFsPlugin: 0,
       },
     };
 
@@ -313,6 +387,9 @@ describe("effect-gates", () => {
         domainPurity: 0,
         runPromiseBoundary: 0,
         eventStream: 0,
+        consoleBoundary: 0,
+        processEnvBoundary: 0,
+        nodeFsPlugin: 0,
       },
       summary: { total: 2, errors: 2, warnings: 0 },
       violations: [],
@@ -327,6 +404,9 @@ describe("effect-gates", () => {
         domainPurity: 0,
         runPromiseBoundary: 0,
         eventStream: 0,
+        consoleBoundary: 0,
+        processEnvBoundary: 0,
+        nodeFsPlugin: 0,
       },
     };
 

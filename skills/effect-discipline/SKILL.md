@@ -89,8 +89,11 @@ Identifiers enforced by `src/lib/effect-gates.ts` (keep in sync with `error-taxo
 - `domain-purity`
 - `run-promise-boundary`
 - `event-stream`
+- `console-boundary`
+- `process-env-boundary`
+- `node-fs-plugin`
 
-Full scanner logic and thresholds: [DEEP-QUALITY.md](~/.kimi-code/DEEP-QUALITY.md).
+Full scanner logic and thresholds: [DEEP-QUALITY.md](~/.kimi-code/DEEP-QUALITY.md). Drop-in `[AUDIT]` excision prompt: `references/AUDIT-PROMPT.md`.
 
 ## Do not
 

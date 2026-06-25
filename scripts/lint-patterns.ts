@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
  * Fail on anti-patterns in kimi-toolchain sources:
- * - console.* in src/lib/ (except logger.ts and probe fixtures)
- * - console.* in src/bin/
+ * - console.* in src/ outside scripts/ and src/bin/ (except logger + probe fixtures)
+ * - process.env in src/ outside scripts/ and src/bin/ (except probe fixtures + secret-audit)
  * - require() in ESM .ts files under src/ (except probe fixture literals)
  * - process.exit in src/lib/
  */
@@ -18,7 +18,7 @@ const LIB_CONSOLE_ALLOW = new Set([
   "src/lib/herdr-dashboard/webview/options.ts",
 ]);
 
-/** Probe harnesses embed console/require snippets as fixture strings — not runtime calls. */
+/** Probe harnesses embed console/require/process.env snippets as fixture strings — not runtime calls. */
 const LIB_PROBE_FIXTURES = new Set([
   "src/lib/bun-cli-contract-probes.ts",
   "src/lib/bun-cli-env-probes.ts",
@@ -31,9 +31,21 @@ const LIB_PROBE_FIXTURES = new Set([
   "src/lib/test-runtime.ts",
   "src/lib/build-info.ts",
   "src/lib/bun-utils.ts",
+  "src/lib/bun-upstream-cli-case-alignment.ts",
+  "src/lib/bun-upstream-test-refs.ts",
+  "src/lib/effect-gates.ts",
 ]);
 
-const BIN_CONSOLE_ALLOW = new Set<string>([]);
+const PROCESS_ENV_ALLOW = new Set([...LIB_PROBE_FIXTURES, "src/doctor/secret-audit.ts"]);
+
+/** Outer-shell entrypoints — same console/process.env policy as src/bin/. */
+const OUTER_SHELL_ALLOW = new Set([
+  "src/drift/check.ts",
+  "src/guardian/verify.ts",
+  "src/install-hooks/postinstall.ts",
+  "src/kimi-hooks/log-tool-failure.ts",
+]);
+
 const SCAN_GLOB = new Bun.Glob("src/**/*.ts");
 const SKIP_DIRS = new Set(["node_modules", ".git", "coverage", ".kimi-artifacts"]);
 
@@ -54,8 +66,23 @@ function isCommentOrDocLine(line: string): boolean {
   );
 }
 
-function isLibExempt(rel: string): boolean {
-  return LIB_CONSOLE_ALLOW.has(rel) || LIB_PROBE_FIXTURES.has(rel);
+function isOuterShell(rel: string): boolean {
+  if (OUTER_SHELL_ALLOW.has(rel)) return true;
+  if (rel.startsWith("src/doctor/deep-audit/")) return true;
+  return false;
+}
+
+function isConsoleExempt(rel: string): boolean {
+  if (rel.startsWith("src/bin/")) return true;
+  if (isOuterShell(rel)) return true;
+  if (LIB_CONSOLE_ALLOW.has(rel) || LIB_PROBE_FIXTURES.has(rel)) return true;
+  return false;
+}
+
+function isProcessEnvExempt(rel: string): boolean {
+  if (rel.startsWith("src/bin/")) return true;
+  if (isOuterShell(rel)) return true;
+  return PROCESS_ENV_ALLOW.has(rel);
 }
 
 async function main() {
@@ -78,31 +105,34 @@ async function main() {
       const lineNo = i + 1;
       if (isCommentOrDocLine(line)) continue;
 
-      if (rel.startsWith("src/lib/") && !isLibExempt(rel)) {
-        if (/console\.(log|warn|error)\(/.test(line)) {
+      if (rel.startsWith("src/") && !isConsoleExempt(rel)) {
+        if (/console\.(log|warn|error|info|debug|dir|table)\s*\(/.test(line)) {
           violations.push({
             file: rel,
             line: lineNo,
-            rule: "no-console-in-lib",
-            snippet: line.trim().slice(0, 120),
-          });
-        }
-        if (/process\.exit\(/.test(line)) {
-          violations.push({
-            file: rel,
-            line: lineNo,
-            rule: "no-process-exit-in-lib",
+            rule: "no-console-in-src",
             snippet: line.trim().slice(0, 120),
           });
         }
       }
 
-      if (rel.startsWith("src/bin/") && !BIN_CONSOLE_ALLOW.has(rel)) {
-        if (/console\.(log|warn|error)\(/.test(line)) {
+      if (rel.startsWith("src/") && !isProcessEnvExempt(rel)) {
+        if (/\bprocess\.env\b/.test(line)) {
           violations.push({
             file: rel,
             line: lineNo,
-            rule: "no-console-in-bin",
+            rule: "no-process-env-in-src",
+            snippet: line.trim().slice(0, 120),
+          });
+        }
+      }
+
+      if (rel.startsWith("src/lib/") && !LIB_PROBE_FIXTURES.has(rel)) {
+        if (/process\.exit\(/.test(line)) {
+          violations.push({
+            file: rel,
+            line: lineNo,
+            rule: "no-process-exit-in-lib",
             snippet: line.trim().slice(0, 120),
           });
         }

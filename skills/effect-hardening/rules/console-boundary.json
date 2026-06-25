@@ -1,0 +1,18 @@
+{
+  "gate": "console-boundary",
+  "scanner": "src/lib/effect-gates.ts:scanConsoleBoundary",
+  "description": "console.* must not appear outside scripts/ and src/bin/; use canonical logger or Bun.stdout helpers.",
+  "allowedPaths": ["scripts/**", "src/bin/**"],
+  "allowedFiles": [
+    "src/lib/logger.ts",
+    "src/lib/compile-target.ts",
+    "src/lib/mcp-bridge-scaffold.ts",
+    "src/lib/herdr-dashboard/webview/options.ts"
+  ],
+  "forbiddenPatterns": [
+    "console.log in src/lib/",
+    "console.error in plugins/",
+    "console.warn in src/doctor/"
+  ],
+  "verify": ["kimi-doctor --effect-gates", "bun run scripts/lint-patterns.ts"]
+}

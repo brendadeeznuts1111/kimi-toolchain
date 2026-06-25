@@ -29,6 +29,9 @@ export const EFFECT_GATES = {
   domainPurity: "domain-purity",
   runPromiseBoundary: "run-promise-boundary",
   eventStream: "event-stream",
+  consoleBoundary: "console-boundary",
+  processEnvBoundary: "process-env-boundary",
+  nodeFsPlugin: "node-fs-plugin",
 } as const;
 
 /** A single discipline violation. */
@@ -51,6 +54,9 @@ export interface EffectGatesCounts {
   domainPurity: number;
   runPromiseBoundary: number;
   eventStream: number;
+  consoleBoundary: number;
+  processEnvBoundary: number;
+  nodeFsPlugin: number;
 }
 
 /** Threshold snapshot baked into the report for reproducibility. */
@@ -136,6 +142,35 @@ function formatLocation(filePath: string, line?: number): string {
   return line !== undefined && line > 0 ? `${filePath}:${line}` : filePath;
 }
 
+/** True when `relativePath` is under a directory prefix like `src/bin/`. */
+function isUnderDirPrefix(relativePath: string, dirPrefix: string): boolean {
+  const dir = dirPrefix.endsWith("/") ? dirPrefix.slice(0, -1) : dirPrefix;
+  return relativePath === dir || relativePath.startsWith(`${dir}/`);
+}
+
+/** True when `relativePath` matches any exclude glob (`scripts/**`, `src/bin/**`, …). */
+function isExcludedByGlobs(relativePath: string, globs: readonly string[]): boolean {
+  for (const glob of globs) {
+    if (glob.endsWith("/**")) {
+      const dir = glob.slice(0, -3);
+      if (isUnderDirPrefix(relativePath, dir)) return true;
+    } else if (relativePath === glob) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** True for Bun plugin paths targeted by node-fs-plugin (plugins/ and megaliner/ trees). */
+function isPluginOrMegalinerPath(relativePath: string): boolean {
+  return (
+    relativePath.includes("/plugins/") ||
+    relativePath.startsWith("plugins/") ||
+    relativePath.includes("/megaliner/") ||
+    relativePath.startsWith("megaliner/")
+  );
+}
+
 interface ExcludedRange {
   start: number;
   end: number;
@@ -203,9 +238,17 @@ const DIRECT_PROMISE_PROBE_FIXTURES = new Set([
   "src/lib/bun-utils.ts",
 ]);
 
+/** Paths where bare Promise usage is permitted (tests, bins, scripts, Effect runtime). */
+function isDirectPromiseExcludedPath(relativePath: string): boolean {
+  if (DIRECT_PROMISE_PROBE_FIXTURES.has(relativePath)) return true;
+  if (isExcludedByGlobs(relativePath, ["test/**", "src/bin/**", "scripts/**"])) return true;
+  if (relativePath.includes("/effect/") || relativePath.startsWith("src/lib/effect/")) return true;
+  return false;
+}
+
 /** Detect bare Promise usage in a source file. */
 function scanDirectPromises(sourceFile: ts.SourceFile, filePath: string): EffectGatesViolation[] {
-  if (DIRECT_PROMISE_PROBE_FIXTURES.has(filePath)) return [];
+  if (isDirectPromiseExcludedPath(filePath)) return [];
 
   const violations: EffectGatesViolation[] = [];
   const text = sourceFile.text;
@@ -240,23 +283,36 @@ function scanDirectPromises(sourceFile: ts.SourceFile, filePath: string): Effect
  * the runtime. Library/service code should return Effects and let the CLI or
  * runtime entry unwrap them.
  */
-const RUN_PROMISE_ALLOWED_PATHS = ["src/bin/", "src/lib/effect/", "test/"] as const;
+const RUN_PROMISE_ALLOWED_PATHS = ["src/bin/", "src/lib/effect/", "test/", "scripts/"] as const;
 
 /**
- * Exact file paths that are permitted to call Effect.runPromise even though they
- * live outside the directory prefixes above. These are outer-shell scripts invoked
- * directly by Bun, git hooks, or Kimi Code rather than library code.
+ * Outer-shell entrypoints invoked by Bun, git hooks, or Kimi Code — same boundary
+ * policy as scripts/ and src/bin/ (console, runPromise, process.env).
  */
-const RUN_PROMISE_ALLOWED_FILES = new Set([
+const OUTER_SHELL_ALLOWED_FILES = new Set([
   "src/drift/check.ts",
   "src/guardian/verify.ts",
   "src/install-hooks/postinstall.ts",
   "src/kimi-hooks/log-tool-failure.ts",
 ]);
 
+const OUTER_SHELL_ALLOWED_DIRS = ["src/doctor/deep-audit/"] as const;
+
+/** Scanner implementation — must not self-flag on its own regex/messages. */
+const EFFECT_GATES_SCANNER_FILE = "src/lib/effect-gates.ts";
+
+function isOuterShellPath(relativePath: string): boolean {
+  if (OUTER_SHELL_ALLOWED_FILES.has(relativePath)) return true;
+  for (const dir of OUTER_SHELL_ALLOWED_DIRS) {
+    if (isUnderDirPrefix(relativePath, dir)) return true;
+  }
+  return false;
+}
+
 /** Check whether a file path is allowed to call Effect.runPromise. */
 function isRunPromiseAllowedPath(relativePath: string): boolean {
-  if (RUN_PROMISE_ALLOWED_FILES.has(relativePath)) return true;
+  if (relativePath === EFFECT_GATES_SCANNER_FILE) return true;
+  if (isOuterShellPath(relativePath)) return true;
   for (const allowed of RUN_PROMISE_ALLOWED_PATHS) {
     if (allowed.endsWith("/")) {
       const dir = allowed.slice(0, -1);
@@ -278,18 +334,131 @@ function scanRunPromiseBoundary(
   if (isRunPromiseAllowedPath(filePath)) return [];
 
   const violations: EffectGatesViolation[] = [];
-  const regex = /\bEffect\.runPromise(?:Exit)?\b/g;
+  const runPromiseCall = new RegExp(String.raw`\.runPromise(?:Exit)?\b`, "g");
 
-  for (const match of sourceFile.text.matchAll(regex)) {
+  for (const match of sourceFile.text.matchAll(runPromiseCall)) {
     const pos = match.index ?? 0;
     if (isTokenInCommentOrString(sourceFile, pos)) continue;
     const line = sourceFile.getLineAndCharacterOfPosition(pos).line + 1;
     violations.push({
       gate: EFFECT_GATES.runPromiseBoundary,
       severity: "error",
-      message: "Effect.runPromise called outside permitted CLI/runtime/test boundary",
+      message:
+        "Effect.runPromise/runPromiseExit only allowed in tests, bin entrypoints, scripts, and src/lib/effect runtime",
       location: formatLocation(filePath, line),
     });
+  }
+
+  return violations;
+}
+
+/**
+ * Probe harness files embed console snippets as fixture strings — not runtime calls.
+ * Keep in sync with LIB_PROBE_FIXTURES / LIB_CONSOLE_ALLOW in scripts/lint-patterns.ts.
+ */
+const CONSOLE_BOUNDARY_PROBE_FIXTURES = DIRECT_PROMISE_PROBE_FIXTURES;
+
+const CONSOLE_BOUNDARY_LIB_ALLOW = new Set([
+  "src/lib/logger.ts",
+  "src/lib/compile-target.ts",
+  "src/lib/mcp-bridge-scaffold.ts",
+  "src/lib/herdr-dashboard/webview/options.ts",
+]);
+
+/** Detect console.* outside scripts/ and src/bin/. */
+function scanConsoleBoundary(sourceFile: ts.SourceFile, filePath: string): EffectGatesViolation[] {
+  if (isExcludedByGlobs(filePath, ["scripts/**", "src/bin/**"])) return [];
+  if (isOuterShellPath(filePath)) return [];
+  if (CONSOLE_BOUNDARY_LIB_ALLOW.has(filePath) || CONSOLE_BOUNDARY_PROBE_FIXTURES.has(filePath)) {
+    return [];
+  }
+
+  const violations: EffectGatesViolation[] = [];
+  const regex = /console\.(log|warn|error|info|debug|dir|table)\s*\(/g;
+
+  for (const match of sourceFile.text.matchAll(regex)) {
+    const pos = match.index ?? 0;
+    if (isTokenInCommentOrString(sourceFile, pos)) continue;
+    const line = sourceFile.getLineAndCharacterOfPosition(pos).line + 1;
+    violations.push({
+      gate: EFFECT_GATES.consoleBoundary,
+      severity: "error",
+      message: "console.* must not be used outside scripts/ and src/bin/; use canonical logger",
+      location: formatLocation(filePath, line),
+    });
+  }
+
+  return violations;
+}
+
+/**
+ * Files that reference process.env as catalog/fixture text, not runtime access.
+ * Keep in sync with scripts/lint-patterns.ts probe fixtures.
+ */
+const PROCESS_ENV_BOUNDARY_ALLOW = new Set([
+  ...DIRECT_PROMISE_PROBE_FIXTURES,
+  "src/doctor/secret-audit.ts",
+  "src/lib/bun-upstream-cli-case-alignment.ts",
+  "src/lib/effect-gates.ts",
+]);
+
+/** Detect process.env outside scripts/ and src/bin/. */
+function scanProcessEnvBoundary(
+  sourceFile: ts.SourceFile,
+  filePath: string
+): EffectGatesViolation[] {
+  if (isExcludedByGlobs(filePath, ["scripts/**", "src/bin/**"])) return [];
+  if (isOuterShellPath(filePath)) return [];
+  if (PROCESS_ENV_BOUNDARY_ALLOW.has(filePath)) return [];
+
+  const violations: EffectGatesViolation[] = [];
+  const regex = /\bprocess\.env\b/g;
+
+  for (const match of sourceFile.text.matchAll(regex)) {
+    const pos = match.index ?? 0;
+    if (isTokenInCommentOrString(sourceFile, pos)) continue;
+    const line = sourceFile.getLineAndCharacterOfPosition(pos).line + 1;
+    violations.push({
+      gate: EFFECT_GATES.processEnvBoundary,
+      severity: "error",
+      message: "process.env must not be used; use Bun.env",
+      location: formatLocation(filePath, line),
+    });
+  }
+
+  return violations;
+}
+
+/** Detect Node fs imports in Bun plugin / megaliner paths. */
+function scanNodeFsInPlugin(sourceFile: ts.SourceFile, filePath: string): EffectGatesViolation[] {
+  if (!isPluginOrMegalinerPath(filePath)) return [];
+
+  const violations: EffectGatesViolation[] = [];
+  const fsMod = "fs";
+  const nodeFsMod = "node:" + fsMod;
+  const fsImportLabels = [
+    { module: fsMod, label: `import from "${fsMod}"` },
+    { module: `${fsMod}/promises`, label: `import from "${fsMod}/promises"` },
+    { module: nodeFsMod, label: `import from "${nodeFsMod}"` },
+    { module: `${nodeFsMod}/promises`, label: `import from "${nodeFsMod}/promises"` },
+  ];
+  const patterns = fsImportLabels.map(({ module, label }) => ({
+    regex: new RegExp(String.raw`from\s+["']` + module + String.raw`["']`, "g"),
+    label,
+  }));
+
+  for (const { regex, label } of patterns) {
+    for (const match of sourceFile.text.matchAll(regex)) {
+      const pos = match.index ?? 0;
+      if (isTokenInCommentOrString(sourceFile, pos)) continue;
+      const line = sourceFile.getLineAndCharacterOfPosition(pos).line + 1;
+      violations.push({
+        gate: EFFECT_GATES.nodeFsPlugin,
+        severity: "error",
+        message: `Use Bun.file/Bun.write instead of Node fs in Bun plugins (${label})`,
+        location: formatLocation(filePath, line),
+      });
+    }
   }
 
   return violations;
@@ -529,6 +698,9 @@ function aggregateCounts(violations: EffectGatesViolation[]): EffectGatesCounts 
     domainPurity: violations.filter((v) => v.gate === EFFECT_GATES.domainPurity).length,
     runPromiseBoundary: violations.filter((v) => v.gate === EFFECT_GATES.runPromiseBoundary).length,
     eventStream: violations.filter((v) => v.gate === EFFECT_GATES.eventStream).length,
+    consoleBoundary: violations.filter((v) => v.gate === EFFECT_GATES.consoleBoundary).length,
+    processEnvBoundary: violations.filter((v) => v.gate === EFFECT_GATES.processEnvBoundary).length,
+    nodeFsPlugin: violations.filter((v) => v.gate === EFFECT_GATES.nodeFsPlugin).length,
   };
 }
 
@@ -578,6 +750,9 @@ export async function buildEffectGatesReport(
     const filePath = filePathMap.get(sourceFile.fileName) ?? sourceFile.fileName;
     violations.push(...scanDirectPromises(sourceFile, filePath));
     violations.push(...scanRunPromiseBoundary(sourceFile, filePath, thresholds));
+    violations.push(...scanConsoleBoundary(sourceFile, filePath));
+    violations.push(...scanProcessEnvBoundary(sourceFile, filePath));
+    violations.push(...scanNodeFsInPlugin(sourceFile, filePath));
     violations.push(...scanMissingServiceTags(sourceFile, filePath, thresholds));
     violations.push(...scanDomainPurity(sourceFile, filePath, thresholds));
     violations.push(...scanEventStreams(sourceFile, filePath, thresholds));

@@ -34,15 +34,18 @@ Depth (threshold tables, scanner internals, ADR): [DEEP-QUALITY.md](~/.kimi-code
 
 ## Core principles (DEEP-QUALITY Dimension 8)
 
-| Principle                 | Enforcement                                     | Gate ID                | Detection                                       |
-| ------------------------- | ----------------------------------------------- | ---------------------- | ----------------------------------------------- |
-| No bare promises          | Async at Effect boundary only                   | `direct-promise`       | `src/lib/effect-gates.ts` `scanDirectPromises`  |
-| Domain purity             | Business logic in `Effect.gen`; I/O at edges    | `domain-purity`        | No `Bun.env` / `node:fs` under `src/domain/`    |
-| Tag-only services         | `Context.Tag` + `Layer`, not bare classes       | `missing-service-tag`  | `kimi-heal effect audit --check-tags`           |
-| No circular layers        | Acyclic Layer / import graph                    | `layer-circularity`    | `kimi-doctor --effect-gates`                    |
-| Structured errors         | `Data.TaggedError` / `Effect.fail`, not `throw` | (review + taxonomy)    | Code review + `src/lib/effect/errors.ts`        |
-| `runPromise` boundary     | `runCliExit` at CLI edge only                   | `run-promise-boundary` | Allowed: `src/bin/`, `src/lib/effect/`, `test/` |
-| Effect streams for events | `Stream` for reactive pipelines                 | `event-stream`         | `kimi-heal effect audit --event-streams`        |
+| Principle                 | Enforcement                                     | Gate ID                | Detection                                                   |
+| ------------------------- | ----------------------------------------------- | ---------------------- | ----------------------------------------------------------- |
+| No bare promises          | Async at Effect boundary only                   | `direct-promise`       | `src/lib/effect-gates.ts` `scanDirectPromises`              |
+| Domain purity             | Business logic in `Effect.gen`; I/O at edges    | `domain-purity`        | No `Bun.env` / `node:fs` under `src/domain/`                |
+| Tag-only services         | `Context.Tag` + `Layer`, not bare classes       | `missing-service-tag`  | `kimi-heal effect audit --check-tags`                       |
+| No circular layers        | Acyclic Layer / import graph                    | `layer-circularity`    | `kimi-doctor --effect-gates`                                |
+| Structured errors         | `Data.TaggedError` / `Effect.fail`, not `throw` | (review + taxonomy)    | Code review + `src/lib/effect/errors.ts`                    |
+| `runPromise` boundary     | `runCliExit` at CLI edge only                   | `run-promise-boundary` | Allowed: `src/bin/`, `scripts/`, `src/lib/effect/`, `test/` |
+| Console boundary          | Canonical logger in lib/plugins                 | `console-boundary`     | Allowed: `scripts/`, `src/bin/`                             |
+| `process.env` boundary    | `Bun.env` in src                                | `process-env-boundary` | Allowed: `scripts/`, `src/bin/`                             |
+| Node fs in plugins        | `Bun.file` / `Bun.TOML.parse` in plugins        | `node-fs-plugin`       | `**/plugins/**`, `**/megaliner/**` only                     |
+| Effect streams for events | `Stream` for reactive pipelines                 | `event-stream`         | `kimi-heal effect audit --event-streams`                    |
 
 ## Before commit
 
@@ -153,19 +156,25 @@ Gate implementation: `src/lib/effect-gates.ts`. Gate IDs:
 - `domain-purity`
 - `run-promise-boundary`
 - `event-stream`
+- `console-boundary`
+- `process-env-boundary`
+- `node-fs-plugin`
 
 ## Bundled resources
 
-| Path                             | Purpose                                          |
-| -------------------------------- | ------------------------------------------------ |
-| `templates/service.ts`           | Module 1 scaffold                                |
-| `templates/error-pipeline.ts`    | Module 2 recovery + aggregation                  |
-| `templates/event-stream.ts`      | Module 3 producer/consumer                       |
-| `templates/layer-composition.ts` | Module 4 production vs test stacks               |
-| `templates/schema-boundary.ts`   | Module 5 boundary validation (no @effect/schema) |
-| `rules/no-bare-promises.json`    | `direct-promise` matcher hints                   |
-| `rules/tag-only-services.json`   | `missing-service-tag` matcher hints              |
-| `rules/structured-errors.json`   | Tagged error conventions                         |
+| Path                              | Purpose                                          |
+| --------------------------------- | ------------------------------------------------ |
+| `templates/service.ts`            | Module 1 scaffold                                |
+| `templates/error-pipeline.ts`     | Module 2 recovery + aggregation                  |
+| `templates/event-stream.ts`       | Module 3 producer/consumer                       |
+| `templates/layer-composition.ts`  | Module 4 production vs test stacks               |
+| `templates/schema-boundary.ts`    | Module 5 boundary validation (no @effect/schema) |
+| `rules/no-bare-promises.json`     | `direct-promise` matcher hints                   |
+| `rules/tag-only-services.json`    | `missing-service-tag` matcher hints              |
+| `rules/structured-errors.json`    | Tagged error conventions                         |
+| `rules/console-boundary.json`     | `console-boundary` exemptions                    |
+| `rules/process-env-boundary.json` | `process-env-boundary` exemptions                |
+| `rules/node-fs-plugin.json`       | `node-fs-plugin` plugin path scope               |
 
 ## Do not
 

@@ -1,0 +1,13 @@
+{
+  "gate": "node-fs-plugin",
+  "scanner": "src/lib/effect-gates.ts:scanNodeFsInPlugin",
+  "description": "Bun plugins and megaliner paths must use Bun.file/Bun.write instead of Node fs imports.",
+  "includePaths": ["**/plugins/**", "**/megaliner/**"],
+  "forbiddenPatterns": [
+    "import from \"fs\"",
+    "import from \"fs/promises\"",
+    "import from \"node:fs\""
+  ],
+  "requiredPatterns": ["Bun.file", "Bun.TOML.parse for TOML plugin loads"],
+  "verify": ["kimi-doctor --effect-gates"]
+}
