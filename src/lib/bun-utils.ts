@@ -155,12 +155,12 @@ export function hashInflightPayload(payload: unknown): string {
   return hasher.digest("hex").slice(0, 16);
 }
 
-/** Read a ReadableStream as UTF-8 text using Bun.readableStreamToText. */
+/** Read a ReadableStream as UTF-8 text (ReadableStream.text — replaces deprecated Bun.readableStreamToText). */
 export async function readableStreamToText(
   stream: ReadableStream<Uint8Array> | null | undefined
 ): Promise<string> {
   if (!stream) return "";
-  return Bun.readableStreamToText(stream);
+  return stream.text();
 }
 
 export async function fetchJsonBody<T>(
