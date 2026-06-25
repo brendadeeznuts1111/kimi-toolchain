@@ -1,6 +1,6 @@
 import { applyCanvasFilter } from "../../../../src/lib/dashboard-canvas-filter.ts";
 import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
-import { fetchDashboardCanvases } from "../../../../src/lib/herdr-dashboard-data.ts";
+import { fetchDashboardCanvases } from "../../../../src/lib/herdr-dashboard/data/data.ts";
 import {
   fetchDashboardCardsPayload,
   HUB_CARD_PROBE_IDS,

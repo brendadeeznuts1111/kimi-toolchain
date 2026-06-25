@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { createDashboardEventBus } from "../src/lib/herdr-dashboard-bus.ts";
+import { createDashboardEventBus } from "../src/lib/herdr-dashboard/bus.ts";
 import {
   routeDashboardHerdrEvent,
   startDashboardHerdrEventBridge,
-} from "../src/lib/herdr-dashboard-events.ts";
-import { HerdrDashboardHub } from "../src/lib/herdr-dashboard-hub.ts";
-import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard-discovery-cache.ts";
-import type { DashboardAgentsPayload } from "../src/lib/herdr-dashboard-data.ts";
+} from "../src/lib/herdr-dashboard/server/events.ts";
+import { HerdrDashboardHub } from "../src/lib/herdr-dashboard/server/hub.ts";
+import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard/discovery/cache.ts";
+import type { DashboardAgentsPayload } from "../src/lib/herdr-dashboard/data/data.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("herdr-dashboard-events", () => {

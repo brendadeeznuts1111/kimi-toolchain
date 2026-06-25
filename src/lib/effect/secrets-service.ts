@@ -2,7 +2,7 @@
  * effect/secrets-service.ts — Effect Context.Tag + Live/Test layers
  * for SecretsManager dependency injection in Effect pipelines.
  *
- * Follows the DxConfigResolver pattern from dx-config-service.ts.
+ * Test layer for Effect pipelines; production uses SecretsTest via serve-identity.
  */
 
 import { Context, Effect, Layer } from "effect";
@@ -41,46 +41,6 @@ export interface SecretsService {
 }
 
 export class Secrets extends Context.Tag("Secrets")<Secrets, SecretsService>() {}
-
-export const SecretsLive = Layer.effect(
-  Secrets,
-  Effect.sync(() => {
-    const manager = new SecretsManager();
-    return {
-      get: (key, consumer) => manager.get(key, consumer),
-      set: (key, value) => manager.set(key, value),
-      delete: (key) => manager.delete(key),
-      rotate: (key, newValue) => manager.rotate(key, newValue),
-      list: () => manager.list(),
-      check: () => manager.check(),
-      audit: (query) => manager.audit(query),
-      storageBackend: (): Effect.Effect<StorageBackend> =>
-        Effect.tryPromise(() => manager.storageBackend()).pipe(Effect.orDie),
-      storageStatus: (): Effect.Effect<StorageStatus> =>
-        Effect.tryPromise(() => manager.storageStatus()).pipe(Effect.orDie),
-    } satisfies SecretsService;
-  })
-);
-
-export function SecretsLiveWithOptions(opts: SecretsManagerOptions): Layer.Layer<Secrets> {
-  return Layer.effect(
-    Secrets,
-    Effect.sync(() => {
-      const manager = new SecretsManager(opts);
-      return {
-        get: (key, consumer) => manager.get(key, consumer),
-        set: (key, value) => manager.set(key, value),
-        delete: (key) => manager.delete(key),
-        rotate: (key, newValue) => manager.rotate(key, newValue),
-        list: () => manager.list(),
-        check: () => manager.check(),
-        audit: (query) => manager.audit(query),
-        storageBackend: () => Effect.tryPromise(() => manager.storageBackend()).pipe(Effect.orDie),
-        storageStatus: () => Effect.tryPromise(() => manager.storageStatus()).pipe(Effect.orDie),
-      } satisfies SecretsService;
-    })
-  );
-}
 
 export function SecretsTest(
   backend: SecretsBackend,

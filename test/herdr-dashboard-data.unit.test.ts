@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { makeDir } from "../src/lib/bun-io.ts";
-import { fetchDashboardDebugLogs } from "../src/lib/herdr-dashboard-data.ts";
+import { fetchDashboardDebugLogs } from "../src/lib/herdr-dashboard/data/data.ts";
 import { cleanupPath, testTempDir, withIsolatedHome, writeText } from "./helpers.ts";
 
 describe("herdr-dashboard-data", () => {

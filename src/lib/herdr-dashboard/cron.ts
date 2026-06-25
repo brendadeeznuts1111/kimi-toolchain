@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-cron.ts — Background scheduling for dashboard discovery refresh.
+ * herdr-dashboard/cron.ts — Background scheduling for dashboard discovery refresh.
  *
  * Bun.cron (1.4+) uses 5 fields (minute hour day month weekday) in UTC — no seconds.
  * Sub-minute poll intervals use {@link startDelayedIntervalLoop} (`Bun.sleep`) instead.

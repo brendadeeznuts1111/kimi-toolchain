@@ -34,8 +34,8 @@ const API_SURFACE = [
 
 const PROBE_COMMAND = [
   ["Subprocess", "kimi-doctor --effect-gates --json --project-root <projectPath>"],
-  ["Implementation", "fetchDashboardGateHealth() in src/lib/herdr-dashboard-data.ts"],
-  ["Route", "src/lib/herdr-dashboard-server.ts → GET /api/doctor/gates"],
+  ["Implementation", "fetchDashboardGateHealth() in src/lib/herdr-dashboard/data/data.ts"],
+  ["Route", "src/lib/herdr-dashboard/server/server.ts → GET /api/doctor/gates"],
 ] as const;
 
 const RESPONSE_FIELDS = [
@@ -62,8 +62,8 @@ const RELATED_PATHS = [
   ["Gate-health doc (SSOT)", "docs/references/kimi-doctor.md § Live dashboard gate-health"],
   ["Manifest + URLPattern", "src/canvases/gate-health.manifest.ts"],
   ["Canvas filter", "src/lib/dashboard-canvas-filter.ts"],
-  ["Server gate watch", "src/lib/herdr-dashboard-gate-watch.ts"],
-  ["Herdr bridge deep links", "src/lib/herdr-dashboard-bridge.ts"],
+  ["Server gate watch", "src/lib/herdr-dashboard/gates/gate-watch.ts"],
+  ["Herdr bridge deep links", "src/lib/herdr-dashboard/server/bridge.ts"],
   ["Browser overlay", "templates/herdr-dashboard.js → refreshGateHealthOverlay"],
   ["Examples dashboard filter", "examples/dashboard/src/handlers/canvas-cards.ts"],
 ] as const;

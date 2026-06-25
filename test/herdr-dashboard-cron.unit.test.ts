@@ -4,7 +4,7 @@ import {
   startDashboardCron,
   DashboardCronConfigError,
   DASHBOARD_CRON_MIN_MS,
-} from "../src/lib/herdr-dashboard-cron.ts";
+} from "../src/lib/herdr-dashboard/cron.ts";
 
 describe("herdr-dashboard-cron", () => {
   describe("buildCronSchedule", () => {

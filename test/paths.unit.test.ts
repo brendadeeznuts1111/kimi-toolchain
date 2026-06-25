@@ -4,7 +4,7 @@ import { canonicalRepoRoot } from "../src/lib/paths.ts";
 import {
   resolveSyncManagedDesktopPath,
   resolveSyncManagedSourcePath,
-} from "../src/lib/sync-paths.ts";
+} from "../src/lib/desktop-sync.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 

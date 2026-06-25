@@ -9,7 +9,7 @@ import {
   ensureExamplesDashboardCompanion,
   stopExamplesDashboardCompanion,
 } from "./examples-dashboard-companion.ts";
-import { buildDashboardWebViewOptions } from "./herdr-dashboard-webview-options.ts";
+import { buildDashboardWebViewOptions } from "./herdr-dashboard/webview/options.ts";
 import { examplesDashboardWebViewStoreDir } from "./paths.ts";
 import { formatWebViewExperimentalNotice, webViewSupported } from "./webview-console.ts";
 

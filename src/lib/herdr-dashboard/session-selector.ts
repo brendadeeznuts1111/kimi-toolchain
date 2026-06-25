@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-session-selector.ts — Session selector visibility (mirrors templates/herdr-dashboard.js).
+ * herdr-dashboard/session-selector.ts — Session selector visibility (mirrors templates/herdr-dashboard.js).
  */
 
 import type { DashboardMetaDiscovery } from "./discovery/meta.ts";

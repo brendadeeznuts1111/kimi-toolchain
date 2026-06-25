@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-widget-processes.ts — Session-scoped pane list widget.
+ * herdr-dashboard/widgets/processes.ts — Session-scoped pane list widget.
  */
 
 import { TOML } from "bun";

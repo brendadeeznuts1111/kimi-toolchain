@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-bus.ts — Typed dashboard control-plane events.
+ * herdr-dashboard/bus.ts — Typed dashboard control-plane events.
  */
 
 import { EventBus } from "../event-bus.ts";

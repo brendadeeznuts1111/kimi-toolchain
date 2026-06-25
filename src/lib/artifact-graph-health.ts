@@ -6,7 +6,10 @@ import { join } from "path";
 import { pathExists } from "./bun-io.ts";
 import { readPackageManifest } from "./utils.ts";
 import { ArtifactStore } from "./artifact-store.ts";
-import { fetchDashboardArtifactContext, fetchDashboardGateGraph } from "./herdr-dashboard-data.ts";
+import {
+  fetchDashboardArtifactContext,
+  fetchDashboardGateGraph,
+} from "./herdr-dashboard/data/data.ts";
 
 export const ARTIFACT_GRAPH_SOURCE_MODULE = "src/lib/artifact-graph-health.ts";
 export const ARTIFACT_GRAPH_INSPECT_COMMAND = "curl -s http://127.0.0.1:5678/api/artifact-graph";

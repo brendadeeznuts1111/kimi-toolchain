@@ -6,7 +6,7 @@
 import type {
   DashboardRunArtifactEntry,
   DashboardRunManifestPayload,
-} from "../lib/herdr-dashboard-data.ts";
+} from "../lib/herdr-dashboard/data/data.ts";
 
 export const ARTIFACT_LINEAGE_MANIFEST_ID = "artifact-lineage";
 

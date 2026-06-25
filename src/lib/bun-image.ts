@@ -118,7 +118,7 @@ let avifEncodeCached: boolean | undefined;
  * Intel Mac and M1/M2 decode AVIF but reject encode.
  *
  * @see {@link BUN_IMAGE_TERMINALS_URL} — uses `await … .bytes()` terminal
- * Consumer: `GET /api/meta` → `meta.thumbnailFormats.avif` in herdr-dashboard-server.ts
+ * Consumer: `GET /api/meta` → `meta.thumbnailFormats.avif` in herdr-dashboard/server/server.ts
  */
 export async function probeBunImageAvifEncode(): Promise<boolean> {
   if (avifEncodeCached !== undefined) return avifEncodeCached;
@@ -279,7 +279,7 @@ async function dashboardThumbnailBlob(
  * Resize a dashboard PNG capture to encoded thumbnail bytes (`fit: inside`).
  *
  * @see {@link BUN_IMAGE_TERMINALS_URL} — `dashboardThumbnailBlob()` → `.blob()`
- * Consumer: herdr-dashboard-server.ts `GET /api/thumbnail` (TtlCache miss)
+ * Consumer: herdr-dashboard/server/server.ts `GET /api/thumbnail` (TtlCache miss)
  */
 export async function dashboardThumbnailBytes(
   png: Uint8Array,
@@ -357,7 +357,7 @@ export async function dashboardThumbnailResponse(
  * LQIP placeholder data URL for an image path, bytes, or BunFile (ThumbHash).
  *
  * @see {@link BUN_IMAGE_PLACEHOLDERS_URL}
- * Consumer: herdr-dashboard-server.ts `GET /api/meta` → `meta.placeholder`
+ * Consumer: herdr-dashboard/server/server.ts `GET /api/meta` → `meta.placeholder`
  */
 export async function imagePlaceholderDataUrl(input: ImageInput): Promise<string | null> {
   if (!bunImageSupported()) return null;

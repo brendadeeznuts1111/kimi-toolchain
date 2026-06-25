@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { inferContractFromObservations } from "../src/lib/contract-inference.ts";
 import { verifyHookCycleLength } from "../src/lib/hook-verifier.ts";
 import { contractObservationsPath } from "../src/lib/paths.ts";
 
@@ -32,19 +31,6 @@ describe("buildConstants", () => {
     } catch {
       return;
     }
-  });
-
-  it("should run contract inference when enabled", () => {
-    // Guard: define constants are only available via bunfig [define]; may throw in test env
-    try {
-      void contractObservationsPath("/tmp/project");
-    } catch {
-      return;
-    }
-    const result = inferContractFromObservations("/tmp/project");
-    expect(result.skipped).toBeUndefined();
-    expect(result.schemaVersion).toBe("1.0.0");
-    expect(result.observationsPath).toBe(contractObservationsPath("/tmp/project"));
   });
 
   it("should enforce hook cycle limit from define", () => {

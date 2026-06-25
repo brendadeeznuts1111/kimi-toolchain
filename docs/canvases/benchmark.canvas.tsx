@@ -92,7 +92,7 @@ const RELATED_PATHS = [
   ["--changed import graph", "src/lib/test-runtime.ts → BUN_TEST_CHANGED_IMPORT_GRAPH"],
   ["Test execution doc", "docs/references/testing-execution.md"],
   ["Canvas filter", "src/lib/dashboard-canvas-filter.ts"],
-  ["Herdr bridge deep links", "src/lib/herdr-dashboard-bridge.ts"],
+  ["Herdr bridge deep links", "src/lib/herdr-dashboard/server/bridge.ts"],
   ["Examples handler", "examples/dashboard/src/handlers/effect-benchmark.ts"],
 ] as const;
 

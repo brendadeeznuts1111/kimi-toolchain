@@ -18,7 +18,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
-import { DASHBOARD_CRON_MIN_MS } from "../src/lib/herdr-dashboard-cron.ts";
+import { DASHBOARD_CRON_MIN_MS } from "../src/lib/herdr-dashboard/cron.ts";
 import {
   autoCompress,
   compressDeflate,
@@ -120,7 +120,7 @@ describe("bun-release-compliance Bun.cron", () => {
     expect(DASHBOARD_CRON_MIN_MS).toBe(60_000);
   });
 
-  test("herdr-dashboard-cron.ts uses 5-field cron (no seconds)", () => {
+  test("herdr-dashboard/cron.ts uses 5-field cron (no seconds)", () => {
     const text = readSrc("src/lib/herdr-dashboard/cron.ts");
     expect(text).toContain("5 fields");
     expect(text).toContain("minute hour day month weekday");

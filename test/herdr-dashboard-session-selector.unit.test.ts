@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { buildDashboardMetaDiscovery } from "../src/lib/herdr-dashboard-discovery-meta.ts";
-import { finalizeSessionCatalog } from "../src/lib/herdr-dashboard-sessions.ts";
+import { buildDashboardMetaDiscovery } from "../src/lib/herdr-dashboard/discovery/meta.ts";
+import { finalizeSessionCatalog } from "../src/lib/herdr-dashboard/sessions.ts";
 import {
   sessionIdsFromDiscovery,
   shouldShowDashboardSessionSelector,
-} from "../src/lib/herdr-dashboard-session-selector.ts";
+} from "../src/lib/herdr-dashboard/session-selector.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("herdr-dashboard-session-selector", () => {

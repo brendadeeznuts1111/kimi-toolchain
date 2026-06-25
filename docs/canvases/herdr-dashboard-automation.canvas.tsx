@@ -37,34 +37,50 @@ const DECISIONS = [
 const EXISTING_API = [
   [
     "feedDashboardScreenshotPng",
-    "herdr-dashboard-automation.ts",
+    "herdr-dashboard/automation/automation.ts",
     "2s poll loop → setScreenshotPng",
   ],
   [
     "runDashboardAutomation",
-    "herdr-dashboard-automation.ts",
+    "herdr-dashboard/automation/automation.ts",
     "Declarative DashboardAutomationAction runner",
   ],
   [
     "runHerdrDashboardAutomation",
-    "herdr-dashboard-automation.ts",
+    "herdr-dashboard/automation/automation.ts",
     "One-shot probe + optional attach click",
   ],
-  ["captureHerdrDashboardScreenshot", "herdr-dashboard-automation.ts", "CLI --screenshot entry"],
-  ["waitForDashboardView", "herdr-dashboard-automation.ts", "#agents-body scroll + ready flag"],
-  ["waitForSelectorCount", "herdr-dashboard-automation.ts", "Poll querySelectorAll until minCount"],
-  ["waitForProcessesPanelRows", "herdr-dashboard-automation.ts", "#processes-body tr after toggle"],
+  [
+    "captureHerdrDashboardScreenshot",
+    "herdr-dashboard/automation/automation.ts",
+    "CLI --screenshot entry",
+  ],
+  [
+    "waitForDashboardView",
+    "herdr-dashboard/automation/automation.ts",
+    "#agents-body scroll + ready flag",
+  ],
+  [
+    "waitForSelectorCount",
+    "herdr-dashboard/automation/automation.ts",
+    "Poll querySelectorAll until minCount",
+  ],
+  [
+    "waitForProcessesPanelRows",
+    "herdr-dashboard/automation/automation.ts",
+    "#processes-body tr after toggle",
+  ],
   [
     "runDashboardAutomationSmoke",
-    "herdr-dashboard-automation.ts",
+    "herdr-dashboard/automation/automation.ts",
     "DASHBOARD_SMOKE_ACTIONS recipe wrapper",
   ],
   [
     "runDashboardAutomationGate",
-    "herdr-dashboard-automation-gate.ts",
+    "herdr-dashboard/automation/automation-gate.ts",
     "kimi-doctor --automation orchestration",
   ],
-  ["setScreenshotPng", "herdr-dashboard-server.ts", "In-memory cache for /api/thumbnail"],
+  ["setScreenshotPng", "herdr-dashboard/server/server.ts", "In-memory cache for /api/thumbnail"],
   [
     "kimi-doctor --automation",
     "docs/references/kimi-doctor.md",
@@ -576,7 +592,8 @@ export default function HerdrDashboardAutomationSpec() {
             striped
           />
           <Text tone="tertiary" size="small">
-            feedDashboardScreenshotPng lives in herdr-dashboard-automation.ts (not bun-image.ts)
+            feedDashboardScreenshotPng lives in herdr-dashboard/automation/automation.ts (not
+            bun-image.ts)
           </Text>
         </Stack>
 

@@ -26,7 +26,7 @@ import { isKimiToolchainRepo } from "./workspace-health.ts";
 import { acquireTestGateLock } from "./test-run-guard.ts";
 import { sha256File } from "./utils.ts";
 import { buildConstantRepairPlan } from "./constants-heal.ts";
-import { detectSyncDrift } from "./sync-hashes.ts";
+import { detectSyncDrift } from "./desktop-sync.ts";
 import { desktopRuntimeDepsOk } from "./desktop-runtime-deps.ts";
 import { listStagedPaths } from "./scoped-test-cache.ts";
 import {

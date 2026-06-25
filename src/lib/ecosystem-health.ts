@@ -12,7 +12,7 @@ import { buildOptimizerDoctorMachineChecks } from "./constant-optimizer.ts";
 import { checkDxCloudflareConfig } from "./dx-cloudflare-config.ts";
 import { checkDxGithubAlignment } from "./dx-github-alignment.ts";
 import { auditHerdrToolHealth } from "./herdr-tool-health.ts";
-import { detectSyncDrift } from "./sync-hashes.ts";
+import { detectSyncDrift } from "./desktop-sync.ts";
 import { validateMcpConfig } from "./mcp-config.ts";
 import { auditKimiConfig } from "./kimi-config-audit.ts";
 import { checkScaffoldAligned } from "./scaffold-aligned.ts";

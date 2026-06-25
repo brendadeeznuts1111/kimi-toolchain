@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { TtlCache } from "../src/lib/cache.ts";
-import type { DashboardMetaDiscovery } from "../src/lib/herdr-dashboard-discovery-meta.ts";
+import type { DashboardMetaDiscovery } from "../src/lib/herdr-dashboard/discovery/meta.ts";
 import {
   DASHBOARD_WIDGET_IDS,
   fetchDashboardWidget,
@@ -8,7 +8,7 @@ import {
   isDashboardWidgetId,
   type DashboardWidgetResponse,
   type DashboardWidgetRuntime,
-} from "../src/lib/herdr-dashboard-widgets.ts";
+} from "../src/lib/herdr-dashboard/widgets/widgets.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 const discovery = {

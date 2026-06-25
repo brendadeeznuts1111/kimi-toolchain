@@ -4,7 +4,7 @@ import {
   effectImageMarkBytes,
   effectImageMetadata,
   EFFECT_IMAGE_SAMPLE_PNG,
-} from "../src/lib/herdr-dashboard-effect-image.ts";
+} from "../src/lib/herdr-dashboard/effect-image.ts";
 import { bunImageSupported } from "../src/lib/bun-image.ts";
 
 describe("herdr-dashboard-effect-image", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildDashboardMetaDiscovery } from "../src/lib/herdr-dashboard-discovery-meta.ts";
+import { buildDashboardMetaDiscovery } from "../src/lib/herdr-dashboard/discovery/meta.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("herdr-dashboard-discovery-meta", () => {

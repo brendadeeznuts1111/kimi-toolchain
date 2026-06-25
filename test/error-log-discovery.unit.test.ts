@@ -10,7 +10,7 @@ import {
   resolveErrorLogSink,
   tailErrorLogFile,
 } from "../src/lib/error-log-discovery.ts";
-import { fetchDashboardDebugLogSinks } from "../src/lib/herdr-dashboard-data.ts";
+import { fetchDashboardDebugLogSinks } from "../src/lib/herdr-dashboard/data/data.ts";
 import { examplesDashboardEventsPath, failureLedgerPath } from "../src/lib/paths.ts";
 import { REPO_ROOT, testTempDir } from "./helpers.ts";
 

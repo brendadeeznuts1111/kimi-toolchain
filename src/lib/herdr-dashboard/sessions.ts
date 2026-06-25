@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-sessions.ts — Enumerate Herdr sessions (local + remote) for multi-session dashboard.
+ * herdr-dashboard/sessions.ts — Enumerate Herdr sessions (local + remote) for multi-session dashboard.
  */
 
 import { TOML } from "bun";

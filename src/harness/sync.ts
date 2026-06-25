@@ -5,9 +5,8 @@
 import { archiveSupported } from "../lib/archive-persistence.ts";
 import { syncBaselineCacheArchivePath } from "../lib/paths.ts";
 import { recordSyncBaselineMetrics } from "../lib/sync-baseline-metrics.ts";
-import { writeSyncArchiveBaseline, writeSyncManifest } from "../lib/sync-manifest.ts";
-import { getRepoHead, readManifest } from "../lib/version.ts";
-import type { ToolchainManifest } from "../lib/version.ts";
+import { buildSyncManifest, writeSyncArchiveBaseline } from "../lib/desktop-sync.ts";
+import { getRepoHead, readManifest, writeManifest, type ToolchainManifest } from "../lib/version.ts";
 
 export { syncBaselineCacheArchivePath };
 
@@ -22,13 +21,6 @@ const ARCHIVE_MODE_ALIASES: Record<string, ArchiveMode> = {
   true: "always",
   false: "never",
 };
-
-export interface FinalizeSyncArchiveOptions {
-  files: string[];
-  /** Baseline tarball; omit to resolve via shouldWriteArchive(). */
-  writeArchive?: boolean;
-  archivePath?: string;
-}
 
 /** Parse archive mode from CLI flags and KIMI_SYNC_ARCHIVE. */
 export function resolveArchiveMode(
@@ -54,12 +46,6 @@ export function resolveArchiveMode(
 
 /**
  * Whether sync should write the baseline tarball.
- *
- * | Mode   | Behavior                                      |
- * |--------|-----------------------------------------------|
- * | always | Every sync writes archive                     |
- * | never  | Manifest only                                 |
- * | auto   | Archive when missing or git HEAD drift (default) |
  */
 export async function shouldWriteArchive(
   repoRoot: string,
@@ -79,31 +65,20 @@ export async function shouldWriteArchive(
   return false;
 }
 
-/**
- * @deprecated Prefer resolveArchiveMode + shouldWriteArchive. True when mode is not `never`.
- */
-export function resolveSyncWriteArchive(
-  argv: string[] = Bun.argv,
-  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
-): boolean {
-  return resolveArchiveMode(argv, env) !== "never";
-}
-
-export interface FinalizeSyncArchiveResult {
+/** Write sync manifest; optionally append gzip baseline archive before sync exits. */
+export async function finalizeSyncArchive(
+  repoRoot: string,
+  options: { files: string[]; writeArchive?: boolean; archivePath?: string }
+): Promise<{
   manifest: ToolchainManifest;
   archived: boolean;
   archiveHash?: string;
   byteLength?: number;
   fileCount: number;
-}
-
-/** Write sync manifest; optionally append gzip baseline archive before sync exits. */
-export async function finalizeSyncArchive(
-  repoRoot: string,
-  options: FinalizeSyncArchiveOptions
-): Promise<FinalizeSyncArchiveResult> {
+}> {
   const fileOpts = { files: options.files };
-  const manifest = await writeSyncManifest(repoRoot, fileOpts);
+  const manifest = await buildSyncManifest(repoRoot, fileOpts);
+  await writeManifest(manifest);
   const fileCount = Object.keys(manifest.fileHashes ?? {}).length;
 
   const writeArchive = options.writeArchive ?? (await shouldWriteArchive(repoRoot));

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { createDashboardEventBus } from "../src/lib/herdr-dashboard-bus.ts";
-import type { DashboardGateCheckPayload } from "../src/lib/herdr-dashboard-data.ts";
+import { createDashboardEventBus } from "../src/lib/herdr-dashboard/bus.ts";
+import type { DashboardGateCheckPayload } from "../src/lib/herdr-dashboard/data/data.ts";
 import {
   DASHBOARD_GATE_HEALTH_POLL_MS,
   handleDashboardGateHealthCheck,
   startDashboardGateHealthWatch,
-} from "../src/lib/herdr-dashboard-gate-watch.ts";
+} from "../src/lib/herdr-dashboard/gates/gate-watch.ts";
 
 function gatePayload(
   overrides: Partial<DashboardGateCheckPayload> = {}

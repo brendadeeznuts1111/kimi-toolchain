@@ -67,7 +67,7 @@
     },
     {
       "id": "sync",
-      "paths": ["src/lib/desktop-sync.ts", "src/lib/sync-hashes.ts", "scripts/sync-to-desktop.ts"],
+      "paths": ["src/lib/desktop-sync.ts", "scripts/sync-to-desktop.ts"],
       "tests": [
         "test/sync.unit.test.ts",
         "test/desktop-sync.unit.test.ts",

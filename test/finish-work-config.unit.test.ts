@@ -7,12 +7,12 @@ import {
   EFFECT_GATES_COMMAND,
   FinishWorkConfigParseError,
   loadFinishWorkConfig,
-  resolveFinishWorkGatesFromUnknown,
+  resolveFinishWorkConfigFromUnknown,
 } from "../src/lib/finish-work-config.ts";
 
 describe("finish-work-config", () => {
-  test("resolveFinishWorkGates prefers [finishWork].gates", () => {
-    const config = resolveFinishWorkGatesFromUnknown({
+  test("resolveFinishWorkConfigFromUnknown prefers [finishWork].gates", () => {
+    const config = resolveFinishWorkConfigFromUnknown({
       finishWork: { gates: ["bun run check:fast", EFFECT_GATES_COMMAND] },
       agents: { prePush: ["kimi-githooks doctor", "bun run check"] },
     });
@@ -21,8 +21,8 @@ describe("finish-work-config", () => {
     expect(config.gates).toEqual(["bun run check:fast", EFFECT_GATES_COMMAND]);
   });
 
-  test("resolveFinishWorkGates falls back to [agents].prePush when finishWork.gates is empty", () => {
-    const config = resolveFinishWorkGatesFromUnknown({
+  test("resolveFinishWorkConfigFromUnknown falls back to [agents].prePush when finishWork.gates is empty", () => {
+    const config = resolveFinishWorkConfigFromUnknown({
       finishWork: { gates: [] },
       agents: { prePush: ["bun run check:fast", "kimi-guardian check"] },
     });
@@ -31,8 +31,8 @@ describe("finish-work-config", () => {
     expect(config.gates).toEqual(["bun run check:fast", "kimi-guardian check"]);
   });
 
-  test("resolveFinishWorkGates falls back to [agents].prePush", () => {
-    const config = resolveFinishWorkGatesFromUnknown({
+  test("resolveFinishWorkConfigFromUnknown falls back to [agents].prePush", () => {
+    const config = resolveFinishWorkConfigFromUnknown({
       agents: { prePush: ["bun run check:fast", "kimi-guardian check"] },
     });
 
@@ -40,14 +40,14 @@ describe("finish-work-config", () => {
     expect(config.gates).toEqual(["bun run check:fast", "kimi-guardian check"]);
   });
 
-  test("resolveFinishWorkGates uses defaults when config is empty", () => {
-    const config = resolveFinishWorkGatesFromUnknown({});
+  test("resolveFinishWorkConfigFromUnknown uses defaults when config is empty", () => {
+    const config = resolveFinishWorkConfigFromUnknown({});
     expect(config.source).toBe("default");
     expect(config.gates).toEqual(["bun run check:fast", EFFECT_GATES_COMMAND]);
   });
 
   test("resolveFinishWorkConfig reads [finishWork.followUp]", () => {
-    const config = resolveFinishWorkGatesFromUnknown({
+    const config = resolveFinishWorkConfigFromUnknown({
       finishWork: {
         gates: ["bun run check:fast"],
         followUp: { command: "kimi-doctor --effect-floor" },
@@ -83,9 +83,9 @@ gates = ["bun run check:fast"]
     }
   });
 
-  test("resolveFinishWorkGatesFromUnknown rejects invalid finishWork.gates", () => {
+  test("resolveFinishWorkConfigFromUnknown rejects invalid finishWork.gates", () => {
     try {
-      resolveFinishWorkGatesFromUnknown(
+      resolveFinishWorkConfigFromUnknown(
         { finishWork: { gates: "not-an-array" } },
         "/tmp/demo/dx.config.toml"
       );
@@ -96,9 +96,9 @@ gates = ["bun run check:fast"]
     }
   });
 
-  test("resolveFinishWorkGatesFromUnknown rejects empty gate strings", () => {
+  test("resolveFinishWorkConfigFromUnknown rejects empty gate strings", () => {
     expect(() =>
-      resolveFinishWorkGatesFromUnknown({ finishWork: { gates: ["", "bun run check:fast"] } })
+      resolveFinishWorkConfigFromUnknown({ finishWork: { gates: ["", "bun run check:fast"] } })
     ).toThrow(FinishWorkConfigParseError);
   });
 

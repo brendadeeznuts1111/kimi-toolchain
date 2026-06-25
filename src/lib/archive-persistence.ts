@@ -192,7 +192,7 @@ export async function readSyncSnapshotArchiveMetadata(
   async function readJsonMember<T>(name: string): Promise<T> {
     const file = metaFiles.get(name);
     if (!file) throw new Error(`${name} missing from archive`);
-    return JSON.parse(await file.text()) as T;
+    return file.json() as Promise<T>;
   }
 
   const manifest = await readJsonMember<ToolchainManifest>("manifest.json");

@@ -59,7 +59,7 @@ export const UNIT_TEST_FILES = [
   "test/version.unit.test.ts",
   "test/execve-handoff.unit.test.ts",
   "test/fetch-header-casing.unit.test.ts",
-  "test/effect-heal-fix.unit.test.ts",
+
   "test/scaffold-trading.unit.test.ts",
   "test/scaffold-modules.unit.test.ts",
   "test/audit-effects.unit.test.ts",
@@ -259,7 +259,7 @@ export const UNIT_TEST_FILES = [
   "test/error-suggest.unit.test.ts",
   "test/constant-optimizer.unit.test.ts",
   "test/optimizer-doctor.unit.test.ts",
-  "test/optimizer-health-trend.unit.test.ts",
+
   "test/decision-list-diff.unit.test.ts",
   "test/taxonomy-coverage.unit.test.ts",
   "test/reclassify-failure-ledger.unit.test.ts",

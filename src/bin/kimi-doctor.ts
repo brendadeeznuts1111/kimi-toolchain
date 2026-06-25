@@ -31,7 +31,7 @@ import {
   readManifest,
 } from "../lib/version.ts";
 import { runSystemChecks, printMemoryBudget, countBlockingErrors } from "../lib/system-checks.ts";
-import { detectSyncDrift } from "../lib/sync-hashes.ts";
+import { detectSyncDrift } from "../lib/desktop-sync.ts";
 import {
   auditWorkspaceHealth,
   countWorkspaceBlockers,
@@ -95,12 +95,12 @@ import {
   formatDashboardMetaDiscoveryStatusLine,
   resolveRemoteHostsConfigured,
   runDashboardMetaGate,
-} from "../lib/herdr-dashboard-meta-gate.ts";
+} from "../lib/herdr-dashboard/gates/meta-gate.ts";
 import {
   formatDashboardAutomationGateStatusLine,
   resolveDashboardAutomationUrl,
   runDashboardAutomationGate,
-} from "../lib/herdr-dashboard-automation-gate.ts";
+} from "../lib/herdr-dashboard/automation/automation-gate.ts";
 import { DOCTOR_WATCH_DEFAULT_INTERVAL_SECONDS, runDoctorWatchLoop } from "../lib/doctor-watch.ts";
 import { runSubDoctorsEffect } from "../lib/doctor-pipeline.ts";
 import { recordDoctorRun } from "../lib/doctor-runs.ts";

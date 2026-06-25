@@ -9,7 +9,7 @@ import { syncDesktop } from "../src/lib/desktop-sync.ts";
 import { syncBaselineArchivePath, syncBaselineCacheArchivePath } from "../src/lib/paths.ts";
 import { restoreSyncBaseline } from "../src/lib/restore-baseline.ts";
 import { finalizeSyncArchive } from "../src/harness/sync.ts";
-import { verifySyncManifest, writeSyncManifestWithArchive } from "../src/lib/sync-manifest.ts";
+import { verifySyncManifest, writeSyncManifestWithArchive } from "../src/lib/desktop-sync.ts";
 import { cleanupPath, REPO_ROOT, testTempDir } from "./helpers.ts";
 
 describe.serial("sync-archive", () => {

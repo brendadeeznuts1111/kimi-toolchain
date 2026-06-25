@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { createDashboardEventBus } from "../src/lib/herdr-dashboard-bus.ts";
-import type { DashboardMetaDiscovery } from "../src/lib/herdr-dashboard-discovery-meta.ts";
+import { createDashboardEventBus } from "../src/lib/herdr-dashboard/bus.ts";
+import type { DashboardMetaDiscovery } from "../src/lib/herdr-dashboard/discovery/meta.ts";
 import {
   computeDashboardMetaGateFingerprint,
   diffRemoteHosts,
   diffSessionsAvailable,
   handleDashboardDiscoveryWatch,
   startDashboardMetaWatch,
-} from "../src/lib/herdr-dashboard-watch.ts";
+} from "../src/lib/herdr-dashboard/watch.ts";
 
 function sampleDiscovery(overrides: Partial<DashboardMetaDiscovery> = {}): DashboardMetaDiscovery {
   return {

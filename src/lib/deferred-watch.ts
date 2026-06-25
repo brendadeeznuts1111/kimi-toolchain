@@ -1,7 +1,7 @@
 /**
  * deferred-watch.ts — Lazy interval watch that starts only when subscribers exist.
  *
- * Bridges the gap between eager polling (herdr-dashboard-gate-watch.ts) and
+ * Bridges the gap between eager polling (herdr-dashboard/gates/gate-watch.ts) and
  * subscriber-aware execution. The watch monitors EventBus listener counts for
  * designated events: polling begins when at least one subscriber registers,
  * and stops after a grace period when the last subscriber unregisters.

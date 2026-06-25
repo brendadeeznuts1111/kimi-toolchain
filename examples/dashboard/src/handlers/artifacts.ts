@@ -31,7 +31,7 @@ import {
   fetchDashboardRunManifest,
   fetchDashboardRunsList,
   fetchDashboardSessionsIndex,
-} from "../../../../src/lib/herdr-dashboard-data.ts";
+} from "../../../../src/lib/herdr-dashboard/data/data.ts";
 import { resolveDashboardProjectRoot } from "../../../../src/lib/dashboard-settings.ts";
 import { jsonResponse } from "./shared.ts";
 

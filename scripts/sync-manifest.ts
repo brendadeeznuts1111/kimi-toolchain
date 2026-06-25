@@ -1,25 +1,16 @@
 #!/usr/bin/env bun
 /**
  * Generate or verify the desktop sync manifest.
- *
- * Usage:
- *   bun run scripts/sync-manifest.ts
- *   bun run scripts/sync-manifest.ts --verify
- *   bun run scripts/sync-manifest.ts --verify --json
- *   bun run scripts/sync-manifest.ts --verify --baseline
  */
 
-import { join } from "path";
 import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
 import { dryRunRestoreBaseline, printRestoreDryRunTable } from "../src/lib/restore-baseline.ts";
 import { resolveSyncBaselineArchivePath } from "../src/lib/sync-baseline-metrics.ts";
-import { writeSyncManifest, verifySyncManifest } from "../src/lib/sync-manifest.ts";
+import { buildSyncManifest, verifySyncManifest } from "../src/lib/desktop-sync.ts";
+import { scriptRepoRoot } from "../src/lib/paths.ts";
+import { writeManifest } from "../src/lib/version.ts";
 
-const REPO_ROOT = join(import.meta.dir, "..");
-
-function emitJson(value: unknown): void {
-  writeStdoutJsonSync(value, 2);
-}
+const REPO_ROOT = scriptRepoRoot();
 
 async function main(): Promise<number> {
   const verify = Bun.argv.includes("--verify");
@@ -47,11 +38,14 @@ async function main(): Promise<number> {
       }
     }
     if (json) {
-      emitJson({
-        ...report,
-        baselineChecked: baseline,
-        baselineOk: baseline ? baselineOk : undefined,
-      });
+      writeStdoutJsonSync(
+        {
+          ...report,
+          baselineChecked: baseline,
+          baselineOk: baseline ? baselineOk : undefined,
+        },
+        2
+      );
       return report.ok && baselineOk ? 0 : 1;
     }
     if (report.ok && baselineOk) {
@@ -74,8 +68,9 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const manifest = await writeSyncManifest(REPO_ROOT);
-  if (json) emitJson(manifest);
+  const manifest = await buildSyncManifest(REPO_ROOT);
+  await writeManifest(manifest);
+  if (json) writeStdoutJsonSync(manifest, 2);
   else {
     const count = Object.keys(manifest.fileHashes ?? {}).length;
     console.log(`✓ Sync manifest generated with ${count} file hash(es)`);

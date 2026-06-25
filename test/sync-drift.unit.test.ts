@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
-import { computeSyncHashes, detectSyncDrift } from "../src/lib/sync-hashes.ts";
+import { computeSyncHashes, detectSyncDrift } from "../src/lib/desktop-sync.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 

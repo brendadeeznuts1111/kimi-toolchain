@@ -1,7 +1,7 @@
 # Herdr dashboard templates
 
 The static assets for the **Herdr orchestrator dashboard** live in the parent
-`templates/` directory and are served by `src/lib/herdr-dashboard-server.ts`.
+`templates/` directory and are served by `src/lib/herdr-dashboard/server/server.ts`.
 The dashboard is a plain HTML/CSS/JS app rendered inside a herdr WebView pane.
 
 | File                      | Responsibility                                                                |
@@ -134,16 +134,16 @@ these hooks so inactive tabs do not poll the server.
 
 Most dashboard data flows through three layers:
 
-1. **HTTP route** in `src/lib/herdr-dashboard-server.ts`
-2. **Data function** in `src/lib/herdr-dashboard-data.ts`
-3. **Type / interface** in `src/lib/herdr-dashboard-data.ts` or `src/lib/herdr-dashboard-contract.ts`
+1. **HTTP route** in `src/lib/herdr-dashboard/server/server.ts`
+2. **Data function** in `src/lib/herdr-dashboard/data/data.ts`
+3. **Type / interface** in `src/lib/herdr-dashboard/data/data.ts` or `src/lib/herdr-dashboard-contract.ts`
 
 ### Add a new API endpoint
 
 1. **Define the payload shape** next to the existing payload types:
 
    ```ts
-   // src/lib/herdr-dashboard-data.ts
+   // src/lib/herdr-dashboard/data/data.ts
    export interface DashboardTasksPayload {
      ok: boolean;
      tasks: Array<{ id: string; name: string; status: string }>;
@@ -163,7 +163,7 @@ Most dashboard data flows through three layers:
    }
    ```
 
-3. **Wire the route** in `src/lib/herdr-dashboard-server.ts` inside the
+3. **Wire the route** in `src/lib/herdr-dashboard/server/server.ts` inside the
    `Bun.serve` `fetch` handler. Keep routes alphabetically grouped with the
    existing `/api/*` blocks:
 
@@ -207,7 +207,7 @@ The server reads these variables to configure the dashboard at runtime:
 | `HERDR_EXAMPLES_DASHBOARD_URL` | `http://localhost:5678/` | Base URL for the **Examples** tab iframe. |
 
 Other tuning values (`pollHintMs`, `ssePollMs`, `staleMs`, etc.) are passed from
-the server caller in `src/lib/herdr-dashboard-server.ts`.
+the server caller in `src/lib/herdr-dashboard/server/server.ts`.
 
 ## Lineage tab (Mermaid)
 
@@ -240,8 +240,8 @@ After changing templates or server routes:
 
 ## Related files
 
-- `src/lib/herdr-dashboard-server.ts` — Bun HTTP server and route table
-- `src/lib/herdr-dashboard-data.ts` — data-fetch functions
+- `src/lib/herdr-dashboard/server/server.ts` — Bun HTTP server and route table
+- `src/lib/herdr-dashboard/data/data.ts` — data-fetch functions
 - `src/lib/herdr-dashboard-contract.ts` — shared interfaces
-- `src/lib/herdr-dashboard-hub.ts` — agent heartbeats and SSE live stream
+- `src/lib/herdr-dashboard/server/hub.ts` — agent heartbeats and SSE live stream
 - `examples/dashboard/src/index.ts` — separate examples dashboard (embedded in the Examples tab)

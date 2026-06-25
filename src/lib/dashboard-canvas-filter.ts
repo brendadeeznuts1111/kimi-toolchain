@@ -15,7 +15,7 @@ import {
   fetchDashboardRunsList,
   type DashboardRunManifestPayload,
   type DashboardRunsListPayload,
-} from "./herdr-dashboard-data.ts";
+} from "./herdr-dashboard/data/data.ts";
 
 export interface CanvasDeepLinkParams {
   canvas: string | null;

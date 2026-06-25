@@ -157,8 +157,8 @@ Runs a lightweight effect-gates check against the dashboard's `projectPath`:
 kimi-doctor --effect-gates --json --project-root <projectPath>
 ```
 
-Implementation: `fetchDashboardGateHealth()` in `src/lib/herdr-dashboard-data.ts`.
-Route handler: `src/lib/herdr-dashboard-server.ts`.
+Implementation: `fetchDashboardGateHealth()` in `src/lib/herdr-dashboard/data/data.ts`.
+Route handler: `src/lib/herdr-dashboard/server/server.ts`.
 
 **Response shape** (`DashboardGateCheckPayload`):
 
@@ -175,7 +175,7 @@ route every **30 s**, highlights failing agent rows, and shows
 `N/total failing: <names>`.
 
 The server also runs the same probe in the background via
-`startDashboardGateHealthWatch()` (`src/lib/herdr-dashboard-gate-watch.ts`). On
+`startDashboardGateHealthWatch()` (`src/lib/herdr-dashboard/gates/gate-watch.ts`). On
 state transitions it emits typed bus events:
 
 | Bus event      | When                                            | Audit type     |
@@ -411,23 +411,23 @@ Domain effect handlers live under `templates/modules/` for scaffolding and `exam
 
 ## Related source files
 
-| Concern                      | File                                                                       |
-| ---------------------------- | -------------------------------------------------------------------------- |
-| CLI entry                    | `src/bin/kimi-doctor.ts`                                                   |
-| Automation gate              | `src/lib/herdr-dashboard-automation-gate.ts`                               |
-| Automation runner            | `src/lib/herdr-dashboard-automation.ts`                                    |
-| Live gate-health API + watch | `src/lib/herdr-dashboard-data.ts`, `src/lib/herdr-dashboard-gate-watch.ts` |
-| Metrics API                  | `src/lib/herdr-dashboard-data.ts` (`fetchDashboardMetrics`)                |
-| WebP encode                  | `src/lib/bun-image.ts` (`dashboardWebpThumbnail`)                          |
-| Doctor adapter               | `src/lib/doctor-adapters/dashboard-automation.ts`                          |
-| Serve-probe CLI / server     | `src/lib/card-probe-cli.ts`, `src/lib/card-probe-server.ts`                |
-| Artifact store               | `src/lib/artifact-store.ts`                                                |
-| `[doctor.probe]` config      | `src/lib/doctor-probe-config.ts`                                           |
-| Doctor gate registry         | `src/gates/` (`registry.ts`, `runner.ts`, built-in gates)                  |
-| Perf gate (doctor registry)  | `src/gates/perf-gate.ts`                                                   |
-| Guardian perf thresholds     | `src/guardian/perf-gate.ts`                                                |
-| HTML reporter                | `src/harness/html-reporter.ts`                                             |
-| Perf monitor (harness)       | `examples/dashboard/src/harness/perf-monitor.ts`                           |
-| Image effect (reference)     | `examples/dashboard/src/effect/image/processor.ts`                         |
-| Image effect (template)      | `templates/modules/image/src/processor.ts`                                 |
-| Symbols / registration       | `examples/dashboard/src/lib/symbols.ts`                                    |
+| Concern                      | File                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| CLI entry                    | `src/bin/kimi-doctor.ts`                                                              |
+| Automation gate              | `src/lib/herdr-dashboard/automation/automation-gate.ts`                               |
+| Automation runner            | `src/lib/herdr-dashboard/automation/automation.ts`                                    |
+| Live gate-health API + watch | `src/lib/herdr-dashboard/data/data.ts`, `src/lib/herdr-dashboard/gates/gate-watch.ts` |
+| Metrics API                  | `src/lib/herdr-dashboard/data/data.ts` (`fetchDashboardMetrics`)                      |
+| WebP encode                  | `src/lib/bun-image.ts` (`dashboardWebpThumbnail`)                                     |
+| Doctor adapter               | `src/lib/doctor-adapters/dashboard-automation.ts`                                     |
+| Serve-probe CLI / server     | `src/lib/card-probe-cli.ts`, `src/lib/card-probe-server.ts`                           |
+| Artifact store               | `src/lib/artifact-store.ts`                                                           |
+| `[doctor.probe]` config      | `src/lib/doctor-probe-config.ts`                                                      |
+| Doctor gate registry         | `src/gates/` (`registry.ts`, `runner.ts`, built-in gates)                             |
+| Perf gate (doctor registry)  | `src/gates/perf-gate.ts`                                                              |
+| Guardian perf thresholds     | `src/guardian/perf-gate.ts`                                                           |
+| HTML reporter                | `src/harness/html-reporter.ts`                                                        |
+| Perf monitor (harness)       | `examples/dashboard/src/harness/perf-monitor.ts`                                      |
+| Image effect (reference)     | `examples/dashboard/src/effect/image/processor.ts`                                    |
+| Image effect (template)      | `templates/modules/image/src/processor.ts`                                            |
+| Symbols / registration       | `examples/dashboard/src/lib/symbols.ts`                                               |

@@ -7,7 +7,7 @@ import {
   LOGS_WIDGET_MAX_LINES,
   logsWidgetHasMore,
   splitPaneLogText,
-} from "../src/lib/herdr-dashboard-widget-logs.ts";
+} from "../src/lib/herdr-dashboard/widgets/logs.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 const primaryCatalog = [{ session: "", label: "primary", host: "(local)", reachable: true }];

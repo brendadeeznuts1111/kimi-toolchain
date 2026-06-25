@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-widget-logs.ts — Pane scrollback widget (`herdr pane read`).
+ * herdr-dashboard/widgets/logs.ts — Pane scrollback widget (`herdr pane read`).
  */
 
 import { TOML } from "bun";

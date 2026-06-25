@@ -14,7 +14,7 @@ import {
   shouldSkipTestFastFromScopedCache,
   writeScopedTestCache,
 } from "../src/lib/scoped-test-cache.ts";
-import { detectSyncDrift } from "../src/lib/sync-hashes.ts";
+import { detectSyncDrift } from "../src/lib/desktop-sync.ts";
 import { writeConstantsGolden } from "../src/lib/constants-heal.ts";
 import { testTempDir, withClearedEnv, withEnv, ensureTestDir } from "./helpers.ts";
 

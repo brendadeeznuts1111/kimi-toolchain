@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-watch.ts — Event-driven meta gate watch on discovery:refreshed.
+ * herdr-dashboard/watch.ts — Event-driven meta gate watch on discovery:refreshed.
  */
 
 import type { DashboardEventBus } from "./bus.ts";

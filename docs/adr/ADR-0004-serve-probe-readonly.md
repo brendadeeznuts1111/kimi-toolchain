@@ -64,5 +64,5 @@ Until then, no gate execution endpoint is exposed.
 
 - Authoritative API doc: [serve-probe.md](../references/serve-probe.md)
 - Implementation: `src/lib/card-probe-server.ts`, `src/lib/artifact-store.ts`
-- Herdr dashboard (disk-backed artifacts tab): `src/lib/herdr-dashboard-data.ts`
+- Herdr dashboard (disk-backed artifacts tab): `src/lib/herdr-dashboard/data/data.ts`
 - Tests: `test/card-probe-server.unit.test.ts`, `test/artifact-store.unit.test.ts`

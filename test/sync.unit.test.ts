@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "fs";
 import { join } from "path";
-import { computeSyncHashes } from "../src/lib/sync-hashes.ts";
+import { computeSyncHashes } from "../src/lib/desktop-sync.ts";
 import { sha256File } from "../src/lib/utils.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
-describe("sync-hashes", () => {
+describe("desktop-sync hashes", () => {
   test("computeSyncHashes includes all sync-managed asset classes", async () => {
     const hashes = await computeSyncHashes(REPO_ROOT);
     expect(hashes["tools/kimi-doctor.ts"]).toMatch(/^[a-f0-9]{64}$/);

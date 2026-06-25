@@ -178,5 +178,5 @@ Built-in mapping: `card-probe` / `tls-compliance` → L1; `perf-gate`,
 - Gates: `src/gates/types.ts`, `src/gates/runner.ts`, `src/gates/registry.ts`
 - Lineage: `src/lib/artifact-store.ts`, `src/lib/graph-to-mermaid.ts`
 - CLI: `src/bin/kimi-doctor.ts`
-- Dashboard: `src/lib/herdr-dashboard-data.ts`, `src/lib/herdr-dashboard-server.ts`
+- Dashboard: `src/lib/herdr-dashboard/data/data.ts`, `src/lib/herdr-dashboard/server/server.ts`
 - Read-only probe: `docs/adr/ADR-0004-serve-probe-readonly.md`

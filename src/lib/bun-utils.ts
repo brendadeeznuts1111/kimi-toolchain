@@ -8,7 +8,6 @@
 
 import { join } from "path";
 import { peek, password } from "bun";
-import { deserialize, estimateShallowMemoryUsageOf, serialize } from "bun:jsc";
 import {
   cpus,
   freemem,
@@ -190,24 +189,12 @@ export async function readableStreamToText(
   return stream.text();
 }
 
-/** Minimal fetch response shape when Bun fetch typings omit body/status helpers. */
-export interface HttpFetchBody {
-  readonly ok: boolean;
-  readonly status: number;
-  readonly body: ReadableStream<Uint8Array> | null;
-}
-
-export async function fetchHttp(url: string, init?: RequestInit): Promise<HttpFetchBody> {
-  return (await fetch(url, init)) as unknown as HttpFetchBody;
-}
-
 export async function fetchJsonBody<T>(
   url: string,
   init?: RequestInit
 ): Promise<{ ok: boolean; status: number; data: T }> {
-  const res = await fetchHttp(url, init);
-  const text = await readableStreamToText(res.body);
-  return { ok: res.ok, status: res.status, data: JSON.parse(text) as T };
+  const res = await fetch(url, init);
+  return { ok: res.ok, status: res.status, data: (await res.json()) as T };
 }
 
 // All version comparisons use Bun.semver directly.
@@ -983,7 +970,7 @@ export function detectBunRuntime(): BunRuntimeDetection {
  * @example
  * bun run runtime:info
  * bun -e 'import { formatFullBunRuntimeSnapshot } from "./src/lib/bun-utils.ts"; console.log(formatFullBunRuntimeSnapshot())'
- * bun -e 'import { bunRuntimeSnapshotJson } from "./src/lib/bun-utils.ts"; console.log(bunRuntimeSnapshotJson())'
+ * bun -e 'import { bunRuntimeReport } from "./src/lib/bun-utils.ts"; console.log(bunRuntimeReport())'
  */
 export function inspectBunRuntime(): BunRuntimeSnapshot {
   const base = detectBunRuntime();
@@ -1081,14 +1068,6 @@ export function formatFullBunRuntimeSnapshot(
   return lines.join("\n");
 }
 
-/** Full runtime JSON (Bun + OS + CPU + engine check). */
-export function bunRuntimeSnapshotJson(engineRange = ">=1.4.0"): BunRuntimeSnapshot & {
-  engineRange?: string;
-  engineSatisfied?: boolean;
-} {
-  return bunRuntimeReport(engineRange);
-}
-
 /** JSON-friendly runtime row with optional engine range check. */
 export function bunRuntimeReport(engineRange?: string): BunRuntimeSnapshot & {
   engineRange?: string;
@@ -1113,40 +1092,6 @@ export function bunVersion(): string {
 /** Bun build git revision. */
 export function bunRevision(): string {
   return detectBunRuntime().revision;
-}
-
-/** @see https://bun.com/docs/runtime/utils#serialize-deserialize-in-bun-jsc */
-export const BUN_JSC_SERIALIZE_DOC_URL =
-  "https://bun.com/docs/runtime/utils#serialize-deserialize-in-bun-jsc";
-
-/**
- * Serialize a value to an ArrayBuffer-like buffer using the structured clone algorithm
- * (`bun:jsc` `serialize`). Same format used by `structuredClone` and `postMessage`.
- */
-export function structuredCloneSerialize<T>(value: T): ArrayBufferLike {
-  return serialize(value) as ArrayBufferLike;
-}
-
-/**
- * Deserialize a structured-clone buffer back to a value (`bun:jsc` `deserialize`).
- */
-export function structuredCloneDeserialize<T>(buffer: ArrayBufferLike): T {
-  return deserialize(buffer) as T;
-}
-
-/** @see https://bun.com/docs/runtime/utils#estimateshallowmemoryusageof-in-bun-jsc */
-export const BUN_JSC_MEMORY_USAGE_DOC_URL =
-  "https://bun.com/docs/runtime/utils#estimateshallowmemoryusageof-in-bun-jsc";
-
-/**
- * Best-effort shallow memory usage estimate for an object, in bytes (`bun:jsc`
- * `estimateShallowMemoryUsageOf`). Excludes referenced objects; use heap snapshots
- * for accurate per-object accounting.
- */
-export function estimateShallowMemoryUsage(
-  value: string | bigint | symbol | object | CallableFunction
-): number {
-  return estimateShallowMemoryUsageOf(value);
 }
 
 /**

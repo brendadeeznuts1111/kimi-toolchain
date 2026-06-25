@@ -9,9 +9,9 @@ import {
   resolveDashboardCompanionContext,
   runDashboardAgentAction,
   runDashboardIpcCommand,
-} from "../src/lib/herdr-dashboard-data.ts";
+} from "../src/lib/herdr-dashboard/data/data.ts";
 import { bunImageSupported } from "../src/lib/bun-image.ts";
-import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard-discovery-cache.ts";
+import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard/discovery/cache.ts";
 
 import { ArtifactStore } from "../src/lib/artifact-store.ts";
 import { startProbeServer } from "../src/lib/card-probe-server.ts";
@@ -19,7 +19,7 @@ import {
   dashboardScreenshotPlaceholder,
   resolveHerdrDashboardHtmlPath,
   startHerdrDashboardServer,
-} from "../src/lib/herdr-dashboard-server.ts";
+} from "../src/lib/herdr-dashboard/server/server.ts";
 import {
   buildDashboardWebViewOptions,
   createDashboardConsoleMirror,
@@ -29,7 +29,7 @@ import {
 } from "../src/lib/herdr-webview-dashboard.ts";
 import { webViewConsoleMirror } from "../src/lib/webview-console.ts";
 import { RUNTIME_CAPABILITY_INVENTORY_KEYS } from "../src/lib/bun-install-config.ts";
-import type { DashboardIpcCommand } from "../src/lib/herdr-dashboard-data.ts";
+import type { DashboardIpcCommand } from "../src/lib/herdr-dashboard/data/data.ts";
 import { writeDashboardEvent } from "../src/lib/dashboard-audit-store.ts";
 import { failureLedgerPath } from "../src/lib/paths.ts";
 import { recordDoctorRun } from "../src/lib/utils.ts";

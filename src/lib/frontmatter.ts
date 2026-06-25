@@ -52,7 +52,9 @@ export function parseFrontmatterText(text: string, file = ""): ParsedFrontmatter
   const body = text.slice(match[0].length).replace(/^\r?\n/, "");
 
   const data =
-    delimiter === "+++" ? (Bun.TOML.parse(raw) as Record<string, unknown>) : asRecord(yaml.load(raw));
+    delimiter === "+++"
+      ? (Bun.TOML.parse(raw) as Record<string, unknown>)
+      : asRecord(yaml.load(raw));
 
   return {
     data,

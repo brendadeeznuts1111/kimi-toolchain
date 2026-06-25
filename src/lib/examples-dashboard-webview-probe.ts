@@ -7,7 +7,7 @@
 
 import type { DashboardCardStatus, DashboardCardsPayload } from "./dashboard-card-registry.ts";
 import { ensureExamplesDashboardCompanion } from "./examples-dashboard-companion.ts";
-import { buildDashboardWebViewOptions } from "./herdr-dashboard-webview-options.ts";
+import { buildDashboardWebViewOptions } from "./herdr-dashboard/webview/options.ts";
 import {
   createWebViewConsoleCollector,
   waitForNavigation,

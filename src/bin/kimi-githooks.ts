@@ -13,8 +13,7 @@ import { pathExists } from "../lib/bun-io.ts";
 import { join } from "path";
 import { ensureDir, resolveProjectRoot, sha256File, readPackageJson } from "../lib/utils.ts";
 
-import { detectSyncDrift } from "../lib/sync-hashes.ts";
-import { verifySyncManifest } from "../lib/sync-manifest.ts";
+import { detectSyncDrift, verifySyncManifest } from "../lib/desktop-sync.ts";
 import { toolsDir } from "../lib/paths.ts";
 import { createLogger } from "../lib/logger.ts";
 import { Effect } from "effect";

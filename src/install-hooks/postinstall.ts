@@ -1,19 +1,17 @@
 #!/usr/bin/env bun
 /**
  * postinstall.ts — Idempotent setup of ~/.kimi-code/ from repo source
- * Runs on `bun install -g` or `bun install`
  */
 
-import { pathExists } from "../lib/bun-io.ts";
 import { readableStreamToText } from "../lib/bun-utils.ts";
+import { mkdirSync } from "node:fs";
 import { join } from "path";
 import { Database } from "bun:sqlite";
-import { desktopRoot, ensureDesktopLayout, syncDesktop } from "../lib/desktop-sync.ts";
-import { agentsSkillsRoot, canonicalRepoRoot } from "../lib/paths.ts";
+import { ensureDesktopLayout, syncDesktop } from "../lib/desktop-sync.ts";
+import { agentsSkillsRoot, canonicalRepoRoot, desktopRoot } from "../lib/paths.ts";
 import { DEFAULT_CONFIG_TEMPLATE } from "../lib/governor-config.ts";
 import { SESSIONS_SCHEMA_SQL } from "../lib/sessions-schema.ts";
 import { provisionUserMcp } from "../lib/mcp-config.ts";
-import { ensureDir } from "../lib/utils.ts";
 import { scrubProcessBunInstallCacheEnv } from "../lib/root-hygiene.ts";
 
 scrubProcessBunInstallCacheEnv();
@@ -28,7 +26,7 @@ async function main() {
   ensureDesktopLayout();
 
   const governorDefaults = join(GOVERNOR_DIR, "defaults.toml");
-  if (!pathExists(governorDefaults)) {
+  if (!(await Bun.file(governorDefaults).exists())) {
     await Bun.write(governorDefaults, DEFAULT_CONFIG_TEMPLATE);
   }
 
@@ -40,7 +38,7 @@ async function main() {
   );
 
   const dbPath = join(VAR_DIR, "sessions.db");
-  if (!pathExists(dbPath)) {
+  if (!(await Bun.file(dbPath).exists())) {
     console.log("  🗄 Initializing sessions.db...");
     const db = new Database(dbPath, { create: true });
     db.exec("PRAGMA journal_mode = WAL;");
@@ -49,7 +47,7 @@ async function main() {
   }
 
   const wrapperScript = join(REPO_ROOT, "scripts", "install-bin-wrappers.sh");
-  if (pathExists(wrapperScript)) {
+  if (await Bun.file(wrapperScript).exists()) {
     const proc = Bun.spawn(["bash", wrapperScript], { stdout: "pipe", stderr: "pipe" });
     const exitCode = await proc.exited;
     if (exitCode === 0) {
@@ -60,7 +58,7 @@ async function main() {
     }
   }
 
-  ensureDir(agentsSkillsRoot());
+  mkdirSync(agentsSkillsRoot(), { recursive: true });
   console.log("   Skill: ~/.agents/skills/kimi-toolchain/");
   console.log(`   Skill: ${join(desktopRoot(), "skills/kimi-toolchain/")}`);
   console.log("✅ kimi-toolchain ready");
@@ -69,11 +67,7 @@ async function main() {
   console.log(`   Docs:  ${join(desktopRoot())}/{AGENTS,UNIFIED,TEMPLATES}.md`);
 }
 
-(async () => {
-  try {
-    await main();
-  } catch (err) {
-    console.error("❌ Setup failed:", (err as Error).message);
-    process.exit(1);
-  }
-})();
+main().catch((err) => {
+  console.error("❌ Setup failed:", (err as Error).message);
+  process.exit(1);
+});

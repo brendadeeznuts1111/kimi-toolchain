@@ -8,8 +8,8 @@ import {
   parseGitLogFormatted,
   parseGitStatusPorcelain,
   resolveRemoteGitDirectoryError,
-} from "../src/lib/herdr-dashboard-widget-git.ts";
-import type { DashboardGitWidgetData } from "../src/lib/herdr-dashboard-widget-git.ts";
+} from "../src/lib/herdr-dashboard/widgets/git.ts";
+import type { DashboardGitWidgetData } from "../src/lib/herdr-dashboard/widgets/git.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 const primaryCatalog = [{ session: "", label: "primary", host: "(local)", reachable: true }];

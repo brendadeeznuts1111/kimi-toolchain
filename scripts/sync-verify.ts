@@ -4,7 +4,7 @@
  */
 
 import { desktopRuntimeDepsOk } from "../src/lib/desktop-runtime-deps.ts";
-import { detectSyncDrift } from "../src/lib/sync-hashes.ts";
+import { detectSyncDrift } from "../src/lib/desktop-sync.ts";
 
 import { scriptRepoRoot } from "../src/lib/paths.ts";
 

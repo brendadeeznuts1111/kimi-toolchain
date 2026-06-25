@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-http3.ts — optional HTTP/3 (QUIC) transport for the dashboard server.
+ * herdr-dashboard/server/http3.ts — optional HTTP/3 (QUIC) transport for the dashboard server.
  *
  * HTTP/3 requires TLS. Configure certificate paths via:
  *   HERDR_DASHBOARD_TLS_CERT — PEM certificate file

@@ -16,7 +16,6 @@ const TARGETS = [
   "src/lib/decision-scoring.ts",
   "src/lib/error-clustering.ts",
   "src/lib/paths.ts",
-  "src/lib/contract-inference.ts",
   "src/lib/hook-verifier.ts",
 ] as const;
 

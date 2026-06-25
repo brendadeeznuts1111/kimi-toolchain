@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-widget-processes-action.ts — Pane focus/zoom/close actions.
+ * herdr-dashboard/widgets/processes-action.ts — Pane focus/zoom/close actions.
  */
 
 import { TOML } from "bun";

@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-discovery-cache.ts — Cached agent discovery + heartbeat status snapshots.
+ * herdr-dashboard/discovery/cache.ts — Cached agent discovery + heartbeat status snapshots.
  */
 
 import { TtlCache, type CacheStats } from "../../cache.ts";

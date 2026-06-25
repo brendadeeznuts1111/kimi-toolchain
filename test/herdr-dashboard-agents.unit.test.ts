@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getDashboardAgents } from "../src/lib/herdr-dashboard-agents.ts";
+import { getDashboardAgents } from "../src/lib/herdr-dashboard/agents.ts";
 import { parseOrchestratorDashboardSection } from "../src/lib/herdr-orchestrator-config.ts";
 import { REPO_ROOT } from "./helpers.ts";
 

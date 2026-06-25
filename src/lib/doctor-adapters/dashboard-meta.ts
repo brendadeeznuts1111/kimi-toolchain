@@ -8,7 +8,7 @@ import {
   formatDashboardMetaDiscoveryStatusLine,
   resolveRemoteHostsConfigured,
   type DashboardMetaGateResult,
-} from "../herdr-dashboard-meta-gate.ts";
+} from "../herdr-dashboard/gates/meta-gate.ts";
 import { safeParse } from "../utils.ts";
 
 interface DashboardMetaJsonEnvelope {

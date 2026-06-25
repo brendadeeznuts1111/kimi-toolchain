@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { buildDashboardWidgetCacheKey } from "../src/lib/herdr-dashboard-widgets.ts";
+import { buildDashboardWidgetCacheKey } from "../src/lib/herdr-dashboard/widgets/widgets.ts";
 import {
   findDashboardWidgetSessionEntry,
   resolveDashboardWidgetSession,
-} from "../src/lib/herdr-dashboard-widget-session.ts";
+} from "../src/lib/herdr-dashboard/widgets/session.ts";
 import {
   fetchDashboardProcessesWidget,
   mapPaneInfoToWidgetRow,
   parseHerdrPaneListOutput,
   PROCESSES_WIDGET_WORKSPACE_SCOPE,
-} from "../src/lib/herdr-dashboard-widget-processes.ts";
+} from "../src/lib/herdr-dashboard/widgets/processes.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 const samplePane = {

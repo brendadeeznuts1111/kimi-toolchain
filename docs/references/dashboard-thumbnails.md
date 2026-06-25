@@ -14,7 +14,7 @@ How the Herdr orchestrator dashboard turns a live `Bun.WebView` screenshot into 
 Bun.WebView (dashboard UI)
   │  screenshot({ format: "png" })
   ▼
-Uint8Array PNG ──→ herdr-dashboard-automation.ts
+Uint8Array PNG ──→ herdr-dashboard/automation/automation.ts
   │  feedDashboardScreenshotPng() polls every 2s
   ▼
 HerdrDashboardServerHandle.setScreenshotPng(png)
@@ -126,22 +126,22 @@ flowchart LR
   serve --> webviewUI
 ```
 
-| File                                         | Function / route                     | Terminal                    | Role                                       |
-| -------------------------------------------- | ------------------------------------ | --------------------------- | ------------------------------------------ |
-| `src/lib/bun-image.ts`                       | `dashboardThumbnailBlob`             | `await … .blob()`           | Primary encode; AVIF miss → WebP `.blob()` |
-| `src/lib/bun-image.ts`                       | `dashboardThumbnailBytes`            | via blob                    | `/api/thumbnail` cache miss                |
-| `src/lib/bun-image.ts`                       | `probeBunImageAvifEncode`            | `await … .bytes()`          | `meta.thumbnailFormats.avif` probe         |
-| `src/lib/bun-image.ts`                       | `imagePlaceholderDataUrl`            | `await … .placeholder()`    | `meta.placeholder` LQIP                    |
-| `src/lib/bun-image.ts`                       | `imageMetadata`                      | `await … .metadata()`       | Header-only dimension read                 |
-| `src/lib/herdr-dashboard-server.ts`          | `GET /api/thumbnail`                 | `dashboardThumbnailBytes()` | Cached `Uint8Array` response               |
-| `src/lib/herdr-dashboard-server.ts`          | `GET /api/meta`                      | `imagePlaceholderDataUrl`   | ThumbHash on cached PNG                    |
-| `src/lib/herdr-dashboard-automation.ts`      | `feedDashboardScreenshotPng`         | _(none)_                    | `setScreenshotPng` only — encode on GET    |
-| `src/lib/herdr-dashboard-automation.ts`      | `{ type: "screenshot", feed: true }` | _(none)_                    | Same deferred encode                       |
-| `src/lib/herdr-dashboard-automation.ts`      | `runHerdrDashboardAutomation`        | `dashboardWebpThumbnail`    | CLI `--thumbnail` → `Bun.write`            |
-| `src/lib/herdr-webview-dashboard.ts`         | webview shell                        | calls feed poll             | Live PNG feed every 2s                     |
-| `src/lib/herdr-dashboard-automation-gate.ts` | `runDashboardAutomationGate`         | indirect                    | smoke feed + `fetch /api/thumbnail`        |
-| `src/bin/herdr-orchestrator.ts`              | `dashboard --probe`                  | via automation              | `--thumbnail <path>` disk WebP             |
-| `templates/herdr-dashboard.js`               | thumbnail panel                      | browser `fetch`             | Consumes encoded bytes + LQIP              |
+| File                                                    | Function / route                     | Terminal                    | Role                                       |
+| ------------------------------------------------------- | ------------------------------------ | --------------------------- | ------------------------------------------ |
+| `src/lib/bun-image.ts`                                  | `dashboardThumbnailBlob`             | `await … .blob()`           | Primary encode; AVIF miss → WebP `.blob()` |
+| `src/lib/bun-image.ts`                                  | `dashboardThumbnailBytes`            | via blob                    | `/api/thumbnail` cache miss                |
+| `src/lib/bun-image.ts`                                  | `probeBunImageAvifEncode`            | `await … .bytes()`          | `meta.thumbnailFormats.avif` probe         |
+| `src/lib/bun-image.ts`                                  | `imagePlaceholderDataUrl`            | `await … .placeholder()`    | `meta.placeholder` LQIP                    |
+| `src/lib/bun-image.ts`                                  | `imageMetadata`                      | `await … .metadata()`       | Header-only dimension read                 |
+| `src/lib/herdr-dashboard/server/server.ts`              | `GET /api/thumbnail`                 | `dashboardThumbnailBytes()` | Cached `Uint8Array` response               |
+| `src/lib/herdr-dashboard/server/server.ts`              | `GET /api/meta`                      | `imagePlaceholderDataUrl`   | ThumbHash on cached PNG                    |
+| `src/lib/herdr-dashboard/automation/automation.ts`      | `feedDashboardScreenshotPng`         | _(none)_                    | `setScreenshotPng` only — encode on GET    |
+| `src/lib/herdr-dashboard/automation/automation.ts`      | `{ type: "screenshot", feed: true }` | _(none)_                    | Same deferred encode                       |
+| `src/lib/herdr-dashboard/automation/automation.ts`      | `runHerdrDashboardAutomation`        | `dashboardWebpThumbnail`    | CLI `--thumbnail` → `Bun.write`            |
+| `src/lib/herdr-webview-dashboard.ts`                    | webview shell                        | calls feed poll             | Live PNG feed every 2s                     |
+| `src/lib/herdr-dashboard/automation/automation-gate.ts` | `runDashboardAutomationGate`         | indirect                    | smoke feed + `fetch /api/thumbnail`        |
+| `src/bin/herdr-orchestrator.ts`                         | `dashboard --probe`                  | via automation              | `--thumbnail <path>` disk WebP             |
+| `templates/herdr-dashboard.js`                          | thumbnail panel                      | browser `fetch`             | Consumes encoded bytes + LQIP              |
 
 **Co-located Bun native APIs** (document alongside [Terminals](https://bun.com/docs/runtime/image#terminals)):
 
@@ -169,7 +169,7 @@ flowchart LR
 
 ## WebView profile (`dataStore`)
 
-Source modules: `src/lib/herdr-dashboard-webview-store.ts`, `src/lib/herdr-webview-dashboard.ts`
+Source modules: `src/lib/herdr-dashboard/webview/store.ts`, `src/lib/herdr-webview-dashboard.ts`
 
 `Bun.WebView` accepts a `dataStore` option:
 
@@ -191,7 +191,7 @@ persist_profile = true           # uses default ~/.kimi-code/var/herdr-orchestra
 
 ## `/api/meta` fields
 
-Source module: `src/lib/herdr-dashboard-server.ts`
+Source module: `src/lib/herdr-dashboard/server/server.ts`
 
 | Field              | Meaning                                                                   |
 | ------------------ | ------------------------------------------------------------------------- |
@@ -203,7 +203,7 @@ Source module: `src/lib/herdr-dashboard-server.ts`
 
 ### `meta.webview` object
 
-Built by `buildDashboardMetaWebView()` in `src/lib/herdr-dashboard-webview-store.ts`. Surfaced on every `GET /api/meta` response and rendered in the dashboard status line (`formatWebViewLine` in `templates/herdr-dashboard.js`).
+Built by `buildDashboardMetaWebView()` in `src/lib/herdr-dashboard/webview/store.ts`. Surfaced on every `GET /api/meta` response and rendered in the dashboard status line (`formatWebViewLine` in `templates/herdr-dashboard.js`).
 
 | Field               | Meaning                                                                          |
 | ------------------- | -------------------------------------------------------------------------------- |
@@ -291,9 +291,9 @@ Automated thumbnail encode coverage:
 | Concern                                                | File                                                     |
 | ------------------------------------------------------ | -------------------------------------------------------- |
 | Bun.Image helpers / thumbnail encode                   | `src/lib/bun-image.ts`                                   |
-| Dashboard HTTP server + `/api/meta` + `/api/thumbnail` | `src/lib/herdr-dashboard-server.ts`                      |
-| WebView screenshot polling                             | `src/lib/herdr-dashboard-automation.ts`                  |
-| WebView profile / `dataStore` resolution               | `src/lib/herdr-dashboard-webview-store.ts`               |
+| Dashboard HTTP server + `/api/meta` + `/api/thumbnail` | `src/lib/herdr-dashboard/server/server.ts`               |
+| WebView screenshot polling                             | `src/lib/herdr-dashboard/automation/automation.ts`       |
+| WebView profile / `dataStore` resolution               | `src/lib/herdr-dashboard/webview/store.ts`               |
 | WebView shell orchestration                            | `src/lib/herdr-webview-dashboard.ts`                     |
 | Dashboard config parser                                | `src/lib/herdr-orchestrator-config.ts`                   |
 | Frontend thumbnail display                             | `templates/herdr-dashboard.js`                           |

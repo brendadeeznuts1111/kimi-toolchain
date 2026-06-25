@@ -3,7 +3,7 @@ import {
   buildSingleSessionCatalog,
   discoverLocalSessionsCatalog,
   finalizeSessionCatalog,
-} from "../src/lib/herdr-dashboard-sessions.ts";
+} from "../src/lib/herdr-dashboard/sessions.ts";
 
 describe("herdr-dashboard-sessions", () => {
   test("buildSingleSessionCatalog uses primary for empty session", () => {

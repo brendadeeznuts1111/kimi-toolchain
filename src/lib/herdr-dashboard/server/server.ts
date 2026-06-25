@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-server.ts — Bun.serve bootstrap for orchestrator WebView dashboard.
+ * herdr-dashboard/server/server.ts — Bun.serve bootstrap for orchestrator WebView dashboard.
  *
  * Route dispatch lives in {@link handleDashboardRequest}; static assets in {@link ./assets.ts}.
  *

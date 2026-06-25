@@ -8,7 +8,7 @@ import {
   parseDashboardCardsFromHtml,
   resolveCanvasFilter,
 } from "../src/lib/dashboard-card-registry.ts";
-import { fetchDashboardCanvases } from "../src/lib/herdr-dashboard-data.ts";
+import { fetchDashboardCanvases } from "../src/lib/herdr-dashboard/data/data.ts";
 import { LOCAL_DOC_REFERENCES } from "../src/lib/canonical-references.ts";
 import { REPO_ROOT } from "./helpers.ts";
 

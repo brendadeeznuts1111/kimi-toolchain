@@ -11,7 +11,7 @@ import {
   parseCanvasDeepLink,
 } from "../src/lib/dashboard-canvas-filter.ts";
 import { ARTIFACT_SCHEMA_VERSION } from "../src/lib/artifact-store.ts";
-import type { DashboardRunManifestPayload } from "../src/lib/herdr-dashboard-data.ts";
+import type { DashboardRunManifestPayload } from "../src/lib/herdr-dashboard/data/data.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 describe("dashboard-canvas-filter", () => {

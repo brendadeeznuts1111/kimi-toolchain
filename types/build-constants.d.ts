@@ -30,8 +30,8 @@ declare const KIMI_CONTRACT_OBSERVATIONS_PATH: string;
  * @defineDomain contract-inference
  * @type string
  * @default "1.0.0"
- * @restrictions semver string written/read by contract inference
- * @see src/lib/contract-inference.ts
+ * @restrictions semver string for contract observation records
+ * @see src/lib/paths.ts contractObservationsPath
  */
 declare const KIMI_CONTRACT_SCHEMA_VERSION: string;
 
@@ -39,7 +39,7 @@ declare const KIMI_CONTRACT_SCHEMA_VERSION: string;
  * @defineDomain contract-inference
  * @type boolean
  * @default true
- * @restrictions when false, inferContractFromObservations skips work
+ * @restrictions when false, contract observation ingestion is disabled
  */
 declare const KIMI_CONTRACT_INFERENCE_ENABLED: boolean;
 

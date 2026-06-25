@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-agents.ts — In-process agent discovery for the orchestrator dashboard.
+ * herdr-dashboard/agents.ts — In-process agent discovery for the orchestrator dashboard.
  *
  * Single-sourced with `herdr-orchestrator dashboard --json`; avoids subprocess spawn per poll.
  */

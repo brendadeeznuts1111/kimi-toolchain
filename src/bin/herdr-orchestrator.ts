@@ -56,7 +56,7 @@ import {
 import { Effect } from "effect";
 import { mergedHerdrConfigLayer } from "../lib/herdr-merged-config.ts";
 import { watchOrchestratorEventsEffect } from "../lib/herdr-orchestrator-events.ts";
-import { getDashboardAgents } from "../lib/herdr-dashboard-agents.ts";
+import { getDashboardAgents } from "../lib/herdr-dashboard/agents.ts";
 import { BUN_WEBVIEW_DOCS_URL } from "../lib/webview-console.ts";
 import {
   findAllWorkspacesForProject,
@@ -1664,7 +1664,7 @@ if (isDirectRun(import.meta.path)) {
 
         if (dashboardScreenshot) {
           const { captureHerdrDashboardScreenshot } =
-            await import("../lib/herdr-dashboard-automation.ts");
+            await import("../lib/herdr-dashboard/automation/automation.ts");
           const result = await captureHerdrDashboardScreenshot({
             ...serverOpts,
             outputPath: dashboardScreenshot,

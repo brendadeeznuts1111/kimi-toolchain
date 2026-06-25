@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-discovery-meta.ts — Session/workspace discovery context for GET /api/meta.
+ * herdr-dashboard/discovery/meta.ts — Session/workspace discovery context for GET /api/meta.
  */
 
 import { TOML } from "bun";

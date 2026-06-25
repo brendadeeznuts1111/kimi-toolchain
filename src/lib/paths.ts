@@ -5,14 +5,14 @@
  * Use these helpers instead of repeating `Bun.env.HOME || "/tmp"`.
  */
 
+import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "path";
-import { pathExists } from "./bun-io.ts";
 
 /** Walk upward until `package.json` exists — prevents `src/src/bin` when cwd is inside `src/`. */
 export function canonicalRepoRoot(start: string): string {
   let dir = resolve(start);
   for (;;) {
-    if (pathExists(join(dir, "package.json"))) return dir;
+    if (existsSync(join(dir, "package.json"))) return dir;
     const parent = dirname(dir);
     if (parent === dir) return resolve(start);
     dir = parent;

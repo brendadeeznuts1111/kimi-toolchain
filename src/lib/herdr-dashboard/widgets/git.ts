@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-widget-git.ts — Session-scoped git status + recent commits widget.
+ * herdr-dashboard/widgets/git.ts — Session-scoped git status + recent commits widget.
  */
 
 import { TOML } from "bun";

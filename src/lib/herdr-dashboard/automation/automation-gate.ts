@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-automation-gate.ts — WebView smoke + /api/thumbnail probe for kimi-doctor --automation.
+ * herdr-dashboard/automation/automation-gate.ts — WebView smoke + /api/thumbnail probe for kimi-doctor --automation.
  *
  * Indirect terminal: smoke `setScreenshotPng` then `fetch` `/api/thumbnail` (encode in server on GET).
  *

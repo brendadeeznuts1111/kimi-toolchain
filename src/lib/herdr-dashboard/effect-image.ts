@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-effect-image.ts — Bun.Image mark for session bar.
+ * herdr-dashboard/effect-image.ts — Bun.Image mark for session bar.
  *
  * Mirrors examples/dashboard/src/effect/image/processor.ts (scan → benchmark reference).
  * Serves a always-available WebP mark when WebView screenshots are offline.

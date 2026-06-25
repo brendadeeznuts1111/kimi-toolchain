@@ -6,14 +6,10 @@ import {
   CANONICAL_REFERENCES_FILENAME,
   collectRootLocalDocSyncPaths,
 } from "../src/lib/canonical-references.ts";
-import {
-  collectStaticFileSyncPaths,
-  desktopRoot,
-  ensureDesktopLayout,
-  resolveDesktopPaths,
-  SYNC_ROOT_INFRA,
-  syncDesktop,
-} from "../src/lib/desktop-sync.ts";
+import { ensureDesktopLayout, syncDesktop } from "../src/lib/desktop-sync.ts";
+import { collectLocalDocSyncPaths } from "../src/lib/canonical-references.ts";
+import { desktopRoot, libDir, scriptsDir, toolsDir } from "../src/lib/paths.ts";
+import { LABEL_PREFIX, SYNC_ROOT_INFRA, SYNC_ROUTES, repoSourceDir } from "../src/lib/desktop-sync.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
@@ -35,16 +31,18 @@ describe("desktop-sync", () => {
     testHome = undefined;
   });
 
-  test("resolveDesktopPaths maps repo to desktop targets", () => {
-    const paths = resolveDesktopPaths(REPO_ROOT);
-    expect(paths.binSrc).toContain("src/bin");
-    expect(paths.binDst).toContain(".kimi-code/tools");
-    expect(paths.scriptsSrc).toContain("scripts");
-    expect(paths.templatesDst).toContain(".kimi-code/templates");
+  test("SYNC_ROUTES maps repo sources to desktop targets", () => {
+    const tools = SYNC_ROUTES.find((r) => r.prefix === LABEL_PREFIX.TOOLS)!;
+    const scripts = SYNC_ROUTES.find((r) => r.prefix === LABEL_PREFIX.SCRIPTS)!;
+    const templates = SYNC_ROUTES.find((r) => r.prefix === LABEL_PREFIX.TEMPLATES)!;
+    expect(repoSourceDir(REPO_ROOT, tools.repoSegments)).toContain("src/bin");
+    expect(tools.desktopDir()).toContain(".kimi-code/tools");
+    expect(repoSourceDir(REPO_ROOT, scripts.repoSegments)).toContain("scripts");
+    expect(templates.desktopDir()).toContain(".kimi-code/templates");
   });
 
-  test("collectStaticFileSyncPaths merges manifest localDocs and infra", () => {
-    const paths = collectStaticFileSyncPaths();
+  test("static sync paths merge manifest localDocs and infra", () => {
+    const paths = [...collectLocalDocSyncPaths(), ...SYNC_ROOT_INFRA].sort();
     for (const doc of collectRootLocalDocSyncPaths()) {
       expect(paths).toContain(doc);
     }
@@ -88,17 +86,16 @@ describe("desktop-sync", () => {
 
   test("ensureDesktopLayout creates desktop dirs", () => {
     ensureDesktopLayout();
-    const paths = resolveDesktopPaths(REPO_ROOT);
-    expect(existsSync(paths.binDst)).toBe(true);
-    expect(existsSync(paths.libDst)).toBe(true);
-    expect(existsSync(paths.scriptsDst)).toBe(true);
+    expect(existsSync(toolsDir())).toBe(true);
+    expect(existsSync(libDir())).toBe(true);
+    expect(existsSync(scriptsDir())).toBe(true);
   });
 
   test("syncDesktop is idempotent on second run", async () => {
     await syncDesktop(REPO_ROOT, { force: true });
     const second = await syncDesktop(REPO_ROOT);
     expect(second.updated.length).toBe(0);
-    expect(existsSync(join(pathsToolchain(REPO_ROOT), "tools", "kimi-doctor.ts"))).toBe(true);
+    expect(existsSync(join(desktopRoot(), "tools", "kimi-doctor.ts"))).toBe(true);
   });
 
   test("syncDesktop force overwrites stale optional config", async () => {
@@ -183,6 +180,4 @@ describe("desktop-sync", () => {
   });
 });
 
-function pathsToolchain(repoRoot: string) {
-  return resolveDesktopPaths(repoRoot).desktopRoot;
-}
+

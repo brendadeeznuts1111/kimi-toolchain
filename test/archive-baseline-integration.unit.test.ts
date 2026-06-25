@@ -13,7 +13,7 @@ import { syncBaselineCacheArchivePath } from "../src/lib/paths.ts";
 import { REPO_ROOT } from "./helpers.ts";
 import { makeDir } from "../src/lib/bun-io.ts";
 import { sha256String } from "../src/lib/utils.ts";
-import { writeSyncManifestWithArchive } from "../src/lib/sync-manifest.ts";
+import { writeSyncManifestWithArchive } from "../src/lib/desktop-sync.ts";
 import type { ToolchainManifest } from "../src/lib/version.ts";
 import { withIsolatedHome, withTempDir } from "./helpers.ts";
 

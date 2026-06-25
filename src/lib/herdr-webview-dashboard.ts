@@ -13,7 +13,7 @@ import { writeStdoutLine } from "./cli-contract.ts";
 import {
   resolveHerdrDashboardWebViewStore,
   type ResolvedHerdrDashboardWebViewStore,
-} from "./herdr-dashboard-webview-store.ts";
+} from "./herdr-dashboard/webview/store.ts";
 import {
   chromeWebViewBackend,
   defaultWebViewBackend,
@@ -21,7 +21,7 @@ import {
   tapChromeCdpEvents,
   webViewSupported,
 } from "./webview-console.ts";
-import { feedDashboardScreenshotPng } from "./herdr-dashboard-automation.ts";
+import { feedDashboardScreenshotPng } from "./herdr-dashboard/automation/automation.ts";
 import {
   ensureExamplesDashboardCompanion,
   stopExamplesDashboardCompanion,
@@ -30,7 +30,7 @@ import {
   startHerdrDashboardServer,
   type HerdrDashboardServerHandle,
   type HerdrDashboardServerOptions,
-} from "./herdr-dashboard-server.ts";
+} from "./herdr-dashboard/server/server.ts";
 import {
   buildDashboardWebViewOptions,
   DashboardConsole,
@@ -39,7 +39,7 @@ import {
   resolveDashboardWebViewConsole,
   type DashboardWebViewConsoleHandler,
   type DashboardWebViewSessionOptions,
-} from "./herdr-dashboard-webview-options.ts";
+} from "./herdr-dashboard/webview/options.ts";
 
 export {
   IPC_CONSOLE_TAG,

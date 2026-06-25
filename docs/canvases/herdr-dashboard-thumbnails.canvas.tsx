@@ -326,10 +326,10 @@ const TEMPLATE_VS_PROFILE = [
 ] as const;
 
 const DAG_NODES = [
-  { id: "webview", label: "Bun.WebView", sub: "herdr-dashboard-automation.ts" },
+  { id: "webview", label: "Bun.WebView", sub: "herdr-dashboard/automation/automation.ts" },
   { id: "png", label: "screenshot()", sub: "webview#screenshots" },
   { id: "feed", label: "PNG feed", sub: "setScreenshotPng · no encode" },
-  { id: "server", label: "DashboardServer", sub: "herdr-dashboard-server.ts" },
+  { id: "server", label: "DashboardServer", sub: "herdr-dashboard/server/server.ts" },
   { id: "encode", label: "await .blob()", sub: "bun-image.ts · #terminals" },
   { id: "meta", label: "/api/meta", sub: ".placeholder() LQIP" },
   { id: "thumbnail", label: "/api/thumbnail", sub: "TtlCache · Response(bytes)" },
@@ -353,13 +353,13 @@ const TERMINAL_CALL_SITES = [
   ["bun-image.ts", "probeBunImageAvifEncode", "await .bytes()", "meta.thumbnailFormats.avif"],
   ["bun-image.ts", "imagePlaceholderDataUrl", "await .placeholder()", "/api/meta LQIP"],
   [
-    "herdr-dashboard-automation.ts",
+    "herdr-dashboard/automation/automation.ts",
     "runHerdrDashboardAutomation",
     "dashboardWebpThumbnail",
     "CLI --thumbnail",
   ],
   [
-    "herdr-dashboard-automation-gate.ts",
+    "herdr-dashboard/automation/automation-gate.ts",
     "runDashboardAutomationGate",
     "indirect",
     "smoke feed + fetch /api/thumbnail",
@@ -751,7 +751,7 @@ export default function HerdrDashboardThumbnails() {
           striped
         />
         <Text tone="tertiary" size="small">
-          Source: src/lib/herdr-dashboard-webview-store.ts · WebKit guard may force ephemeral when
+          Source: src/lib/herdr-dashboard/webview/store.ts · WebKit guard may force ephemeral when
           persistProfile is true
         </Text>
       </Stack>
@@ -776,7 +776,7 @@ export default function HerdrDashboardThumbnails() {
       <Stack gap={12}>
         <H2>HTTP API surface</H2>
         <Text tone="secondary" size="small">
-          All routes registered in herdr-dashboard-server.ts. The earlier table showed only
+          All routes registered in herdr-dashboard/server/server.ts. The earlier table showed only
           thumbnail-related endpoints.
         </Text>
         <Table
@@ -820,7 +820,7 @@ export default function HerdrDashboardThumbnails() {
           striped
         />
         <Text tone="tertiary" size="small">
-          Source: src/lib/herdr-dashboard-server.ts · /api/thumbnail also returns 404 (no
+          Source: src/lib/herdr-dashboard/server/server.ts · /api/thumbnail also returns 404 (no
           screenshot), 503 (Bun.Image unavailable), 500 (encode failed)
         </Text>
       </Stack>
@@ -834,7 +834,7 @@ export default function HerdrDashboardThumbnails() {
             <Stack gap={4}>
               <H3>Input</H3>
               <Text size="small" tone="secondary">
-                PNG from Bun.WebView.screenshot() · herdr-dashboard-automation.ts
+                PNG from Bun.WebView.screenshot() · herdr-dashboard/automation/automation.ts
               </Text>
             </Stack>
             <Stack gap={4}>
@@ -987,7 +987,7 @@ export default function HerdrDashboardThumbnails() {
           striped
         />
         <Text tone="tertiary" size="small">
-          Source: bun-image.ts dashboardThumbnailFeedsActive() · herdr-dashboard-webview-store.ts
+          Source: bun-image.ts dashboardThumbnailFeedsActive() · herdr-dashboard/webview/store.ts
           shell ?? serve
         </Text>
       </Stack>

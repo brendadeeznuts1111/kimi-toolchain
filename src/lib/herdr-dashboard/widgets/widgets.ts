@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-widgets.ts — Session-scoped dashboard widget router + cache.
+ * herdr-dashboard/widgets/widgets.ts — Session-scoped dashboard widget router + cache.
  */
 
 import { TtlCache } from "../../cache.ts";

@@ -5,7 +5,7 @@ import {
   paneActionCommandSteps,
   paneActionSuccessMessage,
   runDashboardPaneAction,
-} from "../src/lib/herdr-dashboard-widget-processes-action.ts";
+} from "../src/lib/herdr-dashboard/widgets/processes-action.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 const primaryCatalog = [{ session: "", label: "primary", host: "(local)", reachable: true }];

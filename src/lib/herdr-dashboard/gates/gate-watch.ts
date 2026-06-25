@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-gate-watch.ts — Background effect-gates probe + bus transitions.
+ * herdr-dashboard/gates/gate-watch.ts — Background effect-gates probe + bus transitions.
  *
  * Mirrors the browser gate-health overlay (`GET /api/doctor/gates`) on the server
  * so `gate:failed` / `gate:cleared` reach the audit trail without client polling.

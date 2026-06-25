@@ -35,7 +35,7 @@ import {
   fetchDashboardArtifactFeed,
   fetchDashboardArtifactIndexStats,
   fetchDashboardRunsList,
-} from "./herdr-dashboard-data.ts";
+} from "./herdr-dashboard/data/data.ts";
 import { startDelayedIntervalLoop, stopDelayedIntervalLoop } from "./bun-utils.ts";
 import { withBenchmarkConvergence } from "./benchmark-convergence.ts";
 import { type BenchmarkApiEnvelope, runEffectBenchmarkCardLoop } from "./effect-benchmark-card.ts";

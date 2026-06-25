@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-automation.ts — Bun.WebView screenshot, click, and CDP probes for the dashboard.
+ * herdr-dashboard/automation/automation.ts — Bun.WebView screenshot, click, and CDP probes for the dashboard.
  *
  * PNG feed vs encode: `feedDashboardScreenshotPng` and `{ type: "screenshot", feed: true }` call
  * `setScreenshotPng` only — encode runs on first `GET /api/thumbnail`. CLI `--thumbnail` encodes

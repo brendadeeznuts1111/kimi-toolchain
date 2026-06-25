@@ -101,24 +101,11 @@ export function resolveFinishWorkConfig(decoded: FinishWorkDxConfig): FinishWork
   return { gates: DEFAULT_GATES, source: "default", followUp: null };
 }
 
-/** @deprecated Use resolveFinishWorkConfig */
-export function resolveFinishWorkGates(decoded: FinishWorkDxConfig): FinishWorkConfig {
-  return resolveFinishWorkConfig(decoded);
-}
-
 export function resolveFinishWorkConfigFromUnknown(
   doc: unknown,
   path = "dx.config.toml"
 ): FinishWorkConfig {
   return resolveFinishWorkConfig(decodeFinishWorkDxConfig(doc, path));
-}
-
-/** @deprecated Use resolveFinishWorkConfigFromUnknown */
-export function resolveFinishWorkGatesFromUnknown(
-  doc: unknown,
-  path = "dx.config.toml"
-): FinishWorkConfig {
-  return resolveFinishWorkConfigFromUnknown(doc, path);
 }
 
 export function loadFinishWorkConfig(projectRoot: string): FinishWorkConfig {

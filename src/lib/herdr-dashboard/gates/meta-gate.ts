@@ -1,12 +1,11 @@
 /**
- * herdr-dashboard-meta-gate.ts — Assert /api/meta discovery contract (workspace resolution).
+ * herdr-dashboard/gates/meta-gate.ts — Assert /api/meta discovery contract (workspace resolution).
  */
 
 import { DEFAULT_DASHBOARD_PORT } from "../data/data.ts";
 import type { DashboardMetaDiscovery } from "../discovery/meta.ts";
 import type { WorkspaceIdResolution } from "../../herdr-workspace-match.ts";
-import { fetchHttp, readableStreamToText } from "../../bun-utils.ts";
-import { safeParse } from "../../utils.ts";
+
 
 export const DASHBOARD_META_VALID_RESOLUTIONS = [
   "focused_cwd",
@@ -210,7 +209,7 @@ export async function fetchDashboardMeta(
 > {
   const metaUrl = `${normalizeDashboardBaseUrl(url)}api/meta`;
   try {
-    const response = await fetchHttp(metaUrl, { signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetch(metaUrl, { signal: AbortSignal.timeout(timeoutMs) });
     if (!response.ok) {
       return {
         ok: false,
@@ -220,8 +219,18 @@ export async function fetchDashboardMeta(
         },
       };
     }
-    const text = await readableStreamToText(response.body);
-    const meta = safeParse<DashboardMetaApiResponse>(text, {});
+    let meta: DashboardMetaApiResponse;
+    try {
+      meta = (await response.json()) as DashboardMetaApiResponse;
+    } catch {
+      return {
+        ok: false,
+        failure: {
+          code: "invalid_json",
+          message: `GET ${metaUrl} returned non-JSON body`,
+        },
+      };
+    }
     if (!meta || typeof meta !== "object") {
       return {
         ok: false,

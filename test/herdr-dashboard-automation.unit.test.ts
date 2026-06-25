@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, mock, setSystemTime, test } from "bun:test";
 import { join } from "path";
 import { bunImageSupported } from "../src/lib/bun-image.ts";
-import { probeDashboardThumbnail } from "../src/lib/herdr-dashboard-automation-gate.ts";
+import { probeDashboardThumbnail } from "../src/lib/herdr-dashboard/automation/automation-gate.ts";
 import {
   AGENT_ATTACH_SELECTOR,
   AGENTS_BODY_SELECTOR,
@@ -19,9 +19,9 @@ import {
   waitForDashboardView,
   waitForSelectorCount,
   webViewScreenshotBytes,
-} from "../src/lib/herdr-dashboard-automation.ts";
+} from "../src/lib/herdr-dashboard/automation/automation.ts";
 import { MOCK_CLOCK_EPOCH } from "./helpers/mock-clock.ts";
-import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard-server.ts";
+import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard/server/server.ts";
 import { addChromeCdpListener, webViewSupported } from "../src/lib/webview-console.ts";
 import { REPO_ROOT, withTempDir } from "./helpers.ts";
 

@@ -4,8 +4,10 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
-import { desktopRoot, syncDesktop } from "../src/lib/desktop-sync.ts";
-import { writeSyncManifest, verifySyncManifest } from "../src/lib/sync-manifest.ts";
+import { syncDesktop } from "../src/lib/desktop-sync.ts";
+import { desktopRoot } from "../src/lib/paths.ts";
+import { buildSyncManifest, verifySyncManifest } from "../src/lib/desktop-sync.ts";
+import { writeManifest } from "../src/lib/version.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
 describe.serial("sync-manifest", () => {
@@ -32,7 +34,8 @@ describe.serial("sync-manifest", () => {
   test("writes a manifest with hashes and verifies the synced desktop copy", async () => {
     await syncDesktop(REPO_ROOT, { force: true });
 
-    const manifest = await writeSyncManifest(REPO_ROOT, { files: ["test"] });
+    const manifest = await buildSyncManifest(REPO_ROOT, { files: ["test"] });
+    await writeManifest(manifest);
     const report = await verifySyncManifest(REPO_ROOT);
 
     expect(manifest.fileHashes?.["lib/r-score.ts"]).toMatch(/^[a-f0-9]{64}$/);
@@ -43,7 +46,8 @@ describe.serial("sync-manifest", () => {
 
   test("verification fails when the desktop copy drifts after manifest generation", async () => {
     await syncDesktop(REPO_ROOT, { force: true });
-    await writeSyncManifest(REPO_ROOT);
+    const manifest = await buildSyncManifest(REPO_ROOT);
+    await writeManifest(manifest);
     await Bun.write(join(desktopRoot(), "lib", "r-score.ts"), "// stale\n");
 
     const report = await verifySyncManifest(REPO_ROOT);

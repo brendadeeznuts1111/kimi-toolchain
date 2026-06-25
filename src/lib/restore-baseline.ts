@@ -10,22 +10,16 @@ import {
   readSyncSnapshotArchiveMetadata,
 } from "./archive-persistence.ts";
 import { STATUS_COLORS } from "./color-matrix.ts";
-import { makeDir, removePath } from "./bun-io.ts";
+import { mkdirSync, rmSync } from "node:fs";
 import { syncBaselineArchivePath } from "./paths.ts";
-import { resolveSyncManagedSourcePath } from "./sync-manifest.ts";
-import { computeSyncHashes } from "./sync-hashes.ts";
-import { sha256File } from "./utils.ts";
+import { computeSyncHashes, resolveSyncManagedSourcePath } from "./desktop-sync.ts";
+import { sha256File } from "./hash.ts";
 import { writeManifest, type ToolchainManifest } from "./version.ts";
 
 export interface HashDiffResult {
   missing: string[];
   changed: string[];
   extra: string[];
-}
-
-export interface VerifyManifestHashesResult {
-  ok: boolean;
-  drift: string[];
 }
 
 export interface RestoreBaselineOptions {
@@ -89,7 +83,7 @@ export function diffArchivedHashes(
 export async function verifyManifestHashes(
   manifest: ToolchainManifest,
   targetDir: string
-): Promise<VerifyManifestHashesResult> {
+): Promise<{ ok: boolean; drift: string[] }> {
   const fileHashes = manifest.fileHashes ?? {};
   const drift: string[] = [];
 
@@ -133,9 +127,6 @@ export interface RestoreDriftRow {
   newHash?: string;
   bytes?: number;
 }
-
-/** @deprecated Use RestoreDriftRow */
-export type RestoreDryRunRow = RestoreDriftRow;
 
 /** Build enriched drift rows with sha256 previews and file sizes. */
 export async function computeHashDiffDriftRows(
@@ -321,7 +312,7 @@ export async function restoreBaselineToDir(
   const extractDir = dryRun
     ? join(tmpdir(), `kimi-restore-baseline-${Bun.randomUUIDv7()}`)
     : targetDir;
-  makeDir(extractDir, { recursive: true });
+  mkdirSync(extractDir, { recursive: true });
 
   try {
     const snapshot = await extractSyncSnapshotArchive(await archiveFile.bytes(), extractDir);
@@ -353,7 +344,7 @@ export async function restoreBaselineToDir(
     };
   } finally {
     if (dryRun) {
-      removePath(extractDir, { recursive: true, force: true });
+      rmSync(extractDir, { recursive: true, force: true });
     }
   }
 }

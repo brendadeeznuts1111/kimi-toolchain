@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-hub.ts — SSE agent stream, diffing, and heartbeat stale detection.
+ * herdr-dashboard/server/hub.ts — SSE agent stream, diffing, and heartbeat stale detection.
  */
 
 import { inspectAgent } from "../../inspect.ts";

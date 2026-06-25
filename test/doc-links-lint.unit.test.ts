@@ -165,7 +165,7 @@ export const BUN_PUNYCODE_DECODE_DOC_URL = "https://bun.sh/reference/node/punyco
 
   test("flags raw image doc URL in consumer modules", () => {
     const violations = scanDocLinkFile(
-      "src/lib/herdr-dashboard-server.ts",
+      "src/lib/herdr-dashboard/server/server.ts",
       '  writeOut("see https://bun.com/docs/runtime/image#terminals");\n'
     );
     expect(violations.some((v) => v.rule === "use-doc-constant")).toBe(true);

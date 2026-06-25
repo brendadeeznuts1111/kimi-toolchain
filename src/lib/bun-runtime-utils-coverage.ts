@@ -76,16 +76,12 @@ export const RUNTIME_UTILS_COVERAGE: readonly RuntimeUtilsCoverageEntry[] = [
   {
     api: "serialize (bun:jsc)",
     anchor: "serialize-deserialize-in-bun-jsc",
-    wrapper: "structuredCloneSerialize",
-    module: "src/lib/bun-utils.ts",
-    status: "wrapped",
+    status: "native-only",
   },
   {
     api: "estimateShallowMemoryUsageOf (bun:jsc)",
     anchor: "estimateshallowmemoryusageof-in-bun-jsc",
-    wrapper: "estimateShallowMemoryUsage",
-    module: "src/lib/bun-utils.ts",
-    status: "wrapped",
+    status: "native-only",
   },
   {
     api: "Bun.peek",

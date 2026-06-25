@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-widget-session.ts — Session catalog lookup for dashboard widgets.
+ * herdr-dashboard/widgets/session.ts — Session catalog lookup for dashboard widgets.
  */
 
 import type { DashboardMetaDiscovery } from "../discovery/meta.ts";

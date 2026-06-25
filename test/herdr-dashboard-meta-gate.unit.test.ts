@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import type { DashboardMetaDiscovery } from "../src/lib/herdr-dashboard-discovery-meta.ts";
+import type { DashboardMetaDiscovery } from "../src/lib/herdr-dashboard/discovery/meta.ts";
 import {
   DASHBOARD_META_VALID_RESOLUTIONS,
   isValidWorkspaceIdResolution,
   resolveRemoteHostsConfigured,
   validateDashboardMetaDiscovery,
   validateRemoteHostsReachable,
-} from "../src/lib/herdr-dashboard-meta-gate.ts";
+} from "../src/lib/herdr-dashboard/gates/meta-gate.ts";
 
 function baseDiscovery(overrides: Partial<DashboardMetaDiscovery> = {}): DashboardMetaDiscovery {
   return {

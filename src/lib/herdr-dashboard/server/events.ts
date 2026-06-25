@@ -1,5 +1,5 @@
 /**
- * herdr-dashboard-events.ts — Bridge Herdr socket events into the dashboard EventBus.
+ * herdr-dashboard/server/events.ts — Bridge Herdr socket events into the dashboard EventBus.
  *
  * Uses DX `[herdr.orchestrator.events]` allowlist + debounce (same as watch-events).
  * Does not run react/context-sync — only invalidates discovery cache and refreshes agents.

@@ -16,7 +16,7 @@ import {
   type RestoreBaselineToDirResult,
   type RestoreDriftRow,
 } from "../../lib/restore-baseline.ts";
-import { verifySyncManifest } from "../../lib/sync-manifest.ts";
+import { verifySyncManifest } from "../../lib/desktop-sync.ts";
 import { resolveEffectiveWorkspaceRoot } from "../../lib/workspace-health.ts";
 import type { ToolchainManifest } from "../../lib/version.ts";
 

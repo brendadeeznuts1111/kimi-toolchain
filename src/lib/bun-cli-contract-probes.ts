@@ -549,7 +549,7 @@ export async function probeHeapProfV8(): Promise<CliContractProbeResult> {
   let valid = false;
   if (files[0]) {
     try {
-      const snapshot = JSON.parse(await Bun.file(join(dir, files[0])).text());
+      const snapshot = await Bun.file(join(dir, files[0])).json();
       valid = "snapshot" in snapshot && "nodes" in snapshot;
     } catch {
       valid = false;

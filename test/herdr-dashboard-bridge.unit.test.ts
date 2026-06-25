@@ -4,7 +4,7 @@ import {
   parseDashboardCompanionQuery,
   parseHerdrCanvasUrl,
   renderHerdrCanvasCompanion,
-} from "../src/lib/herdr-dashboard-bridge.ts";
+} from "../src/lib/herdr-dashboard/server/bridge.ts";
 
 const BASE = "http://127.0.0.1:5678/";
 

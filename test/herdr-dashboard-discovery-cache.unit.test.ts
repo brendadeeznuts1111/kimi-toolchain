@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createDashboardEventBus } from "../src/lib/herdr-dashboard-bus.ts";
-import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard-discovery-cache.ts";
-import type { DashboardAgentsPayload } from "../src/lib/herdr-dashboard-data.ts";
+import { createDashboardEventBus } from "../src/lib/herdr-dashboard/bus.ts";
+import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard/discovery/cache.ts";
+import type { DashboardAgentsPayload } from "../src/lib/herdr-dashboard/data/data.ts";
 
 const samplePayload = (agents: DashboardAgentsPayload["agents"]): DashboardAgentsPayload => ({
   ok: true,

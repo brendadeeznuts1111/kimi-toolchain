@@ -12,8 +12,8 @@ import {
   dashboardServeScheme,
   resolveDashboardServeTransport,
   resolveDashboardTlsPaths,
-} from "../src/lib/herdr-dashboard-http3.ts";
-import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard-server.ts";
+} from "../src/lib/herdr-dashboard/server/http3.ts";
+import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard/server/server.ts";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import { REPO_ROOT, withEnv, withTempDir } from "./helpers.ts";
 

@@ -6,9 +6,9 @@
 import { $ } from "bun";
 import { join } from "path";
 import { readText } from "../src/lib/bun-io.ts";
-import { fetchHttp, fetchJsonBody, readableStreamToText } from "../src/lib/bun-utils.ts";
-import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard-discovery-cache.ts";
-import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard-server.ts";
+import { fetchJsonBody } from "../src/lib/bun-utils.ts";
+import { HerdrDashboardDiscoveryCache } from "../src/lib/herdr-dashboard/discovery/cache.ts";
+import { startHerdrDashboardServer } from "../src/lib/herdr-dashboard/server/server.ts";
 import type { PaneInfo } from "../src/lib/herdr-pane-service.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -154,10 +154,10 @@ const server = startHerdrDashboardServer({
 
 try {
   const base = server.url;
-  const htmlRes = await fetchHttp(base);
-  const jsRes = await fetchHttp(`${base}herdr-dashboard.js`);
-  const servedHtml = await readableStreamToText(htmlRes.body);
-  const servedJs = await readableStreamToText(jsRes.body);
+  const htmlRes = await fetch(base);
+  const jsRes = await fetch(`${base}herdr-dashboard.js`);
+  const servedHtml = await htmlRes.text();
+  const servedJs = await jsRes.text();
 
   record(
     "Processes panel expand — table renders",
@@ -378,7 +378,7 @@ try {
 
 let liveStatus = "down";
 try {
-  const live = await fetchHttp("http://127.0.0.1:18412/api/meta", {
+  const live = await fetch("http://127.0.0.1:18412/api/meta", {
     signal: AbortSignal.timeout(1500),
   });
   liveStatus = live.ok ? "up" : `http ${live.status}`;

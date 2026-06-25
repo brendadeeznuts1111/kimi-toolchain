@@ -3,7 +3,7 @@ import {
   buildDashboardMetaWebView,
   HERDR_DASHBOARD_WEBVIEW_STORE_ENV,
   resolveHerdrDashboardWebViewStore,
-} from "../src/lib/herdr-dashboard-webview-store.ts";
+} from "../src/lib/herdr-dashboard/webview/store.ts";
 import {
   HERDR_DASHBOARD_WEBVIEW_STORE_LEGACY_NAME,
   HERDR_DASHBOARD_WEBVIEW_STORE_NAME,

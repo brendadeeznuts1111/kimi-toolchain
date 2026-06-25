@@ -9,7 +9,7 @@ import type { HealthCheck } from "./health-check.ts";
 import { auditSecretsStorage } from "./secrets-probe.ts";
 import { homeDir } from "./paths.ts";
 import { validateMcpConfig } from "./mcp-config.ts";
-import { detectSyncDrift } from "./sync-hashes.ts";
+import { detectSyncDrift } from "./desktop-sync.ts";
 import { auditWorkspaceHealth } from "./workspace-health.ts";
 import {
   DIRECT_BIN,

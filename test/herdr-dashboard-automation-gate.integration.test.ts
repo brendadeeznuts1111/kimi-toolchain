@@ -5,7 +5,7 @@ import {
   probeDashboardThumbnail,
   resolveDashboardAutomationUrl,
   runDashboardAutomationGate,
-} from "../src/lib/herdr-dashboard-automation-gate.ts";
+} from "../src/lib/herdr-dashboard/automation/automation-gate.ts";
 import { webViewSupported } from "../src/lib/webview-console.ts";
 import { REPO_ROOT } from "./helpers.ts";
 
