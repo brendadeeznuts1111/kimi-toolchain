@@ -80,10 +80,6 @@ export function pathLstat(path: PathLike) {
   return lstatSync(path);
 }
 
-export function copyPath(src: PathLike, dest: PathLike): void {
-  copyFileSync(src, dest);
-}
-
 export function movePath(oldPath: PathLike, newPath: PathLike): void {
   renameSync(oldPath, newPath);
 }
