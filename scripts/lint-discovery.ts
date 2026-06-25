@@ -15,6 +15,7 @@ const FORBIDDEN_PATH_SUBSTRINGS = [
   "/Applications/",
   "/Library/Caches/",
   ".bun/install/cache/",
+  "/.bun-cache/",
   ".kimi-artifacts/",
   "/node_modules/",
   "/.npm/",
@@ -26,6 +27,10 @@ const FORBIDDEN_PATH_SUBSTRINGS = [
   "/.conan/",
   "/.docker/",
   "/go/pkg/",
+  "src/~/",
+  "src/.kimi/",
+  "src/reports/",
+  ".pile",
 ];
 
 const SOURCE_PREFIXES = ["src/", "test/", "bench/", "examples/", "scripts/", "docs/"];

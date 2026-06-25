@@ -116,5 +116,14 @@ Users/
 ~/.bun/
 /.bun/install/cache/
 
+# Nested stray snapshots under src/ (path expansion bugs)
+src/~/
+src/.kimi/
+src/reports/
+
+# Bun compile cache artifacts
+.bun-cache/
+*.pile
+
 # OS
 .DS_Store

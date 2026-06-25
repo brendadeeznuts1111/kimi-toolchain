@@ -119,6 +119,15 @@ Users/
 ~/.bun/
 /.bun/install/cache/
 
+# Nested stray snapshots under src/ (path expansion bugs)
+src/~/
+src/.kimi/
+src/reports/
+
+# Bun compile cache artifacts
+.bun-cache/
+*.pile
+
 # OS
 .DS_Store
 ```
@@ -147,8 +156,13 @@ tracked source code.
 The same principle applies to file patterns. Compiled outputs like `/cli` and
 `/out.js` are anchored to the repo root so a tracked file named `cli` or
 `out.js` nested under `src/` or `examples/` would still be indexed. Glob
-patterns (`*.sqlite`, `*.log`, `*.map`, etc.) match at any depth — these are
+patterns (`*.sqlite`, `*.log`, `*.map`, `*.pile`, etc.) match at any depth — these are
 safe because the file extensions never appear in tracked source.
+
+Some directories only appear as stray artifacts under `src/` (for example when a
+tilde path is expanded inside the tree). Use explicit `src/~/`, `src/.kimi/`, and
+`src/reports/` patterns rather than broad unanchored names — root `/reports/` and
+`/.kimi/` must not hide unrelated tracked paths elsewhere.
 
 ## Layer 2 — Global `~/.rgignore`
 
@@ -206,6 +220,8 @@ when adding a new cache or artifact directory.
 | `*.orig` / `*.rej` / `*.bak`                | ✅          | —            | —               | Merge/rebase conflict artifacts (proactive)                        |
 | `*.swp` / `*.swo`                           | ✅          | —            | —               | Vim swap files (proactive)                                         |
 | `.idea/` / `.vscode/` / `.fleet/` / `.zed/` | ✅          | —            | —               | IDE directories (proactive; not currently in repo)                 |
+| `src/~/` / `src/.kimi/` / `src/reports/`    | ✅          | ✅           | ✅              | Nested stray snapshots; use explicit prefix, not broad `/reports/` |
+| `.bun-cache/` / `*.pile`                    | ✅          | ✅           | ✅              | Bun compile cache; glob-safe, never in tracked source              |
 
 ### Quick sync check
 

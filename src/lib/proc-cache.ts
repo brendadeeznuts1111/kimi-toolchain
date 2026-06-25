@@ -20,6 +20,9 @@ interface CacheEntry<T> {
 const _procCache = new Map<string, CacheEntry<string>>();
 const CACHE_TTL_MS = 1000;
 const ORPHAN_MIN_AGE_SECONDS = 120;
+/** Shorter threshold for install/typecheck storms and launchd-reparented tool processes. */
+const ORPHAN_FAST_MIN_AGE_SECONDS = 45;
+const ORPHAN_REPARENTED_MIN_AGE_SECONDS = 30;
 
 function commandCacheKey(command: string, args: readonly string[]): string {
   return hashInflightPayload({ command, args });
@@ -86,7 +89,7 @@ export interface OrphanProcessInfo {
   elapsedSeconds: number;
 }
 
-function isOrphanCandidateCommand(cmd: string): boolean {
+export function isOrphanCandidateCommand(cmd: string): boolean {
   if (
     cmd.includes("kimi-orphan-kill") ||
     cmd.includes("kimi-toolchain.ts orphan-kill") ||
@@ -97,32 +100,49 @@ function isOrphanCandidateCommand(cmd: string): boolean {
 
   return (
     cmd.includes("/.bun/bin/bun test") ||
+    /\bbun install\b/.test(cmd) ||
+    /\btsc --noEmit\b/.test(cmd) ||
+    /\bnode\b.*\btsc\b/.test(cmd) ||
     (cmd.includes("bun run") && /\bkimi-[\w-]+/.test(cmd)) ||
     cmd.includes("/.kimi-code/bin/kimi --version") ||
     (cmd.includes("/bin/cp") && cmd.includes("kimi-test"))
   );
 }
 
+function isFastOrphanCommand(cmd: string): boolean {
+  return (
+    /\bbun install\b/.test(cmd) || /\btsc --noEmit\b/.test(cmd) || /\bnode\b.*\btsc\b/.test(cmd)
+  );
+}
+
+function orphanMinAgeSeconds(cmd: string, ppid: number): number {
+  if (ppid === 1 && isOrphanCandidateCommand(cmd)) return ORPHAN_REPARENTED_MIN_AGE_SECONDS;
+  if (isFastOrphanCommand(cmd)) return ORPHAN_FAST_MIN_AGE_SECONDS;
+  return ORPHAN_MIN_AGE_SECONDS;
+}
+
 export function getOrphanCandidates(): OrphanProcessInfo[] {
-  const output = getCachedPs(["-axo", "pid=,pcpu=,etimes=,command="]);
+  const output = getCachedPs(["-axo", "pid=,ppid=,pcpu=,etimes=,command="]);
   const orphans: OrphanProcessInfo[] = [];
 
   for (const line of output.split("\n")) {
-    const match = line.trim().match(/^(\d+)\s+([\d.]+)\s+(\d+)\s+(.+)$/);
+    const match = line.trim().match(/^(\d+)\s+(\d+)\s+([\d.]+)\s+(\d+)\s+(.+)$/);
     if (!match) continue;
 
     const pid = parseInt(match[1] || "", 10);
-    const cpu = parseFloat(match[2] || "");
-    const elapsedSeconds = parseInt(match[3] || "", 10);
-    const cmd = match[4] || "";
+    const ppid = parseInt(match[2] || "", 10);
+    const cpu = parseFloat(match[3] || "");
+    const elapsedSeconds = parseInt(match[4] || "", 10);
+    const cmd = match[5] || "";
 
     if (
       isNaN(pid) ||
+      isNaN(ppid) ||
       isNaN(cpu) ||
       isNaN(elapsedSeconds) ||
       pid === process.pid ||
       pid === process.ppid ||
-      elapsedSeconds < ORPHAN_MIN_AGE_SECONDS ||
+      elapsedSeconds < orphanMinAgeSeconds(cmd, ppid) ||
       !isOrphanCandidateCommand(cmd)
     ) {
       continue;
