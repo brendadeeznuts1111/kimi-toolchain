@@ -74,6 +74,7 @@ interface CommandInfo {
   examples: string[];
   subcommands?: Record<string, SubcommandInfo>;
   documentationUrl?: string;
+  docContent?: string;
   dynamicCompletions?: {
     scripts?: boolean;
     packages?: boolean;
@@ -242,6 +243,26 @@ async function fetchBunDocsIndex(): Promise<DocPageInfo[]> {
       error instanceof Error ? error.message : String(error)
     );
     return [];
+  }
+}
+
+/**
+ * Fetch the Markdown documentation page for a CLI command, if available.
+ * Looks up the URL from the docs index so it follows Bun's current path structure.
+ */
+async function fetchCommandDocContent(
+  commandName: string,
+  docs: DocPageInfo[]
+): Promise<string | undefined> {
+  const page = docs.find((d) => d.title === commandName || d.title === `bun ${commandName}`);
+  if (!page) return undefined;
+
+  try {
+    const response = await fetch(page.url);
+    if (!response.ok) return undefined;
+    return await response.text();
+  } catch {
+    return undefined;
   }
 }
 
@@ -821,6 +842,17 @@ async function generateCompletions(): Promise<void> {
 
   // Add common aliases
   addCommandAliases(completionData.commands);
+
+  // Fetch full Markdown docs for each CLI command (parallel, best-effort)
+  console.log("📖 Fetching command documentation pages...");
+  await Promise.all(
+    Object.keys(completionData.commands).map(async (commandName) => {
+      const content = await fetchCommandDocContent(commandName, docs);
+      if (content) {
+        completionData.commands[commandName].docContent = content;
+      }
+    })
+  );
 
   // Also check some common subcommands that might have their own help
   const additionalCommands = ["pm"];
