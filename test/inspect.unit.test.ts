@@ -7,7 +7,6 @@ import {
   formatTable,
   inspectAgent,
   inspectHuman,
-  inspectStream,
   stripANSI,
   sliceAnsi,
   truncateTerminal,
@@ -322,7 +321,7 @@ describe("inspect", () => {
     });
   });
 
-  describe("inspectStream", () => {
+  describe("Bun.readableStreamToText", () => {
     test("reads a ReadableStream to completion", async () => {
       const encoder = new TextEncoder();
       const stream = new ReadableStream<Uint8Array>({
@@ -332,7 +331,7 @@ describe("inspect", () => {
           controller.close();
         },
       });
-      const text = await inspectStream(stream);
+      const text = await Bun.readableStreamToText(stream);
       expect(text).toBe("hello world");
     });
   });

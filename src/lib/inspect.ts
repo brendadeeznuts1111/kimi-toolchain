@@ -1,5 +1,3 @@
-import { readableStreamToText } from "./bun-utils.ts";
-
 /**
  * inspect.ts — Bun-native inspection, equality, and ANSI helpers.
  *
@@ -11,7 +9,6 @@ import { readableStreamToText } from "./bun-utils.ts";
  * - Use deepEqual() / deepEqualStrict() for config and constant alignment checks.
  * - Use stripANSI() / wrapAnsi() / sliceAnsi() for plain-text logs or terminal dashboards.
  * - Use customInspect when domain objects need custom inspection output.
- * - Use inspectStream() for non-blocking ReadableStream inspection.
  */
 
 export interface InspectAgentOptions {
@@ -331,8 +328,3 @@ export function truncateTerminal(text: string, maxCols: number, ellipsis = "…"
 
 /** Symbol for custom inspection implementations. */
 export const customInspect: typeof Bun.inspect.custom = Bun.inspect.custom;
-
-/** Consume a ReadableStream and return its text content. */
-export async function inspectStream(stream: ReadableStream<Uint8Array>): Promise<string> {
-  return readableStreamToText(stream);
-}
