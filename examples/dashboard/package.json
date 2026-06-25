@@ -20,7 +20,7 @@
     "kimi-toolchain": "file:../.."
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "bun-types": "file:../../../bun/packages/bun-types"
   },
   "kimi": {
     "showcase": {
