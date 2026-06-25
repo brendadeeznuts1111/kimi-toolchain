@@ -44,9 +44,7 @@ function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
-if (!isDirectRun(import.meta.path)) {
-  // Imported as a module — skip CLI dispatch.
-} else {
+if (isDirectRun(import.meta.path)) {
   const argv = Bun.argv.slice(2);
   const env = { ...Bun.env };
 

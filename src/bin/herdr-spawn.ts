@@ -3,9 +3,7 @@ import { isDirectRun } from "../lib/bun-utils.ts";
 import { resolveAgentArgv } from "../lib/herdr-agents.ts";
 import { handoffInheritedSpawn } from "../lib/execve-handoff.ts";
 
-if (!isDirectRun(import.meta.path)) {
-  // Imported as a module — skip CLI dispatch.
-} else {
+if (isDirectRun(import.meta.path)) {
   const agent = Bun.argv[2];
   if (!agent) {
     process.stderr.write("usage: herdr-spawn <agent> [args...]\n");

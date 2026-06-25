@@ -77,7 +77,6 @@ export function pathLstat(path: PathLike) {
   return lstatSync(path);
 }
 
-
 export function movePath(oldPath: PathLike, newPath: PathLike): void {
   renameSync(oldPath, newPath);
 }

@@ -9,6 +9,7 @@
  *   bun run src/bin/machine-bun.ts --strict
  */
 
+import { isDirectRun } from "../lib/bun-utils.ts";
 import {
   auditMachineBunPolicy,
   machineCheckFailures,
@@ -99,6 +100,6 @@ async function main(): Promise<void> {
   process.exit(1);
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   await main();
 }

@@ -63,9 +63,7 @@ Examples:
 `);
 }
 
-if (!isDirectRun(import.meta.path)) {
-  // Imported as a module — skip CLI dispatch.
-} else {
+if (isDirectRun(import.meta.path)) {
   const [, cmd, ...args] = Bun.argv;
   const json = parseFlag(args, "--json");
 

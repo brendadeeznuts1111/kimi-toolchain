@@ -3,6 +3,7 @@
  * kimi-restore-baseline — CLI entry for restore-baseline command.
  */
 
+import { isDirectRun } from "../lib/bun-utils.ts";
 import { writeStdoutJsonSync } from "../lib/ndjson.ts";
 import {
   parseRestoreBaselineArgs,
@@ -78,7 +79,7 @@ async function main(): Promise<number> {
   return 0;
 }
 
-if (import.meta.main) {
+if (isDirectRun(import.meta.path)) {
   main()
     .then((code) => process.exit(code))
     .catch((err) => {

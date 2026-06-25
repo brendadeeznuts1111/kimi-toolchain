@@ -39,9 +39,7 @@ function parseArgs(argv: string[]) {
   };
 }
 
-if (!isDirectRun(import.meta.path)) {
-  // Imported as a module — skip CLI dispatch.
-} else {
+if (isDirectRun(import.meta.path)) {
   const options = parseArgs(Bun.argv.slice(2));
   if (options.help) {
     await writeOut(

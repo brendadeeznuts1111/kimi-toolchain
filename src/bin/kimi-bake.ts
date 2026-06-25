@@ -272,9 +272,7 @@ async function cmdBake(name: string, outputDir?: string, dryRun = false): Promis
 
 // ── Main ────────────────────────────────────────────────────────────
 
-if (!isDirectRun(import.meta.path)) {
-  // Imported as a module — skip CLI dispatch.
-} else {
+if (isDirectRun(import.meta.path)) {
   const result = await (async (): Promise<number> => {
     switch (command) {
       case "list":

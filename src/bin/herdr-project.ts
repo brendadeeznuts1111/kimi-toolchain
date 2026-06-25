@@ -77,9 +77,7 @@ Flags:
 `);
 }
 
-if (!isDirectRun(import.meta.path)) {
-  // Imported as a module — skip CLI dispatch.
-} else {
+if (isDirectRun(import.meta.path)) {
   const { flags, command, path: rawPath } = parseArgs(Bun.argv.slice(2));
   if (flags.help) {
     await printHelp();
