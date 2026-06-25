@@ -157,18 +157,10 @@ export function parseFrontmatterCliArgs(argv: string[]): FrontmatterCliArgs | { 
   return { file, json, depth };
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
 /** HTML document that logs parsed frontmatter from a headless WebView page. */
 export function frontmatterPreviewHtml(parsed: ParsedFrontmatter): string {
   const dataJson = JSON.stringify(parsed.data);
-  const bodyPreview = escapeHtml(parsed.body.slice(0, 4000));
+  const bodyPreview = Bun.escapeHTML(parsed.body.slice(0, 4000));
   const cLog = "console" + ".log";
   const cTable = "console" + ".table";
   return `<!DOCTYPE html>

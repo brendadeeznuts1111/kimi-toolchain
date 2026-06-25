@@ -54,7 +54,7 @@ function toEcosystem(check: WorkspaceCheck): EcosystemCheck {
     status: check.status,
     message: check.message,
     source: "workspace",
-    fixable: check.fixable,
+    fixable: check.fixable ?? false,
   };
 }
 
@@ -169,7 +169,7 @@ export async function auditEcosystemHealth(
       status: check.status,
       message: check.message,
       source: "kimi-config",
-      fixable: check.fixable,
+      fixable: check.fixable ?? false,
     });
   }
 
@@ -199,7 +199,7 @@ export async function auditEcosystemHealth(
           status: check.status,
           message: check.message,
           source: "canonical-references",
-          fixable: check.fixable,
+          fixable: check.fixable ?? false,
         });
       }
       fixPlan.push(...refs.fixPlan);
@@ -272,7 +272,7 @@ export async function auditEcosystemHealth(
           status: check.status,
           message: check.message,
           source: "dx-cloudflare",
-          fixable: check.fixable,
+          fixable: check.fixable ?? false,
         });
       }
     }
@@ -285,7 +285,7 @@ export async function auditEcosystemHealth(
           status: check.status,
           message: check.message,
           source: "dx-github",
-          fixable: check.fixable,
+          fixable: check.fixable ?? false,
         });
       }
     }

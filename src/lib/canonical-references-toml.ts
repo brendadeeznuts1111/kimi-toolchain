@@ -223,7 +223,9 @@ export const CANONICAL_REFERENCES_ARRAYS_MARKER =
 export function extractCanonicalReferencesTypesPrefix(existing: string): string {
   const idx = existing.indexOf(CANONICAL_REFERENCES_ARRAYS_MARKER);
   if (idx < 0) {
-    throw new Error(`missing ${CANONICAL_REFERENCES_ARRAYS_MARKER} in canonical-references-data.ts`);
+    throw new Error(
+      `missing ${CANONICAL_REFERENCES_ARRAYS_MARKER} in canonical-references-data.ts`
+    );
   }
   return existing.slice(0, idx).trimEnd();
 }

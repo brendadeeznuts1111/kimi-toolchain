@@ -4,7 +4,6 @@
  */
 
 import {
-  appendFileSync,
   cpSync,
   existsSync,
   lstatSync,
@@ -41,7 +40,9 @@ export function writeBytes(path: PathLike, data: string | Uint8Array): void {
 }
 
 export function appendText(path: PathLike, data: string): void {
-  appendFileSync(path, data);
+  const sink = Bun.file(path.toString()).writer();
+  sink.write(data);
+  sink.end();
 }
 
 export function listDir(path: PathLike): string[];

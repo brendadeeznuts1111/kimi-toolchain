@@ -258,7 +258,7 @@ const TOOL_CATEGORIES = [
 ] as const;
 
 const BIN_COUNT = 31;
-const LIB_COUNT = 415;
+const LIB_COUNT = 408;
 const UNIT_COUNT = 421;
 const INTEGRATION_COUNT = 17;
 const SMOKE_COUNT = 10;

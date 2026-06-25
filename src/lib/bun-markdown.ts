@@ -236,16 +236,12 @@ export function markdownToHtmlFallback(text: string): string {
   body = body.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
     const idx = codeBlocks.length;
     codeBlocks.push(
-      `<pre><code class="language-${lang || "text"}">${code.trimEnd().replace(/[&<>"]/g, (ch: string) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch] ?? ch)}</code></pre>`
+      `<pre><code class="language-${lang || "text"}">${Bun.escapeHTML(code.trimEnd())}</code></pre>`
     );
     return `\x00CODEBLOCK${idx}\x00`;
   });
 
-  body = body.replace(
-    /`([^`]+)`/g,
-    (_, code: string) =>
-      `<code>${code.replace(/[&<>"]/g, (ch: string) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch] ?? ch)}</code>`
-  );
+  body = body.replace(/`([^`]+)`/g, (_, code: string) => `<code>${Bun.escapeHTML(code)}</code>`);
   // Single-pass heading conversion: match 1–6 # characters.
   body = body.replace(/^(#{1,6})\s+(.+)$/gm, (_, hashes: string, content: string) => {
     const level = hashes.length;

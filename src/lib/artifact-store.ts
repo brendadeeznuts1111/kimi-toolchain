@@ -540,6 +540,10 @@ function resolveArtifactsRelativeDir(override?: string): string {
   return raw.replace(/^\/+/, "");
 }
 
+function runtimeHostname(): string {
+  return Bun.env.HOSTNAME ?? "unknown";
+}
+
 /** Persist gate run results under `{projectRoot}/.kimi/artifacts/{gateName}/`. */
 export class ArtifactStore {
   private readonly artifactsRelativeDir: string;
@@ -867,7 +871,7 @@ export class ArtifactStore {
       ...(lineageMermaid ? { lineageMermaid } : {}),
       ...identity,
       ...(parentRunId ? { parentRunId } : {}),
-      hostname: osHostname(),
+      hostname: runtimeHostname(),
       pid: process.pid,
       bunVersion: bunVersion(),
       resultSize,
@@ -893,7 +897,7 @@ export class ArtifactStore {
     if (!envelope) return;
 
     const metadata: ArtifactMetadata = {
-      hostname: osHostname(),
+      hostname: runtimeHostname(),
       pid: process.pid,
       bunVersion: bunVersion(),
       resultSize:

@@ -293,7 +293,7 @@ interface CheckResult {
   name: string;
   status: "ok" | "warn" | "error";
   message: string;
-  fixable: boolean;
+  fixable?: boolean;
   category?: string;
   autoFix?: string;
   taxonomyId?: string;
@@ -720,7 +720,7 @@ async function runEcosystemMode(projectRoot: string): Promise<number> {
       name: `${check.source}/${check.name}`,
       status: check.status,
       message: check.message,
-      fixable: check.fixable,
+      fixable: check.fixable ?? false,
     })),
     ecosystem: {
       blockers: report.blockers,

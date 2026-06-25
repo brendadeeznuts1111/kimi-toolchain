@@ -1273,7 +1273,10 @@ export function lintCanonicalReferencesLinkTables(tables: CanonicalReferencesLin
     if (doc.cursorCanvas !== undefined && !CURSOR_CANVAS_PATTERN.test(doc.cursorCanvas)) {
       violations.push(`${path}.cursorCanvas: must match "docs/canvases/*.canvas.tsx"`);
     }
-    if (doc.canvasId !== undefined && !isValidManifestId(doc.canvasId, violations, `${path}.canvasId`)) {
+    if (
+      doc.canvasId !== undefined &&
+      !isValidManifestId(doc.canvasId, violations, `${path}.canvasId`)
+    ) {
       continue;
     }
     if (

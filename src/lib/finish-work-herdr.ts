@@ -19,7 +19,7 @@ import {
   type FinishWorkReportV11,
 } from "./finish-work-report-schema.ts";
 
-export { FINISH_WORK_REPORT_FILENAME, finishWorkReportPath };
+export { FINISH_WORK_REPORT_FILENAME, finishWorkReportPath } from "./finish-work-report-schema.ts";
 import { gitBranch, gitRevParse } from "./git-helpers.ts";
 import { discoverHerdrProjectConfig } from "./herdr-project-config.ts";
 import { syncAgentsTabContext } from "./herdr-project-context.ts";

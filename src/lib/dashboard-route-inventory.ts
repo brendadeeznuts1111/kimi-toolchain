@@ -10,7 +10,7 @@ import {
 import { DASHBOARD_COOKIE_ROUTE_PATHS } from "./serve-cookies.ts";
 import { DASHBOARD_WS_PATH } from "./serve-websocket.ts";
 import { dashboardHtmlPath, loadDashboardCards } from "./dashboard-card-registry.ts";
-import { readText } from "./bun-io.ts";
+import { readText, writeText } from "./bun-io.ts";
 
 export interface DashboardServeRoute {
   path: string;
@@ -128,11 +128,11 @@ export interface DashboardRouteLintIssue {
 }
 
 /** Registry cards must render a panel; probed routes must exist in static or artifact tables. */
-export function lintDashboardRouteParity(repoRoot: string): DashboardRouteLintIssue[] {
+export async function lintDashboardRouteParity(repoRoot: string): Promise<DashboardRouteLintIssue[]> {
   const issues: DashboardRouteLintIssue[] = [];
   const inventory = buildDashboardRouteInventory();
   const cards = loadDashboardCards(repoRoot);
-  const html = readText(dashboardHtmlPath(repoRoot));
+  const html = await Bun.file(dashboardHtmlPath(repoRoot)).text();
   const panels = new Set([...html.matchAll(/id="(card-[^"]+)"/g)].map((m) => m[1]!));
 
   const staticPaths = new Set(inventory.staticRoutes.map((r) => r.path));
@@ -179,18 +179,18 @@ export function formatDashboardRouteInventoryBlock(inventory: DashboardRouteInve
 <!-- /dashboard-route-inventory:AUTO -->`;
 }
 
-export function syncDashboardRouteDocs(
+export async function syncDashboardRouteDocs(
   repoRoot: string,
   options: { check?: boolean } = {}
-): string[] {
+): Promise<string[]> {
   const inventory = buildDashboardRouteInventory();
   const block = formatDashboardRouteInventoryBlock(inventory);
   const violations: string[] = [];
 
   const readmePath = join(repoRoot, "examples/dashboard/README.md");
   const urlsPath = join(repoRoot, "examples/dashboard-urls.md");
-  const readme = readText(readmePath);
-  let urlsDoc = readText(urlsPath);
+  const readme = await Bun.file(readmePath).text();
+  let urlsDoc = await Bun.file(urlsPath).text();
 
   if (!README_INVENTORY_BLOCK.test(readme)) {
     violations.push("examples/dashboard/README.md missing dashboard-route-inventory markers");
@@ -199,7 +199,7 @@ export function syncDashboardRouteDocs(
     if (match !== block)
       violations.push("examples/dashboard/README.md route inventory block is stale");
   } else {
-    Bun.write(readmePath, readme.replace(README_INVENTORY_BLOCK, block));
+    writeText(readmePath, readme.replace(README_INVENTORY_BLOCK, block));
   }
 
   const urlsLine = `Examples dashboard (\`handlers/routes.ts\` + \`handlers/artifacts.ts\`) — **${inventory.total}** routes total (see [dashboard/README.md](dashboard/README.md)).`;
@@ -270,7 +270,7 @@ export function syncDashboardRouteDocs(
   }
 
   if (!options.check && violations.length === 0) {
-    Bun.write(urlsPath, urlsDoc);
+    writeText(urlsPath, urlsDoc);
   }
 
   return violations;
@@ -366,11 +366,11 @@ export function parseRoutesHandlerImports(routesSource: string): Map<string, str
 }
 
 /** Verify every wired handler is imported (or local) and exported from its module. */
-export function lintDashboardHandlerExports(
+export async function lintDashboardHandlerExports(
   repoRoot: string,
   routesSource: string,
   options: { exportCache?: Map<string, Set<string>> } = {}
-): string[] {
+): Promise<string[]> {
   const violations: string[] = [];
   const wired = wiredDashboardRouteHandlers(routesSource);
   const imports = parseRoutesHandlerImports(routesSource);
@@ -391,7 +391,7 @@ export function lintDashboardHandlerExports(
     }
     const filePath = join(handlersDir, relFile.replace(/^\.\//, ""));
     if (!exportCache.has(filePath)) {
-      const source = readText(filePath);
+      const source = await Bun.file(filePath).text();
       const scan = transpiler.scan(source);
       exportCache.set(filePath, new Set(scan.exports));
     }

@@ -3,7 +3,7 @@
  */
 
 import { dashboardHtmlPath, loadDashboardCards } from "./dashboard-card-registry.ts";
-import { readText } from "./bun-io.ts";
+import { readText, writeText } from "./bun-io.ts";
 
 export const DASHBOARD_CARD_SHELLS_BEGIN = "<!-- DASHBOARD_CARD_SHELLS:AUTO -->";
 export const DASHBOARD_CARD_SHELLS_END = "<!-- /DASHBOARD_CARD_SHELLS:AUTO -->";
@@ -66,7 +66,7 @@ export function syncDashboardCardShells(
   }
 
   if (current !== expectedBlock) {
-    Bun.write(htmlPath, html.replace(blockRe, expectedBlock));
+    writeText(htmlPath, html.replace(blockRe, expectedBlock));
   }
   return violations;
 }

@@ -1,16 +1,16 @@
 /**
- * Bun-native NDJSON (JSONL) helpers.
+ * Bun-native NDJSON (JSONL) helpers using FileSink for appends.
  *
  * @see https://bun.com/docs/runtime/jsonl
+ * @see https://bun.com/docs/runtime/bun-file#filesink
  *
  * - `readNdjsonFile` — full-file `parseChunk` drain with error recovery
  * - `streamNdjsonRecords` — `file.stream()` + `Bun.JSONL.parseChunk` (lazy)
- * - `appendNdjsonRecord` — `Bun.write(..., { create: true, append: true })` when supported
+ * - `appendNdjsonRecord` — `Bun.file(path).writer()` (FileSink)
  */
 
-import { appendText, makeDir, removeFile } from "./bun-io.ts";
-import { dirname, join } from "path";
-import { tmpdir } from "os";
+import { makeDir } from "./bun-io.ts";
+import { dirname } from "path";
 import { safeParse } from "./safe-parse.ts";
 
 /** Serialize one JSONL/NDJSON record (includes trailing newline). */
@@ -29,10 +29,12 @@ export function writeStdoutJsonSync(value: unknown, indent: number | null = 2): 
   process.stdout.write(`${body}\n`);
 }
 
-/** Sync append for hot paths — uses appendText after mkdir. */
+/** Sync append for hot paths — uses Bun.file().writer() (FileSink). */
 export function appendNdjsonRecordSync(path: string, record: unknown): void {
   makeDir(dirname(path), { recursive: true });
-  appendText(path, formatNdjsonLine(record));
+  const sink = Bun.file(path).writer();
+  sink.write(formatNdjsonLine(record));
+  sink.end();
 }
 
 /** Parse newline-delimited JSON text into validated records. */
@@ -95,25 +97,6 @@ function parseChunkStringDrain<T>(text: string, validator?: (value: unknown) => 
   return out;
 }
 
-type BunWriteAppendOptions = {
-  create?: boolean;
-  createPath?: boolean;
-  append?: boolean;
-};
-
-const WRITE_APPEND: BunWriteAppendOptions = { create: true, append: true };
-const WRITE_CREATE: BunWriteAppendOptions = { create: true, append: false };
-type AppendMode = "bun-write" | "fs-append";
-let appendMode: AppendMode | null = null;
-
-async function bunWrite(
-  path: string,
-  data: string,
-  options?: BunWriteAppendOptions
-): Promise<void> {
-  await Bun.write(path, data, options as Parameters<typeof Bun.write>[2]);
-}
-
 /** Read all JSONL records using Bun.JSONL.parseChunk with error recovery. */
 export async function readNdjsonFile<T = unknown>(path: string): Promise<T[]> {
   if (!(await Bun.file(path).exists())) return [];
@@ -162,22 +145,12 @@ export async function* streamNdjsonRecords<T = unknown>(
   }
 }
 
-/**
- * Append one JSONL record.
- *
- * Prefers idiomatic Bun append:
- * `await Bun.write(path, JSON.stringify(entry) + '\\n', { create: true, append: true })`
- *
- * Bun 1.3.14 truncates on append — we probe once and fall back to `appendText`.
- */
+/** Append one JSONL record via Bun.file().writer() (FileSink). */
 export async function appendNdjsonRecord(path: string, record: unknown): Promise<void> {
   makeDir(dirname(path), { recursive: true });
-  const line = formatNdjsonLine(record);
-  if ((await resolveAppendMode()) === "bun-write") {
-    await bunWrite(path, line, WRITE_APPEND);
-    return;
-  }
-  appendText(path, line);
+  const sink = Bun.file(path).writer();
+  sink.write(formatNdjsonLine(record));
+  await sink.end();
 }
 
 /** Rewrite a JSONL file from an array of records. */
@@ -190,29 +163,6 @@ export async function writeNdjsonFile(path: string, records: unknown[]): Promise
 
 /** Alias for callers that emphasize full-file replacement. */
 export const rewriteNdjsonFile = writeNdjsonFile;
-
-async function resolveAppendMode(): Promise<AppendMode> {
-  if (appendMode) return appendMode;
-
-  const probe = join(
-    tmpdir(),
-    `kimi-bun-append-${Bun.hash(String(process.pid)).toString(16)}.jsonl`
-  );
-  try {
-    await bunWrite(probe, "a\n", WRITE_CREATE);
-    await bunWrite(probe, "b\n", WRITE_APPEND);
-    appendMode = (await Bun.file(probe).text()) === "a\nb\n" ? "bun-write" : "fs-append";
-  } catch {
-    appendMode = "fs-append";
-  } finally {
-    try {
-      removeFile(probe);
-    } catch {
-      // ignore probe cleanup failures
-    }
-  }
-  return appendMode;
-}
 
 function appendChunk(
   buffer: Uint8Array<ArrayBufferLike>,
@@ -261,9 +211,4 @@ function drainParseChunk(buffer: Uint8Array<ArrayBufferLike>): ParseChunkDrain {
   }
 
   return { buffer: remaining, values, stalled: false };
-}
-
-/** @internal Test hook to reset cached append mode. */
-export function resetAppendModeCacheForTests(): void {
-  appendMode = null;
 }

@@ -6,7 +6,7 @@
  */
 
 import { join, relative } from "path";
-import { pathExists } from "./bun-io.ts";
+import { pathExists, writeText } from "./bun-io.ts";
 import { safeToml } from "./utils.ts";
 
 /** Result of applying an auto-fix to a finding. */
@@ -122,7 +122,7 @@ function buildHttp3AutoFix(
       modified[insertIdx] = fixedLine;
 
       // Write the patched file
-      Bun.write(absPath, modified.join("\n"));
+      writeText(absPath, modified.join("\n"));
 
       result.ok = true;
       result.diff = `  ${originalLine.trim()}\n+ ${indent}  http3: true,\n  ${originalLine.trim()}`;

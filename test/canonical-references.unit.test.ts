@@ -54,6 +54,7 @@ import {
   referencesContentEqual,
 } from "../src/lib/canonical-references.ts";
 import {
+  extractCanonicalReferencesTypesPrefix,
   generateCanonicalReferencesDataTs,
   lintCanonicalReferencesToml,
   parseCanonicalReferencesToml,
@@ -63,6 +64,11 @@ import {
 import { stableStringify } from "../src/lib/build-constants-registry.ts";
 
 describe("canonical-references", () => {
+  const dataTypesPrefix = async () =>
+    extractCanonicalReferencesTypesPrefix(
+      await Bun.file(new URL("../src/lib/canonical-references-data.ts", import.meta.url)).text()
+    );
+
   test("ecosystem includes bun, effect, kimi-code, herdr", () => {
     const ids = ECOSYSTEM_REFERENCES.map((ref) => ref.id);
     expect(ids).toContain("bun");
@@ -749,7 +755,7 @@ describe("canonical-references", () => {
     );
   });
 
-  test("toml round-trip preserves link tables", () => {
+  test("toml round-trip preserves link tables", async () => {
     const manifest = buildCanonicalReferencesManifest();
     const source: CanonicalReferencesTomlSource = {
       manifest: { schemaVersion: CANONICAL_REFERENCES_SCHEMA_VERSION },
@@ -762,10 +768,12 @@ describe("canonical-references", () => {
     expect(parsed.ecosystem).toEqual(source.ecosystem);
     expect(parsed.localDocs).toEqual(source.localDocs);
     expect(parsed.repos).toEqual(source.repos);
-    expect(generateCanonicalReferencesDataTs(parsed).length).toBeGreaterThan(100);
+    expect(
+      generateCanonicalReferencesDataTs(parsed, await dataTypesPrefix()).length
+    ).toBeGreaterThan(100);
   });
 
-  test("generated TS arrays match snapshot", () => {
+  test("generated TS arrays match snapshot", async () => {
     const manifest = buildCanonicalReferencesManifest();
     const source: CanonicalReferencesTomlSource = {
       manifest: { schemaVersion: CANONICAL_REFERENCES_SCHEMA_VERSION },
@@ -773,7 +781,7 @@ describe("canonical-references", () => {
       localDocs: manifest.localDocs,
       repos: manifest.repos,
     };
-    const tsSource = generateCanonicalReferencesDataTs(source);
+    const tsSource = generateCanonicalReferencesDataTs(source, await dataTypesPrefix());
     expect(tsSource).toMatchSnapshot();
   });
 

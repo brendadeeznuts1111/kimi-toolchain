@@ -12,10 +12,11 @@
  * writer.writeJsonSchema("effect-gates-report", report) for schema-envelope safety.
  */
 
-import { relative, resolve } from "path";
+import { dirname, relative, resolve } from "path";
 import ts from "typescript";
 import { effectGatesPath } from "./paths.ts";
 import { getProjectName, safeParse } from "./utils.ts";
+import { makeDir } from "./bun-io.ts";
 
 /** Report schema version. Bump only on breaking shape changes. */
 export const EFFECT_GATES_REPORT_SCHEMA_VERSION = 1;
@@ -598,10 +599,10 @@ export async function appendEffectGatesSnapshot(
   report: EffectGatesReport
 ): Promise<void> {
   const path = effectGatesPath(projectRoot);
-  const file = Bun.file(path);
-  const existing = (await file.exists()) ? await file.text() : "";
-  const record = `${JSON.stringify(report)}\n`;
-  await Bun.write(path, `${existing}${record}`, { createPath: true });
+  makeDir(dirname(path), { recursive: true });
+  const sink = Bun.file(path).writer();
+  sink.write(`${JSON.stringify(report)}\n`);
+  await sink.end();
 }
 
 /** Read recent effect-gates snapshots, newest first. */

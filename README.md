@@ -191,6 +191,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run lint:links:online`             | Lint script                            |
 | `bun run lint:names`                    | Lint script                            |
 | `bun run lint:parallel`                 | Lint script                            |
+| `bun run lint:purity`                   | Lint script                            |
 | `bun run lint:skills`                   | Lint script                            |
 | `bun run lint:taxonomy-coverage`        | Lint script                            |
 | `bun run lint:terms`                    | Lint script                            |
@@ -310,7 +311,6 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun test --parallel=4`                | Full suite across 4 workers                                        |
 | `bun test --shard=1/3`                 | CI sharding (`--parallel --shard <M/N>`)                           |
 | `bun run test:changed`                 | Only tests impacted by uncommitted changes                         |
-| `bun run test:changed:watch`           | Changed tests watcher                                              |
 | `bun run test:coverage`                | Full suite with Bun coverage report                                |
 | `bun run test:coverage:fast`           | Unit coverage at the fast timeout (R-Score gate)                   |
 | `bun run test:coverage:ci`             | Full suite + coverage (60s timeout, lcov, `--bail`)                |

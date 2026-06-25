@@ -253,6 +253,20 @@ export function isAuthError(err: unknown): boolean {
   return err instanceof Error && /\b40[13]\b|Authentication error/.test(err.message);
 }
 
+export function parseSessionHours(raw = ""): number {
+  const hourMatch = raw.match(/^(\d+)h$/);
+  if (hourMatch) return Number.parseInt(hourMatch[1]!, 10);
+  const dayMatch = raw.match(/^(\d+)d$/);
+  if (dayMatch) return Number.parseInt(dayMatch[1]!, 10) * 24;
+  return 24;
+}
+
+export function domainToProjectName(domain?: string): string {
+  if (!domain) return "";
+  const host = domain.replace(/\/\*.*/, "").replace(/^https?:\/\//, "");
+  return host.split(".")[0] ?? "";
+}
+
 export function listServiceTokens(accountId: string, apiToken: string): Promise<ServiceToken[]> {
   return apiGet<ServiceToken[]>(accountId, apiToken, "/access/service_tokens");
 }
@@ -358,7 +372,11 @@ export function auditApps(apps: AccessApplication[], tokens: ServiceToken[]): Ap
         });
       }
 
-      if (!policy.require.some((rule) => "auth_method" in rule || "gsuite" in rule || "azureAD" in rule)) {
+      if (
+        !policy.require.some(
+          (rule) => "auth_method" in rule || "gsuite" in rule || "azureAD" in rule
+        )
+      ) {
         findings.push({
           app,
           policy,
@@ -675,68 +693,6 @@ const INFRASTRUCTURE_MAP: Record<
   }
 > = loadInfraMap();
 
-type WranglerJsonConfig = {
-  name?: string;
-  r2_buckets?: Array<{ bucket_name?: string }>;
-  d1_databases?: Array<{ database_name?: string }>;
-  kv_namespaces?: Array<{ id?: string }>;
-};
-
-function applyWranglerJsonConfig(
-  parsed: WranglerJsonConfig,
-  result: {
-    workerName?: string;
-    r2Buckets?: string[];
-    d1Databases?: string[];
-    kvNamespaces?: string[];
-  }
-): void {
-  if (parsed.name && !result.workerName) result.workerName = parsed.name;
-  if (parsed.r2_buckets?.length && !result.r2Buckets) {
-    result.r2Buckets = parsed.r2_buckets
-      .map((entry) => entry.bucket_name)
-      .filter((name): name is string => Boolean(name));
-  }
-  if (parsed.d1_databases?.length && !result.d1Databases) {
-    result.d1Databases = parsed.d1_databases
-      .map((entry) => entry.database_name)
-      .filter((name): name is string => Boolean(name));
-  }
-  if (parsed.kv_namespaces?.length && !result.kvNamespaces) {
-    result.kvNamespaces = parsed.kv_namespaces
-      .map((entry) => entry.id)
-      .filter((id): id is string => Boolean(id));
-  }
-}
-
-function applyWranglerTextBindings(
-  text: string,
-  result: {
-    workerName?: string;
-    r2Buckets?: string[];
-    d1Databases?: string[];
-    kvNamespaces?: string[];
-  }
-): void {
-  const r2Matches = [...text.matchAll(/bucket_name\s*=\s*"([^"]+)"/g)];
-  const d1Matches = [...text.matchAll(/database_name\s*=\s*"([^"]+)"/g)];
-  const kvMatches = [...text.matchAll(/id\s*=\s*"([^"]+)"/g)];
-  const nameMatches = [...text.matchAll(/name\s*=\s*"([^"]+)"/g)];
-
-  if (r2Matches.length && !result.r2Buckets) {
-    result.r2Buckets = r2Matches.map((m) => m[1]!);
-  }
-  if (d1Matches.length && !result.d1Databases) {
-    result.d1Databases = d1Matches.map((m) => m[1]!);
-  }
-  if (kvMatches.length && !result.kvNamespaces) {
-    result.kvNamespaces = kvMatches.map((m) => m[1]!);
-  }
-  if (nameMatches.length && !result.workerName) {
-    result.workerName = nameMatches[0]![1];
-  }
-}
-
 export async function discoverInfrastructure(
   app: AccessApplication,
   localPath?: string
@@ -774,10 +730,41 @@ export async function discoverInfrastructure(
         try {
           const text = await f.text();
           if (wp.endsWith(".jsonc") || wp.endsWith(".json")) {
-            const parsed = safeJsonc<WranglerJsonConfig | null>(text, null);
-            if (parsed) applyWranglerJsonConfig(parsed, result);
+            const parsed = safeJsonc<{
+              name?: string;
+              r2_buckets?: Array<{ bucket_name?: string }>;
+              d1_databases?: Array<{ database_name?: string }>;
+              kv_namespaces?: Array<{ id?: string }>;
+            } | null>(text, null);
+            if (parsed) {
+              if (parsed.name && !result.workerName) result.workerName = parsed.name;
+              if (parsed.r2_buckets?.length && !result.r2Buckets) {
+                result.r2Buckets = parsed.r2_buckets
+                  .map((entry) => entry.bucket_name)
+                  .filter((name): name is string => Boolean(name));
+              }
+              if (parsed.d1_databases?.length && !result.d1Databases) {
+                result.d1Databases = parsed.d1_databases
+                  .map((entry) => entry.database_name)
+                  .filter((name): name is string => Boolean(name));
+              }
+              if (parsed.kv_namespaces?.length && !result.kvNamespaces) {
+                result.kvNamespaces = parsed.kv_namespaces
+                  .map((entry) => entry.id)
+                  .filter((id): id is string => Boolean(id));
+              }
+            }
           }
-          applyWranglerTextBindings(text, result);
+          const r2Matches = [...text.matchAll(/bucket_name\s*=\s*"([^"]+)"/g)];
+          const d1Matches = [...text.matchAll(/database_name\s*=\s*"([^"]+)"/g)];
+          const kvMatches = [...text.matchAll(/id\s*=\s*"([^"]+)"/g)];
+          const nameMatches = [...text.matchAll(/name\s*=\s*"([^"]+)"/g)];
+          if (r2Matches.length && !result.r2Buckets) result.r2Buckets = r2Matches.map((m) => m[1]!);
+          if (d1Matches.length && !result.d1Databases)
+            result.d1Databases = d1Matches.map((m) => m[1]!);
+          if (kvMatches.length && !result.kvNamespaces)
+            result.kvNamespaces = kvMatches.map((m) => m[1]!);
+          if (nameMatches.length && !result.workerName) result.workerName = nameMatches[0]![1];
         } catch {
           /* ignore parse errors */
         }

@@ -12,7 +12,7 @@
 
 import type { HealthCheck, HealthReport } from "./health-check.ts";
 import { statusIcon as healthStatusIcon, aggregateChecks } from "./health-check.ts";
-import { appendText, makeDir } from "./bun-io.ts";
+import { makeDir } from "./bun-io.ts";
 import { inspectAgent } from "./inspect.ts";
 import { isAgentContext } from "./tool-runner.ts";
 import { getStepBudgetStatus } from "./step-budget.ts";
@@ -471,7 +471,9 @@ export class Logger {
     if (this.logs.length === 0) return;
     makeDir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
     const lines = this.logs.map((l) => inspectAgent(l)).join("\n") + "\n";
-    appendText(path, lines);
+    const sink = Bun.file(path).writer();
+    sink.write(lines);
+    await sink.end();
     this.logs.length = 0;
   }
 }
