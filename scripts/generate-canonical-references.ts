@@ -20,6 +20,7 @@ import {
   readCanonicalReferencesManifest,
 } from "../src/lib/canonical-references.ts";
 import {
+  extractCanonicalReferencesTypesPrefix,
   generateCanonicalReferencesDataTs,
   lintCanonicalReferencesToml,
   parseCanonicalReferencesToml,
@@ -81,9 +82,15 @@ async function main(): Promise<void> {
   const { raw, source } = await loadTomlSource();
   assertTomlLint(raw);
 
-  const generatedTs = await oxfmtDataTs(generateCanonicalReferencesDataTs(source));
-  const generated = buildCanonicalReferencesManifestFromTables(source);
   const existingDataTs = readExistingDataTs();
+  if (!existingDataTs) {
+    console.error("src/lib/canonical-references-data.ts missing — cannot generate arrays");
+    process.exit(1);
+  }
+  const generatedTs = await oxfmtDataTs(
+    generateCanonicalReferencesDataTs(source, extractCanonicalReferencesTypesPrefix(existingDataTs))
+  );
+  const generated = buildCanonicalReferencesManifestFromTables(source);
   const existing = await readCanonicalReferencesManifest(ROOT);
 
   if (jsonOnly) {

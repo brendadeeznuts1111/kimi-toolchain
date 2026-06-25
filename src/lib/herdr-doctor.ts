@@ -1,9 +1,7 @@
-import { readlinkSync } from "node:fs";
 import { writeStdoutLine } from "./cli-contract.ts";
 import { pathExists, pathLstat, readText } from "./bun-io.ts";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 
-import { join } from "path";
 import { TOML } from "bun";
 import { MIN_INTEGRATION_VERSIONS, REQUIRED_INTEGRATIONS, SPAWN_AGENTS } from "./herdr-agents.ts";
 import { resolveHerdrSession } from "./herdr-project-cli.ts";
@@ -216,7 +214,7 @@ export function buildHerdrSocketDoctorHints(
 }
 
 function dxDir(home = homeDir()): string {
-  return join(home, ".config", "dx");
+  return new URL(".config/dx", Bun.pathToFileURL(`${home}/`)).pathname;
 }
 
 function expand(path: string, home = homeDir()): string {
@@ -274,8 +272,12 @@ function readJson(path: string) {
 function isSymlinkTo(path: string, expectedTarget: string): boolean {
   try {
     if (!pathLstat(path).isSymbolicLink()) return false;
-    const target = readlinkSync(path);
-    const resolved = target.startsWith("/") ? target : join(path, "..", target);
+    const result = Bun.spawnSync(["readlink", path], { stdout: "pipe", stderr: "pipe" });
+    if (result.exitCode !== 0) return false;
+    const target = result.stdout.toString().trim();
+    const resolved = target.startsWith("/")
+      ? target
+      : Bun.fileURLToPath(new URL(target, new URL(".", Bun.pathToFileURL(path))));
     return resolved === expectedTarget;
   } catch {
     return false;
@@ -283,7 +285,7 @@ function isSymlinkTo(path: string, expectedTarget: string): boolean {
 }
 
 function scanProjectProfiles(home = homeDir()) {
-  const projects = readJson(join(dxDir(home), "projects.json")) as {
+  const projects = readJson(new URL("projects.json", Bun.pathToFileURL(`${dxDir(home)}/`)).pathname) as {
     topProjects?: Array<{ key?: string; path?: string }>;
   } | null;
   const rows: Array<{ key: string; path: string; label: string }> = [];
@@ -358,17 +360,17 @@ function lintConfig(configPath: string) {
 }
 
 function checkSpawnWrappers(home = homeDir()) {
-  const spawnDir = join(home, ".local", "bin");
+  const spawnDir = new URL(".local/bin", Bun.pathToFileURL(`${home}/`)).pathname;
   const missing: string[] = [];
   for (const agent of SPAWN_AGENTS) {
-    const path = join(spawnDir, `herdr-spawn-${agent}`);
+    const path = new URL(`herdr-spawn-${agent}`, Bun.pathToFileURL(`${spawnDir}/`)).pathname;
     if (!pathExists(path)) missing.push(agent);
   }
   return missing;
 }
 
 function checkShellModule(home = homeDir()) {
-  const zshrc = join(home, ".zshrc");
+  const zshrc = new URL(".zshrc", Bun.pathToFileURL(`${home}/`)).pathname;
   try {
     return readText(zshrc).includes("herdr.sh");
   } catch {
@@ -409,10 +411,12 @@ function parseVersion(versionText: string | null | undefined) {
 
 export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home = homeDir()) {
   const dx = dxDir(home);
-  const manifestPath = join(dx, "herdr.json");
-  const configPath = join(dx, "herdr.toml");
-  const runtimeConfig = join(home, ".config", "herdr", "config.toml");
-  const skillPath = join(home, ".config", "agents", "skills", "herdr", "SKILL.md");
+  const dxUrl = Bun.pathToFileURL(`${dx}/`);
+  const homeUrl = Bun.pathToFileURL(`${home}/`);
+  const manifestPath = new URL("herdr.json", dxUrl).pathname;
+  const configPath = new URL("herdr.toml", dxUrl).pathname;
+  const runtimeConfig = new URL(".config/herdr/config.toml", homeUrl).pathname;
+  const skillPath = new URL(".config/agents/skills/herdr/SKILL.md", homeUrl).pathname;
   const ensureSessionRunning = options.requireSessionRunning ?? requireSessionRunning;
 
   const blockers: string[] = [];
@@ -426,7 +430,7 @@ export async function inspectHerdrDoctor(options: HerdrDoctorOptions = {}, home 
   const configExists = pathExists(configPath);
   const manifest = readJson(manifestPath);
   const skillExists = pathExists(skillPath);
-  const shellModuleExists = pathExists(join(home, ".config", "shell", "herdr.sh"));
+  const shellModuleExists = pathExists(new URL(".config/shell/herdr.sh", homeUrl).pathname);
   const shellSourced = checkShellModule(home);
   const worktreesDir = expand(
     typeof manifest?.worktreesDir === "string" ? manifest.worktreesDir : "~/.herdr/worktrees",

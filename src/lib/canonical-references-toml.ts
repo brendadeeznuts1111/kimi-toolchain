@@ -3,69 +3,12 @@
  */
 
 import { join } from "path";
-
-export const CANONICAL_REFERENCES_SCHEMA_VERSION = 1;
-
-export type ReferenceKind =
-  | "runtime"
-  | "library"
-  | "product"
-  | "platform"
-  | "docs"
-  | "repo"
-  | "mcp";
-
-export type EcosystemReferenceStatus = "active" | "deprecated" | "experimental" | "external-fork";
-
-export interface EcosystemReference {
-  id: string;
-  name: string;
-  kind: ReferenceKind;
-  homepage: string;
-  docs: string;
-  package?: string;
-  usage: string;
-  minVersion?: string;
-  install?: string;
-  repoId?: string;
-  noRepo?: true;
-  status?: EcosystemReferenceStatus;
-}
-
-export interface LocalDocReference {
-  id: string;
-  repoPath: string;
-  runtimePath: string;
-  purpose: string;
-  cursorCanvas?: string;
-  canvasPage?: string;
-  canvasId?: string;
-  canvasVersion?: string;
-  canvasLayer?: string;
-  canvasOpenWhen?: string;
-  canvasReadOrder?: number;
-  canvasInfluences?: readonly string[];
-}
-
-export type RepoRole = "upstream" | "tool" | "dependency";
-export type RepoLanguage = "typescript" | "rust" | "javascript";
-export type RepoFramework = "bun" | "node" | "effect" | "oxc";
-
-export interface RepoReference {
-  id: string;
-  name: string;
-  url: string;
-  description?: string;
-  defaultBranch?: string;
-  ciStatusUrl?: string;
-  clonePath?: string;
-  provides?: readonly string[];
-  role?: RepoRole;
-  language?: RepoLanguage;
-  frameworks?: readonly RepoFramework[];
-  expectedPackageName?: string;
-}
-
+import {
+  CANONICAL_REFERENCES_SCHEMA_VERSION,
+  type EcosystemReference,
+  type LocalDocReference,
+  type RepoReference,
+} from "./canonical-references-data.ts";
 import {
   lintCanonicalReferencesLinkTables,
   lintManifestBunNative,
@@ -274,118 +217,23 @@ function formatTsObject(item: Record<string, unknown>, indent = "  "): string {
   return lines.join("\n");
 }
 
-/** Type definitions prepended to generated canonical-references-data.ts. */
-export function canonicalReferencesTypeDefinitions(): string {
-  return `/**
- * Canonical reference type definitions and constants.
- *
- * Prepended to auto-generated canonical-references-data.ts so consumers share
- * types without a separate shard or circular imports through canonical-references.ts.
- */
+export const CANONICAL_REFERENCES_ARRAYS_MARKER =
+  "// Auto-generated arrays from canonical-references.toml. Do not edit.";
 
-export const CANONICAL_REFERENCES_SCHEMA_VERSION = 1;
-
-export type ReferenceKind =
-  | "runtime"
-  | "library"
-  | "product"
-  | "platform"
-  | "docs"
-  | "repo"
-  | "mcp";
-
-export type EcosystemReferenceStatus = "active" | "deprecated" | "experimental" | "external-fork";
-
-export interface EcosystemReference {
-  id: string;
-  name: string;
-  kind: ReferenceKind;
-  homepage: string;
-  docs: string;
-  /** npm package name when applicable */
-  package?: string;
-  /** When agents should reach for this stack */
-  usage: string;
-  minVersion?: string;
-  install?: string;
-  /** Corresponding REPO_REFERENCES id. Falls back to convention \`<id>-upstream\` when absent. */
-  repoId?: string;
-  /** Set true when no repo entry is expected (e.g. platform services, hosted MCPs). */
-  noRepo?: true;
-  /** Lifecycle status — agents should avoid deprecated entries. Defaults to "active" when absent. */
-  status?: EcosystemReferenceStatus;
-}
-
-/**
- * Manifest index row for a local documentation file.
- * These are path pointers and human-readable purposes —
- * NOT \`dx.config.toml\` keys. Boundary semantics (toolchain vs Herdr,
- * global vs project) live in the doc content at id \`namespace\`.
- */
-export interface LocalDocReference {
-  id: string;
-  repoPath: string;
-  runtimePath: string;
-  purpose: string;
-  /** Repo-relative Cursor Canvas path; IDE-only pointer — not synced to ~/.kimi-code/ */
-  cursorCanvas?: string;
-  /** Canvas display page name (e.g. "Doc links"). Matches CANVAS_ROUTING.page. */
-  canvasPage?: string;
-  /** Canvas self-identifier (e.g. "doc-links-and-see-ladder"). Matches CANVAS_ROUTING.id. */
-  canvasId?: string;
-  /** Canvas version string (e.g. "0.1.0"). From CANVAS_ROUTING.version. */
-  canvasVersion?: string;
-  /** Canvas layer label (e.g. "Doc URL lint"). From CANVAS_ROUTING.layer. */
-  canvasLayer?: string;
-  /** When to open hint (e.g. "@see ladder · docs/references"). From CANVAS_ROUTING.openWhen. */
-  canvasOpenWhen?: string;
-  /** Read-order grouping (1=Hub, 2=Config/Namespace, 3=Cross-ref, 4=Scaffold, 5-6=Herdr). */
-  canvasReadOrder?: number;
-  /** examples/dashboard card ids (\`card-*\`) this canvas influences — v5.4 wiring SSOT */
-  canvasInfluences?: readonly string[];
-}
-
-export type RepoRole = "upstream" | "tool" | "dependency";
-
-export type RepoLanguage = "typescript" | "rust" | "javascript";
-
-export type RepoFramework = "bun" | "node" | "effect" | "oxc";
-
-export interface RepoReference {
-  id: string;
-  name: string;
-  url: string;
-  description?: string;
-  defaultBranch?: string;
-  ciStatusUrl?: string;
-  clonePath?: string;
-  /** EcosystemReference ids this repository is the canonical source for. */
-  provides?: readonly string[];
-  role?: RepoRole;
-  language?: RepoLanguage;
-  frameworks?: readonly RepoFramework[];
-  /** Expected package.json \`name\` when clonePath is validated. Defaults to \`name\`. */
-  expectedPackageName?: string;
-}
-
-export interface CanonicalReferencesManifest {
-  schemaVersion: typeof CANONICAL_REFERENCES_SCHEMA_VERSION;
-  generatedAt: string;
-  toolchainVersion: string;
-  ecosystem: EcosystemReference[];
-  localDocs: LocalDocReference[];
-  repos: RepoReference[];
-}`;
+export function extractCanonicalReferencesTypesPrefix(existing: string): string {
+  const idx = existing.indexOf(CANONICAL_REFERENCES_ARRAYS_MARKER);
+  if (idx < 0) {
+    throw new Error(`missing ${CANONICAL_REFERENCES_ARRAYS_MARKER} in canonical-references-data.ts`);
+  }
+  return existing.slice(0, idx).trimEnd();
 }
 
 /** Generate src/lib/canonical-references-data.ts source from parsed TOML. */
-export function generateCanonicalReferencesDataTs(source: CanonicalReferencesTomlSource): string {
-  const blocks: string[] = [
-    canonicalReferencesTypeDefinitions(),
-    "",
-    "// Auto-generated arrays from canonical-references.toml. Do not edit.",
-    "",
-  ];
+export function generateCanonicalReferencesDataTs(
+  source: CanonicalReferencesTomlSource,
+  typesPrefix: string
+): string {
+  const blocks: string[] = [typesPrefix, "", CANONICAL_REFERENCES_ARRAYS_MARKER, ""];
 
   const tables: [string, unknown[], string][] = [
     ["ECOSYSTEM_REFERENCES", source.ecosystem, "EcosystemReference"],

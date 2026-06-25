@@ -211,9 +211,6 @@ function stripFsImports(text: string): string {
 
 function normalizeNodeImports(text: string): string {
   return text.replace(IMPORT_BLOCK, (full, typePrefix, raw, from) => {
-    if (from === "node:path") {
-      return `import ${typePrefix ?? ""}{ ${raw.trim()} } from "path";\n`;
-    }
     if (from === "node:os") {
       return `import ${typePrefix ?? ""}{ ${raw.trim()} } from "os";\n`;
     }
