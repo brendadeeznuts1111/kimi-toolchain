@@ -19,7 +19,7 @@ describe("path-hygiene", () => {
     });
   });
 
-  test("collectPathHygieneItems finds literal \$HOME directories", () => {
+  test("collectPathHygieneItems finds literal $HOME directories", () => {
     withTempDir("path-hygiene-dollar-", (dir) => {
       makeDir(join(dir, "$HOME", ".bun"), { recursive: true });
       writeText(join(dir, "$HOME", "cache"), "x");
