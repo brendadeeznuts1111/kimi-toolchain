@@ -11,7 +11,9 @@ import {
   WORKSPACE_BLOCKER_NAMES,
   CURSOR_EPHEMERAL_WORKTREE_RE,
   resolveEffectiveWorkspaceRoot,
+  canonicalClonePath,
 } from "../src/lib/workspace-health.ts";
+import { resolveKimiToolchainRoot } from "../src/lib/paths.ts";
 import {
   removeLegacyCursorSlugs,
   archiveLegacyKimiSessions,
@@ -148,6 +150,29 @@ describe("workspace-health", () => {
     expect(result.root).toBe(canonical);
     expect(result.usedFallback).toBe(true);
     expect(result.reason).toBe("missing-package-json");
+  });
+
+  test("resolveKimiToolchainRoot prefers MACHINE_DEV_ROOT/kimi-toolchain over ~/kimi-toolchain", () => {
+    const devRoot = join(tmpHome, "Projects");
+    const underDev = join(devRoot, CANONICAL_REPO_NAME);
+    const underHome = join(tmpHome, CANONICAL_REPO_NAME);
+    for (const root of [underDev, underHome]) {
+      makeDir(root, { recursive: true });
+      writeText(
+        join(root, "package.json"),
+        JSON.stringify({ name: CANONICAL_REPO_NAME }, null, 2)
+      );
+    }
+
+    const prev = Bun.env.MACHINE_DEV_ROOT;
+    Bun.env.MACHINE_DEV_ROOT = devRoot;
+    try {
+      expect(resolveKimiToolchainRoot(tmpHome)).toBe(underDev);
+      expect(canonicalClonePath(tmpHome)).toBe(underDev);
+    } finally {
+      if (prev === undefined) delete Bun.env.MACHINE_DEV_ROOT;
+      else Bun.env.MACHINE_DEV_ROOT = prev;
+    }
   });
 
   test("resolveEffectiveWorkspaceRoot stays on cwd when no canonical clone exists", () => {

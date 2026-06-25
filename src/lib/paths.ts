@@ -32,6 +32,33 @@ export function homeDir(): string {
   return Bun.env.HOME || FALLBACK_HOME_DIR;
 }
 
+/** Machine dev root — FactoryWager monorepo (shell SSOT: ~/.config/shell/machine-paths.sh). */
+export function machineDevRoot(home: string = homeDir()): string {
+  const raw = Bun.env.MACHINE_DEV_ROOT;
+  // Env override applies only for the live machine home — not isolated test homes.
+  if (raw && home === homeDir()) {
+    if (raw === "~") return home;
+    if (raw.startsWith("~/")) return join(home, raw.slice(2));
+    return raw;
+  }
+  return join(home, "Projects");
+}
+
+/**
+ * Resolve kimi-toolchain clone path — dev root wins over ~/kimi-toolchain.
+ * Mirrors ~/.config/shell/machine-paths.sh resolution order.
+ */
+export function resolveKimiToolchainRoot(home: string = homeDir()): string {
+  const candidates = [
+    join(machineDevRoot(home), "kimi-toolchain"),
+    join(home, "kimi-toolchain"),
+  ];
+  for (const root of candidates) {
+    if (pathExists(join(root, "package.json"))) return root;
+  }
+  return join(home, "kimi-toolchain");
+}
+
 /** Return the canonical desktop runtime root: ~/.kimi-code */
 export function desktopRoot(home?: string): string {
   return join(home || homeDir(), ".kimi-code");

@@ -4,7 +4,7 @@
 
 import { basename, join, resolve } from "path";
 import { listDir, pathExists, removeFile } from "./bun-io.ts";
-import { homeDir } from "./paths.ts";
+import { homeDir, resolveKimiToolchainRoot } from "./paths.ts";
 import { readPackageJson, readPackageManifest, safeParse } from "./utils.ts";
 
 import {
@@ -121,7 +121,7 @@ export function legacyClonePath(home: string): string {
 }
 
 export function canonicalClonePath(home: string): string {
-  return join(home, CANONICAL_REPO_NAME);
+  return resolveKimiToolchainRoot(home);
 }
 
 /** Cursor/agent ephemeral git worktrees that often lack a materialized package.json. */

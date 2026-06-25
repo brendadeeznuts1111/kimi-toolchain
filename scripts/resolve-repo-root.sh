@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# Resolve kimi-toolchain repo root; fall back to ~/kimi-toolchain for Cursor worktrees.
+# Resolve kimi-toolchain repo root; canonical via ~/.config/shell/machine-paths.sh.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-CANONICAL="${HOME}/kimi-toolchain"
+
+if [[ -f "${HOME}/.config/shell/machine-paths.sh" ]]; then
+  # shellcheck source=/dev/null
+  source "${HOME}/.config/shell/machine-paths.sh"
+fi
+CANONICAL="${KIMI_TOOLCHAIN_ROOT:-${HOME}/kimi-toolchain}"
 
 has_pkg() {
   [[ -f "${1}/package.json" ]]
