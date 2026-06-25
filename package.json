@@ -105,6 +105,8 @@
     "dashboard-mcp": "bun run src/bin/kimi-dashboard-mcp.ts",
     "capabilities": "bun run src/bin/kimi-capabilities.ts",
     "completions:generate": "bun run scripts/generate-cli-completions.ts",
+    "completions:matrix": "bun run scripts/make-completion-matrix.ts",
+    "check:completions": "bun run scripts/check-completion-drift.ts",
     "contract": "bun run src/bin/kimi-contract.ts",
     "decision": "bun run src/bin/kimi-decision.ts",
     "error": "bun run src/bin/kimi-error.ts",

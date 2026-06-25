@@ -1,0 +1,34 @@
+{
+  "schema": "v1.1.0",
+  "sources": {
+    "bare_bun": {
+      "completes": ["files", "scripts", "binaries"],
+      "provider": null
+    },
+    "run": {
+      "completes": ["scripts", "binaries", "files"],
+      "provider": "getcompletes",
+      "providerArgs": ["s", "b", "j"]
+    },
+    "test": {
+      "completes": ["files"],
+      "provider": "getcompletes",
+      "providerArgs": ["j"]
+    },
+    "add": {
+      "completes": ["registry_packages"],
+      "provider": "getcompletes",
+      "providerArgs": ["a"]
+    },
+    "remove": {
+      "completes": ["installed_packages"],
+      "provider": "getcompletes",
+      "providerArgs": ["a"]
+    },
+    "build": {
+      "completes": ["files"],
+      "provider": "getcompletes",
+      "providerArgs": ["j"]
+    }
+  }
+}
