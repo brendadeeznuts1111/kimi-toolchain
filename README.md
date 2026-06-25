@@ -85,11 +85,9 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run audit:all`                     | Audit script                           |
 | `bun run audit:config`                  | Audit script                           |
 | `bun run audit:dry-run`                 | Audit script                           |
-| `bun run audit:dry-run:parallel`        | Audit script                           |
 | `bun run audit:hardcoded`               | Audit script                           |
 | `bun run audit:images`                  | Audit script                           |
 | `bun run audit:network`                 | Audit script                           |
-| `bun run audit:parallel`                | Audit script                           |
 | `bun run audit:perf`                    | Audit script                           |
 | `bun run audit:phase1`                  | Audit script                           |
 | `bun run audit:phase2`                  | Audit script                           |

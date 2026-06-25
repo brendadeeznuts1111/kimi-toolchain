@@ -7,7 +7,7 @@
 
 import { gitRemoteUrl } from "./git-helpers.ts";
 import { fetchWithTimeout } from "./utils.ts";
-import { pathExists } from "./bun-io.ts";
+import { pathExists, readText } from "./bun-io.ts";
 import { join } from "path";
 import { homeDir } from "./paths.ts";
 import { parsePolicyConfig } from "./cloudflare-access-policy.ts";
@@ -450,7 +450,7 @@ function loadProjectRoots(): string[] {
   try {
     const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
     if (pathExists(userConfigPath)) {
-      const text = Bun.file(userConfigPath).textSync?.() || "";
+      const text = readText(userConfigPath);
       const parsed = parsePolicyConfig(text);
       const roots = parsed?.roots;
       if (Array.isArray(roots)) return roots as string[];
@@ -468,7 +468,7 @@ function loadAppOverrides(): Record<string, string> {
   try {
     const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
     if (pathExists(userConfigPath)) {
-      const text = Bun.file(userConfigPath).textSync?.() || "";
+      const text = readText(userConfigPath);
       const parsed = parsePolicyConfig(text);
       const overrides = parsed?.appOverrides;
       if (overrides && typeof overrides === "object") {
@@ -657,7 +657,7 @@ function loadInfraMap(): Record<
   try {
     const userConfigPath = join(homeDir(), ".kimi-code", "project-mappings.yml");
     if (pathExists(userConfigPath)) {
-      const text = Bun.file(userConfigPath).textSync?.() || "";
+      const text = readText(userConfigPath);
       const parsed = parsePolicyConfig(text);
       const infra = parsed?.infrastructure;
       if (infra && typeof infra === "object") {

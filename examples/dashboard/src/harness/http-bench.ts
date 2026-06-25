@@ -23,7 +23,10 @@ let h2Probe: boolean | null = null;
 async function probeFetchHttp2(tlsUrl: string): Promise<boolean> {
   if (h2Probe !== null) return h2Probe;
   try {
-    const res = await fetch(tlsUrl, { protocol: "http2", tls: FETCH_TLS });
+    const res = await fetch(tlsUrl, { protocol: "http2", tls: FETCH_TLS } as RequestInit & {
+      protocol: "http2";
+      tls: typeof FETCH_TLS;
+    });
     h2Probe = res.ok && (await res.text()) === "ok";
   } catch {
     h2Probe = false;
@@ -104,7 +107,10 @@ export async function benchFetchH1(servers: HttpBenchServers): Promise<void> {
 }
 
 export async function benchFetchH2(servers: HttpBenchServers): Promise<void> {
-  const res = await fetch(servers.tlsUrl, { protocol: "http2", tls: FETCH_TLS });
+  const res = await fetch(servers.tlsUrl, { protocol: "http2", tls: FETCH_TLS } as RequestInit & {
+    protocol: "http2";
+    tls: typeof FETCH_TLS;
+  });
   if (!res.ok || (await res.text()) !== "ok") {
     throw new Error("http.fetch-h2: unexpected response");
   }

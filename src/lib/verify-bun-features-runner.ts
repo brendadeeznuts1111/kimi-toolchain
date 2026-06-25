@@ -633,44 +633,6 @@ async function checkAuditConfigGates(strict: boolean): Promise<void> {
   }
 }
 
-async function checkParallelScripts(): Promise<void> {
-  const start = nowNs();
-  const proc = gateBunSpawn([
-    "run",
-    "--parallel",
-    "bun run audit:secrets --dry-run",
-    "bun run audit:config --dry-run",
-    "bun run audit:images --dry-run",
-    "bun run audit:network --dry-run",
-  ]);
-  const exit = await proc.exited;
-  const out = await readableStreamToText(proc.stdout);
-  const err = await readableStreamToText(proc.stderr);
-  const ms = elapsedMsRoundedLocal(start);
-  const combined = `${out}\n${err}`;
-  const expected = ["audit:secrets", "config:status", "audit:images", "audit:network"];
-  const missing = expected.filter((marker) => !combined.includes(marker));
-  if (exit !== 0) {
-    record(
-      "audit.parallel",
-      "audit",
-      false,
-      `exit ${exit}: ${combined.split("\n")[0]?.trim()}`,
-      ms
-    );
-  } else {
-    record(
-      "audit.parallel",
-      "audit",
-      missing.length === 0,
-      missing.length === 0
-        ? "dry-run parallel OK (secrets + config + images + network)"
-        : `missing: ${missing.join(", ")}`,
-      ms
-    );
-  }
-}
-
 async function checkCanvasCompanions(): Promise<void> {
   const endpoint = AUDIT_CLI_ENDPOINTS.find((e) => e.id === "canvas-generate");
   const start = nowNs();
@@ -866,7 +828,6 @@ export async function runVerifyBunFeatures(options: VerifyRunOptions = {}): Prom
   await checkMimallocStats();
   await checkAuditScriptsDryRun();
   await checkAuditDryRunBundle();
-  await checkParallelScripts();
   await checkAuditConfigGates(options.strict ?? false);
   await checkCanvasCompanions();
   await checkTemplateGates();

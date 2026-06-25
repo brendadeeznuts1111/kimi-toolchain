@@ -32,7 +32,6 @@ export async function refreshStaleLockfile(projectDir: string): Promise<boolean>
   if (!pathExists(lockPath) || !pathExists(pkgPath)) return false;
   if (!isLockfileMtimeStale(projectDir)) return false;
 
-  // Frozen policy: only clear mtime stale when lock still matches package.json (scripts-only edits).
   const proc = Bun.spawn(
     withBunNoOrphans(["bun", "install", "--frozen-lockfile", "--ignore-scripts"]),
     {

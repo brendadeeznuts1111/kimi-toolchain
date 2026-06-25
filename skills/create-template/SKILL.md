@@ -130,7 +130,7 @@ templates/scaffold/
 ├── ci.yml               ← GitHub Actions workflow
 ├── gitignore            ← renamed to .gitignore by bun create
 ├── env.example          ← env var template
-├── bun-globals.d.ts     ← global type declarations
+├── (bun-types devDep)   ← oven-sh/bun packages/bun-types pin; no local shims
 ├── adr-template.md      ← ADR template
 ├── code-references.md   ← CODE_REFERENCES.md template
 ├── skills-readme.md     ← Skills README + bundled catalog

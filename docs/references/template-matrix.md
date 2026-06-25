@@ -41,12 +41,12 @@
 
 ### Source Layer (4 files)
 
-| File               | Purpose                                      | Profile | Defining Module | Entry Point?                               |
-| ------------------ | -------------------------------------------- | ------- | --------------- | ------------------------------------------ |
-| `index.ts`         | Minimal Bun HTTP server (port 0 auto-assign) | App     | `kimi-fix.ts`   | **Yes** — `bun run start` (add manually)   |
-| `bun-globals.d.ts` | Global type augmentations                    | Both    | `kimi-fix.ts`   | No                                         |
-| `env.example`      | Environment variable template                | Both    | `kimi-fix.ts`   | No                                         |
-| `gitignore`        | Ignore patterns (node_modules, dist, .env)   | Both    | `kimi-fix.ts`   | **Yes** — `bun init` creates basic version |
+| File                 | Purpose                                      | Profile | Defining Module | Entry Point?                               |
+| -------------------- | -------------------------------------------- | ------- | --------------- | ------------------------------------------ |
+| `index.ts`           | Minimal Bun HTTP server (port 0 auto-assign) | App     | `kimi-fix.ts`   | **Yes** — `bun run start` (add manually)   |
+| `bun-types` (devDep) | oven-sh/bun `packages/bun-types` pin         | Both    | `package.json`  | `kimi.bunTypesCommit` — no local shims     |
+| `env.example`        | Environment variable template                | Both    | `kimi-fix.ts`   | No                                         |
+| `gitignore`          | Ignore patterns (node_modules, dist, .env)   | Both    | `kimi-fix.ts`   | **Yes** — `bun init` creates basic version |
 
 ### Scripts Layer (6 files)
 

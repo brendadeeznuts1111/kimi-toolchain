@@ -15,7 +15,7 @@ let _sessionId: string | null = null;
 
 export function getSessionId(): string {
   if (!_sessionId) {
-    _sessionId = `${Bun.pid}-${Date.now()}`;
+    _sessionId = `${process.pid}-${Date.now()}`;
   }
   return _sessionId;
 }

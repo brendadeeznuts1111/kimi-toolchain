@@ -34,7 +34,7 @@ jobs:
         run: bun run lint
 
       - name: Type check
-        run: bun run typecheck
+        run: bunx tsc --noEmit
 
       - name: Constants manifest verify
         run: bun run constants:verify
