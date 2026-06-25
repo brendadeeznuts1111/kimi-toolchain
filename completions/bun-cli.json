@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "commands": {
     "run": {
       "name": "run",
@@ -4130,6 +4130,20 @@
           "hasValue": false,
           "required": false,
           "multiple": false
+        },
+        {
+          "name": "react",
+          "description": "tailwind",
+          "hasValue": false,
+          "required": false,
+          "multiple": false
+        },
+        {
+          "name": "react",
+          "description": "shadcn",
+          "hasValue": false,
+          "required": false,
+          "multiple": false
         }
       ],
       "positionalArgs": [
@@ -4514,6 +4528,20 @@
       "description": "Preconnect to a URL while code is loading",
       "hasValue": true,
       "valueType": "val",
+      "required": false,
+      "multiple": false
+    },
+    {
+      "name": "experimental-http2-fetch",
+      "description": "Offer h2 in fetch() TLS ALPN. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT=1",
+      "hasValue": false,
+      "required": false,
+      "multiple": false
+    },
+    {
+      "name": "experimental-http3-fetch",
+      "description": "Honor Alt-Svc: h3 in fetch() and upgrade to HTTP/3. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP3_CLIENT=1",
+      "hasValue": false,
       "required": false,
       "multiple": false
     },

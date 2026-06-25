@@ -15,10 +15,15 @@
  *
  * Output is saved to completions/bun-cli.json for use in generating
  * shell completions (fish, bash, zsh).
+ *
+ * Cleanup / spawn conventions mirror the Bun repo harness:
+ *   - temp dir via Symbol.dispose + `using`
+ *   - bunExe() resolves process.execPath
+ *   - bunEnv strips debug noise
+ *   - Bun.spawnSync for one-off --help probes
  */
 
-import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
-import { readableStreamToText } from "../src/lib/bun-utils.ts";
+import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
 import { join } from "path";
 
 interface FlagInfo {
@@ -100,7 +105,49 @@ interface CompletionData {
   };
 }
 
-const BUN_EXECUTABLE = Bun.env.BUN_DEBUG_BUILD || "bun";
+/** Resolve the Bun executable the same way the Bun repo harness does. */
+function bunExe(): string {
+  return Bun.env.BUN_DEBUG_BUILD || process.execPath;
+}
+
+/** Strip debug noise so --help output is stable (Bun repo harness style). */
+function bunEnv(): NodeJS.ProcessEnv {
+  const base = { ...Bun.env };
+  for (const key of Object.keys(base)) {
+    if (key.startsWith("BUN_DEBUG_") && key !== "BUN_DEBUG_QUIET_LOGS") {
+      delete base[key];
+    }
+  }
+  base.BUN_DEBUG_QUIET_LOGS = "1";
+  base.NO_COLOR = "1";
+  base.FORCE_COLOR = undefined;
+  base.GITHUB_ACTIONS = "false";
+  delete base.BUN_INSPECT_CONNECT_TO;
+  delete base.NODE_ENV;
+  return base;
+}
+
+/** Temp directory that cleans itself up via Symbol.dispose / `using`. */
+class TempDir extends String {
+  constructor(public readonly path: string) {
+    super(path);
+  }
+
+  [Symbol.dispose](): void {
+    removePath(this.path, { recursive: true, force: true });
+  }
+}
+
+function createTempDir(basename: string): TempDir {
+  const base = join(
+    Bun.env.TMPDIR || "/tmp",
+    `${basename}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  );
+  makeDir(base, { recursive: true });
+  return new TempDir(base);
+}
+
+const UNMATCHED_WARNINGS: string[] = [];
 
 /**
  * Parse flag line from help output
@@ -114,13 +161,15 @@ function parseFlag(line: string): FlagInfo | null {
 
   const patterns = [
     // Long flag with short flag and value: -r, --preload=<val>
-    /^\s*(-[a-zA-Z]),\s+(--[a-zA-Z-]+)=(<[^>]+>)\s+(.+)$/,
+    /^\s*(-[a-zA-Z]),\s+(--[a-zA-Z0-9-]+)=(<[^>]+>)\s+(.+)$/,
     // Long flag with short flag: -h, --help
-    /^\s*(-[a-zA-Z]),\s+(--[a-zA-Z-]+)\s+(.+)$/,
+    /^\s*(-[a-zA-Z]),\s+(--[a-zA-Z0-9-]+)\s+(.+)$/,
     // Long flag with value: --timeout=<val>
-    /^\s+(--[a-zA-Z-]+)=(<[^>]+>)\s+(.+)$/,
+    /^\s+(--[a-zA-Z0-9-]+)=(<[^>]+>)\s+(.+)$/,
+    // Long flag with bare value: --react=tailwind
+    /^\s+(--[a-zA-Z0-9-]+)=([^\s]+)\s+(.+)$/,
     // Long flag without value: --watch
-    /^\s+(--[a-zA-Z-]+)\s+(.+)$/,
+    /^\s+(--[a-zA-Z0-9-]+)\s+(.+)$/,
     // Short flag only: -i
     /^\s+(-[a-zA-Z])\s+(.+)$/,
   ];
@@ -271,37 +320,26 @@ function parseUsage(usage: string): {
   return args;
 }
 
-const tmpRoot = join(Bun.env.TMPDIR || "/tmp", `bun-completion-${Date.now()}`);
-makeDir(tmpRoot, { recursive: true });
-writeText(
-  join(tmpRoot, "package.json"),
-  JSON.stringify({
-    name: "test",
-    version: "1.0.0",
-    scripts: {},
-  })
-);
-process.once("beforeExit", () => {
-  removePath(tmpRoot, { recursive: true });
-});
-
 /**
- * Execute bun command and get help output
+ * Execute bun command and get help output using Bun.spawnSync.
+ * Drain stdout/stderr before checking exit code for useful diagnostics.
  */
-async function getHelpOutput(command: string[]): Promise<string> {
+function getHelpOutput(command: string[], cwd: string): string {
   try {
-    const proc = Bun.spawn([BUN_EXECUTABLE, ...command, "--help"], {
+    const result = Bun.spawnSync({
+      cmd: [bunExe(), ...command, "--help"],
       stdout: "pipe",
       stderr: "pipe",
-      cwd: tmpRoot,
+      cwd,
+      env: bunEnv(),
     });
 
-    const [stdout, stderr] = await Promise.all([
-      readableStreamToText(proc.stdout),
-      readableStreamToText(proc.stderr),
-    ]);
+    const stdout = result.stdout?.toString("utf8") ?? "";
+    const stderr = result.stderr?.toString("utf8") ?? "";
 
-    await proc.exited;
+    if (result.exitCode !== 0) {
+      console.warn(`bun ${command.join(" ")} --help exited ${result.exitCode}: ${stderr.trim()}`);
+    }
 
     return stdout || stderr || "";
   } catch (error) {
@@ -446,6 +484,8 @@ function parseHelpOutput(helpText: string, commandName: string): CommandInfo {
       const flag = parseFlag(line);
       if (flag) {
         command.flags.push(flag);
+      } else if (trimmed) {
+        UNMATCHED_WARNINGS.push(`[${commandName}] ${trimmed}`);
       }
     }
 
@@ -518,8 +558,7 @@ function parseHelpOutput(helpText: string, commandName: string): CommandInfo {
 /**
  * Get list of main commands from bun --help
  */
-async function getMainCommands(): Promise<string[]> {
-  const helpText = await getHelpOutput([]);
+function getMainCommands(helpText: string): string[] {
   const lines = helpText.split("\n");
   const commands: string[] = [];
 
@@ -580,6 +619,8 @@ function parseGlobalFlags(helpText: string): FlagInfo[] {
       const flag = parseFlag(line);
       if (flag) {
         flags.push(flag);
+      } else if (trimmed) {
+        UNMATCHED_WARNINGS.push(`[global] ${trimmed}`);
       }
     }
   }
@@ -610,17 +651,27 @@ function addCommandAliases(commands: Record<string, CommandInfo>): void {
  * Main function to generate completion data
  */
 async function generateCompletions(): Promise<void> {
+  using tmpDir = createTempDir("bun-completion");
+  writeText(
+    join(String(tmpDir), "package.json"),
+    JSON.stringify({
+      name: "test",
+      version: "1.0.0",
+      scripts: {},
+    })
+  );
+
   console.log("🔍 Discovering Bun commands...");
 
   // Get main help and extract commands
-  const mainHelpText = await getHelpOutput([]);
-  const mainCommands = await getMainCommands();
+  const mainHelpText = getHelpOutput([], String(tmpDir));
+  const mainCommands = getMainCommands(mainHelpText);
   const globalFlags = parseGlobalFlags(mainHelpText);
 
   console.log(`📋 Found ${mainCommands.length} main commands: ${mainCommands.join(", ")}`);
 
   const completionData: CompletionData = {
-    version: "1.1.0",
+    version: "1.2.0",
     commands: {},
     globalFlags,
     specialHandling: {
@@ -651,7 +702,7 @@ async function generateCompletions(): Promise<void> {
     console.log(`📖 Parsing help for: ${commandName}`);
 
     try {
-      const helpText = await getHelpOutput([commandName]);
+      const helpText = getHelpOutput([commandName], String(tmpDir));
       if (helpText.trim()) {
         const commandInfo = parseHelpOutput(helpText, commandName);
         completionData.commands[commandName] = commandInfo;
@@ -671,7 +722,7 @@ async function generateCompletions(): Promise<void> {
       console.log(`📖 Parsing help for additional command: ${commandName}`);
 
       try {
-        const helpText = await getHelpOutput([commandName]);
+        const helpText = getHelpOutput([commandName], String(tmpDir));
         if (helpText.trim() && !helpText.includes("error:") && !helpText.includes("Error:")) {
           const commandInfo = parseHelpOutput(helpText, commandName);
           completionData.commands[commandName] = commandInfo;
@@ -720,6 +771,13 @@ async function generateCompletions(): Promise<void> {
   console.log(`   - Total command flags: ${totalFlags}`);
   console.log(`   - Total examples: ${totalExamples}`);
   console.log(`   - Total subcommands: ${totalSubcommands}`);
+
+  if (UNMATCHED_WARNINGS.length > 0) {
+    console.warn(`\n⚠ ${UNMATCHED_WARNINGS.length} flag line(s) could not be parsed:`);
+    for (const warning of UNMATCHED_WARNINGS) {
+      console.warn(`   ${warning}`);
+    }
+  }
 }
 
 // Run the script
