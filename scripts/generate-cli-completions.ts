@@ -131,9 +131,9 @@ interface CompletionData {
   };
 }
 
-/** Resolve the Bun executable the same way the Bun repo harness does. */
+/** Resolve the Bun executable. Prefer explicit override, then PATH lookup. */
 function bunExe(): string {
-  return Bun.env.BUN_DEBUG_BUILD || process.execPath;
+  return Bun.env.BUN_DEBUG_BUILD || Bun.which("bun") || "bun";
 }
 
 /** Strip debug noise so --help output is stable (Bun repo harness style). */
