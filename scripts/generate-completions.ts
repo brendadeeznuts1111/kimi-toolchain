@@ -79,9 +79,15 @@ interface CommandInfo {
   };
 }
 
+interface ApiModuleInfo {
+  name: string;
+  url: string;
+}
+
 interface CompletionData {
   version: string;
   referenceUrl: string;
+  apiModules: ApiModuleInfo[];
   commands: Record<string, CommandInfo>;
   globalFlags: FlagInfo[];
   specialHandling: {
@@ -149,6 +155,44 @@ function createTempDir(basename: string): TempDir {
 }
 
 const UNMATCHED_WARNINGS: string[] = [];
+
+/**
+ * Fetch API module list from https://bun.com/reference.
+ * Returns empty array on network/parsing failure so the generator stays offline-safe.
+ */
+async function fetchBunReferenceModules(): Promise<ApiModuleInfo[]> {
+  try {
+    const response = await fetch("https://bun.com/reference");
+    if (!response.ok) {
+      console.warn(`⚠ Failed to fetch Bun reference: HTTP ${response.status}`);
+      return [];
+    }
+
+    const html = await response.text();
+    const seen = new Set<string>();
+    const modules: ApiModuleInfo[] = [];
+
+    for (const match of html.matchAll(/href="(\/reference\/[^"]+)"/g)) {
+      const path = match[1];
+      if (seen.has(path)) continue;
+      seen.add(path);
+
+      const name = path.replace(/^\/reference\//, "");
+      modules.push({
+        name,
+        url: `https://bun.com${path}`,
+      });
+    }
+
+    return modules.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.warn(
+      "⚠ Could not fetch Bun reference modules:",
+      error instanceof Error ? error.message : String(error)
+    );
+    return [];
+  }
+}
 
 /**
  * Parse flag line from help output
@@ -671,9 +715,14 @@ async function generateCompletions(): Promise<void> {
 
   console.log(`📋 Found ${mainCommands.length} main commands: ${mainCommands.join(", ")}`);
 
+  console.log("🌐 Fetching Bun API reference modules...");
+  const apiModules = await fetchBunReferenceModules();
+  console.log(`   - ${apiModules.length} API modules`);
+
   const completionData: CompletionData = {
     version: "1.2.0",
     referenceUrl: "https://bun.com/reference",
+    apiModules,
     commands: {},
     globalFlags,
     specialHandling: {
@@ -749,6 +798,7 @@ async function generateCompletions(): Promise<void> {
   console.log(`📊 Statistics:`);
   console.log(`   - Commands: ${Object.keys(completionData.commands).length}`);
   console.log(`   - Global flags: ${completionData.globalFlags.length}`);
+  console.log(`   - API reference modules: ${completionData.apiModules.length}`);
 
   let totalFlags = 0;
   let totalExamples = 0;
