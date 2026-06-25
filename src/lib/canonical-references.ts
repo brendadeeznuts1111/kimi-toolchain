@@ -144,12 +144,8 @@ export async function readCanonicalReferencesFile(
   filePath: string
 ): Promise<CanonicalReferencesManifest | null> {
   if (!pathExists(filePath)) return null;
-  try {
-    const parsed = await Bun.file(filePath).json();
-    return isCanonicalReferencesManifest(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
+  const parsed = await Bun.file(filePath).json();
+  return isCanonicalReferencesManifest(parsed) ? parsed : null;
 }
 
 export async function readCanonicalReferencesManifest(

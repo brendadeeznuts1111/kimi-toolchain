@@ -1,6 +1,6 @@
 /**
  * effect/identity-service.ts — Effect Context.Tag + Live/Test layers
- * for the identity layer (JWT + Session + CSRF + password hashing).
+ * for the identity layer (JWT + Session + CSRF).
  *
  * Depends on `Secrets` for HMAC secret resolution.
  * Follows the SecretsService pattern from secrets-service.ts.
@@ -8,14 +8,8 @@
 
 import { Context, Effect, Layer } from "effect";
 import { signJwt, verifyJwt, decodeJwt } from "../jwt.ts";
-import {
-  SessionStore,
-  sessionCookieHeader,
-  parseSessionCookie,
-  clearSessionCookie,
-} from "../session.ts";
+import { SessionStore } from "../session.ts";
 import { generateCsrfToken, verifyCsrfTokenDetailed } from "../csrf.ts";
-import { hashPassword, verifyPassword } from "../bun-utils.ts";
 import { Secrets } from "./secrets-service.ts";
 import type { SecretsService } from "./secrets-service.ts";
 import {
@@ -79,11 +73,6 @@ export interface IdentityService {
   readonly revokeSession: (sessionId: string) => Effect.Effect<boolean>;
   readonly revokeAllSessionsForUser: (userId: string) => Effect.Effect<number>;
 
-  // ── Session Cookies ──
-  readonly sessionCookie: (sessionId: string, config?: SessionConfig) => string;
-  readonly parseSessionCookie: (cookieHeader: string | null) => string | null;
-  readonly clearSessionCookie: () => string;
-
   // ── CSRF ──
   readonly generateCsrf: (
     sessionId: string
@@ -95,10 +84,6 @@ export interface IdentityService {
     void,
     JwtMissingSecret | SecretPolicyViolation | CsrfTokenInvalid | CsrfTokenExpired
   >;
-
-  // ── Password ──
-  readonly hashPassword: (plain: string) => Effect.Effect<string>;
-  readonly verifyPassword: (plain: string, hash: string) => Effect.Effect<boolean>;
 }
 
 // ── Context Tag ──────────────────────────────────────────────────────
@@ -224,13 +209,6 @@ export const IdentityLive = Layer.effect(
       revokeAllSessionsForUser: (userId) =>
         Effect.sync(() => sessionStore.revokeAllForUser(userId)),
 
-      // ── Session Cookies ──
-      sessionCookie: (sessionId, config = {}) => sessionCookieHeader(sessionId, config),
-
-      parseSessionCookie: (cookieHeader) => parseSessionCookie(cookieHeader),
-
-      clearSessionCookie: () => clearSessionCookie(),
-
       // ── CSRF ──
       generateCsrf: (sessionId) =>
         Effect.gen(function* () {
@@ -250,11 +228,6 @@ export const IdentityLive = Layer.effect(
             );
           }
         }),
-
-      // ── Password ──
-      hashPassword: (plain) => Effect.promise(() => hashPassword(plain)),
-
-      verifyPassword: (plain, hash) => Effect.promise(() => verifyPassword(plain, hash)),
     } satisfies IdentityService;
   })
 );
@@ -300,12 +273,6 @@ export function IdentityTest(options: {
 
     revokeAllSessionsForUser: (userId) => Effect.sync(() => sessionStore.revokeAllForUser(userId)),
 
-    sessionCookie: (sessionId, config = {}) => sessionCookieHeader(sessionId, config),
-
-    parseSessionCookie: (cookieHeader) => parseSessionCookie(cookieHeader),
-
-    clearSessionCookie: () => clearSessionCookie(),
-
     generateCsrf: (sessionId) =>
       Effect.sync(() => generateCsrfToken(options.csrfSecret, { sessionId, expiresIn: csrfTtlMs })),
 
@@ -321,9 +288,5 @@ export function IdentityTest(options: {
           : new CsrfTokenInvalid({ token })
       );
     },
-
-    hashPassword: (plain) => Effect.promise(() => hashPassword(plain)),
-
-    verifyPassword: (plain, hash) => Effect.promise(() => verifyPassword(plain, hash)),
   });
 }

@@ -188,12 +188,8 @@ function shouldUseLayeredThresholds(outDir?: string): boolean {
 }
 
 async function loadThresholdFile(path: string): Promise<Record<string, number>> {
-  try {
-    const file = Bun.file(path);
-    if (await file.exists()) return (await file.json()) as Record<string, number>;
-  } catch {
-    // ignore malformed thresholds file
-  }
+  const file = Bun.file(path);
+  if (await file.exists()) return (await file.json()) as Record<string, number>;
   return {};
 }
 

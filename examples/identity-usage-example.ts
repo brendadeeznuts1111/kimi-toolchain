@@ -9,8 +9,10 @@
  */
 
 import { Effect, Either, Exit } from "effect";
+import { hashPassword, verifyPassword } from "../src/lib/bun-utils.ts";
 import { Identity, IdentityTest } from "../src/lib/effect/identity-service.ts";
 import type { IdentityService } from "../src/lib/effect/identity-service.ts";
+import { clearSessionCookie, parseSessionCookie, sessionCookieHeader } from "../src/lib/session.ts";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -24,9 +26,8 @@ export interface AuthContext {
 /**
  * Extract session ID from request cookies using the Identity service.
  */
-export function extractSessionId(req: Request, identity: IdentityService): string | null {
-  const cookieHeader = req.headers.get("Cookie");
-  return identity.parseSessionCookie(cookieHeader);
+export function extractSessionId(req: Request): string | null {
+  return parseSessionCookie(req.headers.get("Cookie"));
 }
 
 /**
@@ -37,7 +38,7 @@ export async function requireAuth(
   req: Request,
   identity: IdentityService
 ): Promise<AuthContext | null> {
-  const sessionId = extractSessionId(req, identity);
+  const sessionId = extractSessionId(req);
   if (!sessionId) return null;
 
   const either = await Effect.runPromise(Effect.either(identity.verifySession(sessionId)));
@@ -99,7 +100,7 @@ export async function handleLogin(
 ): Promise<Response> {
   const body = (await (req as any).json()) as { username: string; password: string };
 
-  const valid = await Effect.runPromise(identity.verifyPassword(body.password, passwordHash));
+  const valid = await verifyPassword(body.password, passwordHash);
   if (!valid) {
     return Response.json({ error: "Invalid credentials" }, { status: 401 });
   }
@@ -111,7 +112,7 @@ export async function handleLogin(
     })
   );
 
-  const cookie = identity.sessionCookie(session.id);
+  const cookie = sessionCookieHeader(session.id);
   const csrfToken = await Effect.runPromise(identity.generateCsrf(session.id));
 
   return Response.json(
@@ -124,13 +125,13 @@ export async function handleLogin(
  * POST /logout — Revoke session, clear cookie.
  */
 export async function handleLogout(req: Request, identity: IdentityService): Promise<Response> {
-  const sessionId = extractSessionId(req, identity);
+  const sessionId = extractSessionId(req);
   if (sessionId) {
     await Effect.runPromise(identity.revokeSession(sessionId));
   }
   return Response.json(
     { ok: true },
-    { status: 200, headers: { "Set-Cookie": identity.clearSessionCookie() } }
+    { status: 200, headers: { "Set-Cookie": clearSessionCookie() } }
   );
 }
 
@@ -226,14 +227,7 @@ if (import.meta.main) {
     )
   );
 
-  const demoHash = await Effect.runPromise(
-    Effect.provide(layer)(
-      Effect.gen(function* () {
-        const id = yield* Identity;
-        return yield* id.hashPassword("demo-password");
-      })
-    )
-  );
+  const demoHash = await hashPassword("demo-password");
 
   const handler = createIdentityServer(identity, demoHash);
   const server = Bun.serve({

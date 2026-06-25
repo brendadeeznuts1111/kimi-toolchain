@@ -1,5 +1,6 @@
 import { describe, expect, test, beforeAll, afterAll } from "bun:test";
 import { Effect } from "effect";
+import { hashPassword } from "../src/lib/bun-utils.ts";
 import { Identity, IdentityTest } from "../src/lib/effect/identity-service.ts";
 import type { IdentityService } from "../src/lib/effect/identity-service.ts";
 import { createIdentityServer } from "../examples/identity-usage-example.ts";
@@ -27,14 +28,7 @@ beforeAll(async () => {
     )
   );
 
-  passwordHash = await Effect.runPromise(
-    Effect.provide(layer)(
-      Effect.gen(function* () {
-        const id = yield* Identity;
-        return yield* id.hashPassword(TEST_PASSWORD);
-      })
-    )
-  );
+  passwordHash = await hashPassword(TEST_PASSWORD);
 
   const handler = createIdentityServer(identity, passwordHash);
   server = Bun.serve({ port: 0, fetch: handler });

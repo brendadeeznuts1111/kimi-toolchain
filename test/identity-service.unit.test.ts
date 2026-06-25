@@ -14,6 +14,7 @@ import {
 } from "../src/lib/effect/errors.ts";
 import { SecretsTest } from "../src/lib/effect/secrets-service.ts";
 import type { SecretsBackend } from "../src/lib/secrets-types.ts";
+import { clearSessionCookie, parseSessionCookie, sessionCookieHeader } from "../src/lib/session.ts";
 import { removePath, testTempPath, writeText } from "./helpers.ts";
 
 const TEST_JWT_SECRET = "test-jwt-secret";
@@ -277,49 +278,6 @@ describe("identity-service > Session", () => {
   });
 });
 
-describe("identity-service > Session Cookies", () => {
-  test("sessionCookie produces Set-Cookie header", async () => {
-    const cookie = await run(
-      Effect.gen(function* () {
-        const id = yield* Identity;
-        return id.sessionCookie("session-123");
-      })
-    );
-    expect(cookie).toContain("session=session-123");
-    expect(cookie).toContain("HttpOnly");
-  });
-
-  test("parseSessionCookie extracts session ID", async () => {
-    const result = await run(
-      Effect.gen(function* () {
-        const id = yield* Identity;
-        return id.parseSessionCookie("session=abc-123; theme=dark");
-      })
-    );
-    expect(result).toBe("abc-123");
-  });
-
-  test("parseSessionCookie returns null for empty", async () => {
-    const result = await run(
-      Effect.gen(function* () {
-        const id = yield* Identity;
-        return id.parseSessionCookie(null);
-      })
-    );
-    expect(result).toBeNull();
-  });
-
-  test("clearSessionCookie produces maxAge=0", async () => {
-    const cookie = await run(
-      Effect.gen(function* () {
-        const id = yield* Identity;
-        return id.clearSessionCookie();
-      })
-    );
-    expect(cookie).toContain("Max-Age=0");
-  });
-});
-
 describe("identity-service > CSRF", () => {
   afterEach(() => {
     setSystemTime();
@@ -400,30 +358,6 @@ describe("identity-service > CSRF", () => {
     expect((result as Either.Left<CsrfTokenExpired, unknown>).left).toBeInstanceOf(
       CsrfTokenExpired
     );
-  });
-});
-
-describe("identity-service > Password", () => {
-  test("hashPassword + verifyPassword round-trip", async () => {
-    const result = await run(
-      Effect.gen(function* () {
-        const id = yield* Identity;
-        const hash = yield* id.hashPassword("my-secret-password");
-        return yield* id.verifyPassword("my-secret-password", hash);
-      })
-    );
-    expect(result).toBe(true);
-  });
-
-  test("verifyPassword fails with wrong password", async () => {
-    const result = await run(
-      Effect.gen(function* () {
-        const id = yield* Identity;
-        const hash = yield* id.hashPassword("correct-password");
-        return yield* id.verifyPassword("wrong-password", hash);
-      })
-    );
-    expect(result).toBe(false);
   });
 });
 
@@ -632,8 +566,8 @@ describe("identity-service > IdentityLive full auth flow", () => {
       Effect.gen(function* () {
         const id = yield* Identity;
         const session = yield* id.createSession("user-42");
-        const setCookie = id.sessionCookie(session.id);
-        const parsed = id.parseSessionCookie(setCookie);
+        const setCookie = sessionCookieHeader(session.id);
+        const parsed = parseSessionCookie(setCookie);
         return { setCookie, parsed };
       }),
       makeBackend(liveStore)
@@ -644,13 +578,7 @@ describe("identity-service > IdentityLive full auth flow", () => {
   });
 
   test("clear session cookie invalidates client cookie", async () => {
-    const cookie = await runLive(
-      Effect.gen(function* () {
-        const id = yield* Identity;
-        return id.clearSessionCookie();
-      }),
-      makeBackend(liveStore)
-    );
+    const cookie = clearSessionCookie();
     expect(cookie).toContain("Max-Age=0");
     expect(cookie).toMatch(/session=;|session="";/);
   });

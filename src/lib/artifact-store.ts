@@ -851,7 +851,7 @@ export class ArtifactStore {
     }
     const relativePath = this.relativePath(path);
     const savedAt = new Date().toISOString();
-    const resultSize = new TextEncoder().encode(JSON.stringify(payload).byteLength);
+    const resultSize = new TextEncoder().encode(JSON.stringify(payload)).byteLength;
     const contentHash = computeArtifactContentHash(payload);
 
     let lineageMermaid = meta?.lineageMermaid;
@@ -901,7 +901,7 @@ export class ArtifactStore {
       resultSize:
         typeof envelope.metadata?.resultSize === "number"
           ? envelope.metadata.resultSize
-          : new TextEncoder().encode(JSON.stringify(envelope.payload).byteLength),
+          : new TextEncoder().encode(JSON.stringify(envelope.payload)).byteLength,
       ...envelope.metadata,
       lineage,
     };

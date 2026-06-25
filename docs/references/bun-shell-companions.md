@@ -25,7 +25,7 @@ All inspection, table formatting, ANSI helpers, and inspection streaming live in
 
 ## Effect discipline repairs
 
-After `kimi-heal effect audit` reports bare Promise or domain import violations, run **`kimi-heal --fix`** (or `effect audit --fix`) to apply AST-guided repairs in `src/lib/effect-heal-fix.ts`. Re-run `kimi-doctor --effect-gates` to verify.
+After `kimi-heal effect audit` reports bare Promise or domain import violations, run **`kimi-heal --fix`** (or `effect audit --fix`) to apply AST-guided repairs in `src/bin/kimi-heal.ts`. Re-run `kimi-doctor --effect-gates` to verify.
 
 ## Logging Configuration Presets
 

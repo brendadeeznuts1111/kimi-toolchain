@@ -8,7 +8,7 @@ import {
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
-describe("canonicalRepoRoot", () => {
+describe("paths canonical-repo-root", () => {
   test("resolves from repo root unchanged", () => {
     expect(canonicalRepoRoot(REPO_ROOT)).toBe(REPO_ROOT);
   });
@@ -22,7 +22,7 @@ describe("canonicalRepoRoot", () => {
   });
 });
 
-describe("sync-paths", () => {
+describe("sync path resolution", () => {
   test("resolveSyncManagedSourcePath prevents src/src/bin", () => {
     const binPath = resolveSyncManagedSourcePath(join(REPO_ROOT, "src"), "tools/kimi-doctor.ts");
     expect(binPath).toBe(join(REPO_ROOT, "src", "bin", "kimi-doctor.ts"));

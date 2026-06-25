@@ -68,12 +68,7 @@ export async function auditEffects(
     const fullPath = join(scanDir, relPath);
     const source = Bun.file(fullPath);
     if (!(await source.exists())) continue;
-    let text: string;
-    try {
-      text = await source.text();
-    } catch {
-      continue;
-    }
+    const text = await source.text();
 
     for (const { name, body } of scanFunctionBodies(text)) {
       if (

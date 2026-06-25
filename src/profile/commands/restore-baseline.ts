@@ -9,14 +9,12 @@ import {
   syncBaselineCacheArchivePath,
 } from "../../lib/paths.ts";
 import {
-  driftTableRows,
   restoreBaselineToDir,
   restoreSyncBaseline,
+  verifySyncManifest,
   type HashDiffResult,
-  type RestoreBaselineToDirResult,
   type RestoreDriftRow,
-} from "../../lib/restore-baseline.ts";
-import { verifySyncManifest } from "../../lib/desktop-sync.ts";
+} from "../../lib/desktop-sync.ts";
 import { resolveEffectiveWorkspaceRoot } from "../../lib/workspace-health.ts";
 import type { ToolchainManifest } from "../../lib/version.ts";
 
@@ -48,28 +46,13 @@ export interface RestoreResult {
   manifestVerificationOk?: boolean;
 }
 
-export function buildRestoreDryRunRows(result: RestoreResult): RestoreDriftRow[] {
-  if (result.dryRunRows?.length) return result.dryRunRows;
-  return driftTableRows(result.drift);
-}
-
 export function printRestoreBaselineHelp(): void {
   const { root } = resolveEffectiveWorkspaceRoot(Bun.cwd);
-  console.log(`Usage: kimi-toolchain restore-baseline [options]
-
-Options:
-  -a, --archive <path>   Baseline archive (default: .cache or ${syncBaselineArchivePath()})
-      --to <dir>         Extract payloads to directory (enables extract mode)
-  -t, --target <dir>     Alias for --to
-  -n, --dry-run          Verify without writing (manifest or extract)
-      --force            Skip hash verification (emergency override)
-      --json             Emit JSON result
-  -h, --help             Show this help
-
-Default (no --to): restore manifest to ${desktopRoot()} using restoreSyncBaseline.
-Extract mode (--to): extract archive payloads and verify manifest file hashes.
-
-Default archive search: ${syncBaselineCacheArchivePath(root)} then ${syncBaselineArchivePath()}`);
+  console.log(
+    `Usage: kimi-toolchain restore-baseline [-a path] [--to dir] [-n] [--force] [--json]\n` +
+      `Manifest mode → ${desktopRoot()}; extract mode with --to.\n` +
+      `Archive: ${syncBaselineCacheArchivePath(root)} or ${syncBaselineArchivePath()}`
+  );
 }
 
 function readFlagValue(args: string[], index: number, flag: string): string {
@@ -148,7 +131,10 @@ export async function parseRestoreBaselineArgs(
   };
 }
 
-function fromExtractResult(result: RestoreBaselineToDirResult, mode: RestoreMode): RestoreResult {
+function fromExtractResult(
+  result: Awaited<ReturnType<typeof restoreBaselineToDir>>,
+  mode: RestoreMode
+): RestoreResult {
   return {
     mode,
     archivePath: result.archivePath,
@@ -170,7 +156,10 @@ export async function restoreBaseline(cfg: RestoreConfig): Promise<RestoreResult
       dryRun: cfg.dryRun,
     });
     const extract = fromExtractResult(result, "extract");
-    extract.dryRunRows = driftTableRows(extract.drift);
+    extract.dryRunRows = extract.drift.map((line) => ({
+      file: line.replace(/^(missing|changed) /, ""),
+      status: line.startsWith("missing ") ? ("remove" as const) : ("modify" as const),
+    }));
     return extract;
   }
 

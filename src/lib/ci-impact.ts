@@ -317,12 +317,8 @@ function escapeRegExp(char: string): string {
 }
 
 async function readImports(repoRoot: string, file: string): Promise<string[]> {
-  try {
-    const text = await Bun.file(join(repoRoot, file)).text();
-    return parseImportSpecifiers(text);
-  } catch {
-    return [];
-  }
+  const text = await Bun.file(join(repoRoot, file)).text();
+  return parseImportSpecifiers(text);
 }
 
 function isGraphFile(file: string): boolean {

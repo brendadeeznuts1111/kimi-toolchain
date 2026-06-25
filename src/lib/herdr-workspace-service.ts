@@ -8,12 +8,11 @@
 import { Effect, pipe } from "effect";
 import {
   herdrCli,
+  herdrCliJson,
   herdrCliJsonSync,
   herdrCliSync,
-  herdrCliError,
   type HerdrCliError,
 } from "./herdr-cli.ts";
-import { ensureJsonArgs } from "./herdr-project-cli.ts";
 
 // ── Types ───────────────────────────────────────────────────────────────
 
@@ -30,24 +29,6 @@ export interface WorkspaceCreateResult {
   workspaceId: string;
   tabId: string;
   rootPaneId: string;
-}
-
-// ── CLI invocation ──────────────────────────────────────────────────────
-
-/** Async herdr CLI → JSON. */
-function herdrCliJson<T>(args: string[], session?: string): Effect.Effect<T, HerdrCliError> {
-  return pipe(
-    herdrCli(ensureJsonArgs(args), session),
-    Effect.flatMap((stdout) => {
-      try {
-        return Effect.succeed(JSON.parse(stdout) as T);
-      } catch {
-        return Effect.fail(
-          herdrCliError(`invalid JSON: ${stdout.slice(0, 200)}`, null, args[0] || "cli")
-        );
-      }
-    })
-  );
 }
 
 // ── Effect-based operations ─────────────────────────────────────────────

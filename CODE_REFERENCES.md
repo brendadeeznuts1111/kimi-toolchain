@@ -282,7 +282,7 @@ Do not import packages that are not declared in `package.json`. In this repo tha
 | Policy parser/diff                | `test/cloudflare-access-policy.unit.test.ts`                                               |
 | Test-gate lock guard              | `src/lib/test-run-guard.ts`                                                                |
 | Scaffold agent output             | `test/scaffold-agents.unit.test.ts`                                                        |
-| Desktop sync drift                | `test/sync.unit.test.ts`, `test/sync-drift.unit.test.ts`                                   |
+| Desktop sync drift                | `test/desktop-sync.unit.test.ts`, `test/sync-archive.unit.test.ts`                         |
 
 ## Cloudflare and MCP Boundaries
 

@@ -170,7 +170,7 @@ Gate implementation: `src/lib/effect-gates.ts`. Gate IDs:
 ## Do not
 
 - Add `@effect/schema` or other heavy schema deps — use `safeParse` and narrow guards
-- Implement auto-fix via regex rewrite — use **`kimi-heal --fix`** / `effect audit --fix` (`src/lib/effect-heal-fix.ts`); review remaining violations manually
+- Implement auto-fix via regex rewrite — use **`kimi-heal --fix`** / `effect audit --fix` (`src/bin/kimi-heal.ts`); review remaining violations manually
 - Duplicate threshold tables from DEEP-QUALITY into templates or comments
 - Put `Effect.runPromise` in `src/lib/` outside `src/lib/effect/`
 

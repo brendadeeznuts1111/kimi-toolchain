@@ -1,25 +1,31 @@
 #!/usr/bin/env bun
 /**
  * kimi-restore-baseline — CLI entry for restore-baseline command.
- *
- * Usage:
- *   kimi-toolchain restore-baseline --dry-run
- *   kimi-toolchain restore-baseline --archive ./.cache/sync-baseline.tar.gz --to ./dist
  */
 
 import { writeStdoutJsonSync } from "../lib/ndjson.ts";
 import {
-  buildRestoreDryRunRows,
   parseRestoreBaselineArgs,
   printRestoreBaselineHelp,
   restoreBaseline,
 } from "../profile/commands/restore-baseline.ts";
 import {
-  driftTableRows,
   printRestoreDryRunTable,
   type HashDiffResult,
   type RestoreDriftRow,
-} from "../lib/restore-baseline.ts";
+} from "../lib/desktop-sync.ts";
+
+function dryRunRows(result: {
+  dryRunRows?: RestoreDriftRow[];
+  drift: string[];
+}): RestoreDriftRow[] {
+  if (result.dryRunRows?.length) return result.dryRunRows;
+  return result.drift.map((line) => ({
+    file: line.replace(/^(missing|changed) /, ""),
+    status: line.startsWith("missing ") ? ("remove" as const) : ("modify" as const),
+  }));
+}
+
 async function main(): Promise<number> {
   const parsed = await parseRestoreBaselineArgs(Bun.argv.slice(2));
   if ("help" in parsed) {
@@ -34,9 +40,7 @@ async function main(): Promise<number> {
     if (parsed.dryRun && !parsed.json) {
       const driftRows = (err as Error & { driftRows?: RestoreDriftRow[] }).driftRows;
       const hashDiff = (err as Error & { hashDiff?: HashDiffResult }).hashDiff;
-      const drift = (err as Error & { drift?: string[] }).drift;
       if (driftRows?.length) printRestoreDryRunTable(driftRows);
-      else if (drift) printRestoreDryRunTable(driftTableRows(drift));
       if (hashDiff && parsed.mode === "manifest") {
         console.error("[restore] verifySyncManifest: FAILED — hash mismatch");
       }
@@ -45,18 +49,12 @@ async function main(): Promise<number> {
   }
 
   if (parsed.json) {
-    writeStdoutJsonSync(
-      {
-        ...result,
-        dryRunRows: result.dryRunRows ?? buildRestoreDryRunRows(result),
-      },
-      2
-    );
+    writeStdoutJsonSync({ ...result, dryRunRows: dryRunRows(result) }, 2);
     return 0;
   }
 
   if (parsed.dryRun) {
-    printRestoreDryRunTable(result.dryRunRows ?? buildRestoreDryRunRows(result));
+    printRestoreDryRunTable(dryRunRows(result));
     if (result.mode === "manifest") {
       console.error("[restore] baseline dry-run passed (archive hashes match repo)");
       return 0;
@@ -70,7 +68,6 @@ async function main(): Promise<number> {
     console.error(`[restore] file hashes: ${result.restored}`);
     if (result.wroteManifest) console.error("[restore] manifest written");
     if (result.manifestVerificationOk) console.error("[restore] verifySyncManifest passed");
-    if (result.verified && !parsed.dryRun) console.error("[restore] verification passed");
     return 0;
   }
 

@@ -42,12 +42,6 @@ export interface CdpRemoteObject {
   };
 }
 
-export interface WebViewConsoleCollector {
-  handler: (type: string, ...args: unknown[]) => void;
-  readonly events: WebViewConsoleEvent[];
-  drain: () => WebViewConsoleEvent[];
-}
-
 export interface WebViewConsoleCaptureOptions {
   url: string;
   mirror?: boolean;
@@ -348,7 +342,7 @@ export function unwrapWebViewConsoleArg(arg: unknown): unknown {
 }
 
 /** Collect page console calls via a custom handler (structured, Bun.inspect-friendly). */
-export function createWebViewConsoleCollector(): WebViewConsoleCollector {
+export function createWebViewConsoleCollector() {
   const events: WebViewConsoleEvent[] = [];
   const handler = (type: string, ...args: unknown[]) => {
     events.push({

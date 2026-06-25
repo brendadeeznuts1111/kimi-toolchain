@@ -6,7 +6,6 @@ import { DEFAULT_DASHBOARD_PORT } from "../data/data.ts";
 import type { DashboardMetaDiscovery } from "../discovery/meta.ts";
 import type { WorkspaceIdResolution } from "../../herdr-workspace-match.ts";
 
-
 export const DASHBOARD_META_VALID_RESOLUTIONS = [
   "focused_cwd",
   "cwd",

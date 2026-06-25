@@ -1,12 +1,18 @@
 /**
- * Canonical repo → ~/.kimi-code/ sync, hash, manifest (single module).
+ * Canonical repo → ~/.kimi-code/ sync, hash, manifest, restore (single module).
  */
 
-import { writeSyncSnapshotArchive } from "./archive-persistence.ts";
+import { join } from "node:path";
+import { pathExists } from "./bun-io.ts";
+import {
+  archiveSupported,
+  extractSyncSnapshotArchive,
+  readSyncSnapshotArchiveMetadata,
+  writeSyncSnapshotArchive,
+} from "./archive-persistence.ts";
+import { recordSyncBaselineMetrics } from "./sync-baseline-metrics.ts";
 import { collectLocalDocSyncEntries, collectLocalDocSyncPaths } from "./canonical-references.ts";
 import { sha256File } from "./hash.ts";
-import { existsSync, mkdirSync } from "node:fs";
-import { dirname, join } from "path";
 import {
   desktopRoot,
   toolsDir,
@@ -23,6 +29,8 @@ import {
   skillsDir,
   canonicalRepoRoot,
   agentsSkillsRoot,
+  syncBaselineArchivePath,
+  syncBaselineCacheArchivePath,
 } from "./paths.ts";
 import {
   writeManifest,
@@ -104,7 +112,7 @@ export const SYNC_ROUTES = [
   {
     prefix: LABEL_PREFIX.TEMPLATES,
     repoSegments: ["templates"],
-    desktopDir: () => join(desktopRoot(), "templates"),
+    desktopDir: () => `${desktopRoot()}/templates`,
     globs: ["**/*"],
   },
 ] as const;
@@ -113,8 +121,8 @@ export const SKILL_ROUTE = {
   repoSegments: ["skills", "kimi-toolchain"],
   agentsPrefix: LABEL_PREFIX.AGENTS_SKILL,
   kimiPrefix: LABEL_PREFIX.KIMI_SKILL,
-  agentsDesktopDir: () => join(agentsSkillsRoot(), "kimi-toolchain"),
-  kimiDesktopDir: () => join(skillsDir(), "kimi-toolchain"),
+  agentsDesktopDir: () => `${agentsSkillsRoot()}/kimi-toolchain`,
+  kimiDesktopDir: () => `${skillsDir()}/kimi-toolchain`,
 } as const;
 
 export const OPTIONAL_CONFIG_FILES = ["bunfig.toml", ".gitignore"] as const;
@@ -167,7 +175,7 @@ export function resolveSyncManagedDesktopPath(key: string): string | null {
   return null;
 }
 
-type SyncRunResult = { updated: string[]; removed: string[]; skipped: number };
+export type SyncRunResult = { updated: string[]; removed: string[]; skipped: number };
 
 async function copyTextIfChanged(
   srcPath: string,
@@ -184,7 +192,6 @@ async function copyTextIfChanged(
     .text()
     .catch(() => null);
   if (force || srcText !== dstText) {
-    mkdirSync(dirname(dstPath), { recursive: true });
     await Bun.write(dstPath, srcText);
     result.updated.push(label);
   } else {
@@ -207,7 +214,7 @@ export function ensureDesktopLayout(): void {
     governorDir(),
     skillsDir(),
   ]) {
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    Bun.spawnSync(["mkdir", "-p", dir]);
   }
 }
 
@@ -217,7 +224,7 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
 
   for (const route of SYNC_ROUTES) {
     const srcDir = repoSourceDir(repoRoot, route.repoSegments);
-    if (!existsSync(srcDir)) continue;
+    if (!pathExists(srcDir)) continue;
     for (const pattern of route.globs) {
       const glob = new Bun.Glob(pattern);
       for await (const file of glob.scan({ cwd: srcDir, onlyFiles: true })) {
@@ -228,11 +235,11 @@ export async function computeSyncHashes(repoRoot: string): Promise<Record<string
 
   for (const doc of [...collectLocalDocSyncPaths(), ...SYNC_ROOT_INFRA]) {
     const path = join(repoRoot, doc);
-    if (existsSync(path)) hashes[doc] = await sha256File(path);
+    if (await Bun.file(path).exists()) hashes[doc] = await sha256File(path);
   }
 
   const skillDir = repoSourceDir(repoRoot, SKILL_ROUTE.repoSegments);
-  if (existsSync(skillDir)) {
+  if (pathExists(skillDir)) {
     const skillGlob = new Bun.Glob("**/*");
     for await (const file of skillGlob.scan({ cwd: skillDir, onlyFiles: true })) {
       const hash = await sha256File(join(skillDir, file));
@@ -255,7 +262,7 @@ export async function detectSyncDrift(repoRoot: string): Promise<{
 
   for (const [key, repoHash] of Object.entries(repoHashes)) {
     const dstPath = resolveSyncManagedDesktopPath(key);
-    if (!dstPath || !existsSync(dstPath)) {
+    if (!dstPath || !(await Bun.file(dstPath).exists())) {
       missing.push(key);
       continue;
     }
@@ -278,7 +285,7 @@ export async function syncDesktop(
 
   for (const route of SYNC_ROUTES) {
     const srcDir = repoSourceDir(repoRoot, route.repoSegments);
-    if ("optional" in route && route.optional && !existsSync(srcDir)) continue;
+    if ("optional" in route && route.optional && !pathExists(srcDir)) continue;
     const dstDir = route.desktopDir();
     for (const pattern of route.globs) {
       const glob = new Bun.Glob(pattern);
@@ -305,7 +312,13 @@ export async function syncDesktop(
   }
 
   for (const file of SYNC_ROOT_INFRA) {
-    await copyTextIfChanged(join(repoRoot, file), join(desktopRoot(), file), file, force, result);
+    await copyTextIfChanged(
+      join(repoRoot, file),
+      join(desktopRoot(), file),
+      file,
+      force,
+      result
+    );
   }
 
   for (const file of OPTIONAL_CONFIG_FILES) {
@@ -320,7 +333,7 @@ export async function syncDesktop(
   }
 
   const skillSrc = repoSourceDir(repoRoot, SKILL_ROUTE.repoSegments);
-  if (existsSync(skillSrc)) {
+  if (await Bun.file(skillSrc).exists()) {
     const skillGlob = new Bun.Glob("**/*");
     for await (const rel of skillGlob.scan({ cwd: skillSrc, onlyFiles: true })) {
       for (const [dstDir, prefix] of [
@@ -351,6 +364,30 @@ export async function syncDesktop(
   return result;
 }
 
+export type HashDiffResult = {
+  missing: string[];
+  changed: string[];
+  extra: string[];
+};
+
+export function diffArchivedHashes(
+  archived: Record<string, string>,
+  current: Record<string, string>
+): HashDiffResult {
+  const missing: string[] = [];
+  const changed: string[] = [];
+  const extra: string[] = [];
+  for (const [key, expected] of Object.entries(archived)) {
+    const actual = current[key];
+    if (!actual) missing.push(key);
+    else if (actual !== expected) changed.push(key);
+  }
+  for (const key of Object.keys(current)) {
+    if (!(key in archived)) extra.push(key);
+  }
+  return { missing: missing.sort(), changed: changed.sort(), extra: extra.sort() };
+}
+
 export async function buildSyncManifest(
   repoRoot: string,
   options: { files?: string[] } = {}
@@ -378,22 +415,11 @@ export async function writeSyncArchiveBaseline(
   const contents: Record<string, Uint8Array> = {};
   for (const key of Object.keys(manifest.fileHashes ?? {})) {
     const sourcePath = resolveSyncManagedSourcePath(repoRoot, key);
-    if (!sourcePath || !existsSync(sourcePath)) continue;
+    if (!sourcePath || !(await Bun.file(sourcePath).exists())) continue;
     contents[key] = await Bun.file(sourcePath).bytes();
   }
   const archived = await writeSyncSnapshotArchive(manifest, archivePath, contents);
   return { archiveHash: archived.archiveHash, byteLength: archived.byteLength };
-}
-
-export async function writeSyncManifestWithArchive(
-  repoRoot: string,
-  archivePath: string,
-  options: { files?: string[] } = {}
-): Promise<{ manifest: ToolchainManifest; archiveHash: string; byteLength: number }> {
-  const manifest = await buildSyncManifest(repoRoot, options);
-  await writeManifest(manifest);
-  const archived = await writeSyncArchiveBaseline(repoRoot, archivePath, manifest);
-  return { manifest, ...archived };
 }
 
 export async function verifySyncManifest(repoRoot: string): Promise<{
@@ -412,34 +438,278 @@ export async function verifySyncManifest(repoRoot: string): Promise<{
     detectSyncDrift(repoRoot),
   ]);
 
-  const manifestHashes = manifest?.fileHashes ?? {};
-  const missingHashes: string[] = [];
-  const changedHashes: string[] = [];
-  const extraHashes: string[] = [];
-
-  for (const [key, expected] of Object.entries(expectedHashes)) {
-    const actual = manifestHashes[key];
-    if (!actual) missingHashes.push(key);
-    else if (actual !== expected) changedHashes.push(key);
-  }
-  for (const key of Object.keys(manifestHashes)) {
-    if (!(key in expectedHashes)) extraHashes.push(key);
-  }
-
+  const hashDiff = diffArchivedHashes(manifest?.fileHashes ?? {}, expectedHashes);
   const manifestFresh =
     !!manifest &&
-    missingHashes.length === 0 &&
-    changedHashes.length === 0 &&
-    extraHashes.length === 0;
+    hashDiff.missing.length === 0 &&
+    hashDiff.changed.length === 0 &&
+    hashDiff.extra.length === 0;
 
   return {
     ok: manifestFresh && drift.synced,
     manifestPresent: !!manifest,
     manifestFresh,
     desktopSynced: drift.synced,
-    missingHashes: missingHashes.sort(),
-    changedHashes: changedHashes.sort(),
-    extraHashes: extraHashes.sort(),
+    missingHashes: hashDiff.missing,
+    changedHashes: hashDiff.changed,
+    extraHashes: hashDiff.extra,
     drift,
   };
+}
+
+const ARCHIVE_MODE_ALIASES: Record<string, "always" | "never" | "auto"> = {
+  always: "always",
+  never: "never",
+  auto: "auto",
+  "1": "always",
+  "0": "never",
+  true: "always",
+  false: "never",
+};
+
+export function resolveArchiveMode(
+  argv: string[] = Bun.argv,
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
+): "always" | "never" | "auto" {
+  if (argv.includes("--no-archive")) return "never";
+  const flag = argv.find((arg) => arg.startsWith("--archive="))?.slice("--archive=".length);
+  if (flag === "always" || flag === "never" || flag === "auto") return flag;
+  const raw = env.KIMI_SYNC_ARCHIVE?.toLowerCase();
+  return (raw && ARCHIVE_MODE_ALIASES[raw]) || "auto";
+}
+
+export async function shouldWriteArchive(
+  repoRoot: string,
+  argv: string[] = Bun.argv,
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
+): Promise<boolean> {
+  const mode = resolveArchiveMode(argv, env);
+  if (mode === "always") return true;
+  if (mode === "never") return false;
+  const archivePath = syncBaselineCacheArchivePath(repoRoot);
+  if (!(await Bun.file(archivePath).exists())) return true;
+  const [manifest, currentHead] = await Promise.all([readManifest(), getRepoHead()]);
+  return manifest?.gitHead !== currentHead;
+}
+
+export async function finalizeSyncArchive(
+  repoRoot: string,
+  options: { files: string[]; writeArchive?: boolean; archivePath?: string }
+): Promise<{
+  manifest: ToolchainManifest;
+  archived: boolean;
+  archiveHash?: string;
+  byteLength?: number;
+  fileCount: number;
+}> {
+  const manifest = await buildSyncManifest(repoRoot, { files: options.files });
+  await writeManifest(manifest);
+  const fileCount = Object.keys(manifest.fileHashes ?? {}).length;
+  const writeArchive = options.writeArchive ?? (await shouldWriteArchive(repoRoot));
+  if (!writeArchive) return { manifest, archived: false, fileCount };
+  if (!archiveSupported()) {
+    console.error("[sync] Bun.Archive not available — skipping baseline archive");
+    return { manifest, archived: false, fileCount };
+  }
+  const archivePath = options.archivePath ?? syncBaselineCacheArchivePath(repoRoot);
+  const { archiveHash, byteLength } = await writeSyncArchiveBaseline(
+    repoRoot,
+    archivePath,
+    manifest
+  );
+  await recordSyncBaselineMetrics(repoRoot, {
+    ok: true,
+    archivePath,
+    syncBaselineSize: byteLength,
+    syncBaselineHash: archiveHash,
+    fileCount,
+    toolchainVersion: manifest.toolchainVersion,
+    lastSyncedAt: manifest.lastSyncedAt,
+  });
+  return { manifest, archived: true, archiveHash, byteLength, fileCount };
+}
+
+// --- Restore baseline (from Bun.Archive gzip tarball) ---
+
+export type RestoreDriftRow = {
+  file: string;
+  status: "add" | "remove" | "modify";
+  oldHash?: string;
+  newHash?: string;
+};
+
+export function hashDiffDriftRows(
+  archived: Record<string, string>,
+  current: Record<string, string>
+): RestoreDriftRow[] {
+  const diff = diffArchivedHashes(archived, current);
+  const rows: RestoreDriftRow[] = [
+    ...diff.extra.map((file) => ({ file, status: "add" as const, newHash: current[file] })),
+    ...diff.missing.map((file) => ({ file, status: "remove" as const, oldHash: archived[file] })),
+    ...diff.changed.map((file) => ({
+      file,
+      status: "modify" as const,
+      oldHash: archived[file],
+      newHash: current[file],
+    })),
+  ];
+  rows.sort((a, b) => a.file.localeCompare(b.file) || a.status.localeCompare(b.status));
+  return rows;
+}
+
+export async function dryRunRestoreBaseline(
+  archivePath: string,
+  repoRoot: string
+): Promise<{ driftRows: RestoreDriftRow[]; hashDiff: HashDiffResult; ok: boolean }> {
+  if (!archiveSupported()) throw new Error("Bun.Archive is unavailable on this runtime");
+  const archiveFile = Bun.file(archivePath);
+  if (!(await archiveFile.exists())) throw new Error(`Archive not found: ${archivePath}`);
+  const { fileHashes } = await readSyncSnapshotArchiveMetadata(await archiveFile.bytes());
+  const current = await computeSyncHashes(repoRoot);
+  const hashDiff = diffArchivedHashes(fileHashes, current);
+  const driftRows = hashDiffDriftRows(fileHashes, current);
+  const failed =
+    hashDiff.missing.length > 0 || hashDiff.changed.length > 0 || hashDiff.extra.length > 0;
+  return { driftRows, hashDiff, ok: !failed };
+}
+
+export function printRestoreDryRunTable(drift: RestoreDriftRow[]): void {
+  if (!drift.length) {
+    console.error("[restore] dry-run: no drift detected");
+    return;
+  }
+  console.error(`[restore] dry-run drift (${drift.length} row(s)):`);
+  console.error(
+    Bun.inspect.table(
+      drift.map((d) => ({
+        file: d.file,
+        status: d.status,
+        hash:
+          d.oldHash || d.newHash
+            ? `${d.oldHash?.slice(0, 8) ?? "—"} → ${d.newHash?.slice(0, 8) ?? "—"}`
+            : "—",
+      })),
+      ["file", "status", "hash"],
+      { colors: true }
+    )
+  );
+}
+
+export async function restoreSyncBaseline(options: {
+  archivePath?: string;
+  repoRoot: string;
+  verify?: boolean;
+  dryRun?: boolean;
+}): Promise<{
+  manifest: ToolchainManifest;
+  meta: { bunVersion: string; fileCount: number; createdAt: string };
+  hashDiff?: HashDiffResult;
+  driftRows?: RestoreDriftRow[];
+  wroteManifest: boolean;
+}> {
+  if (!archiveSupported()) throw new Error("Bun.Archive is unavailable on this runtime");
+  const archivePath = options.archivePath ?? syncBaselineArchivePath();
+  const archiveFile = Bun.file(archivePath);
+  if (!(await archiveFile.exists())) throw new Error(`Archive not found: ${archivePath}`);
+  const { manifest, meta, fileHashes } = await readSyncSnapshotArchiveMetadata(
+    await archiveFile.bytes()
+  );
+
+  let hashDiff: HashDiffResult | undefined;
+  let driftRows: RestoreDriftRow[] | undefined;
+  if (options.verify !== false) {
+    const current = await computeSyncHashes(options.repoRoot);
+    hashDiff = diffArchivedHashes(fileHashes, current);
+    driftRows = hashDiffDriftRows(fileHashes, current);
+    const failed =
+      hashDiff.missing.length > 0 || hashDiff.changed.length > 0 || hashDiff.extra.length > 0;
+    if (failed) {
+      const err = new Error(
+        `Baseline drift detected (+${hashDiff.missing.length}/-${hashDiff.extra.length}/~${hashDiff.changed.length})`
+      ) as Error & { hashDiff: HashDiffResult; driftRows: RestoreDriftRow[] };
+      err.hashDiff = hashDiff;
+      err.driftRows = driftRows;
+      throw err;
+    }
+  }
+
+  const wroteManifest = !options.dryRun;
+  if (wroteManifest) await writeManifest(manifest);
+
+  return {
+    manifest,
+    meta: {
+      bunVersion: meta.bunVersion,
+      fileCount: meta.fileCount,
+      createdAt: meta.createdAt,
+    },
+    hashDiff,
+    driftRows,
+    wroteManifest,
+  };
+}
+
+export async function restoreBaselineToDir(
+  archivePath: string,
+  targetDir: string,
+  options: { verify?: boolean; dryRun?: boolean } = {}
+): Promise<{
+  archivePath: string;
+  targetDir: string;
+  dryRun: boolean;
+  verified: boolean;
+  manifest: ToolchainManifest;
+  restoredFiles: string[];
+  restored: number;
+  drift: string[];
+}> {
+  if (!archiveSupported()) throw new Error("Bun.Archive is unavailable on this runtime");
+  const archiveFile = Bun.file(archivePath);
+  if (!(await archiveFile.exists())) throw new Error(`archive not found: ${archivePath}`);
+  const verify = options.verify !== false;
+  const dryRun = options.dryRun === true;
+  const extractDir = dryRun
+    ? join(Bun.env.TMPDIR || "/tmp", `kimi-restore-baseline-${Bun.randomUUIDv7()}`)
+    : targetDir;
+
+  try {
+    const snapshot = await extractSyncSnapshotArchive(await archiveFile.bytes(), extractDir);
+    let drift: string[] = [];
+    if (verify) {
+      const fileHashes = snapshot.manifest.fileHashes ?? {};
+      for (const [file, expectedHash] of Object.entries(fileHashes)) {
+        const path = join(extractDir, file);
+        if (!(await Bun.file(path).exists())) {
+          drift.push(`missing ${file}`);
+          continue;
+        }
+        if ((await sha256File(path)) !== expectedHash) drift.push(`changed ${file}`);
+      }
+      drift.sort();
+      if (drift.length > 0) {
+        const err = new Error("hash mismatch post-extract") as Error & {
+          drift: string[];
+          driftRows: RestoreDriftRow[];
+        };
+        err.drift = drift;
+        err.driftRows = drift.map((line) => ({
+          file: line.replace(/^(missing|changed) /, ""),
+          status: line.startsWith("missing ") ? ("remove" as const) : ("modify" as const),
+        }));
+        throw err;
+      }
+    }
+    return {
+      archivePath,
+      targetDir,
+      dryRun,
+      verified: verify,
+      manifest: snapshot.manifest,
+      restoredFiles: snapshot.files,
+      restored: snapshot.files.length,
+      drift,
+    };
+  } finally {
+    if (dryRun) Bun.spawnSync(["rm", "-rf", extractDir]);
+  }
 }

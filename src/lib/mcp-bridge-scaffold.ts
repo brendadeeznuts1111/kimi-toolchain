@@ -3,7 +3,6 @@
  * shapes without modifying the core unified-shell bridge.
  */
 
-import { join } from "path";
 import { ensureDir } from "./utils.ts";
 
 export type BridgeKind = "filesystem" | "http" | "sandbox" | "dashboard";
@@ -20,9 +19,7 @@ export function bridgeScriptName(name: string, kind: BridgeKind): string {
   return `${name}-${kind}-bridge.ts`;
 }
 
-const BRIDGE_INSPECT_IMPORT = `import { homedir } from "os";
-import { join } from "path";
-const { inspectAgent } = await import(join(homedir(), ".kimi-code", "lib", "inspect.ts"));`;
+const BRIDGE_INSPECT_IMPORT = `const { inspectAgent } = await import(\`\${Bun.env.HOME ?? "/tmp"}/.kimi-code/lib/inspect.ts\`);`;
 
 const BRIDGE_JSONRPC_RESULT_OUT =
   'process.stdout.write(`${inspectAgent({ jsonrpc: "2.0", id: request.id, result })}\\n`);';
@@ -69,7 +66,7 @@ export async function writeBridgeScript(
   dir: string
 ): Promise<string> {
   const fileName = bridgeScriptName(options.name, options.kind);
-  const path = join(dir, fileName);
+  const path = `${dir}/${fileName}`;
   ensureDir(dir);
   await Bun.write(path, generateBridgeScript(options));
   return path;
@@ -83,13 +80,16 @@ function generateFilesystemBridge(options: BridgeScaffoldOptions): string {
  * ${options.name} filesystem bridge — scoped file-system MCP server.
  */
 
-import { resolve } from "path";
 ${BRIDGE_INSPECT_IMPORT}
 
-const ALLOWED_ROOTS = ${allowed}.map((p: string) => resolve(p));
+const ALLOWED_ROOTS = ${allowed}.map((p: string) => p.replace(/\\/+$/, ""));
+
+function absolutePath(path: string): string {
+  return path.startsWith("/") ? path : Bun.cwd + "/" + path;
+}
 
 function isAllowed(target: string): boolean {
-  const resolved = resolve(target);
+  const resolved = absolutePath(target);
   return ALLOWED_ROOTS.some((root: string) => resolved.startsWith(root));
 }
 
@@ -160,10 +160,7 @@ function generateDashboardBridge(options: BridgeScaffoldOptions): string {
  * ${options.name} dashboard bridge — thin wrapper around the built-in dashboard MCP.
  */
 
-import { homedir } from "os";
-import { join } from "path";
-
-const DASHBOARD_PATH = join(homedir(), ".kimi-code", "tools", "kimi-dashboard-mcp.ts");
+const DASHBOARD_PATH = (Bun.env.HOME ?? "/tmp") + "/.kimi-code/tools/kimi-dashboard-mcp.ts";
 
 const proc = Bun.spawn(["bun", "run", DASHBOARD_PATH], {
   stdio: ["inherit", "inherit", "inherit"],

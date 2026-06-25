@@ -1,5 +1,4 @@
 // ── Stream Hash ────────────────────────────────────────────────────
-import { encodeHex } from "../../../../src/lib/bun-utils.ts";
 import { jsonResponse } from "./shared.ts";
 
 export async function apiStreamHash(): Promise<Response> {
@@ -28,7 +27,7 @@ export async function apiStreamHash(): Promise<Response> {
   const stringDigest = stringHasher.digest("hex");
 
   const bunHash = Bun.SHA256.hash(await Bun.file(tmpPath).arrayBuffer());
-  const bunHex = encodeHex(new Uint8Array(bunHash as unknown as ArrayBuffer));
+  const bunHex = new Uint8Array(bunHash as unknown as ArrayBuffer).toHex();
 
   try {
     await Bun.file(tmpPath).delete();
@@ -47,6 +46,6 @@ export async function apiStreamHash(): Promise<Response> {
     },
     allMatch:
       streamDigest === wholeDigest && wholeDigest === stringDigest && stringDigest === bunHex,
-    note: "Stream: Bun.file().stream() + Bun.CryptoHasher. One-liner: Bun.SHA256.hash() then encodeHex().",
+    note: "Stream: Bun.file().stream() + Bun.CryptoHasher. One-liner: Bun.SHA256.hash() then Uint8Array.toHex().",
   });
 }

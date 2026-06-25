@@ -4,9 +4,13 @@
  */
 
 import { writeStdoutJsonSync } from "../src/lib/ndjson.ts";
-import { dryRunRestoreBaseline, printRestoreDryRunTable } from "../src/lib/restore-baseline.ts";
 import { resolveSyncBaselineArchivePath } from "../src/lib/sync-baseline-metrics.ts";
-import { buildSyncManifest, verifySyncManifest } from "../src/lib/desktop-sync.ts";
+import {
+  buildSyncManifest,
+  dryRunRestoreBaseline,
+  printRestoreDryRunTable,
+  verifySyncManifest,
+} from "../src/lib/desktop-sync.ts";
 import { scriptRepoRoot } from "../src/lib/paths.ts";
 import { writeManifest } from "../src/lib/version.ts";
 

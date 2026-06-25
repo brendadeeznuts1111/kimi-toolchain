@@ -11,7 +11,6 @@ export const UNIT_TEST_FILES = [
   "test/agents-md-sync.unit.test.ts",
   "test/boundary.unit.test.ts",
   "test/r-score.unit.test.ts",
-  "test/sync.unit.test.ts",
   "test/deletion-metric.unit.test.ts",
   "test/paths.unit.test.ts",
   "test/desktop-sync.unit.test.ts",
@@ -21,7 +20,7 @@ export const UNIT_TEST_FILES = [
   "test/kimi-mcp.unit.test.ts",
   "test/perf-gate-format.unit.test.ts",
   "test/test-run-guard.unit.test.ts",
-  "test/sync-drift.unit.test.ts",
+
   "test/readme-sync.unit.test.ts",
   "test/resolve-dev-secrets.unit.test.ts",
   "test/context-bloat-lint.unit.test.ts",
@@ -93,7 +92,6 @@ export const UNIT_TEST_FILES = [
   "test/sync-baseline-metrics.unit.test.ts",
   "test/gzip-performance.unit.test.ts",
   "test/bun-utils-hostname.unit.test.ts",
-  "test/bun-utils-hex.unit.test.ts",
   "test/bun-utils-runtime.unit.test.ts",
   "test/bun-utils-editor.unit.test.ts",
   "test/bun-utils-jsc.unit.test.ts",
@@ -469,7 +467,7 @@ export const INTEGRATION_TEST_FILES = [
   "test/kimi-fix.integration.test.ts",
   "test/kimi-fix-profiles.integration.test.ts",
   "test/lint-references-examples.integration.test.ts",
-  "test/sync-manifest.integration.test.ts",
+
   "test/trace-ledger.integration.test.ts",
   "test/unified-shell-bridge.integration.test.ts",
 ] as const;

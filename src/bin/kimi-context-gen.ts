@@ -122,12 +122,8 @@ async function inferTechStack(projectDir: string): Promise<TechStack> {
 
     const engineBun = pkg.engines?.bun;
     if (engineBun && stack.runtime?.includes("Bun")) {
-      try {
-        if (!Bun.semver.satisfies(bunVersion(), engineBun)) {
-          stack.runtime += ` (⚠ engine mismatch: needs ${engineBun})`;
-        }
-      } catch {
-        /* ignore */
+      if (!Bun.semver.satisfies(bunVersion(), engineBun)) {
+        stack.runtime += ` (⚠ engine mismatch: needs ${engineBun})`;
       }
     }
   }

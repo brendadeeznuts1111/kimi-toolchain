@@ -11,8 +11,13 @@
 import { Effect, pipe } from "effect";
 import { buildPaneIdentityExports } from "./artifact-identity.ts";
 import { resolveHerdrPanePath } from "./herdr-project-cli.ts";
-import { herdrCli, herdrCliJsonSync, herdrCliSync, type HerdrCliError } from "./herdr-cli.ts";
-import { ensureJsonArgs } from "./herdr-project-cli.ts";
+import {
+  herdrCli,
+  herdrCliJson,
+  herdrCliJsonSync,
+  herdrCliSync,
+  type HerdrCliError,
+} from "./herdr-cli.ts";
 // Re-export for consumers (herdr-doctor, herdr-workspace-service)
 export { resolveHerdrPanePath };
 
@@ -20,13 +25,7 @@ export { resolveHerdrPanePath };
 
 export type { HerdrCliError } from "./herdr-cli.ts";
 
-export interface HerdrJsonError {
-  _tag: "HerdrJsonError";
-  message: string;
-  raw: string;
-}
-
-export type HerdrPaneError = HerdrCliError | HerdrJsonError;
+export type HerdrPaneError = HerdrCliError;
 
 export interface PaneInfo {
   paneId: string;
@@ -81,31 +80,6 @@ export interface WaitAgentResult {
   matched: boolean;
   status: string;
   timedOut: boolean;
-}
-
-// ── CLI invocation (Bun-native) ─────────────────────────────────────────
-
-function herdrJsonError(raw: string, context: string): HerdrJsonError {
-  return {
-    _tag: "HerdrJsonError" as const,
-    message: `herdr ${context}: invalid JSON`,
-    raw: raw.slice(0, 500),
-  };
-}
-
-/** Run herdr CLI and parse JSON output. */
-function herdrCliJson<T>(args: string[], session?: string): Effect.Effect<T, HerdrPaneError> {
-  return pipe(
-    herdrCli(ensureJsonArgs(args), session),
-    Effect.mapError((err) => err as HerdrPaneError),
-    Effect.flatMap((stdout) => {
-      try {
-        return Effect.succeed(JSON.parse(stdout) as T);
-      } catch {
-        return Effect.fail(herdrJsonError(stdout, args[0] || "cli"));
-      }
-    })
-  );
 }
 
 // ── Pane listing ────────────────────────────────────────────────────────

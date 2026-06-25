@@ -450,12 +450,7 @@ export async function auditTestingDocs(
 
   for (const rel of targets) {
     const abs = join(root, rel);
-    let text: string;
-    try {
-      text = await Bun.file(abs).text();
-    } catch {
-      continue;
-    }
+    const text = await Bun.file(abs).text();
     issues.push(...scanText(rel, text));
     issues.push(...auditMarkdownHeadings(rel, text));
     issues.push(...auditMarkdownFenceLanguages(rel, text));

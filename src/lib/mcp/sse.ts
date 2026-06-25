@@ -207,13 +207,6 @@ function toolCallCacheKey(toolName: string, args: Record<string, unknown>): stri
 
 // ── SQLite-backed persistent cache ──────────────────────────────────────
 
-interface PersistentCacheStore {
-  get(serverUrl: string, cacheKey: string): unknown;
-  set(serverUrl: string, cacheKey: string, value: unknown, ttlMs: number): void;
-  clearServer(serverUrl: string): void;
-  close(): void;
-}
-
 function openCacheDb(dbPath: string): Database {
   // Ensure parent directory exists (idempotent).
   const parent = dbPath.substring(0, dbPath.lastIndexOf("/"));
@@ -234,7 +227,7 @@ function openCacheDb(dbPath: string): Database {
   return db;
 }
 
-function createPersistentCache(dbPath: string): PersistentCacheStore {
+function createPersistentCache(dbPath: string) {
   const db = openCacheDb(dbPath);
   let pruneJob: Bun.CronJob | undefined;
 
@@ -297,9 +290,9 @@ function createPersistentCache(dbPath: string): PersistentCacheStore {
 }
 
 /** Module-level shared persistent caches, keyed by dbPath. Created lazily on first use. */
-const sharedPersistentCaches = new Map<string, PersistentCacheStore>();
+const sharedPersistentCaches = new Map<string, ReturnType<typeof createPersistentCache>>();
 
-function getOrCreatePersistentCache(dbPath: string): PersistentCacheStore {
+function getOrCreatePersistentCache(dbPath: string): ReturnType<typeof createPersistentCache> {
   let cache = sharedPersistentCaches.get(dbPath);
   if (!cache) {
     cache = createPersistentCache(dbPath);
@@ -335,7 +328,7 @@ export function createHttpMcpClient(options: HttpMcpClientOptions): HttpMcpClien
 
   // ── Persistent cache (SQLite) — shared across invocations ──
   const resolvedCacheDbPath = resolveCacheDbPath(options.cacheDbPath);
-  const persistentCache: PersistentCacheStore | null = resolvedCacheDbPath
+  const persistentCache: ReturnType<typeof createPersistentCache> | null = resolvedCacheDbPath
     ? getOrCreatePersistentCache(resolvedCacheDbPath)
     : null;
 

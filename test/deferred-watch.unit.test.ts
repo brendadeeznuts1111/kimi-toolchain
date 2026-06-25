@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { EventBus } from "../src/lib/event-bus.ts";
-import { runDeferredWatch, type DeferredWatchHandle } from "../src/lib/deferred-watch.ts";
+import { runDeferredWatch } from "../src/lib/deferred-watch.ts";
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -24,7 +24,7 @@ function makeDeferredWatch(
   bus: EventBus<TestEvents>,
   events: string[],
   graceMs = 100
-): { handle: DeferredWatchHandle; log: StartStopLog[] } {
+): { handle: ReturnType<typeof runDeferredWatch>; log: StartStopLog[] } {
   const log: StartStopLog[] = [];
   let seq = 0;
   const handle = runDeferredWatch({
@@ -42,7 +42,7 @@ function makeDeferredWatch(
 
 describe("deferred-watch", () => {
   let bus: EventBus<TestEvents>;
-  let handle: DeferredWatchHandle;
+  let handle: ReturnType<typeof runDeferredWatch>;
   let log: StartStopLog[];
 
   afterEach(() => {

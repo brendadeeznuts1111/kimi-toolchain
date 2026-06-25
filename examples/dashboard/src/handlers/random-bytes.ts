@@ -1,5 +1,4 @@
 // ── Random Bytes ───────────────────────────────────────────────────
-import { encodeHex } from "../../../../src/lib/bun-utils.ts";
 import { jsonResponse } from "./shared.ts";
 
 export async function apiRandomBytes(): Promise<Response> {
@@ -11,9 +10,9 @@ export async function apiRandomBytes(): Promise<Response> {
   crypto.getRandomValues(buf);
 
   return jsonResponse({
-    randomBytes16: encodeHex(r1),
-    randomBytes8: encodeHex(r2),
-    randomFill12: encodeHex(buf),
+    randomBytes16: r1.toHex(),
+    randomBytes8: r2.toHex(),
+    randomFill12: buf.toHex(),
     note: "crypto.getRandomValues(Uint8Array) — Web Crypto CSPRNG. Bun-native; no node:crypto.",
   });
 }

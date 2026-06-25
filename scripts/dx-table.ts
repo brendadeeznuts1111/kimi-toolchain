@@ -40,7 +40,7 @@ import {
   parseInventoryRootsArg,
   runPropertyTableInventoryEffect,
 } from "../src/lib/property-table-inventory.ts";
-import { runGetMergedMeta } from "../src/lib/effect/dx-config.ts";
+import { loadMergedConfigDocument } from "../src/lib/dx-config-parse.ts";
 import { runPropertyTableExtractEffect } from "../src/lib/property-table-run.ts";
 import { listTomlPropertyTablePaths } from "../src/lib/toml-property-table.ts";
 import type { PropertyTableOutputFormat } from "../src/lib/property-table-renderer.ts";
@@ -396,14 +396,13 @@ const program = Effect.gen(function* () {
 
   let configFile = args.file;
   if (args.resolved) {
-    const meta = yield* runGetMergedMeta(args.projectRoot).pipe(
-      Effect.mapError(
-        (err) =>
-          new CliError({
-            message: `${err._tag}: ${err._tag === "ConfigParseError" ? err.cause : err.path}`,
-          })
-      )
-    );
+    const meta = yield* Effect.tryPromise({
+      try: () => loadMergedConfigDocument(args.projectRoot),
+      catch: (cause) =>
+        new CliError({
+          message: cause instanceof Error ? cause.message : Bun.inspect(cause),
+        }),
+    });
     if (!meta.projectPath) {
       return yield* Effect.fail(
         new CliError({

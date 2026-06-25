@@ -11,10 +11,13 @@
  */
 
 import { Effect } from "effect";
+import { pathExists } from "../src/lib/bun-io.ts";
+import { readTomlDocument } from "../src/lib/dx-config-parse.ts";
 import { runCliExit } from "../src/lib/effect/cli-runtime.ts";
+import { DxConfig, DxConfigLive } from "../src/lib/effect/dx-config.ts";
 import { CliError } from "../src/lib/effect/errors.ts";
 import { createLogger } from "../src/lib/logger.ts";
-import { DxConfigResolver, DxConfigResolverLive } from "../src/lib/effect/dx-config-service.ts";
+import { globalDxConfigPath } from "../src/lib/paths.ts";
 import { TOOLCHAIN_VERSION } from "../src/lib/version.ts";
 
 const TOOL = "dx:config";
@@ -98,13 +101,25 @@ const program = Effect.gen(function* () {
     );
   }
 
-  const resolver = yield* DxConfigResolver;
+  const dx = yield* DxConfig;
 
   const data = yield* args.globalOnly
-    ? Effect.map(resolver.loadGlobal(), (global) => ({ raw: global, global, project: {} }))
+    ? Effect.gen(function* () {
+        const globalPath = globalDxConfigPath();
+        const global = pathExists(globalPath)
+          ? yield* Effect.tryPromise({
+              try: () => readTomlDocument(globalPath),
+              catch: (cause) =>
+                new CliError({
+                  message: cause instanceof Error ? cause.message : Bun.inspect(cause),
+                }),
+            })
+          : {};
+        return { raw: global, global, project: {} as Record<string, unknown> };
+      })
     : args.agentContext
-      ? resolver.loadAgentContext(args.projectRoot)
-      : resolver.loadMerged(args.projectRoot);
+      ? dx.getAgentContext(args.projectRoot)
+      : dx.getMergedConfig(args.projectRoot);
 
   const output = args.format === "table" ? Bun.inspect.table(data) : JSON.stringify(data, null, 2);
 
@@ -115,7 +130,7 @@ const program = Effect.gen(function* () {
   return 0;
 });
 
-const provided = Effect.provide(program, DxConfigResolverLive);
+const provided = Effect.provide(program, DxConfigLive());
 
 if (import.meta.main) {
   const exitCode = await runCliExit(provided, { toolName: TOOL, logger });

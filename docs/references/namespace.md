@@ -37,7 +37,7 @@ Agents often conflate names that share a word (`doctor`, `orchestrator`) but liv
 | `kimi-doctor --automation`       | Finish-work shell gate                          | `~/.kimi-code/tools/kimi-doctor.ts`                    | [kimi-doctor.md](./kimi-doctor.md)                   |
 | `kimi-doctor --effect-gates`     | Finish-work shell gate                          | `~/.kimi-code/tools/kimi-doctor.ts`                    | [DEEP-QUALITY.md](../../DEEP-QUALITY.md)             |
 | `kimi-heal effect audit`         | Finish-work shell gate                          | `~/.kimi-code/tools/kimi-heal.ts`                      | [DEEP-QUALITY.md](../../DEEP-QUALITY.md)             |
-| `kimi-heal --fix`                | Advanced repair (bare promises, domain imports) | `~/.kimi-code/tools/kimi-heal.ts`                      | `src/lib/effect-heal-fix.ts`                         |
+| `kimi-heal --fix`                | Advanced repair (bare promises, domain imports) | `~/.kimi-code/tools/kimi-heal.ts`                      | `src/bin/kimi-heal.ts`                               |
 | `herdr-doctor --json`            | Toolchain bin (shell)                           | `herdr-doctor.ts` via PATH                             | [Doctor trinity](#doctor-trinity--kimi-code)         |
 | `prefix+d`                       | Herdr plugin action                             | `herdr-doctor.status` — not `kimi-doctor`              | This doc                                             |
 | `herdr-orchestrator dashboard`   | Toolchain bin (shell)                           | `herdr-orchestrator.ts`                                | [dashboard-thumbnails.md](./dashboard-thumbnails.md) |

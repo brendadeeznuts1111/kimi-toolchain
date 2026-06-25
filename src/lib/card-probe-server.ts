@@ -122,14 +122,6 @@ function artifactRefreshDisabled(gateName: string): Response {
   );
 }
 
-function probeConfigFromEnv(override?: CardProbeConfig): CardProbeConfig {
-  return {
-    examplesDashboardUrl: override?.examplesDashboardUrl ?? Bun.env.EXAMPLES_DASHBOARD_URL,
-    herdrDashboardUrl: override?.herdrDashboardUrl ?? Bun.env.HERDR_DASHBOARD_URL,
-    timeoutMs: override?.timeoutMs,
-  };
-}
-
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -206,7 +198,11 @@ export async function startProbeServer(
   const host = Bun.env[PROBE_SERVER_HOST_ENV] ?? options.host ?? DEFAULT_PROBE_SERVER_HOST;
   const port = Number(Bun.env[PROBE_SERVER_PORT_ENV] ?? options.port ?? DEFAULT_PROBE_SERVER_PORT);
   const refreshIntervalMs = Math.max(0, Number(options.refreshIntervalMs ?? 0));
-  const probeConfig = probeConfigFromEnv(options.probeConfig);
+  const probeConfig: CardProbeConfig = {
+    examplesDashboardUrl: options.probeConfig?.examplesDashboardUrl ?? Bun.env.EXAMPLES_DASHBOARD_URL,
+    herdrDashboardUrl: options.probeConfig?.herdrDashboardUrl ?? Bun.env.HERDR_DASHBOARD_URL,
+    timeoutMs: options.probeConfig?.timeoutMs,
+  };
   const projectRoot = options.projectRoot ?? process.cwd();
   const artifactStore = artifactStoreFor({ ...options, projectRoot });
 

@@ -22,7 +22,7 @@ For agent-facing examples of the preferred patterns, see `../../CODE_REFERENCES.
 | **Health**     | `workspace-health.ts`, `workspace-commands.ts`, `legacy-cleanup.ts`, `ecosystem-health.ts`                          | Workspace health, commands, legacy cleanup, ecosystem checks        |
 | **Process**    | `process-utils.ts`, `snapshot-core.ts`                                                                              | Orphan process detection, snapshot management                       |
 | **Doctor**     | `doctor-runs.ts`, `doctor-pipeline.ts`                                                                              | Doctor run persistence + parallel sub-doctor aggregation            |
-| **Sync**       | `desktop-sync.ts`, `sync-hashes.ts`, `sync-manifest.ts`                                                             | Desktop sync, hash verification, manifest generation                |
+| **Sync**       | `desktop-sync.ts`, `sync-baseline-metrics.ts`                                                                       | Desktop sync, hash verification, manifest, baseline restore         |
 | **Registry**   | `tool-registry.ts`                                                                                                  | Tool registry                                                       |
 | **Taxonomy**   | `error-taxonomy.ts`                                                                                                 | Error taxonomy                                                      |
 

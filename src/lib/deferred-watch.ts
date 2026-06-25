@@ -31,16 +31,6 @@ export interface DeferredWatchOptions {
   onStop: () => void;
 }
 
-export interface DeferredWatchHandle {
-  state: DeferredWatchState;
-  /** Manually start (bypasses subscriber check). */
-  start(): void;
-  /** Manually stop (bypasses grace period). */
-  stop(): void;
-  /** Restore original EventBus methods and stop unconditionally. */
-  dispose(): void;
-}
-
 // ── Defaults ───────────────────────────────────────────────────────
 
 const DEFAULT_GRACE_MS = 5_000;
@@ -56,7 +46,7 @@ const DEFAULT_GRACE_MS = 5_000;
  * A grace timer prevents thrashing: rapid unsubscribe → re-subscribe
  * cycles cancel the pending stop.
  */
-export function runDeferredWatch(options: DeferredWatchOptions): DeferredWatchHandle {
+export function runDeferredWatch(options: DeferredWatchOptions) {
   const gracePeriodMs = options.gracePeriodMs > 0 ? options.gracePeriodMs : DEFAULT_GRACE_MS;
   const events = new Set(options.events);
   const origOn = options.bus.on.bind(options.bus) as AnyBus["on"];

@@ -937,7 +937,7 @@ describe("bun-release-compliance console-bun-terminal", () => {
 
     "src/lib/workflow/loop.ts",
     "src/lib/workflow/effects.ts",
-    "src/lib/restore-baseline.ts",
+    "src/lib/desktop-sync.ts",
     "src/lib/memory/governor.ts",
   ]);
 

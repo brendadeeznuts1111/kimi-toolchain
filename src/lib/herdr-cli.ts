@@ -2,11 +2,10 @@
  * herdr-cli.ts — Shared herdr CLI invocation helpers
  *
  * Low-level Bun.spawn / Bun.spawnSync wrappers used by herdr-pane-service.ts
- * and herdr-workspace-service.ts. Each service builds its own herdrCliJson
- * wrapper on top to handle its specific error taxonomy.
+ * and herdr-workspace-service.ts.
  */
 
-import { Effect } from "effect";
+import { Effect, pipe } from "effect";
 import { withNoOrphansEnv } from "./bun-spawn-env.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import {
@@ -79,6 +78,22 @@ export function herdrCli(args: string[], session?: string): Effect.Effect<string
 
     return stdout.trim();
   });
+}
+
+/** Run herdr CLI with `--json` and parse stdout as JSON. */
+export function herdrCliJson<T>(args: string[], session?: string): Effect.Effect<T, HerdrCliError> {
+  return pipe(
+    herdrCli(ensureJsonArgs(args), session),
+    Effect.flatMap((stdout) => {
+      try {
+        return Effect.succeed(JSON.parse(stdout) as T);
+      } catch {
+        return Effect.fail(
+          herdrCliError(`invalid JSON: ${stdout.slice(0, 200)}`, null, args[0] || "cli")
+        );
+      }
+    })
+  );
 }
 
 // ── Sync CLI (Bun.spawnSync) ────────────────────────────────────────────

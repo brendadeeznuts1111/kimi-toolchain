@@ -168,7 +168,7 @@ Taxonomy lookup: `kimi-debug analyze --json` or `kimi-debug classify <text>` (`~
 ```
 1. kimi-heal effect audit --check-tags --event-streams --json
 2. kimi-heal --fix --dry-run   → preview bare-promise / import rewrites
-3. kimi-heal --fix --yes       → apply repairs (src/lib/effect-heal-fix.ts)
+3. kimi-heal --fix --yes       → apply repairs (src/bin/kimi-heal.ts)
 4. kimi-doctor --effect-gates  → confirm clean
 ```
 

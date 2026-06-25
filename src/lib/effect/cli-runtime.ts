@@ -45,13 +45,24 @@ function runWithTelemetry<A, E>(program: Effect.Effect<A, E>, logger: Logger): E
   return program.pipe(Effect.ensuring(flushTelemetry(logger)));
 }
 
-async function handleCliFailure(
-  logger: Logger,
-  trace: ReturnType<typeof ensureProcessTrace>,
-  started: number,
-  toolName: string,
-  cause: Cause.Cause<CliError | unknown>
+async function runCliInner<A>(
+  program: Effect.Effect<A, CliError | unknown>,
+  options: RunCliOptions,
+  successExitCode: (value: A) => number
 ): Promise<number> {
+  const trace = ensureProcessTrace();
+  const logger = resolveLogger(trace.traceId, options);
+  const started = Date.now();
+
+  const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
+
+  if (Exit.isSuccess(exit)) {
+    const code = successExitCode(exit.value);
+    await recordCliTrace(options.toolName, trace, started, code);
+    return code;
+  }
+
+  const cause = exit.cause;
   let message: string;
   let exitCode = 1;
   if (cause._tag === "Fail") {
@@ -70,7 +81,7 @@ async function handleCliFailure(
     message = Cause.pretty(cause);
   }
   logger.error(message);
-  await recordCliTrace(toolName, trace, started, exitCode, message);
+  await recordCliTrace(options.toolName, trace, started, exitCode, message);
   return exitCode;
 }
 
@@ -79,18 +90,7 @@ export async function runCli<A>(
   program: Effect.Effect<A, CliError | unknown>,
   options: RunCliOptions
 ): Promise<number> {
-  const trace = ensureProcessTrace();
-  const logger = resolveLogger(trace.traceId, options);
-  const started = Date.now();
-
-  const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
-
-  if (Exit.isSuccess(exit)) {
-    await recordCliTrace(options.toolName, trace, started, 0);
-    return 0;
-  }
-
-  return handleCliFailure(logger, trace, started, options.toolName, exit.cause);
+  return runCliInner(program, options, () => 0);
 }
 
 /** Run a CLI whose success value is the process exit code (non-zero is not an error). */
@@ -98,18 +98,7 @@ export async function runCliExit(
   program: Effect.Effect<number, CliError | unknown>,
   options: RunCliOptions
 ): Promise<number> {
-  const trace = ensureProcessTrace();
-  const logger = resolveLogger(trace.traceId, options);
-  const started = Date.now();
-
-  const exit = await Effect.runPromiseExit(runWithTelemetry(program, logger));
-
-  if (Exit.isSuccess(exit)) {
-    await recordCliTrace(options.toolName, trace, started, exit.value);
-    return exit.value;
-  }
-
-  return handleCliFailure(logger, trace, started, options.toolName, exit.cause);
+  return runCliInner(program, options, (value) => value);
 }
 
 async function recordCliTrace(

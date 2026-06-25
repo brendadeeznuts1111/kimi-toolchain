@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 /** @see DIRECTIVE.md — single-file audit CLI; no lib indirection. */
 import { $ } from "bun";
-import { relative } from "path";
 import { scanSourceText } from "../src/lib/autophagy-scan.ts";
 import {
   DEFAULT_MIN_DELETION_RATIO,
@@ -193,7 +192,12 @@ async function phase1(changedOnly: boolean, json: boolean): Promise<number> {
   const findings: Finding[] = changed?.length ? [] : await auditGaps();
   for (const full of paths) {
     if (!(await Bun.file(full).exists())) continue;
-    findings.push(...scanFile(relative(ROOT, full), await Bun.file(full).text()));
+    findings.push(
+      ...scanFile(
+        full.startsWith(`${ROOT}/`) ? full.slice(ROOT.length + 1) : full,
+        await Bun.file(full).text()
+      )
+    );
   }
   const rank = (k: string) =>
     k.startsWith("gap")

@@ -77,33 +77,6 @@ export function summarizeDxConfigCause(cause: Cause.Cause<DxConfigError>): DxCon
   return [{ tag: "ConfigParseError", message: pretty || "Config resolution failed" }];
 }
 
-/** Program with `DxConfigLive` already provided. */
-export const withDxConfigLive =
-  (home?: string) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R | DxConfig>) =>
-    effect.pipe(Effect.provide(DxConfigLive(home)));
-
-export function runGetMergedConfig(
-  projectRoot: string,
-  home?: string
-): Effect.Effect<DxConfigDocument, DxConfigError> {
-  return withDxConfigLive(home)(getMergedConfig(projectRoot));
-}
-
-export function runGetMergedMeta(
-  projectRoot: string,
-  home?: string
-): Effect.Effect<MergedDxConfigMeta, DxConfigError> {
-  return withDxConfigLive(home)(getMergedMeta(projectRoot));
-}
-
-export function runGetAgentContext(
-  projectRoot: string,
-  home?: string
-): Effect.Effect<AgentContext, DxConfigError> {
-  return withDxConfigLive(home)(getAgentContext(projectRoot));
-}
-
 function mapLoadError(cause: unknown): DxConfigError {
   if (cause instanceof TomlConfigParseError) {
     return new ConfigParseError({ path: cause.path, cause: cause.cause });
