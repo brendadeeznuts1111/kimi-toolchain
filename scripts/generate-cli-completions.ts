@@ -75,6 +75,7 @@ interface CommandInfo {
   subcommands?: Record<string, SubcommandInfo>;
   documentationUrl?: string;
   docContent?: string;
+  sections?: DocSectionInfo[];
   dynamicCompletions?: {
     scripts?: boolean;
     packages?: boolean;
@@ -92,6 +93,11 @@ interface DocPageInfo {
   title: string;
   url: string;
   description?: string;
+}
+
+interface DocSectionInfo {
+  title: string;
+  anchor: string;
 }
 
 interface CompletionData {
@@ -247,23 +253,33 @@ async function fetchBunDocsIndex(): Promise<DocPageInfo[]> {
 }
 
 /**
- * Fetch the Markdown documentation page for a CLI command, if available.
- * Looks up the URL from the docs index so it follows Bun's current path structure.
+ * Parse Markdown headings from a command doc page into section links.
+ * Headings become URL anchors (GitHub-style slugification).
  */
-async function fetchCommandDocContent(
-  commandName: string,
-  docs: DocPageInfo[]
-): Promise<string | undefined> {
-  const page = docs.find((d) => d.title === commandName || d.title === `bun ${commandName}`);
-  if (!page) return undefined;
+function parseDocSections(markdown: string): DocSectionInfo[] {
+  const sections: DocSectionInfo[] = [];
+  const seen = new Set<string>();
 
-  try {
-    const response = await fetch(page.url);
-    if (!response.ok) return undefined;
-    return await response.text();
-  } catch {
-    return undefined;
+  for (const match of markdown.matchAll(/^(#{2,4})\s+(.+)$/gm)) {
+    const rawTitle = match[2]
+      .replace(/<[^>]+>/g, "")
+      .replace(/[`_*]/g, "")
+      .trim();
+    if (!rawTitle) continue;
+
+    const anchor = rawTitle
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    if (!anchor || seen.has(anchor)) continue;
+    seen.add(anchor);
+    sections.push({ title: rawTitle, anchor });
   }
+
+  return sections;
 }
 
 /**
@@ -850,12 +866,19 @@ async function generateCompletions(): Promise<void> {
   console.log("📖 Fetching command documentation pages...");
   await Promise.all(
     Object.keys(completionData.commands).map(async (commandName) => {
-      const content = await fetchCommandDocContent(commandName, docs);
-      if (content) {
-        completionData.commands[commandName].docContent = content;
+      const page = docs.find((d) => d.title === commandName || d.title === `bun ${commandName}`);
+      if (!page) return;
+
+      try {
+        const response = await fetch(page.url);
+        if (!response.ok) return;
+        const content = await response.text();
+
+        const cmd = completionData.commands[commandName];
+        cmd.docContent = content;
+        cmd.sections = parseDocSections(content);
 
         // If --help gave us no useful description, pull one from the doc page
-        const cmd = completionData.commands[commandName];
         if (!cmd.description || cmd.description.startsWith("bun ")) {
           const firstLine = content
             .split("\n")
@@ -865,6 +888,8 @@ async function generateCompletions(): Promise<void> {
             cmd.description = firstLine.replace(/^>\s*/, "").replace(/\*+/g, "").trim();
           }
         }
+      } catch {
+        // ignore fetch errors
       }
     })
   );
