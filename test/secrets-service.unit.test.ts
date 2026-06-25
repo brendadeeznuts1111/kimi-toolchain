@@ -6,7 +6,7 @@ import { tmpdir } from "os";
 import { Secrets, SecretsTest } from "../src/lib/effect/secrets-service.ts";
 import { SecretNotFound, SecretPolicyViolation } from "../src/lib/effect/errors.ts";
 import { SecretKeys, Consumers } from "../src/lib/secrets-constants.ts";
-import type { SecretsBackend } from "../src/lib/secrets-types.ts";
+import type { SecretsBackend } from "../src/lib/secrets-constants.ts";
 import { writeText } from "./helpers.ts";
 
 function makeBackend(store: Map<string, string>): SecretsBackend {

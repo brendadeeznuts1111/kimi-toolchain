@@ -9,7 +9,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { renderReportHtml } from "../src/doctor/deep-audit/webview-report.ts";
-import type { DeepAuditReport } from "../src/lib/deep-audit-types.ts";
+import type { DeepAuditReport } from "../src/doctor/deep-audit/report.ts";
 
 function sampleReport(overrides: Partial<DeepAuditReport> = {}): DeepAuditReport {
   return {

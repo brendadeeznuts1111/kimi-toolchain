@@ -8,7 +8,7 @@ import {
   isStale,
   todayDateString,
 } from "../src/lib/secrets-policy.ts";
-import type { SecretsPolicyDocument, SecretPolicyEntry } from "../src/lib/secrets-types.ts";
+import type { SecretsPolicyDocument, SecretPolicyEntry } from "../src/lib/secrets-constants.ts";
 
 function validEntry(overrides: Partial<SecretPolicyEntry> = {}): SecretPolicyEntry {
   return {

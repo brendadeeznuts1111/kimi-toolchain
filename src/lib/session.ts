@@ -8,11 +8,11 @@
  *   - Max concurrent sessions per user
  *   - Session metadata (IP, user agent, etc.)
  *
- * @see identity-types.ts for type definitions
+ * @see jwt.ts for type definitions
  * @see jwt.ts for JWT-based session tokens
  */
 
-import type { SessionRecord, SessionConfig, SessionError } from "./identity-types.ts";
+import type { SessionRecord, SessionConfig, SessionError } from "./jwt.ts";
 
 // ── Constants ────────────────────────────────────────────────────────
 

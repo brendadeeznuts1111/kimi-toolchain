@@ -6,7 +6,7 @@
  */
 
 import { join } from "path";
-import { runSecretsStorageGate } from "../src/lib/secrets-gate.ts";
+import { runSecretsStorageGate } from "../src/lib/secrets-manager.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 const result = await runSecretsStorageGate(REPO_ROOT);

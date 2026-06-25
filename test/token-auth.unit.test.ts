@@ -8,7 +8,7 @@
  */
 
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
-import type { VerifiedJwt } from "../src/lib/identity-types.ts";
+import type { VerifiedJwt } from "../src/lib/jwt.ts";
 import { signJwt, verifyJwt } from "../src/lib/jwt.ts";
 
 const LAYER_SECRET = "test-token-auth-layer-secret";

@@ -11,7 +11,7 @@ import {
   storageTierWarning,
 } from "../src/lib/secrets-storage.ts";
 import { validateSecretsPolicy } from "../src/lib/secrets-policy.ts";
-import type { SecretPolicyEntry } from "../src/lib/secrets-types.ts";
+import type { SecretPolicyEntry } from "../src/lib/secrets-constants.ts";
 
 describe("secrets-storage", () => {
   test("STORAGE_TIERS lists all platform backends", () => {

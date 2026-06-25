@@ -2,7 +2,7 @@
  * secrets-manager.ts — Core SecretsManager wrapping Bun.secrets with policy
  * enforcement, audit logging, in-memory caching, and rotation support.
  *
- * @see secrets-types.ts for type definitions
+ * @see secrets-constants.ts for type definitions
  * @see secrets-policy.ts for policy loading/validation
  * @see secrets-audit.ts for audit trail
  */
@@ -43,7 +43,8 @@ import type {
   SecretsPolicyDocument,
   SecretResolveSource,
   StorageBackend,
-} from "./secrets-types.ts";
+} from "./secrets-constants.ts";
+import type { HealthCheck } from "./health-check.ts";
 
 export interface ResolvedSecret {
   value: string | null;
@@ -634,4 +635,133 @@ export class SecretsManager {
     this.valueCache.clear();
     this.policyCache = null;
   }
+}
+
+export const SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY = "secrets_storage_tier_mismatch";
+
+export interface SecretsStorageGateResult {
+  ok: boolean;
+  message: string;
+  taxonomyId?: string;
+  backend?: string;
+  insecureSecretCount?: number;
+  skipped?: boolean;
+}
+
+export interface SecretsStorageGateOptions {
+  detectBackend?: () => Promise<StorageBackend>;
+}
+
+export interface SecretsProbeOptions {
+  detectBackend?: () => Promise<StorageBackend>;
+}
+
+async function policyBackedManager(
+  projectRoot: string,
+  detectBackend?: () => Promise<StorageBackend>
+): Promise<SecretsManager | null> {
+  const policyPath = secretsPolicyPath(projectRoot);
+  if (!(await Bun.file(policyPath).exists())) return null;
+  return new SecretsManager({ projectRoot, policyPath, detectBackend, onWarn: () => {} });
+}
+
+export async function runSecretsStorageGate(
+  projectRoot: string,
+  opts: SecretsStorageGateOptions = {}
+): Promise<SecretsStorageGateResult> {
+  const manager = await policyBackedManager(projectRoot, opts.detectBackend);
+  if (!manager) {
+    return { ok: true, skipped: true, message: "secrets-policy.json5 missing — gate skipped" };
+  }
+  const status = await manager.storageStatus();
+  if (status.backend !== "env-fallback") {
+    return {
+      ok: true,
+      message: `${status.backend} backend (${status.securityLevel} security)`,
+      backend: status.backend,
+      insecureSecretCount: 0,
+    };
+  }
+  if (status.insecureSecretCount === 0) {
+    return {
+      ok: true,
+      message: `env-fallback with ${status.envFallbackOptInCount} opt-in secret(s)`,
+      backend: status.backend,
+      insecureSecretCount: 0,
+    };
+  }
+  return {
+    ok: false,
+    message: `${status.insecureSecretCount} secret(s) lack storageTier: "env-fallback" on Linux env-fallback backend`,
+    taxonomyId: SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY,
+    backend: status.backend,
+    insecureSecretCount: status.insecureSecretCount,
+  };
+}
+
+export async function auditSecretsStorage(
+  projectRoot: string,
+  opts: SecretsProbeOptions = {}
+): Promise<HealthCheck[]> {
+  const manager = await policyBackedManager(projectRoot, opts.detectBackend);
+  if (!manager) {
+    return [
+      {
+        name: "secrets:policy",
+        status: "warn",
+        message: "secrets-policy.json5 missing",
+        fixable: true,
+        autoFix: "bun run sync",
+      },
+    ];
+  }
+  const status = await manager.storageStatus();
+  const checks: HealthCheck[] = [
+    {
+      name: "secrets:storage-backend",
+      status: status.securityLevel === "high" ? "ok" : "warn",
+      message: `${status.backend} (${status.securityLevel} security) on ${status.platform}`,
+      fixable: false,
+    },
+  ];
+  if (process.platform === "linux") {
+    checks.push({
+      name: "secrets:libsecret",
+      status: status.libsecretAvailable ? "ok" : "warn",
+      message: status.libsecretAvailable
+        ? "libsecret daemon reachable"
+        : status.secretToolPresent
+          ? "secret-tool present but daemon unavailable"
+          : "secret-tool not on PATH — env-fallback only",
+      fixable: false,
+    });
+  }
+  if (status.insecureSecretCount > 0) {
+    checks.push({
+      name: "secrets:tier-mismatch",
+      status: "warn",
+      message: `${status.insecureSecretCount} secret(s) lack storageTier: "env-fallback" on env-fallback backend`,
+      fixable: true,
+      autoFix: 'Add storageTier: "env-fallback" to CI-only entries in secrets-policy.json5',
+    });
+  } else if (status.backend === "env-fallback" && status.envFallbackOptInCount === 0) {
+    checks.push({
+      name: "secrets:tier-mismatch",
+      status: "warn",
+      message: "env-fallback backend active but no env-fallback tier secrets registered",
+      fixable: true,
+      autoFix: 'Register CI secrets with storageTier: "env-fallback"',
+    });
+  } else {
+    checks.push({
+      name: "secrets:tier-mismatch",
+      status: "ok",
+      message:
+        status.backend === "env-fallback"
+          ? `${status.envFallbackOptInCount} env-fallback tier secret(s) registered`
+          : `secure tier (${storageSecurityLevel(status.backend)})`,
+      fixable: false,
+    });
+  }
+  return checks;
 }

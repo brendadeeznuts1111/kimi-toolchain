@@ -1,4 +1,4 @@
-import { makeDir, removePath, writeText } from "../src/lib/bun-io.ts";
+import { makeDir, readText, removePath, writeText } from "../src/lib/bun-io.ts";
 
 import { describe, expect, mock, test } from "bun:test";
 import { join } from "path";
@@ -54,6 +54,7 @@ import {
   referencesContentEqual,
 } from "../src/lib/canonical-references.ts";
 import {
+  extractCanonicalReferencesTypesPrefix,
   generateCanonicalReferencesDataTs,
   lintCanonicalReferencesToml,
   parseCanonicalReferencesToml,
@@ -61,6 +62,12 @@ import {
   type CanonicalReferencesTomlSource,
 } from "../src/lib/canonical-references-toml.ts";
 import { stableStringify } from "../src/lib/build-constants-registry.ts";
+
+function canonicalDataTypesPrefix(): string {
+  return extractCanonicalReferencesTypesPrefix(
+    readText(join(REPO_ROOT, "src/lib/canonical-references-data.ts"))
+  );
+}
 
 describe("canonical-references", () => {
   test("ecosystem includes bun, effect, kimi-code, herdr", () => {
@@ -762,7 +769,9 @@ describe("canonical-references", () => {
     expect(parsed.ecosystem).toEqual(source.ecosystem);
     expect(parsed.localDocs).toEqual(source.localDocs);
     expect(parsed.repos).toEqual(source.repos);
-    expect(generateCanonicalReferencesDataTs(parsed).length).toBeGreaterThan(100);
+    expect(generateCanonicalReferencesDataTs(parsed, canonicalDataTypesPrefix()).length).toBeGreaterThan(
+      100
+    );
   });
 
   test("generated TS arrays match snapshot", () => {
@@ -773,7 +782,7 @@ describe("canonical-references", () => {
       localDocs: manifest.localDocs,
       repos: manifest.repos,
     };
-    const tsSource = generateCanonicalReferencesDataTs(source);
+    const tsSource = generateCanonicalReferencesDataTs(source, canonicalDataTypesPrefix());
     expect(tsSource).toMatchSnapshot();
   });
 

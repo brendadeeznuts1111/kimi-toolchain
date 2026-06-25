@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
 import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
-import { auditSecretsStorage } from "../src/lib/secrets-probe.ts";
+import { auditSecretsStorage } from "../src/lib/secrets-manager.ts";
 import { writeText } from "./helpers.ts";
 
 describe("secrets-probe", () => {

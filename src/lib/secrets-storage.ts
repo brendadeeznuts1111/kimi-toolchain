@@ -8,7 +8,7 @@
  */
 
 import { $ } from "bun";
-import type { SecretPolicyEntry, StorageBackend, StorageSecurityLevel } from "./secrets-types.ts";
+import type { SecretPolicyEntry, StorageBackend, StorageSecurityLevel } from "./secrets-constants.ts";
 
 export const STORAGE_TIERS: readonly StorageBackend[] = [
   "keychain",

@@ -1,22 +1,83 @@
-/**
- * jwt.ts — JWT signing and verification using Bun.CryptoHasher (HMAC-SHA256/384/512).
- *
- * Zero dependencies — uses `Bun.CryptoHasher` for fast, synchronous HMAC signing.
- * No async needed — signJwt and verifyJwt are now sync functions.
- *
- * @see https://bun.com/docs/runtime/hashing
- * @see identity-types.ts for type definitions
- * @see secrets-manager.ts for secret resolution
- */
+/** JWT signing and verification using Bun.CryptoHasher. */
 
-import type {
-  JwtClaims,
-  JwtPayload,
-  JwtConfig,
-  JwtHeader,
-  JwtError,
-  VerifiedJwt,
-} from "./identity-types.ts";
+export interface JwtHeader {
+  alg: "HS256" | "HS384" | "HS512";
+  typ: "JWT";
+}
+
+export interface JwtClaims {
+  sub: string;
+  iss?: string;
+  aud?: string;
+  exp: number;
+  iat: number;
+  nbf?: number;
+  jti?: string;
+  [key: string]: unknown;
+}
+
+export type JwtPayload = Omit<JwtClaims, "iat" | "exp"> & {
+  iat?: number;
+  exp?: number;
+};
+
+export interface JwtConfig {
+  secret?: string;
+  algorithm?: "HS256" | "HS384" | "HS512";
+  issuer?: string;
+  audience?: string;
+  ttlSeconds?: number;
+}
+
+export interface VerifiedJwt {
+  header: JwtHeader;
+  claims: JwtClaims;
+  signature: string;
+}
+
+export interface SessionRecord {
+  id: string;
+  userId: string;
+  createdAt: string;
+  expiresAt: string;
+  lastActivity: string;
+  metadata?: Record<string, string>;
+  active: boolean;
+}
+
+export interface SessionConfig {
+  ttlSeconds?: number;
+  idleTimeoutSeconds?: number;
+  maxSessionsPerUser?: number;
+}
+
+export interface CsrfToken {
+  value: string;
+  createdAt: string;
+  expiresAt: string;
+  sessionId?: string;
+}
+
+export interface CsrfConfig {
+  ttlSeconds?: number;
+  tokenLength?: number;
+}
+
+export type JwtError =
+  | "jwt_expired"
+  | "jwt_invalid_signature"
+  | "jwt_invalid_format"
+  | "jwt_not_yet_valid"
+  | "jwt_missing_secret";
+
+export type SessionError =
+  | "session_not_found"
+  | "session_expired"
+  | "session_revoked"
+  | "session_limit_exceeded";
+
+export type CsrfError = "csrf_token_mismatch" | "csrf_token_expired" | "csrf_token_invalid";
+
 import { constantTimeEqual } from "./crypto-utils.ts";
 import { decodeBase64UrlBytes, encodeBase64UrlBytes } from "./bun-utils.ts";
 

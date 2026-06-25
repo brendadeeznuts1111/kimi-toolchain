@@ -11,7 +11,7 @@
 import { secrets } from "bun";
 import { readSecretFromEnv } from "./secrets-env.ts";
 import { isBunSecretsAvailable } from "./secrets-storage.ts";
-import type { SecretsBackend } from "./secrets-types.ts";
+import type { SecretsBackend } from "./secrets-constants.ts";
 
 /** Reverse-DNS prefix for domain-scoped OS credential store entries. */
 export const FACTORY_WAGER_SERVICE_PREFIX = "com.factory-wager";

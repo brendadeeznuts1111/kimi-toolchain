@@ -13,10 +13,10 @@
  *   - Multiple encodings (base64url, base64, hex)
  *
  * @see https://bun.com/docs/runtime/csrf
- * @see identity-types.ts for type definitions
+ * @see jwt.ts for type definitions
  */
 
-import type { CsrfError } from "./identity-types.ts";
+import type { CsrfError } from "./jwt.ts";
 import { constantTimeEqual } from "./crypto-utils.ts";
 
 export { constantTimeEqual };

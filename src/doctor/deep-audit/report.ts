@@ -10,7 +10,31 @@
  */
 
 import { isDirectRun } from "../../lib/bun-utils.ts";
-import type { DeepAuditReport } from "../../lib/deep-audit-types.ts";
+import type { ImageAuditFinding } from "../../lib/image-audit.ts";
+
+export interface DeepAuditRun {
+  id: string;
+  description: string;
+  ok: boolean;
+  exitCode: number;
+  durationMs: number;
+  stdout: string;
+  stderr: string;
+  summary: string;
+  findings?: ImageAuditFinding[];
+  filesScanned?: number;
+}
+
+export interface DeepAuditReport {
+  schemaVersion: 1;
+  generatedAt: string;
+  projectRoot: string;
+  bunVersion: string;
+  full: boolean;
+  runs: DeepAuditRun[];
+  summary: { total: number; passed: number; failed: number; durationMs: number };
+  imageAudit?: { filesScanned: number; findings: ImageAuditFinding[] };
+}
 
 function firstLine(text: string): string {
   return text.split("\n")[0]?.trim() ?? "";

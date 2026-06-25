@@ -13,7 +13,7 @@ import {
   SecretPolicyViolation,
 } from "../src/lib/effect/errors.ts";
 import { SecretsTest } from "../src/lib/effect/secrets-service.ts";
-import type { SecretsBackend } from "../src/lib/secrets-types.ts";
+import type { SecretsBackend } from "../src/lib/secrets-constants.ts";
 import { clearSessionCookie, parseSessionCookie, sessionCookieHeader } from "../src/lib/session.ts";
 import { removePath, testTempPath, writeText } from "./helpers.ts";
 

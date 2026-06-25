@@ -34,7 +34,7 @@ import type {
   SessionRecord,
   SessionConfig,
   CsrfConfig,
-} from "../identity-types.ts";
+} from "../jwt.ts";
 
 import { SecretKeys, Consumers } from "../secrets-constants.ts";
 

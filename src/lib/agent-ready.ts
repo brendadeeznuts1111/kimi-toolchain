@@ -6,7 +6,7 @@ import { pathExists } from "./bun-io.ts";
 import { readableStreamToText } from "./bun-utils.ts";
 import { join } from "path";
 import type { HealthCheck } from "./health-check.ts";
-import { auditSecretsStorage } from "./secrets-probe.ts";
+import { auditSecretsStorage } from "./secrets-manager.ts";
 import { homeDir } from "./paths.ts";
 import { validateMcpConfig } from "./mcp-config.ts";
 import { detectSyncDrift } from "./desktop-sync.ts";

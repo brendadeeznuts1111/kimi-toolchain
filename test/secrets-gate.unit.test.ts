@@ -5,7 +5,7 @@ import { tmpdir } from "os";
 import {
   runSecretsStorageGate,
   SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY,
-} from "../src/lib/secrets-gate.ts";
+} from "../src/lib/secrets-manager.ts";
 import { SECRETS_POLICY_FILE } from "../src/lib/secrets-constants.ts";
 import { writeText } from "./helpers.ts";
 

@@ -75,7 +75,7 @@ import { isAgentContext } from "../lib/tool-runner.ts";
 import { resolveProjectRoot, getProjectName, readPackageManifest } from "../lib/utils.ts";
 import { runWorkspaceCommand } from "../lib/workspace-commands.ts";
 import { auditAgentReady } from "../lib/agent-ready.ts";
-import { auditSecretsStorage } from "../lib/secrets-probe.ts";
+import { auditSecretsStorage } from "../lib/secrets-manager.ts";
 import { auditTrustedDeps } from "../lib/doctor-trusted-deps.ts";
 import { auditSuccessMetrics } from "../lib/success-metrics.ts";
 import { generateAgentDiagnosisReport } from "../lib/agent-diagnosis.ts";

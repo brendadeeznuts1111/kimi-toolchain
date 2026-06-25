@@ -12,7 +12,7 @@ import type {
   SecretPolicyEntry,
   StorageBackend,
   ValidationResult,
-} from "./secrets-types.ts";
+} from "./secrets-constants.ts";
 
 const SCHEMA_VERSION = "v1";
 
