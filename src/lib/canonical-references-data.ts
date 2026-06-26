@@ -384,6 +384,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
       "Bun install configuration reference: [install], scopes, cache, and platform selectors",
   },
   {
+    id: "bun-types",
+    repoPath: "docs/references/bun-types.md",
+    runtimePath: "~/.kimi-code/docs/references/bun-types.md",
+    purpose:
+      "Bun TypeScript types reference: bun-types package, @types/bun shim, and local checkout pinning",
+  },
+  {
     id: "testing-execution",
     repoPath: "docs/references/testing-execution.md",
     runtimePath: "~/.kimi-code/docs/references/testing-execution.md",

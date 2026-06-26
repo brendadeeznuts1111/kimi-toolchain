@@ -203,6 +203,12 @@ const MANIFEST_LOCAL_DOCS_ALL = [
       "Bun install configuration reference: [install], scopes, cache, and platform selectors",
   },
   {
+    id: "bun-types",
+    location: "docs/references",
+    purpose:
+      "Bun TypeScript types reference: bun-types package, @types/bun shim, and local checkout pinning",
+  },
+  {
     id: "testing-execution",
     location: "docs/references",
     purpose:

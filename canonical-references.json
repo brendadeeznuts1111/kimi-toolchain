@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-26T07:42:46.464Z",
+  "generatedAt": "2026-06-26T07:46:14.747Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -295,6 +295,12 @@
       "repoPath": "docs/references/bun-install-config.md",
       "runtimePath": "~/.kimi-code/docs/references/bun-install-config.md",
       "purpose": "Bun install configuration reference: [install], scopes, cache, and platform selectors"
+    },
+    {
+      "id": "bun-types",
+      "repoPath": "docs/references/bun-types.md",
+      "runtimePath": "~/.kimi-code/docs/references/bun-types.md",
+      "purpose": "Bun TypeScript types reference: bun-types package, @types/bun shim, and local checkout pinning"
     },
     {
       "id": "testing-execution",
