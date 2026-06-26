@@ -23,7 +23,7 @@ import {
   BUN_BUFFER_FROM_RELEASE_URL,
   BUN_HEAP_PROF_RELEASE_URL,
   BUN_RELEASE_BLOG_URL,
-} from "./bun-release-registry.ts";
+} from "./bun-utils.ts";
 
 export { BUN_BINARY_DATA_CONVERSION_DOC_URL };
 import { isPlainObject, recordField } from "./boundary.ts";

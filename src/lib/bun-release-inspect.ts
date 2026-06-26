@@ -6,7 +6,7 @@
  */
 
 import { inspect } from "bun";
-import type { ReleaseHistoryRow } from "./bun-release-registry.ts";
+import type { ReleaseHistoryRow } from "./bun-utils.ts";
 
 /** Breaking-focused `release:info` columns. */
 export const RELEASE_BREAKING_PROPERTIES = [
