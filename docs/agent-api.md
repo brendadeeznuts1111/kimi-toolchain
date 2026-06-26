@@ -6,7 +6,7 @@ services are for code already running inside an Effect program.
 
 ## Kimi Toolchain Services
 
-Import from the public Effect barrel:
+Import the introspection services from `src/lib/effect/kimi-introspection-services.ts` and the decision logger from `src/lib/decision-ledger.ts`:
 
 ```ts
 import {
@@ -15,9 +15,8 @@ import {
   KimiIntrospectionLive,
   KimiIntrospectionLiveFor,
   KimiTrace,
-  DecisionLogger,
-  DecisionLoggerLive,
-} from "../src/lib/effect/index.ts";
+} from "../src/lib/effect/kimi-introspection-services.ts";
+import { DecisionLogger, DecisionLoggerLive } from "../src/lib/decision-ledger.ts";
 ```
 
 `KimiIntrospectionLive` resolves the current git root. Tests and embedded agents
@@ -29,7 +28,10 @@ can use `KimiIntrospectionLiveFor({ projectRoot })` to pin a project explicitly.
 
 ```ts
 import { Effect } from "effect";
-import { KimiCapabilities, KimiIntrospectionLive } from "../src/lib/effect/index.ts";
+import {
+  KimiCapabilities,
+  KimiIntrospectionLive,
+} from "../src/lib/effect/kimi-introspection-services.ts";
 
 const checkSystemHealth = Effect.gen(function* () {
   const capabilities = yield* KimiCapabilities;
@@ -51,7 +53,11 @@ typed `TraceNotFound` error.
 
 ```ts
 import { Effect } from "effect";
-import { KimiIntrospectionLive, KimiTrace, TraceNotFound } from "../src/lib/effect/index.ts";
+import {
+  KimiIntrospectionLive,
+  KimiTrace,
+  TraceNotFound,
+} from "../src/lib/effect/kimi-introspection-services.ts";
 
 const explainFailure = (traceId: string) =>
   Effect.gen(function* () {
@@ -75,7 +81,10 @@ Ed25519 code used by `kimi-contract`.
 
 ```ts
 import { Effect } from "effect";
-import { KimiContract, KimiIntrospectionLive } from "../src/lib/effect/index.ts";
+import {
+  KimiContract,
+  KimiIntrospectionLive,
+} from "../src/lib/effect/kimi-introspection-services.ts";
 
 const validateContract = (contractPath: string) =>
   Effect.gen(function* () {
@@ -102,7 +111,7 @@ toolchain state and needs to explain why later.
 
 ```ts
 import { Effect } from "effect";
-import { DecisionLogger, DecisionLoggerLive } from "../src/lib/effect/index.ts";
+import { DecisionLogger, DecisionLoggerLive } from "../src/lib/decision-ledger.ts";
 
 const recordHookDecision = Effect.gen(function* () {
   const decisions = yield* DecisionLogger;

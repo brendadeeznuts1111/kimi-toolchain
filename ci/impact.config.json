@@ -119,7 +119,6 @@
         "src/lib/effect/tool-runner-effect.ts",
         "src/lib/effect/cli-runtime.ts",
         "src/lib/effect/errors.ts",
-        "src/lib/effect/config.ts",
         "src/lib/effect/identity-service.ts"
       ],
       "tests": [

@@ -29,7 +29,7 @@ export const Services = {
   SECURITY: "com.herdr.security",
   /** CI/CD runners — env-fallback tier only. */
   CI: "com.herdr.ci",
-  /** Release signing pipeline (GitHub Actions + local build-and-sign). */
+  /** Release signing pipeline (GitHub Actions). */
   RELEASE: "com.herdr.release",
   /** Archive baseline storage (R2-backed sync/restore). */
   ARCHIVE: "com.kimi-toolchain.archive",
@@ -66,7 +66,7 @@ export const Consumers = {
   CLI_TOOL: "cli-tool",
   /** GitHub Actions workflow runner. */
   GITHUB_ACTIONS: "github-actions",
-  /** Local release build script (scripts/build-and-sign.ts). */
+  /** Local release build script consumer. */
   LOCAL_BUILD_SCRIPT: "local-build-script",
   /** Archive baseline sync consumer. */
   SYNC_BASELINE: "sync-baseline",

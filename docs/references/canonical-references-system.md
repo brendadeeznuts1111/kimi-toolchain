@@ -2,7 +2,7 @@
 
 > How `canonical-references.json` stays trustworthy: schema, generation, freshness, drift, lint layers, and consumers.
 > **Link-table SSOT:** `canonical-references.toml` → `src/lib/canonical-references-data.ts` + `canonical-references.json`.
-> **Types & validators:** `src/lib/canonical-references.ts`, `canonical-references-manifest-lint.ts`, `canonical-references-toml.ts`.
+> **Types & validators:** `src/lib/canonical-references.ts`, `src/lib/canonical-references-toml.ts`.
 > **Layer context:** [configuration-layers.md](./configuration-layers.md) § Discovery layer.
 
 Agents and gates treat the manifest as the machine-readable index of ecosystem stacks, local docs, and upstream repos. This doc explains how that index is produced, validated, and kept aligned between the repo and `~/.kimi-code/`.

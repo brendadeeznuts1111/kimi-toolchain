@@ -88,7 +88,6 @@
     ".": "./src/bin/kimi-toolchain.ts",
     "./compression": "./src/lib/compression.ts",
     "./bun-utils": "./src/lib/bun-utils.ts",
-    "./secrets/fast-resolver": "./src/lib/secrets/fast-resolver.ts",
     "./memory/governor": "./src/lib/memory/governor.ts",
     "./mcp/sse": "./src/lib/mcp/sse.ts"
   },

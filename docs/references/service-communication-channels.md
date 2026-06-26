@@ -110,7 +110,7 @@ Key boundaries:
 - [`src/lib/effect/tool-runner-effect.ts`](../../src/lib/effect/tool-runner-effect.ts) — subprocess invocation with typed errors.
 - [`src/lib/effect/identity-service.ts`](../../src/lib/effect/identity-service.ts) — JWT, sessions, CSRF.
 - [`src/lib/effect/secrets-service.ts`](../../src/lib/effect/secrets-service.ts) — secret retrieval Layer.
-- [`src/lib/effect/config.ts`](../../src/lib/effect/config.ts) and [`src/lib/effect/dx-config.ts`](../../src/lib/effect/dx-config.ts) — configuration layers.
+- [`src/lib/effect/dx-config.ts`](../../src/lib/effect/dx-config.ts) — configuration layer.
 
 ## MCP / HTTP-SSE bridges
 

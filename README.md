@@ -75,8 +75,8 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | Command                                 | Description                            |
 | --------------------------------------- | -------------------------------------- |
 | `bun run agent:commit`                  | scripts/agent-commit.ts                |
-| `bun run agent:env:status`              | scripts/agent-shell.ts                 |
-| `bun run agent:shell`                   | scripts/agent-shell.ts                 |
+| `bun run agent:env:status`              | scripts/agent-shell.sh                 |
+| `bun run agent:shell`                   | scripts/agent-shell.sh                 |
 | `bun run agents:sync`                   | scripts/sync-agents-md.ts              |
 | `bun run agents:sync:check`             | scripts/sync-agents-md.ts              |
 | `bun run ast-grep:scan`                 | scripts/ast-grep-scan.ts               |
@@ -193,7 +193,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run heal`                          | Run kimi-heal from repo                |
 | `bun run inspect:bun-upstream-refs`     | scripts/inspect-bun-upstream-refs.ts   |
 | `bun run inspect:release-registry`      | scripts/inspect-release-registry.ts    |
-| `bun run install-wrappers`              | scripts/install-bin-wrappers.ts        |
+| `bun run install-wrappers`              | scripts/install-bin-wrappers.sh        |
 | `bun run kimi`                          | Run kimi-toolchain from repo           |
 | `bun run lint`                          | scripts/lint.ts                        |
 | `bun run lint:constant-parity`          | Lint script                            |
@@ -214,7 +214,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run manifest:generate`             | scripts/generate-constants-manifest.ts |
 | `bun run mcp`                           | Run kimi-mcp from repo                 |
 | `bun run memory-budget`                 | Run kimi-doctor from repo              |
-| `bun run memory-check`                  | scripts/memory-check.ts                |
+| `bun run memory-check`                  | scripts/memory-check.sh                |
 | `bun run migrate:setinterval:v2`        | scripts/migrate-setinterval-v2.ts      |
 | `bun run new`                           | Run kimi-new from repo                 |
 | `bun run oneliners`                     | scripts/oneliners.ts                   |
@@ -235,7 +235,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run pr:diff`                       | scripts/pr-diff.ts                     |
 | `bun run pr:status`                     | scripts/pr-status.ts                   |
 | `bun run profile`                       | scripts/profile.ts                     |
-| `bun run push`                          | scripts/push.ts                        |
+| `bun run push`                          | scripts/push.sh                        |
 | `bun run quality:check:ci`              | scripts/lint-patterns.ts               |
 | `bun run reclassify:failures`           | scripts/reclassify-failure-ledger.ts   |
 | `bun run references:generate`           | Canonical references script            |
@@ -287,12 +287,12 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run toolchain`                     | Run kimi-toolchain from repo           |
 | `bun run trace`                         | Run kimi-trace from repo               |
 | `bun run typecheck`                     | See package.json scripts               |
-| `bun run unify`                         | scripts/unify.ts                       |
+| `bun run unify`                         | scripts/unify.sh                       |
 | `bun run upstream:refs`                 | scripts/inspect-bun-upstream-refs.ts   |
 | `bun run validate:bun-cli-alignment`    | scripts/validate-bun-cli-alignment.ts  |
 | `bun run validate:release`              | See package.json scripts               |
 | `bun run validate:release-ssot`         | scripts/validate-release-ssot.ts       |
-| `bun run verify-workspace`              | scripts/verify-workspace.ts            |
+| `bun run verify-workspace`              | scripts/verify-workspace.sh            |
 | `bun run verify:bun-features`           | scripts/verify-bun-features.ts         |
 | `bun run verify:bun-features:strict`    | scripts/verify-bun-features.ts         |
 | `bun run why`                           | Run kimi-why from repo                 |

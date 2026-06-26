@@ -888,7 +888,6 @@ describe("bun-release-compliance console-bun-terminal", () => {
     "src/lib/herdr-dashboard/webview/options.ts",
     "src/lib/test-runtime.ts",
     "src/lib/bun-install-config.ts",
-    "src/lib/secrets/fast-resolver.ts",
     "src/lib/compression.ts",
     "src/lib/timing.ts",
     "src/lib/bun-cli-contract-probes.ts",

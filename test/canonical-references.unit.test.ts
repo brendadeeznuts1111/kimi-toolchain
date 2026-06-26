@@ -155,7 +155,6 @@ describe("canonical-references", () => {
       "dashboard-thumbnails": "docs/canvases/herdr-dashboard-thumbnails.canvas.tsx",
       "herdr-plugin-architecture": "docs/canvases/herdr-unified-plugin-architecture.canvas.tsx",
       "deep-quality": "docs/canvases/kimi-heal-doctor-scaffold.canvas.tsx",
-      "v53-architecture": "docs/canvases/dashboard-card-registry.canvas.tsx",
       "artifact-lineage": "docs/canvases/artifact-lineage.canvas.tsx",
       "gate-health": "docs/canvases/gate-health.canvas.tsx",
       benchmark: "docs/canvases/benchmark.canvas.tsx",

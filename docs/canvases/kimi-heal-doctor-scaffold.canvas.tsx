@@ -192,12 +192,6 @@ const CANVAS_ROUTING = [
     detail: "manifest id deep-quality (this canvas)",
   },
   {
-    id: "dashboard-card-registry",
-    page: "Card registry",
-    path: "docs/canvases/dashboard-card-registry.canvas.tsx",
-    detail: "canvasInfluences · /api/cards · lint gate",
-  },
-  {
     id: "artifact-lineage",
     page: "Artifacts & Runs",
     path: "docs/canvases/artifact-lineage.canvas.tsx",
@@ -230,7 +224,6 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "warning",
   "success",
-  "neutral",
   "neutral",
   "neutral",
   "neutral",

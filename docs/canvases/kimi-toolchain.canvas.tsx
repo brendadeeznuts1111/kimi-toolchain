@@ -185,12 +185,6 @@ const CANVAS_ROUTING = [
     detail: "Effect repair · KIMI_MODULES=doctor · perf gates",
   },
   {
-    id: "dashboard-card-registry",
-    page: "Card registry",
-    path: "docs/canvases/dashboard-card-registry.canvas.tsx",
-    detail: "canvasInfluences · /api/cards · lint gate",
-  },
-  {
     id: "artifact-lineage",
     page: "Artifacts & Runs",
     path: "docs/canvases/artifact-lineage.canvas.tsx",
@@ -226,7 +220,6 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "neutral",
   "neutral",
-  "neutral",
 ] as const;
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
@@ -258,11 +251,11 @@ const TOOL_CATEGORIES = [
 ] as const;
 
 const BIN_COUNT = 31;
-const LIB_COUNT = 417;
+const LIB_COUNT = 414;
 const UNIT_COUNT = 426;
 const INTEGRATION_COUNT = 20;
 const SMOKE_COUNT = 10;
-const CURSOR_CANVAS_COUNT = 13;
+const CURSOR_CANVAS_COUNT = 12;
 
 function SyncFlowDag() {
   const theme = useHostTheme();

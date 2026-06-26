@@ -221,12 +221,6 @@ const MANIFEST_LOCAL_DOCS_ALL = [
       "Herdr unified plugin plan v0.5.0 — prefix+* actions, STATE_DIR topology; orthogonal to [finishWork].gates",
   },
   {
-    id: "v53-architecture",
-    location: "docs/references",
-    purpose:
-      "v5.3 architecture consolidated reference: 9-file map, awk splitter, profile registry, DEFAULT_MODULES, MODULE_REGISTRY, 42-card dashboard, Herdr integration",
-  },
-  {
     id: "artifact-lineage",
     location: "repo root",
     purpose:
