@@ -150,7 +150,7 @@ export function formatReleaseHistoryMarkdown(
   const sep = `| ${keys.map(() => "---").join(" | ")} |`;
   const body = rows.map((row) => {
     const cells = keys.map((k) => {
-      const v = (row as unknown as Record<string, unknown>)[k];
+      const v = (row as Record<string, unknown>)[k];
       if (v === undefined || v === null) return "";
       return String(v).replace(/\|/g, "\\|");
     });
