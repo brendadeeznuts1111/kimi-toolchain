@@ -15,6 +15,7 @@ const EXPECTED_CATEGORIES = [
   "fileIO",
   "jsx",
   "network",
+  "os",
   "output",
   "pm",
   "profiling",

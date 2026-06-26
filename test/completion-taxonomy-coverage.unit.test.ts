@@ -45,6 +45,9 @@ describe("completion-taxonomy-coverage", () => {
     expect(report.uniqueCategorizedFlags).toBe(3);
     expect(report.uniqueUncategorizedFlags).toBe(0);
     expect(report.uniqueCoveragePercent).toBe(100);
+    expect(report.byOS).toBeDefined();
+    expect(report.byOS.total).toBe(0);
+    expect(report.byOS.unique).toBe(0);
     expect(report.uncategorized).toEqual([]);
   });
 
@@ -172,5 +175,21 @@ describe("completion-taxonomy-coverage", () => {
     expect(entry.occurrences).toBe(2);
     expect(entry.commands).toContain("(global)");
     expect(entry.commands).toContain("run");
+  });
+
+  test("byOS counts windows and posix flags", () => {
+    const data = makeData({
+      globalFlags: [
+        { name: "windows-title", hasValue: true },
+        { name: "no-orphans", hasValue: false },
+      ],
+      commands: {},
+    });
+
+    const report = buildTaxonomyCoverage(data);
+    expect(report.byOS.windows).toBe(1);
+    expect(report.byOS.posix).toBe(1);
+    expect(report.byOS.total).toBe(2);
+    expect(report.byOS.unique).toBe(2);
   });
 });

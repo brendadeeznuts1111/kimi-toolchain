@@ -4,57 +4,57 @@ Generated from `completions/bun-cli.json` (schema v1.2.0, Bun 1.4.0, revision 1.
 
 ## Top-level commands
 
-| Command | Flags | Value flags | Positional args | Req pos | Opt pos | File I/O | PM | Runtime | Debug | Network | Subcommands | Dynamic | Examples | Defaults (#) | Default values | Choices (#) | Choice values | Drift hash |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| add (a) | 40 | 14 | 1 | 0 | 1 | 4 | 31 | 1 | 6 | 6 | 0 | packages | 6 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| audit | 3 | 2 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
-| build | 57 | 27 | 0 | 0 | 0 | 15 | 1 | 7 | 3 | 0 | 0 | files | 5 | 12 | --compile-autoload-dotenv=true), --compile-autoload-bunfig=true), --compile-autoload-tsconfig=false), --compile-autoload-package-json=false), --outdir=dist, --format=esm, --allow-unresolved='*', --packages=bundle, --entry-naming=[dir]/[name], --chunk-naming=[name]-[hash], --asset-naming=[name]-[hash], --env='disable' | 0 | — | 5a2cd0162582 |
-| create (c) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
-| exec | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
-| feedback | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
-| info | 35 | 14 | 2 | 0 | 2 | 4 | 25 | 1 | 6 | 6 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| init | 6 | 0 | 2 | 0 | 2 | 0 | 1 | 0 | 1 | 0 | 0 | — | 4 | 0 | — | 0 | — | 5a2cd0162582 |
-| install (i) | 41 | 15 | 1 | 0 | 1 | 4 | 31 | 2 | 6 | 6 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| link | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| outdated | 36 | 15 | 2 | 0 | 2 | 4 | 25 | 3 | 6 | 6 | 0 | — | 7 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| patch | 36 | 15 | 1 | 0 | 1 | 5 | 26 | 1 | 6 | 6 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| pm | 0 | 0 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 16 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
-| publish | 40 | 19 | 2 | 0 | 2 | 4 | 30 | 1 | 6 | 7 | 0 | — | 4 | 4 | --concurrent-scripts=2x, --tag=latest, --auth-type='web'), --gzip-level=9 | 0 | — | 5a2cd0162582 |
-| remove (rm) | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | packages | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| repl | 82 | 42 | 2 | 1 | 1 | 5 | 4 | 35 | 8 | 8 | 0 | — | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd0162582 |
-| run | 82 | 42 | 2 | 1 | 1 | 5 | 4 | 35 | 8 | 8 | 0 | scripts, files, binaries | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd0162582 |
-| test | 28 | 16 | 2 | 0 | 2 | 0 | 0 | 2 | 4 | 1 | 0 | files | 3 | 7 | --timeout=5000, --coverage-reporter='text', --coverage-dir='coverage', --bail=1, --reporter=console, --max-concurrency=20, --parallel=CPU | 0 | — | 5a2cd0162582 |
-| unlink | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | — | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| update | 38 | 15 | 1 | 0 | 1 | 4 | 26 | 4 | 6 | 6 | 0 | — | 4 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| upgrade | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
-| why | 0 | 0 | 3 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
-| x | 5 | 0 | 3 | 1 | 2 | 0 | 2 | 1 | 2 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
+| Command | Flags | Value flags | Positional args | Req pos | Opt pos | File I/O | PM | Runtime | Debug | Network | OS | Subcommands | Dynamic | Examples | Defaults (#) | Default values | Choices (#) | Choice values | Drift hash |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| add (a) | 40 | 14 | 1 | 0 | 1 | 4 | 31 | 1 | 6 | 6 | 0 | 0 | packages | 6 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| audit | 3 | 2 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
+| build | 57 | 27 | 0 | 0 | 0 | 15 | 1 | 7 | 3 | 0 | 7 | 0 | files | 5 | 12 | --compile-autoload-dotenv=true), --compile-autoload-bunfig=true), --compile-autoload-tsconfig=false), --compile-autoload-package-json=false), --outdir=dist, --format=esm, --allow-unresolved='*', --packages=bundle, --entry-naming=[dir]/[name], --chunk-naming=[name]-[hash], --asset-naming=[name]-[hash], --env='disable' | 0 | — | 5a2cd0162582 |
+| create (c) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
+| exec | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
+| feedback | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
+| info | 35 | 14 | 2 | 0 | 2 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| init | 6 | 0 | 2 | 0 | 2 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | — | 4 | 0 | — | 0 | — | 5a2cd0162582 |
+| install (i) | 41 | 15 | 1 | 0 | 1 | 4 | 31 | 2 | 6 | 6 | 0 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| link | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| outdated | 36 | 15 | 2 | 0 | 2 | 4 | 25 | 3 | 6 | 6 | 0 | 0 | — | 7 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| patch | 36 | 15 | 1 | 0 | 1 | 5 | 26 | 1 | 6 | 6 | 0 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| pm | 0 | 0 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 16 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
+| publish | 40 | 19 | 2 | 0 | 2 | 4 | 30 | 1 | 6 | 7 | 0 | 0 | — | 4 | 4 | --concurrent-scripts=2x, --tag=latest, --auth-type='web'), --gzip-level=9 | 0 | — | 5a2cd0162582 |
+| remove (rm) | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | packages | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| repl | 82 | 42 | 2 | 1 | 1 | 5 | 4 | 35 | 8 | 8 | 1 | 0 | — | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd0162582 |
+| run | 82 | 42 | 2 | 1 | 1 | 5 | 4 | 35 | 8 | 8 | 1 | 0 | scripts, files, binaries | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd0162582 |
+| test | 28 | 16 | 2 | 0 | 2 | 0 | 0 | 2 | 4 | 1 | 1 | 0 | files | 3 | 7 | --timeout=5000, --coverage-reporter='text', --coverage-dir='coverage', --bail=1, --reporter=console, --max-concurrency=20, --parallel=CPU | 0 | — | 5a2cd0162582 |
+| unlink | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | — | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| update | 38 | 15 | 1 | 0 | 1 | 4 | 26 | 4 | 6 | 6 | 0 | 0 | — | 4 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| upgrade | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
+| why | 0 | 0 | 3 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
+| x | 5 | 0 | 3 | 1 | 2 | 0 | 2 | 1 | 2 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
 
 ## `bun pm` subcommands
 
-| Path | Flags | Value flags | Positional args | Req pos | Opt pos | File I/O | PM | Runtime | Debug | Network | Subcommands | Examples | Defaults (#) | Default values | Choices (#) | Choice values | Isolated | Drift hash |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| pm scan | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm pack | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm bin | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm why | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm whoami | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm view | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm version | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm pkg | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm pkg get | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm pkg set | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm pkg delete | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm pkg fix | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm hash | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm hash-string | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm hash-print | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm cache | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm cache rm | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm migrate | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm untrusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm trust | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
-| pm default-trusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| Path | Flags | Value flags | Positional args | Req pos | Opt pos | File I/O | PM | Runtime | Debug | Network | OS | Subcommands | Examples | Defaults (#) | Default values | Choices (#) | Choice values | Isolated | Drift hash |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| pm scan | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pack | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm bin | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm why | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm whoami | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm view | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm version | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pkg | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pkg get | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pkg set | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pkg delete | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm pkg fix | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm hash | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm hash-string | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm hash-print | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm cache | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm cache rm | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm migrate | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm untrusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm trust | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
+| pm default-trusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 5a2cd0162582 |
 
 ## Global flag inheritance by command
 
@@ -223,7 +223,7 @@ Available: Yes
 
 | Flag | Has value | Value type | Default | Choices | Categories | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| --no-orphans | No | — | — | — | runtime | Exit when the parent process dies, and on exit SIGKILL every descendant. Linux/macOS only. |
+| --no-orphans | No | — | — | — | runtime, os | Exit when the parent process dies, and on exit SIGKILL every descendant. Linux/macOS only. |
 | --timeout | Yes | val | 5000 | — | network | Set the per-test timeout in milliseconds, default is 5000. |
 | -u, --update-snapshots | No | — | — | — | test | Update snapshot files |
 | --rerun-each | Yes | val | — | — | test | Re-run each test file  times, helps catch certain bugs |
@@ -304,12 +304,12 @@ Available: Yes
 | --app | No | — | — | — | fileIO | (EXPERIMENTAL) Build a web app for production using Bun Bake. |
 | --server-components | No | — | — | — | runtime | (EXPERIMENTAL) Enable server components |
 | --env | Yes | val | 'disable' | — | compile | Inline environment variables into the bundle as process.env.${name}. Defaults to 'disable'. To inline environment variables matching a prefix, use my prefix like 'FOO_PUBLIC_*'. |
-| --windows-hide-console | No | — | — | — | windows | When using --compile targeting Windows, prevent a Command prompt from opening alongside the executable |
-| --windows-icon | Yes | val | — | — | windows | When using --compile targeting Windows, assign an executable icon |
-| --windows-title | Yes | val | — | — | windows | When using --compile targeting Windows, set the executable product name |
-| --windows-publisher | Yes | val | — | — | windows | When using --compile targeting Windows, set the executable company name |
-| --windows-version | Yes | val | — | — | windows | When using --compile targeting Windows, set the executable version (e.g. 1.2.3.4) |
-| --windows-description | Yes | val | — | — | windows | When using --compile targeting Windows, set the executable description |
-| --windows-copyright | Yes | val | — | — | windows | When using --compile targeting Windows, set the executable copyright |
+| --windows-hide-console | No | — | — | — | windows, os | When using --compile targeting Windows, prevent a Command prompt from opening alongside the executable |
+| --windows-icon | Yes | val | — | — | windows, os | When using --compile targeting Windows, assign an executable icon |
+| --windows-title | Yes | val | — | — | windows, os | When using --compile targeting Windows, set the executable product name |
+| --windows-publisher | Yes | val | — | — | windows, os | When using --compile targeting Windows, set the executable company name |
+| --windows-version | Yes | val | — | — | windows, os | When using --compile targeting Windows, set the executable version (e.g. 1.2.3.4) |
+| --windows-description | Yes | val | — | — | windows, os | When using --compile targeting Windows, set the executable description |
+| --windows-copyright | Yes | val | — | — | windows, os | When using --compile targeting Windows, set the executable copyright |
 | --debug-dump-server-files | No | — | — | — | debug | When --app is set, dump all server files to disk even when building statically |
 | --debug-no-minify | No | — | — | — | debug | When --app is set, do not minify anything |

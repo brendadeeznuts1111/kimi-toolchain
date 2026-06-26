@@ -78,6 +78,13 @@ export interface TaxonomyCoverageReport {
   byCategory: Record<FlagCategory, number>;
   /** Per-category distribution with unique counts. */
   categoryDistribution: Record<FlagCategory | "uncategorized", CategoryDistribution>;
+  /** Per-OS flag counts. */
+  byOS: {
+    windows: number;
+    posix: number;
+    total: number;
+    unique: number;
+  };
   /** Per-command summary statistics using command-local categories. */
   commandBreakdown: CommandBreakdown[];
   /** Flags that appear under more than one global category. */
@@ -172,6 +179,14 @@ export function buildTaxonomyCoverage(
   }
   const uniqueFlagList = Array.from(uniqueFlagMap.values());
   const uniqueFlagsCount = uniqueFlagList.length;
+
+  const uniqueOSFlags = uniqueFlagList.filter((f) => f.categories.includes("os"));
+  const byOS = {
+    windows: byCategory.windows,
+    posix: byCategory.os - byCategory.windows,
+    total: byCategory.os,
+    unique: uniqueOSFlags.length,
+  };
   const uniqueCategorizedList = uniqueFlagList.filter((f) => !isUncategorized(f.categories));
   const uniqueCategorizedFlags = uniqueCategorizedList.length;
   const uniqueUncategorizedFlags = uniqueFlagsCount - uniqueCategorizedFlags;
@@ -240,6 +255,7 @@ export function buildTaxonomyCoverage(
     uniqueCoveragePercent,
     byCategory,
     categoryDistribution,
+    byOS,
     commandBreakdown,
     multiCategoryFlags,
     occurrenceHistogram,

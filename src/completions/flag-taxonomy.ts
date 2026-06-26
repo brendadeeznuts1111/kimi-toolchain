@@ -273,6 +273,16 @@ export const FLAG_CATEGORIES = {
     "windows-title",
     "windows-version",
   ]),
+  os: new Set([
+    "no-orphans",
+    "windows-copyright",
+    "windows-description",
+    "windows-hide-console",
+    "windows-icon",
+    "windows-publisher",
+    "windows-title",
+    "windows-version",
+  ]),
   resolution: new Set([
     "extension-order",
     "preserve-symlinks",

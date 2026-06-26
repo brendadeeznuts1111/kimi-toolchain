@@ -1,6 +1,6 @@
 {
   "schema": "1.2.0",
-  "generatedAt": "2026-06-26T00:54:09.117Z",
+  "generatedAt": "2026-06-26T00:59:52.195Z",
   "totalFlags": 713,
   "categorizedFlags": 713,
   "uncategorizedFlags": 0,
@@ -21,6 +21,7 @@
     "jsx": 18,
     "profiling": 30,
     "windows": 7,
+    "os": 11,
     "resolution": 15,
     "output": 5
   },
@@ -80,6 +81,11 @@
       "unique": 7,
       "uniquePercent": 3.23
     },
+    "os": {
+      "total": 11,
+      "unique": 8,
+      "uniquePercent": 3.69
+    },
     "resolution": {
       "total": 15,
       "unique": 5,
@@ -90,6 +96,12 @@
       "unique": 2,
       "uniquePercent": 0.92
     }
+  },
+  "byOS": {
+    "windows": 7,
+    "posix": 4,
+    "total": 11,
+    "unique": 8
   },
   "commandBreakdown": [
     {
@@ -110,6 +122,7 @@
         "jsx": 5,
         "profiling": 10,
         "windows": 0,
+        "os": 1,
         "resolution": 5,
         "output": 1
       }
@@ -132,6 +145,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 1,
         "resolution": 0,
         "output": 0
       }
@@ -154,6 +168,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -176,6 +191,7 @@
         "jsx": 5,
         "profiling": 10,
         "windows": 0,
+        "os": 1,
         "resolution": 5,
         "output": 1
       }
@@ -198,6 +214,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -220,6 +237,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -242,6 +260,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -264,6 +283,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -286,6 +306,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -308,6 +329,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 1
       }
@@ -330,6 +352,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -352,6 +375,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -374,6 +398,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -396,6 +421,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -418,6 +444,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -440,6 +467,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -462,6 +490,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 1
       }
@@ -484,6 +513,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -506,6 +536,7 @@
         "jsx": 2,
         "profiling": 0,
         "windows": 7,
+        "os": 7,
         "resolution": 0,
         "output": 0
       }
@@ -528,6 +559,7 @@
         "jsx": 1,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -550,6 +582,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -572,6 +605,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -594,6 +628,7 @@
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
+        "os": 0,
         "resolution": 0,
         "output": 0
       }
@@ -785,6 +820,20 @@
       ]
     },
     {
+      "flag": "no-orphans",
+      "categories": [
+        "runtime",
+        "os"
+      ],
+      "occurrences": 4,
+      "commands": [
+        "(global)",
+        "run",
+        "test",
+        "repl"
+      ]
+    },
+    {
       "flag": "cpu-prof",
       "categories": [
         "debug",
@@ -885,6 +934,83 @@
       "categories": [
         "fileIO",
         "runtime"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    },
+    {
+      "flag": "windows-copyright",
+      "categories": [
+        "windows",
+        "os"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    },
+    {
+      "flag": "windows-description",
+      "categories": [
+        "windows",
+        "os"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    },
+    {
+      "flag": "windows-hide-console",
+      "categories": [
+        "windows",
+        "os"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    },
+    {
+      "flag": "windows-icon",
+      "categories": [
+        "windows",
+        "os"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    },
+    {
+      "flag": "windows-publisher",
+      "categories": [
+        "windows",
+        "os"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    },
+    {
+      "flag": "windows-title",
+      "categories": [
+        "windows",
+        "os"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    },
+    {
+      "flag": "windows-version",
+      "categories": [
+        "windows",
+        "os"
       ],
       "occurrences": 1,
       "commands": [
@@ -2277,7 +2403,8 @@
     {
       "flag": "no-orphans",
       "categories": [
-        "runtime"
+        "runtime",
+        "os"
       ]
     },
     {
@@ -2779,7 +2906,8 @@
         {
           "flag": "no-orphans",
           "categories": [
-            "runtime"
+            "runtime",
+            "os"
           ]
         },
         {
@@ -3258,7 +3386,8 @@
         {
           "flag": "no-orphans",
           "categories": [
-            "runtime"
+            "runtime",
+            "os"
           ]
         },
         {
@@ -3492,7 +3621,8 @@
         {
           "flag": "no-orphans",
           "categories": [
-            "runtime"
+            "runtime",
+            "os"
           ]
         },
         {
@@ -6710,43 +6840,50 @@
         {
           "flag": "windows-hide-console",
           "categories": [
-            "windows"
+            "windows",
+            "os"
           ]
         },
         {
           "flag": "windows-icon",
           "categories": [
-            "windows"
+            "windows",
+            "os"
           ]
         },
         {
           "flag": "windows-title",
           "categories": [
-            "windows"
+            "windows",
+            "os"
           ]
         },
         {
           "flag": "windows-publisher",
           "categories": [
-            "windows"
+            "windows",
+            "os"
           ]
         },
         {
           "flag": "windows-version",
           "categories": [
-            "windows"
+            "windows",
+            "os"
           ]
         },
         {
           "flag": "windows-description",
           "categories": [
-            "windows"
+            "windows",
+            "os"
           ]
         },
         {
           "flag": "windows-copyright",
           "categories": [
-            "windows"
+            "windows",
+            "os"
           ]
         },
         {
