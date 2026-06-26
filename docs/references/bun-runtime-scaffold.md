@@ -100,6 +100,23 @@ Key differences from Bun defaults:
 
 Policy SSOT: `src/lib/bun-install-config.ts` (`BUN_INSTALL_WORKSPACE_POLICY`, `BUN_WORKSPACE_ROOT_CONSUMER_LINK`).
 
+### Platform-specific dependencies
+
+Bun stores normalized `cpu` and `os` values from npm in the lockfile. Packages disabled for the current target are skipped at runtime, so the lockfile is stable across platforms even though the installed set may differ.
+
+Override the target platform for package selection with:
+
+```bash
+bun install --cpu=x64 --os=linux
+```
+
+| Flag    | Accepted values                                                       |
+| ------- | --------------------------------------------------------------------- |
+| `--cpu` | `arm64`, `x64`, `ia32`, `ppc64`, `s390x`, `*`                         |
+| `--os`  | `linux`, `darwin`, `win32`, `freebsd`, `openbsd`, `sunos`, `aix`, `*` |
+
+These flags are useful for cross-platform builds and preparing deployments for environments different from the host.
+
 #### `bun pm ls` scope flags (Bun 1.4.0)
 
 Validated on `bun@1.4.0-canary.1`. Use `bun pm pkg get <section>` until scope flags filter correctly.

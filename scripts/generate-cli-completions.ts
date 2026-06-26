@@ -836,6 +836,92 @@ function addCommandAliases(commands: Record<string, CommandInfo>): void {
 /**
  * Main function to generate completion data
  */
+/**
+ * Known flag choices that Bun's --help output doesn't enumerate.
+ * Sources: https://bun.com/docs/pm/cli/install and live help text.
+ */
+const CHOICE_FIXUPS: Record<string, Record<string, string[]>> = {
+  install: {
+    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
+    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+    backend: ["hardlink", "clonefile", "clonefile_each_dir", "copyfile", "symlink"],
+  },
+  add: {
+    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
+    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+    backend: ["hardlink", "clonefile", "clonefile_each_dir", "copyfile", "symlink"],
+  },
+  remove: {
+    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
+    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+  },
+  update: {
+    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
+    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+  },
+  outdated: {
+    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
+    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+  },
+  link: {
+    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
+    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+  },
+  unlink: {
+    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
+    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+  },
+  publish: {
+    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
+    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+  },
+  patch: {
+    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
+    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+  },
+  info: {
+    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
+    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+  },
+  test: {
+    "unhandled-rejections": ["strict", "throw", "warn", "none", "warn-with-error-code"],
+  },
+  run: {
+    "unhandled-rejections": ["strict", "throw", "warn", "none", "warn-with-error-code"],
+  },
+  repl: {
+    "unhandled-rejections": ["strict", "throw", "warn", "none", "warn-with-error-code"],
+  },
+};
+
+/**
+ * Known global flag choices that Bun's --help output doesn't enumerate cleanly.
+ */
+const GLOBAL_CHOICE_FIXUPS: Record<string, string[]> = {
+  "unhandled-rejections": ["strict", "throw", "warn", "none", "warn-with-error-code"],
+  backend: ["hardlink", "clonefile", "clonefile_each_dir", "copyfile", "symlink"],
+};
+
+function applyChoiceFixups(data: CompletionData): void {
+  for (const flag of data.globalFlags) {
+    const choices = GLOBAL_CHOICE_FIXUPS[flag.name];
+    if (choices) {
+      flag.choices = choices;
+    }
+  }
+
+  for (const [commandName, flagFixups] of Object.entries(CHOICE_FIXUPS)) {
+    const cmd = data.commands[commandName];
+    if (!cmd) continue;
+    for (const flag of cmd.flags) {
+      const choices = flagFixups[flag.name];
+      if (choices) {
+        flag.choices = choices;
+      }
+    }
+  }
+}
+
 async function generateCompletions(): Promise<void> {
   using tmpDir = createTempDir("bun-completion");
   writeText(
@@ -967,6 +1053,9 @@ async function generateCompletions(): Promise<void> {
       }
     }
   }
+
+  // Apply known choice fixups that Bun's --help output omits.
+  applyChoiceFixups(completionData);
 
   // Ensure completions directory exists
   const completionsDir = `${Bun.cwd}/completions`;
