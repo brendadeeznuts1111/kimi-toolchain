@@ -1,6 +1,6 @@
 {
   "schema": "1.2.0",
-  "generatedAt": "2026-06-26T00:47:41.065Z",
+  "generatedAt": "2026-06-26T00:54:09.117Z",
   "totalFlags": 713,
   "categorizedFlags": 713,
   "uncategorizedFlags": 0,
@@ -99,6 +99,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 5,
         "pm": 4,
         "runtime": 35,
@@ -110,8 +111,7 @@
         "profiling": 10,
         "windows": 0,
         "resolution": 5,
-        "output": 1,
-        "uncategorized": 0
+        "output": 1
       }
     },
     {
@@ -121,6 +121,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 0,
         "pm": 0,
         "runtime": 2,
@@ -132,8 +133,7 @@
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -143,6 +143,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 0,
         "pm": 2,
         "runtime": 1,
@@ -154,8 +155,7 @@
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -165,6 +165,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 5,
         "pm": 4,
         "runtime": 35,
@@ -176,8 +177,7 @@
         "profiling": 10,
         "windows": 0,
         "resolution": 5,
-        "output": 1,
-        "uncategorized": 0
+        "output": 1
       }
     },
     {
@@ -187,6 +187,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 0,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 0,
         "pm": 0,
         "runtime": 0,
@@ -198,8 +199,7 @@
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -209,19 +209,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 4,
         "pm": 31,
         "runtime": 2,
         "debug": 6,
         "network": 6,
-        "compile": 1,
+        "compile": 0,
         "test": 0,
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -231,19 +231,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 4,
         "pm": 31,
         "runtime": 1,
         "debug": 6,
         "network": 6,
-        "compile": 1,
+        "compile": 0,
         "test": 0,
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -253,19 +253,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 4,
         "pm": 25,
         "runtime": 1,
         "debug": 6,
         "network": 6,
-        "compile": 1,
+        "compile": 0,
         "test": 0,
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -275,19 +275,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 4,
         "pm": 26,
         "runtime": 4,
         "debug": 6,
         "network": 6,
-        "compile": 1,
+        "compile": 0,
         "test": 0,
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -297,6 +297,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 0,
         "pm": 1,
         "runtime": 0,
@@ -308,8 +309,7 @@
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 1,
-        "uncategorized": 0
+        "output": 1
       }
     },
     {
@@ -319,19 +319,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 4,
         "pm": 25,
         "runtime": 3,
         "debug": 6,
         "network": 6,
-        "compile": 1,
+        "compile": 0,
         "test": 0,
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -341,19 +341,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 4,
         "pm": 25,
         "runtime": 1,
         "debug": 6,
         "network": 6,
-        "compile": 1,
+        "compile": 0,
         "test": 0,
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -363,19 +363,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 4,
         "pm": 25,
         "runtime": 1,
         "debug": 6,
         "network": 6,
-        "compile": 1,
+        "compile": 0,
         "test": 0,
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -385,19 +385,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 4,
         "pm": 30,
         "runtime": 1,
         "debug": 6,
         "network": 7,
-        "compile": 2,
+        "compile": 1,
         "test": 0,
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -407,19 +407,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 5,
         "pm": 26,
         "runtime": 1,
         "debug": 6,
         "network": 6,
-        "compile": 1,
+        "compile": 0,
         "test": 0,
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -429,6 +429,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 0,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 0,
         "pm": 0,
         "runtime": 0,
@@ -440,8 +441,7 @@
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -451,19 +451,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 4,
         "pm": 25,
         "runtime": 1,
         "debug": 6,
         "network": 6,
-        "compile": 1,
+        "compile": 0,
         "test": 0,
         "jsx": 0,
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 1,
-        "uncategorized": 0
+        "output": 1
       }
     },
     {
@@ -473,6 +473,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 0,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 0,
         "pm": 0,
         "runtime": 0,
@@ -484,8 +485,7 @@
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -495,19 +495,19 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
-        "fileIO": 15,
-        "pm": 1,
-        "runtime": 7,
-        "debug": 3,
+        "uncategorized": 0,
+        "fileIO": 11,
+        "pm": 0,
+        "runtime": 3,
+        "debug": 2,
         "network": 0,
-        "compile": 27,
+        "compile": 32,
         "test": 0,
         "jsx": 2,
         "profiling": 0,
         "windows": 7,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -517,6 +517,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 100,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 0,
         "pm": 1,
         "runtime": 0,
@@ -528,8 +529,7 @@
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -539,6 +539,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 0,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 0,
         "pm": 0,
         "runtime": 0,
@@ -550,8 +551,7 @@
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -561,6 +561,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 0,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 0,
         "pm": 0,
         "runtime": 0,
@@ -572,8 +573,7 @@
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     },
     {
@@ -583,6 +583,7 @@
       "uncategorizedFlags": 0,
       "coveragePercent": 0,
       "byCategory": {
+        "uncategorized": 0,
         "fileIO": 0,
         "pm": 0,
         "runtime": 0,
@@ -594,8 +595,7 @@
         "profiling": 0,
         "windows": 0,
         "resolution": 0,
-        "output": 0,
-        "uncategorized": 0
+        "output": 0
       }
     }
   ],
@@ -3990,6 +3990,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "pm"
           ]
         },
         {
@@ -4251,6 +4254,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "pm"
           ]
         },
         {
@@ -4506,6 +4512,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "pm"
           ]
         },
         {
@@ -4725,6 +4734,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "pm"
           ]
         },
         {
@@ -4992,6 +5004,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "pm"
           ]
         },
         {
@@ -5223,6 +5238,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "pm"
           ]
         },
         {
@@ -5442,6 +5460,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "pm"
           ]
         },
         {
@@ -5661,6 +5682,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "pm"
           ]
         },
         {
@@ -5917,6 +5941,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "pm"
           ]
         },
         {
@@ -6153,6 +6180,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "pm"
           ]
         },
         {
@@ -6371,6 +6401,9 @@
           "categories": [
             "pm",
             "compile"
+          ],
+          "commandCategories": [
+            "compile"
           ]
         },
         {
@@ -6462,6 +6495,9 @@
           "categories": [
             "fileIO",
             "runtime"
+          ],
+          "commandCategories": [
+            "compile"
           ]
         },
         {
@@ -6493,6 +6529,9 @@
           "categories": [
             "fileIO",
             "debug"
+          ],
+          "commandCategories": [
+            "compile"
           ]
         },
         {
@@ -6512,6 +6551,9 @@
           "categories": [
             "fileIO",
             "runtime"
+          ],
+          "commandCategories": [
+            "compile"
           ]
         },
         {
@@ -6555,6 +6597,9 @@
           "categories": [
             "fileIO",
             "runtime"
+          ],
+          "commandCategories": [
+            "compile"
           ]
         },
         {
@@ -6639,6 +6684,9 @@
           "flag": "conditions",
           "categories": [
             "runtime"
+          ],
+          "commandCategories": [
+            "compile"
           ]
         },
         {

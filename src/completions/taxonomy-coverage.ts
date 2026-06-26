@@ -5,17 +5,23 @@
  * from flag-taxonomy.ts and reports coverage gaps.
  */
 
-import { FLAG_CATEGORIES, type FlagCategory } from "./flag-taxonomy.ts";
+import { classifyFlag, classifyFlagForCommand, FLAG_CATEGORIES, type FlagCategory } from "./flag-taxonomy.ts";
 import type { CompletionData, FlagEntry } from "./completion-matrix.ts";
+
+const ALL_CATEGORIES = Object.keys(FLAG_CATEGORIES) as FlagCategory[];
 
 export interface FlagCoverage {
   flag: string;
+  /** Global (name-based) categories. */
   categories: FlagCategory[];
+  /** Command-local categories when they differ from global; omitted otherwise. */
+  commandCategories?: FlagCategory[];
 }
 
 export interface CommandCoverage {
   command: string;
   flags: FlagCoverage[];
+  /** Flags that are uncategorized under command-local semantics. */
   uncategorized: string[];
 }
 
@@ -34,6 +40,7 @@ export interface CommandBreakdown {
   categorizedFlags: number;
   uncategorizedFlags: number;
   coveragePercent: number;
+  /** Category counts using command-local categories. */
   byCategory: Record<FlagCategory, number>;
 }
 
@@ -67,12 +74,13 @@ export interface TaxonomyCoverageReport {
   /** Unique uncategorized flag names. */
   uniqueUncategorizedFlags: number;
   uniqueCoveragePercent: number;
-  /** Per-category occurrence and unique counts. */
+  /** Per-category occurrence counts using global categories. */
   byCategory: Record<FlagCategory, number>;
+  /** Per-category distribution with unique counts. */
   categoryDistribution: Record<FlagCategory | "uncategorized", CategoryDistribution>;
-  /** Per-command summary statistics. */
+  /** Per-command summary statistics using command-local categories. */
   commandBreakdown: CommandBreakdown[];
-  /** Flags that appear under more than one category. */
+  /** Flags that appear under more than one global category. */
   multiCategoryFlags: MultiCategoryEntry[];
   /** Most widely shared flags sorted by occurrence count. */
   occurrenceHistogram: OccurrenceEntry[];
@@ -81,129 +89,126 @@ export interface TaxonomyCoverageReport {
   uncategorized: string[];
 }
 
-function categorize(flag: string): FlagCategory[] {
-  const categories: FlagCategory[] = [];
-  for (const [cat, flags] of Object.entries(FLAG_CATEGORIES)) {
-    if (flags.has(flag)) categories.push(cat as FlagCategory);
-  }
-  return categories.length ? categories : ["uncategorized"];
-}
-
 function uniqueFlags(flags: FlagEntry[]): FlagCoverage[] {
   const seen = new Set<string>();
   const result: FlagCoverage[] = [];
   for (const flag of flags) {
     if (seen.has(flag.name)) continue;
     seen.add(flag.name);
-    result.push({ flag: flag.name, categories: categorize(flag.name) });
+    result.push({ flag: flag.name, categories: classifyFlag(flag.name) });
   }
   return result;
 }
 
+function isUncategorized(categories: FlagCategory[]): boolean {
+  return categories.length === 1 && categories[0] === "uncategorized";
+}
+
 function countByCategory(flags: FlagCoverage[]): Record<FlagCategory, number> {
-  const counts = {} as Record<FlagCategory, number>;
-  for (const cat of Object.keys(FLAG_CATEGORIES)) {
-    counts[cat as FlagCategory] = flags.filter((f) => f.categories.includes(cat as FlagCategory)).length;
+  const counts = { uncategorized: 0 } as Record<FlagCategory, number>;
+  for (const cat of ALL_CATEGORIES) counts[cat] = 0;
+  for (const f of flags) {
+    for (const cat of f.categories) {
+      counts[cat] = (counts[cat] ?? 0) + 1;
+    }
   }
   return counts;
+}
+
+function buildOccurrenceMap(data: CompletionData): Map<string, OccurrenceEntry> {
+  const map = new Map<string, OccurrenceEntry>();
+  const record = (flag: string, command: string) => {
+    const entry = map.get(flag) ?? { flag, occurrences: 0, commands: [] };
+    entry.occurrences += 1;
+    if (!entry.commands.includes(command)) entry.commands.push(command);
+    map.set(flag, entry);
+  };
+  for (const flag of data.globalFlags) record(flag.name, "(global)");
+  for (const [name, cmd] of Object.entries(data.commands)) {
+    for (const flag of cmd.flags) record(flag.name, name);
+  }
+  return map;
 }
 
 export function buildTaxonomyCoverage(
   data: CompletionData,
   generatedAt = new Date().toISOString()
 ): TaxonomyCoverageReport {
+  const occurrenceMap = buildOccurrenceMap(data);
   const globalFlags = uniqueFlags(data.globalFlags);
   const commands: CommandCoverage[] = [];
   const allUncategorized = new Set<string>();
 
   for (const flag of globalFlags) {
-    if (flag.categories.length === 1 && flag.categories[0] === "uncategorized") {
-      allUncategorized.add(flag.flag);
-    }
+    if (isUncategorized(flag.categories)) allUncategorized.add(flag.flag);
   }
 
   for (const [name, cmd] of Object.entries(data.commands)) {
     const flags = uniqueFlags(cmd.flags);
-    const uncategorized = flags
-      .filter((f) => f.categories.length === 1 && f.categories[0] === "uncategorized")
-      .map((f) => f.flag);
+    const commandFlags: FlagCoverage[] = flags.map((f) => {
+      const local = classifyFlagForCommand(f.flag, name);
+      return isUncategorized(local) || arraysEqual(local, f.categories)
+        ? f
+        : { ...f, commandCategories: local };
+    });
+    const uncategorized = commandFlags.filter((f) => isUncategorized(f.commandCategories ?? f.categories)).map((f) => f.flag);
     for (const f of uncategorized) allUncategorized.add(f);
-    commands.push({ command: name, flags, uncategorized });
+    commands.push({ command: name, flags: commandFlags, uncategorized });
   }
 
   const allFlags = [...globalFlags, ...commands.flatMap((c) => c.flags)];
-  const categorizedFlags = allFlags.filter(
-    (f) => !(f.categories.length === 1 && f.categories[0] === "uncategorized")
-  ).length;
+  const categorizedFlags = allFlags.filter((f) => !isUncategorized(f.categories)).length;
   const uncategorizedFlags = allUncategorized.size;
   const totalFlags = allFlags.length;
 
-  const byCategory = {} as Record<FlagCategory, number>;
-  byCategory.uncategorized = uncategorizedFlags;
-  for (const cat of Object.keys(FLAG_CATEGORIES)) {
-    byCategory[cat as FlagCategory] = allFlags.filter((f) => f.categories.includes(cat as FlagCategory)).length;
+  const byCategory = { uncategorized: uncategorizedFlags } as Record<FlagCategory, number>;
+  for (const cat of ALL_CATEGORIES) {
+    byCategory[cat] = allFlags.filter((f) => f.categories.includes(cat)).length;
   }
 
-  // Unique flag analytics
   const uniqueFlagMap = new Map<string, FlagCoverage>();
   for (const f of allFlags) {
     if (!uniqueFlagMap.has(f.flag)) uniqueFlagMap.set(f.flag, f);
   }
   const uniqueFlagList = Array.from(uniqueFlagMap.values());
   const uniqueFlagsCount = uniqueFlagList.length;
-  const uniqueCategorizedList = uniqueFlagList.filter(
-    (f) => !(f.categories.length === 1 && f.categories[0] === "uncategorized")
-  );
+  const uniqueCategorizedList = uniqueFlagList.filter((f) => !isUncategorized(f.categories));
   const uniqueCategorizedFlags = uniqueCategorizedList.length;
   const uniqueUncategorizedFlags = uniqueFlagsCount - uniqueCategorizedFlags;
   const uniqueCoveragePercent =
     uniqueFlagsCount === 0 ? 0 : Math.round((uniqueCategorizedFlags / uniqueFlagsCount) * 10000) / 100;
 
   const categoryDistribution = {} as Record<FlagCategory | "uncategorized", CategoryDistribution>;
-  categoryDistribution.uncategorized = {
-    total: uncategorizedFlags,
-    unique: uniqueUncategorizedFlags,
-    uniquePercent:
-      uniqueFlagsCount === 0 ? 0 : Math.round((uniqueUncategorizedFlags / uniqueFlagsCount) * 10000) / 100,
-  };
-  for (const cat of Object.keys(FLAG_CATEGORIES)) {
-    const catKey = cat as FlagCategory;
-    const uniqueInCat = uniqueFlagList.filter((f) => f.categories.includes(catKey)).length;
-    categoryDistribution[catKey] = {
-      total: byCategory[catKey],
-      unique: uniqueInCat,
-      uniquePercent: uniqueFlagsCount === 0 ? 0 : Math.round((uniqueInCat / uniqueFlagsCount) * 10000) / 100,
-    };
+  const distributionFor = (total: number, unique: number): CategoryDistribution => ({
+    total,
+    unique,
+    uniquePercent: uniqueFlagsCount === 0 ? 0 : Math.round((unique / uniqueFlagsCount) * 10000) / 100,
+  });
+  categoryDistribution.uncategorized = distributionFor(uncategorizedFlags, uniqueUncategorizedFlags);
+  for (const cat of ALL_CATEGORIES) {
+    const uniqueInCat = uniqueFlagList.filter((f) => f.categories.includes(cat)).length;
+    categoryDistribution[cat] = distributionFor(byCategory[cat], uniqueInCat);
   }
 
-  // Per-command breakdown
   const commandBreakdown: CommandBreakdown[] = commands.map((cmd) => {
-    const catCounts = countByCategory(cmd.flags);
-    catCounts.uncategorized = cmd.uncategorized.length;
+    const localFlags: FlagCoverage[] = cmd.flags.map((f) => ({
+      ...f,
+      categories: f.commandCategories ?? f.categories,
+    }));
+    const catCounts = countByCategory(localFlags);
+    const uncategorizedCount = cmd.uncategorized.length;
     return {
       command: cmd.command,
-      totalFlags: cmd.flags.length,
-      categorizedFlags: cmd.flags.length - cmd.uncategorized.length,
-      uncategorizedFlags: cmd.uncategorized.length,
+      totalFlags: localFlags.length,
+      categorizedFlags: localFlags.length - uncategorizedCount,
+      uncategorizedFlags: uncategorizedCount,
       coveragePercent:
-        cmd.flags.length === 0 ? 0 : Math.round(((cmd.flags.length - cmd.uncategorized.length) / cmd.flags.length) * 10000) / 100,
+        localFlags.length === 0
+          ? 0
+          : Math.round(((localFlags.length - uncategorizedCount) / localFlags.length) * 10000) / 100,
       byCategory: catCounts,
     };
   });
-
-  // Occurrence histogram
-  const occurrenceMap = new Map<string, { flag: string; occurrences: number; commands: string[] }>();
-  const recordOccurrence = (flag: string, command: string) => {
-    const entry = occurrenceMap.get(flag) ?? { flag, occurrences: 0, commands: [] };
-    entry.occurrences += 1;
-    if (!entry.commands.includes(command)) entry.commands.push(command);
-    occurrenceMap.set(flag, entry);
-  };
-
-  for (const flag of data.globalFlags) recordOccurrence(flag.name, "(global)");
-  for (const [name, cmd] of Object.entries(data.commands)) {
-    for (const flag of cmd.flags) recordOccurrence(flag.name, name);
-  }
 
   const occurrenceHistogram = Array.from(occurrenceMap.values())
     .filter((e) => e.occurrences > 1)
@@ -242,4 +247,12 @@ export function buildTaxonomyCoverage(
     commands,
     uncategorized: Array.from(allUncategorized).sort(),
   };
+}
+
+function arraysEqual<T>(a: T[], b: T[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }

@@ -4,7 +4,7 @@
  * Shared between scripts/make-completion-matrix.ts and the snapshot test suite.
  */
 
-import { FLAG_CATEGORIES, type FlagCategory } from "./flag-taxonomy.ts";
+import { classifyFlag, type FlagCategory } from "./flag-taxonomy.ts";
 
 // ── Type definitions ────────────────────────────────────────────
 export interface FlagEntry {
@@ -84,15 +84,8 @@ export interface DynamicSources {
 }
 
 // Re-export taxonomy symbols for consumers that only import completion-matrix.
-export { FLAG_CATEGORIES } from "./flag-taxonomy.ts";
-
-export function classifyFlag(name: string): FlagCategory[] {
-  const categories: FlagCategory[] = [];
-  for (const [cat, flags] of Object.entries(FLAG_CATEGORIES)) {
-    if (flags.has(name)) categories.push(cat as keyof typeof FLAG_CATEGORIES);
-  }
-  return categories.length ? categories : ["uncategorized"];
-}
+export { FLAG_CATEGORIES, classifyFlag, classifyFlagForCommand } from "./flag-taxonomy.ts";
+export type { FlagCategory } from "./flag-taxonomy.ts";
 
 export function countCategory(flags: FlagEntry[], category: FlagCategory): number {
   return flags.filter((f) => classifyFlag(f.name).includes(category)).length;
