@@ -3651,6 +3651,7 @@
           "name": "save",
           "description": "Save to package.json (true by default)",
           "hasValue": false,
+          "defaultValue": "true",
           "required": false,
           "multiple": false
         },
@@ -3784,6 +3785,7 @@
           "description": "Platform-specific optimizations for installing dependencies. Possible values: \"clonefile\" (default), \"hardlink\", \"symlink\", \"copyfile\"",
           "hasValue": true,
           "valueType": "val",
+          "defaultValue": "clonefile",
           "choices": [
             "hardlink",
             "clonefile",
@@ -3806,7 +3808,7 @@
           "name": "concurrent-scripts",
           "description": "Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "defaultValue": "2x",
           "required": false,
           "multiple": false
@@ -3815,7 +3817,8 @@
           "name": "network-concurrency",
           "description": "Maximum number of concurrent network requests (default 48)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
+          "defaultValue": "48",
           "required": false,
           "multiple": false
         },
@@ -3831,6 +3834,11 @@
           "description": "Exclude 'dev', 'optional', or 'peer' dependencies from install",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "dev",
+            "optional",
+            "peer"
+          ],
           "required": false,
           "multiple": false
         },
@@ -3846,6 +3854,10 @@
           "description": "Linker strategy (one of \"isolated\" or \"hoisted\")",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "isolated",
+            "hoisted"
+          ],
           "required": false,
           "multiple": false
         },
@@ -3853,7 +3865,7 @@
           "name": "minimum-release-age",
           "description": "Only install packages published at least N seconds ago (security feature)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "required": false,
           "multiple": false
         },
@@ -4246,6 +4258,7 @@
           "name": "save",
           "description": "Save to package.json (true by default)",
           "hasValue": false,
+          "defaultValue": "true",
           "required": false,
           "multiple": false
         },
@@ -4379,6 +4392,7 @@
           "description": "Platform-specific optimizations for installing dependencies. Possible values: \"clonefile\" (default), \"hardlink\", \"symlink\", \"copyfile\"",
           "hasValue": true,
           "valueType": "val",
+          "defaultValue": "clonefile",
           "choices": [
             "hardlink",
             "clonefile",
@@ -4401,7 +4415,7 @@
           "name": "concurrent-scripts",
           "description": "Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "defaultValue": "2x",
           "required": false,
           "multiple": false
@@ -4410,7 +4424,8 @@
           "name": "network-concurrency",
           "description": "Maximum number of concurrent network requests (default 48)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
+          "defaultValue": "48",
           "required": false,
           "multiple": false
         },
@@ -4426,6 +4441,11 @@
           "description": "Exclude 'dev', 'optional', or 'peer' dependencies from install",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "dev",
+            "optional",
+            "peer"
+          ],
           "required": false,
           "multiple": false
         },
@@ -4441,6 +4461,10 @@
           "description": "Linker strategy (one of \"isolated\" or \"hoisted\")",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "isolated",
+            "hoisted"
+          ],
           "required": false,
           "multiple": false
         },
@@ -4448,7 +4472,7 @@
           "name": "minimum-release-age",
           "description": "Only install packages published at least N seconds ago (security feature)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "required": false,
           "multiple": false
         },
@@ -4832,6 +4856,14 @@
           "description": "Platform-specific optimizations for installing dependencies. Possible values: \"clonefile\" (default), \"hardlink\", \"symlink\", \"copyfile\"",
           "hasValue": true,
           "valueType": "val",
+          "defaultValue": "clonefile",
+          "choices": [
+            "hardlink",
+            "clonefile",
+            "clonefile_each_dir",
+            "copyfile",
+            "symlink"
+          ],
           "required": false,
           "multiple": false
         },
@@ -4847,7 +4879,7 @@
           "name": "concurrent-scripts",
           "description": "Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "defaultValue": "2x",
           "required": false,
           "multiple": false
@@ -4856,7 +4888,8 @@
           "name": "network-concurrency",
           "description": "Maximum number of concurrent network requests (default 48)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
+          "defaultValue": "48",
           "required": false,
           "multiple": false
         },
@@ -4872,6 +4905,11 @@
           "description": "Exclude 'dev', 'optional', or 'peer' dependencies from install",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "dev",
+            "optional",
+            "peer"
+          ],
           "required": false,
           "multiple": false
         },
@@ -4887,6 +4925,10 @@
           "description": "Linker strategy (one of \"isolated\" or \"hoisted\")",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "isolated",
+            "hoisted"
+          ],
           "required": false,
           "multiple": false
         },
@@ -4894,7 +4936,7 @@
           "name": "minimum-release-age",
           "description": "Only install packages published at least N seconds ago (security feature)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "required": false,
           "multiple": false
         },
@@ -5208,6 +5250,14 @@
           "description": "Platform-specific optimizations for installing dependencies. Possible values: \"clonefile\" (default), \"hardlink\", \"symlink\", \"copyfile\"",
           "hasValue": true,
           "valueType": "val",
+          "defaultValue": "clonefile",
+          "choices": [
+            "hardlink",
+            "clonefile",
+            "clonefile_each_dir",
+            "copyfile",
+            "symlink"
+          ],
           "required": false,
           "multiple": false
         },
@@ -5223,7 +5273,7 @@
           "name": "concurrent-scripts",
           "description": "Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "defaultValue": "2x",
           "required": false,
           "multiple": false
@@ -5232,7 +5282,8 @@
           "name": "network-concurrency",
           "description": "Maximum number of concurrent network requests (default 48)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
+          "defaultValue": "48",
           "required": false,
           "multiple": false
         },
@@ -5248,6 +5299,11 @@
           "description": "Exclude 'dev', 'optional', or 'peer' dependencies from install",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "dev",
+            "optional",
+            "peer"
+          ],
           "required": false,
           "multiple": false
         },
@@ -5263,6 +5319,10 @@
           "description": "Linker strategy (one of \"isolated\" or \"hoisted\")",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "isolated",
+            "hoisted"
+          ],
           "required": false,
           "multiple": false
         },
@@ -5270,7 +5330,7 @@
           "name": "minimum-release-age",
           "description": "Only install packages published at least N seconds ago (security feature)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "required": false,
           "multiple": false
         },
@@ -5691,6 +5751,14 @@
           "description": "Platform-specific optimizations for installing dependencies. Possible values: \"clonefile\" (default), \"hardlink\", \"symlink\", \"copyfile\"",
           "hasValue": true,
           "valueType": "val",
+          "defaultValue": "clonefile",
+          "choices": [
+            "hardlink",
+            "clonefile",
+            "clonefile_each_dir",
+            "copyfile",
+            "symlink"
+          ],
           "required": false,
           "multiple": false
         },
@@ -5706,7 +5774,7 @@
           "name": "concurrent-scripts",
           "description": "Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "defaultValue": "2x",
           "required": false,
           "multiple": false
@@ -5715,7 +5783,8 @@
           "name": "network-concurrency",
           "description": "Maximum number of concurrent network requests (default 48)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
+          "defaultValue": "48",
           "required": false,
           "multiple": false
         },
@@ -5731,6 +5800,11 @@
           "description": "Exclude 'dev', 'optional', or 'peer' dependencies from install",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "dev",
+            "optional",
+            "peer"
+          ],
           "required": false,
           "multiple": false
         },
@@ -5746,6 +5820,10 @@
           "description": "Linker strategy (one of \"isolated\" or \"hoisted\")",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "isolated",
+            "hoisted"
+          ],
           "required": false,
           "multiple": false
         },
@@ -5753,7 +5831,7 @@
           "name": "minimum-release-age",
           "description": "Only install packages published at least N seconds ago (security feature)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "required": false,
           "multiple": false
         },
@@ -6081,6 +6159,14 @@
           "description": "Platform-specific optimizations for installing dependencies. Possible values: \"clonefile\" (default), \"hardlink\", \"symlink\", \"copyfile\"",
           "hasValue": true,
           "valueType": "val",
+          "defaultValue": "clonefile",
+          "choices": [
+            "hardlink",
+            "clonefile",
+            "clonefile_each_dir",
+            "copyfile",
+            "symlink"
+          ],
           "required": false,
           "multiple": false
         },
@@ -6096,7 +6182,7 @@
           "name": "concurrent-scripts",
           "description": "Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "defaultValue": "2x",
           "required": false,
           "multiple": false
@@ -6105,7 +6191,8 @@
           "name": "network-concurrency",
           "description": "Maximum number of concurrent network requests (default 48)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
+          "defaultValue": "48",
           "required": false,
           "multiple": false
         },
@@ -6121,6 +6208,11 @@
           "description": "Exclude 'dev', 'optional', or 'peer' dependencies from install",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "dev",
+            "optional",
+            "peer"
+          ],
           "required": false,
           "multiple": false
         },
@@ -6136,6 +6228,10 @@
           "description": "Linker strategy (one of \"isolated\" or \"hoisted\")",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "isolated",
+            "hoisted"
+          ],
           "required": false,
           "multiple": false
         },
@@ -6143,7 +6239,7 @@
           "name": "minimum-release-age",
           "description": "Only install packages published at least N seconds ago (security feature)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "required": false,
           "multiple": false
         },
@@ -6443,6 +6539,14 @@
           "description": "Platform-specific optimizations for installing dependencies. Possible values: \"clonefile\" (default), \"hardlink\", \"symlink\", \"copyfile\"",
           "hasValue": true,
           "valueType": "val",
+          "defaultValue": "clonefile",
+          "choices": [
+            "hardlink",
+            "clonefile",
+            "clonefile_each_dir",
+            "copyfile",
+            "symlink"
+          ],
           "required": false,
           "multiple": false
         },
@@ -6458,7 +6562,7 @@
           "name": "concurrent-scripts",
           "description": "Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "defaultValue": "2x",
           "required": false,
           "multiple": false
@@ -6467,7 +6571,8 @@
           "name": "network-concurrency",
           "description": "Maximum number of concurrent network requests (default 48)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
+          "defaultValue": "48",
           "required": false,
           "multiple": false
         },
@@ -6483,6 +6588,11 @@
           "description": "Exclude 'dev', 'optional', or 'peer' dependencies from install",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "dev",
+            "optional",
+            "peer"
+          ],
           "required": false,
           "multiple": false
         },
@@ -6498,6 +6608,10 @@
           "description": "Linker strategy (one of \"isolated\" or \"hoisted\")",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "isolated",
+            "hoisted"
+          ],
           "required": false,
           "multiple": false
         },
@@ -6505,7 +6619,7 @@
           "name": "minimum-release-age",
           "description": "Only install packages published at least N seconds ago (security feature)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "required": false,
           "multiple": false
         },
@@ -6740,6 +6854,14 @@
           "description": "Platform-specific optimizations for installing dependencies. Possible values: \"clonefile\" (default), \"hardlink\", \"symlink\", \"copyfile\"",
           "hasValue": true,
           "valueType": "val",
+          "defaultValue": "clonefile",
+          "choices": [
+            "hardlink",
+            "clonefile",
+            "clonefile_each_dir",
+            "copyfile",
+            "symlink"
+          ],
           "required": false,
           "multiple": false
         },
@@ -6755,7 +6877,7 @@
           "name": "concurrent-scripts",
           "description": "Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "defaultValue": "2x",
           "required": false,
           "multiple": false
@@ -6764,7 +6886,8 @@
           "name": "network-concurrency",
           "description": "Maximum number of concurrent network requests (default 48)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
+          "defaultValue": "48",
           "required": false,
           "multiple": false
         },
@@ -6780,6 +6903,11 @@
           "description": "Exclude 'dev', 'optional', or 'peer' dependencies from install",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "dev",
+            "optional",
+            "peer"
+          ],
           "required": false,
           "multiple": false
         },
@@ -6795,6 +6923,10 @@
           "description": "Linker strategy (one of \"isolated\" or \"hoisted\")",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "isolated",
+            "hoisted"
+          ],
           "required": false,
           "multiple": false
         },
@@ -6802,7 +6934,7 @@
           "name": "minimum-release-age",
           "description": "Only install packages published at least N seconds ago (security feature)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "required": false,
           "multiple": false
         },
@@ -7190,6 +7322,14 @@
           "description": "Platform-specific optimizations for installing dependencies. Possible values: \"clonefile\" (default), \"hardlink\", \"symlink\", \"copyfile\"",
           "hasValue": true,
           "valueType": "val",
+          "defaultValue": "clonefile",
+          "choices": [
+            "hardlink",
+            "clonefile",
+            "clonefile_each_dir",
+            "copyfile",
+            "symlink"
+          ],
           "required": false,
           "multiple": false
         },
@@ -7205,7 +7345,7 @@
           "name": "concurrent-scripts",
           "description": "Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "defaultValue": "2x",
           "required": false,
           "multiple": false
@@ -7214,7 +7354,8 @@
           "name": "network-concurrency",
           "description": "Maximum number of concurrent network requests (default 48)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
+          "defaultValue": "48",
           "required": false,
           "multiple": false
         },
@@ -7230,6 +7371,11 @@
           "description": "Exclude 'dev', 'optional', or 'peer' dependencies from install",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "dev",
+            "optional",
+            "peer"
+          ],
           "required": false,
           "multiple": false
         },
@@ -7245,6 +7391,10 @@
           "description": "Linker strategy (one of \"isolated\" or \"hoisted\")",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "isolated",
+            "hoisted"
+          ],
           "required": false,
           "multiple": false
         },
@@ -7252,7 +7402,7 @@
           "name": "minimum-release-age",
           "description": "Only install packages published at least N seconds ago (security feature)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "required": false,
           "multiple": false
         },
@@ -7802,6 +7952,14 @@
           "description": "Platform-specific optimizations for installing dependencies. Possible values: \"clonefile\" (default), \"hardlink\", \"symlink\", \"copyfile\"",
           "hasValue": true,
           "valueType": "val",
+          "defaultValue": "clonefile",
+          "choices": [
+            "hardlink",
+            "clonefile",
+            "clonefile_each_dir",
+            "copyfile",
+            "symlink"
+          ],
           "required": false,
           "multiple": false
         },
@@ -7817,7 +7975,7 @@
           "name": "concurrent-scripts",
           "description": "Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "defaultValue": "2x",
           "required": false,
           "multiple": false
@@ -7826,7 +7984,8 @@
           "name": "network-concurrency",
           "description": "Maximum number of concurrent network requests (default 48)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
+          "defaultValue": "48",
           "required": false,
           "multiple": false
         },
@@ -7842,6 +8001,11 @@
           "description": "Exclude 'dev', 'optional', or 'peer' dependencies from install",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "dev",
+            "optional",
+            "peer"
+          ],
           "required": false,
           "multiple": false
         },
@@ -7857,6 +8021,10 @@
           "description": "Linker strategy (one of \"isolated\" or \"hoisted\")",
           "hasValue": true,
           "valueType": "val",
+          "choices": [
+            "isolated",
+            "hoisted"
+          ],
           "required": false,
           "multiple": false
         },
@@ -7864,7 +8032,7 @@
           "name": "minimum-release-age",
           "description": "Only install packages published at least N seconds ago (security feature)",
           "hasValue": true,
-          "valueType": "val",
+          "valueType": "number",
           "required": false,
           "multiple": false
         },

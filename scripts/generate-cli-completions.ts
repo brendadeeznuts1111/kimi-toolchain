@@ -836,88 +836,162 @@ function addCommandAliases(commands: Record<string, CommandInfo>): void {
 /**
  * Main function to generate completion data
  */
+interface FlagFixup {
+  /** Override or supply a default value for the flag. */
+  defaultValue?: string;
+  /** Override or supply an enumerated list of valid values. */
+  choices?: string[];
+  /** Override the inferred value type. */
+  valueType?: string;
+}
+
+const PLATFORM_CPU_CHOICES = ["arm64", "x64", "ia32", "ppc64", "s390x", "*"];
+const PLATFORM_OS_CHOICES = ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"];
+const BACKEND_CHOICES = ["hardlink", "clonefile", "clonefile_each_dir", "copyfile", "symlink"];
+const UNHANDLED_REJECTIONS_CHOICES = ["strict", "throw", "warn", "none", "warn-with-error-code"];
+
 /**
- * Known flag choices that Bun's --help output doesn't enumerate.
+ * Known flag metadata fixups for defaults, choices, and value types that Bun's
+ * --help output does not enumerate clearly.
  * Sources: https://bun.com/docs/pm/cli/install and live help text.
  */
-const CHOICE_FIXUPS: Record<string, Record<string, string[]>> = {
+const FLAG_FIXUPS: Record<string, Record<string, FlagFixup>> = {
   install: {
-    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
-    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
-    backend: ["hardlink", "clonefile", "clonefile_each_dir", "copyfile", "symlink"],
+    backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+    "network-concurrency": { defaultValue: "48", valueType: "number" },
+    "concurrent-scripts": { defaultValue: "2x", valueType: "number" },
+    save: { defaultValue: "true" },
+    omit: { choices: ["dev", "optional", "peer"] },
+    linker: { choices: ["isolated", "hoisted"] },
+    "minimum-release-age": { valueType: "number" },
+    cpu: { choices: PLATFORM_CPU_CHOICES },
+    os: { choices: PLATFORM_OS_CHOICES },
   },
   add: {
-    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
-    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
-    backend: ["hardlink", "clonefile", "clonefile_each_dir", "copyfile", "symlink"],
+    backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+    "network-concurrency": { defaultValue: "48", valueType: "number" },
+    "concurrent-scripts": { defaultValue: "2x", valueType: "number" },
+    save: { defaultValue: "true" },
+    omit: { choices: ["dev", "optional", "peer"] },
+    linker: { choices: ["isolated", "hoisted"] },
+    "minimum-release-age": { valueType: "number" },
+    cpu: { choices: PLATFORM_CPU_CHOICES },
+    os: { choices: PLATFORM_OS_CHOICES },
   },
   remove: {
-    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
-    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+    backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+    "network-concurrency": { defaultValue: "48", valueType: "number" },
+    "concurrent-scripts": { defaultValue: "2x", valueType: "number" },
+    omit: { choices: ["dev", "optional", "peer"] },
+    linker: { choices: ["isolated", "hoisted"] },
+    "minimum-release-age": { valueType: "number" },
+    cpu: { choices: PLATFORM_CPU_CHOICES },
+    os: { choices: PLATFORM_OS_CHOICES },
   },
   update: {
-    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
-    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+    backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+    "network-concurrency": { defaultValue: "48", valueType: "number" },
+    "concurrent-scripts": { defaultValue: "2x", valueType: "number" },
+    omit: { choices: ["dev", "optional", "peer"] },
+    linker: { choices: ["isolated", "hoisted"] },
+    "minimum-release-age": { valueType: "number" },
+    cpu: { choices: PLATFORM_CPU_CHOICES },
+    os: { choices: PLATFORM_OS_CHOICES },
   },
   outdated: {
-    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
-    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+    backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+    "network-concurrency": { defaultValue: "48", valueType: "number" },
+    "concurrent-scripts": { defaultValue: "2x", valueType: "number" },
+    omit: { choices: ["dev", "optional", "peer"] },
+    linker: { choices: ["isolated", "hoisted"] },
+    "minimum-release-age": { valueType: "number" },
+    cpu: { choices: PLATFORM_CPU_CHOICES },
+    os: { choices: PLATFORM_OS_CHOICES },
   },
   link: {
-    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
-    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+    backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+    "network-concurrency": { defaultValue: "48", valueType: "number" },
+    "concurrent-scripts": { defaultValue: "2x", valueType: "number" },
+    omit: { choices: ["dev", "optional", "peer"] },
+    linker: { choices: ["isolated", "hoisted"] },
+    "minimum-release-age": { valueType: "number" },
+    cpu: { choices: PLATFORM_CPU_CHOICES },
+    os: { choices: PLATFORM_OS_CHOICES },
   },
   unlink: {
-    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
-    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+    backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+    "network-concurrency": { defaultValue: "48", valueType: "number" },
+    "concurrent-scripts": { defaultValue: "2x", valueType: "number" },
+    omit: { choices: ["dev", "optional", "peer"] },
+    linker: { choices: ["isolated", "hoisted"] },
+    "minimum-release-age": { valueType: "number" },
+    cpu: { choices: PLATFORM_CPU_CHOICES },
+    os: { choices: PLATFORM_OS_CHOICES },
   },
   publish: {
-    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
-    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+    backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+    "network-concurrency": { defaultValue: "48", valueType: "number" },
+    "concurrent-scripts": { defaultValue: "2x", valueType: "number" },
+    omit: { choices: ["dev", "optional", "peer"] },
+    linker: { choices: ["isolated", "hoisted"] },
+    "minimum-release-age": { valueType: "number" },
+    cpu: { choices: PLATFORM_CPU_CHOICES },
+    os: { choices: PLATFORM_OS_CHOICES },
   },
   patch: {
-    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
-    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+    backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+    "network-concurrency": { defaultValue: "48", valueType: "number" },
+    "concurrent-scripts": { defaultValue: "2x", valueType: "number" },
+    omit: { choices: ["dev", "optional", "peer"] },
+    linker: { choices: ["isolated", "hoisted"] },
+    "minimum-release-age": { valueType: "number" },
+    cpu: { choices: PLATFORM_CPU_CHOICES },
+    os: { choices: PLATFORM_OS_CHOICES },
   },
   info: {
-    cpu: ["arm64", "x64", "ia32", "ppc64", "s390x", "*"],
-    os: ["linux", "darwin", "win32", "freebsd", "openbsd", "sunos", "aix", "*"],
+    backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+    "network-concurrency": { defaultValue: "48", valueType: "number" },
+    "concurrent-scripts": { defaultValue: "2x", valueType: "number" },
+    omit: { choices: ["dev", "optional", "peer"] },
+    linker: { choices: ["isolated", "hoisted"] },
+    "minimum-release-age": { valueType: "number" },
+    cpu: { choices: PLATFORM_CPU_CHOICES },
+    os: { choices: PLATFORM_OS_CHOICES },
   },
   test: {
-    "unhandled-rejections": ["strict", "throw", "warn", "none", "warn-with-error-code"],
+    "unhandled-rejections": { choices: UNHANDLED_REJECTIONS_CHOICES },
   },
   run: {
-    "unhandled-rejections": ["strict", "throw", "warn", "none", "warn-with-error-code"],
+    "unhandled-rejections": { choices: UNHANDLED_REJECTIONS_CHOICES },
   },
   repl: {
-    "unhandled-rejections": ["strict", "throw", "warn", "none", "warn-with-error-code"],
+    "unhandled-rejections": { choices: UNHANDLED_REJECTIONS_CHOICES },
   },
 };
 
-/**
- * Known global flag choices that Bun's --help output doesn't enumerate cleanly.
- */
-const GLOBAL_CHOICE_FIXUPS: Record<string, string[]> = {
-  "unhandled-rejections": ["strict", "throw", "warn", "none", "warn-with-error-code"],
-  backend: ["hardlink", "clonefile", "clonefile_each_dir", "copyfile", "symlink"],
+const GLOBAL_FLAG_FIXUPS: Record<string, FlagFixup> = {
+  "unhandled-rejections": { choices: UNHANDLED_REJECTIONS_CHOICES },
+  backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
 };
 
-function applyChoiceFixups(data: CompletionData): void {
-  for (const flag of data.globalFlags) {
-    const choices = GLOBAL_CHOICE_FIXUPS[flag.name];
-    if (choices) {
-      flag.choices = choices;
-    }
+function applyFlagFixups(data: CompletionData): void {
+  function apply(flag: FlagInfo, fixup: FlagFixup): void {
+    if (fixup.defaultValue !== undefined) flag.defaultValue = fixup.defaultValue;
+    if (fixup.choices !== undefined) flag.choices = fixup.choices;
+    if (fixup.valueType !== undefined) flag.valueType = fixup.valueType;
   }
 
-  for (const [commandName, flagFixups] of Object.entries(CHOICE_FIXUPS)) {
+  for (const flag of data.globalFlags) {
+    const fixup = GLOBAL_FLAG_FIXUPS[flag.name];
+    if (fixup) apply(flag, fixup);
+  }
+
+  for (const [commandName, flagFixups] of Object.entries(FLAG_FIXUPS)) {
     const cmd = data.commands[commandName];
     if (!cmd) continue;
     for (const flag of cmd.flags) {
-      const choices = flagFixups[flag.name];
-      if (choices) {
-        flag.choices = choices;
-      }
+      const fixup = flagFixups[flag.name];
+      if (fixup) apply(flag, fixup);
     }
   }
 }
@@ -1054,8 +1128,8 @@ async function generateCompletions(): Promise<void> {
     }
   }
 
-  // Apply known choice fixups that Bun's --help output omits.
-  applyChoiceFixups(completionData);
+  // Apply known metadata fixups that Bun's --help output omits.
+  applyFlagFixups(completionData);
 
   // Ensure completions directory exists
   const completionsDir = `${Bun.cwd}/completions`;
