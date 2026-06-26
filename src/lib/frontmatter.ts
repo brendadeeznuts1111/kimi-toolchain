@@ -50,7 +50,11 @@ export function parseFrontmatterText(text: string, file = ""): ParsedFrontmatter
   const delimiter = match[1] as FrontmatterDelimiter;
   const raw = match[2];
   if (raw === undefined) {
-    return { data: {}, body: text, meta: { file, parsed: new Date().toISOString(), format: "none" } };
+    return {
+      data: {},
+      body: text,
+      meta: { file, parsed: new Date().toISOString(), format: "none" },
+    };
   }
   const body = text.slice(match[0].length).replace(/^\r?\n/, "");
 
@@ -111,9 +115,9 @@ export function formatFrontmatterTable(
   opts?: { colors?: boolean; depth?: number }
 ): string {
   const depth = opts?.depth ?? FRONTMATTER_TABLE_DEPTH;
-  return formatTable(
-    frontmatterTableRows(data, depth) as unknown as Record<string, unknown>[],
-    ["Key", "Value"],
+  return formatTable<FrontmatterTableRow>(
+    frontmatterTableRows(data, depth),
+    ["Key", "Value"] as (keyof FrontmatterTableRow)[],
     { colors: opts?.colors }
   );
 }
