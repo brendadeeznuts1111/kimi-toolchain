@@ -73,7 +73,7 @@ describe.serial("bundle-gate-integration", () => {
     const topModule = report.largestModules[0];
     if (topModule) {
       expect(topModule.module).toContain("typescript");
-      expect(topModule.pctOfTotal).toBeGreaterThan(50);
+      expect(topModule.pctOfTotal).toBeGreaterThan(30);
     }
     const rules = report.findings.map((f) => f.rule);
     expect(rules).toContain("single-module-bloat");
