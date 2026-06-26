@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-26T07:46:14.747Z",
+  "generatedAt": "2026-06-26T07:52:45.697Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -301,6 +301,12 @@
       "repoPath": "docs/references/bun-types.md",
       "runtimePath": "~/.kimi-code/docs/references/bun-types.md",
       "purpose": "Bun TypeScript types reference: bun-types package, @types/bun shim, and local checkout pinning"
+    },
+    {
+      "id": "bun-test-api",
+      "repoPath": "docs/references/bun-test-api.md",
+      "runtimePath": "~/.kimi-code/docs/references/bun-test-api.md",
+      "purpose": "Bun test runner API reference: bun:test, matchers, mocks, snapshots, and lifecycle hooks"
     },
     {
       "id": "testing-execution",

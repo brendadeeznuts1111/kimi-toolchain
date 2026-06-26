@@ -209,6 +209,12 @@ const MANIFEST_LOCAL_DOCS_ALL = [
       "Bun TypeScript types reference: bun-types package, @types/bun shim, and local checkout pinning",
   },
   {
+    id: "bun-test-api",
+    location: "docs/references",
+    purpose:
+      "Bun test runner API reference: bun:test, matchers, mocks, snapshots, and lifecycle hooks",
+  },
+  {
     id: "testing-execution",
     location: "docs/references",
     purpose:

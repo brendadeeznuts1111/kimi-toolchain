@@ -40,6 +40,7 @@ Machine-readable manifest: \`canonical-references.json\` (synced to \`~/.kimi-co
 | \`docs/references/bunfig-config.md\` | \`~/.kimi-code/docs/references/bunfig-config.md\` | Bunfig.toml runtime, test, serve, and bun run configuration reference |
 | \`docs/references/bun-install-config.md\` | \`~/.kimi-code/docs/references/bun-install-config.md\` | Bun install configuration reference: [install], scopes, cache, and platform selectors |
 | \`docs/references/bun-types.md\` | \`~/.kimi-code/docs/references/bun-types.md\` | Bun TypeScript types reference: bun-types package, @types/bun shim, and local checkout pinning |
+| \`docs/references/bun-test-api.md\` | \`~/.kimi-code/docs/references/bun-test-api.md\` | Bun test runner API reference: bun:test, matchers, mocks, snapshots, and lifecycle hooks |
 | \`docs/references/testing-execution.md\` | \`~/.kimi-code/docs/references/testing-execution.md\` | Four-script test execution model — selection (fast/changed/parallel/shard), distribution (file not describe), --changed safety net |
 | \`docs/references/bun-shell-companions.md\` | \`~/.kimi-code/docs/references/bun-shell-companions.md\` | Bun $ template vs subprocess and inspect companion patterns |
 | \`docs/references/bun-file-streaming.md\` | \`~/.kimi-code/docs/references/bun-file-streaming.md\` | Bun.file/Bun.write streaming decisions for configs, JSONL ledgers, large artifacts, transformed streams, and HTTP responses |
@@ -125,19 +126,20 @@ Local doc references:
 │ 14 │ bunfig-config                    │ docs/references/bunfig-config.md                    │ —      │ —         │
 │ 15 │ bun-install-config               │ docs/references/bun-install-config.md               │ —      │ —         │
 │ 16 │ bun-types                        │ docs/references/bun-types.md                        │ —      │ —         │
-│ 17 │ testing-execution                │ docs/references/testing-execution.md                │ —      │ —         │
-│ 18 │ bun-shell-companions             │ docs/references/bun-shell-companions.md             │ —      │ —         │
-│ 19 │ bun-file-streaming               │ docs/references/bun-file-streaming.md               │ —      │ —         │
-│ 20 │ template-matrix                  │ docs/references/template-matrix.md                  │ —      │ —         │
-│ 21 │ herdr-plugin-architecture        │ docs/references/herdr-plugin-architecture.md        │ yes    │ 8         │
-│ 22 │ artifact-lineage                 │ examples/artifact-dependency-graphs.md              │ yes    │ 11        │
-│ 23 │ gate-health                      │ docs/references/serve-probe.md                      │ yes    │ 12        │
-│ 24 │ benchmark                        │ docs/references/kimi-doctor.md                      │ yes    │ 13        │
-│ 25 │ agent-api                        │ docs/agent-api.md                                   │ —      │ —         │
-│ 26 │ finish-work-close-loop           │ docs/finish-work-close-loop.md                      │ —      │ —         │
-│ 27 │ handoff-rules                    │ docs/handoff-rules.md                               │ —      │ —         │
-│ 28 │ naming                           │ docs/naming.md                                      │ —      │ —         │
-│ 29 │ canonical-references             │ canonical-references.json                           │ —      │ —         │
+│ 17 │ bun-test-api                     │ docs/references/bun-test-api.md                     │ —      │ —         │
+│ 18 │ testing-execution                │ docs/references/testing-execution.md                │ —      │ —         │
+│ 19 │ bun-shell-companions             │ docs/references/bun-shell-companions.md             │ —      │ —         │
+│ 20 │ bun-file-streaming               │ docs/references/bun-file-streaming.md               │ —      │ —         │
+│ 21 │ template-matrix                  │ docs/references/template-matrix.md                  │ —      │ —         │
+│ 22 │ herdr-plugin-architecture        │ docs/references/herdr-plugin-architecture.md        │ yes    │ 8         │
+│ 23 │ artifact-lineage                 │ examples/artifact-dependency-graphs.md              │ yes    │ 11        │
+│ 24 │ gate-health                      │ docs/references/serve-probe.md                      │ yes    │ 12        │
+│ 25 │ benchmark                        │ docs/references/kimi-doctor.md                      │ yes    │ 13        │
+│ 26 │ agent-api                        │ docs/agent-api.md                                   │ —      │ —         │
+│ 27 │ finish-work-close-loop           │ docs/finish-work-close-loop.md                      │ —      │ —         │
+│ 28 │ handoff-rules                    │ docs/handoff-rules.md                               │ —      │ —         │
+│ 29 │ naming                           │ docs/naming.md                                      │ —      │ —         │
+│ 30 │ canonical-references             │ canonical-references.json                           │ —      │ —         │
 └────┴──────────────────────────────────┴─────────────────────────────────────────────────────┴────────┴───────────┘
 "
 `;
@@ -508,6 +510,12 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     "purpose": "Bun TypeScript types reference: bun-types package, @types/bun shim, and local checkout pinning",
   },
 {
+    "id": "bun-test-api",
+    "repoPath": "docs/references/bun-test-api.md",
+    "runtimePath": "~/.kimi-code/docs/references/bun-test-api.md",
+    "purpose": "Bun test runner API reference: bun:test, matchers, mocks, snapshots, and lifecycle hooks",
+  },
+{
     "id": "testing-execution",
     "repoPath": "docs/references/testing-execution.md",
     "runtimePath": "~/.kimi-code/docs/references/testing-execution.md",
@@ -687,7 +695,7 @@ export const REPO_REFERENCES: readonly RepoReference[] = [
 exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
 "{
   "schemaVersion": 1,
-  "generatedAt": "2026-06-26T07:46:14.747Z",
+  "generatedAt": "2026-06-26T07:52:45.697Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -988,6 +996,12 @@ exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
       "repoPath": "docs/references/bun-types.md",
       "runtimePath": "~/.kimi-code/docs/references/bun-types.md",
       "purpose": "Bun TypeScript types reference: bun-types package, @types/bun shim, and local checkout pinning"
+    },
+    {
+      "id": "bun-test-api",
+      "repoPath": "docs/references/bun-test-api.md",
+      "runtimePath": "~/.kimi-code/docs/references/bun-test-api.md",
+      "purpose": "Bun test runner API reference: bun:test, matchers, mocks, snapshots, and lifecycle hooks"
     },
     {
       "id": "testing-execution",

@@ -391,6 +391,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
       "Bun TypeScript types reference: bun-types package, @types/bun shim, and local checkout pinning",
   },
   {
+    id: "bun-test-api",
+    repoPath: "docs/references/bun-test-api.md",
+    runtimePath: "~/.kimi-code/docs/references/bun-test-api.md",
+    purpose:
+      "Bun test runner API reference: bun:test, matchers, mocks, snapshots, and lifecycle hooks",
+  },
+  {
     id: "testing-execution",
     repoPath: "docs/references/testing-execution.md",
     runtimePath: "~/.kimi-code/docs/references/testing-execution.md",
