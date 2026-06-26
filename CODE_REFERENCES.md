@@ -439,7 +439,7 @@ Herdr CLIs live in `src/bin/herdr-doctor.ts`, `src/bin/herdr-project.ts`, `src/b
 
 ## Security Audit References
 
-- Deep hot-path supply-chain audit: [docs/audit/deep-hot-path-audit.md](docs/audit/deep-hot-path-audit.md) — postinstall, guardian, sync, governance, templates, trustedDependencies.
+- Supply-chain audits run via `bun run audit` and `bun run audit:all`.
 
 ## New Code Checklist
 

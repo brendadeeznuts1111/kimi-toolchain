@@ -18,17 +18,18 @@
 
 ### Config Layer (7 files)
 
-| File                       | Purpose                                             | Profile   | Defining Module | bun init Collision?  |
-| -------------------------- | --------------------------------------------------- | --------- | --------------- | -------------------- |
-| `bunfig.toml`              | Bun runtime config (registry, preload, test runner) | Both      | `kimi-fix.ts`   | **Yes** — `-m` skips |
-| `tsconfig.json`            | Hardened TypeScript (strict, paths, Bun types)      | Both      | `kimi-fix.ts`   | **Yes** — `-m` skips |
-| `oxfmtrc.json`             | oxformat config                                     | Both      | `kimi-fix.ts`   | No                   |
-| `oxlintrc.json`            | oxlint rules                                        | Both      | `kimi-fix.ts`   | No                   |
-| `dx.config.app.toml`       | Herdr + finish-work gates (app profile)             | App       | `kimi-fix.ts`   | No                   |
-| `dx.config.toolchain.toml` | Herdr + finish-work + toolchain extras              | Toolchain | `kimi-fix.ts`   | No                   |
-| `ci.yml`                   | GitHub Actions workflow                             | Both      | `kimi-fix.ts`   | No                   |
+| File                       | Purpose                                              | Profile   | Defining Module | bun init Collision?  |
+| -------------------------- | ---------------------------------------------------- | --------- | --------------- | -------------------- |
+| `bunfig.toml`              | Bun runtime config (registry, preload, test runner)  | Both      | `kimi-fix.ts`   | **Yes** — `-m` skips |
+| `tsconfig.json`            | Hardened TypeScript (strict, paths, Bun types)       | Both      | `kimi-fix.ts`   | **Yes** — `-m` skips |
+| `oxfmtrc.json`             | oxformat config                                      | Both      | `kimi-fix.ts`   | No                   |
+| `oxlintrc.json`            | oxlint rules                                         | Both      | `kimi-fix.ts`   | No                   |
+| `dx.config.toml`           | Default DX config (merged by app/toolchain profiles) | Both      | `kimi-fix.ts`   | No                   |
+| `dx.config.app.toml`       | Herdr + finish-work gates (app profile)              | App       | `kimi-fix.ts`   | No                   |
+| `dx.config.toolchain.toml` | Herdr + finish-work + toolchain extras               | Toolchain | `kimi-fix.ts`   | No                   |
+| `ci.yml`                   | GitHub Actions workflow                              | Both      | `kimi-fix.ts`   | No                   |
 
-### Docs Layer (5 files)
+### Docs Layer (6 files)
 
 | File                 | Purpose                                      | Profile   | Defining Module | Runtime Path                                        |
 | -------------------- | -------------------------------------------- | --------- | --------------- | --------------------------------------------------- |
@@ -39,14 +40,13 @@
 | `skill-template.md`  | Canonical SKILL.md YAML frontmatter scaffold | Toolchain | `kimi-fix.ts`   | `~/.kimi-code/templates/scaffold/skill-template.md` |
 | `LICENSE-MIT`        | License stub                                 | Both      | `kimi-fix.ts`   | `./LICENSE`                                         |
 
-### Source Layer (4 files)
+### Source Layer (3 files)
 
-| File                 | Purpose                                      | Profile | Defining Module | Entry Point?                               |
-| -------------------- | -------------------------------------------- | ------- | --------------- | ------------------------------------------ |
-| `index.ts`           | Minimal Bun HTTP server (port 0 auto-assign) | App     | `kimi-fix.ts`   | **Yes** — `bun run start` (add manually)   |
-| `bun-types` (devDep) | oven-sh/bun `packages/bun-types` pin         | Both    | `package.json`  | `kimi.bunTypesCommit` — no local shims     |
-| `env.example`        | Environment variable template                | Both    | `kimi-fix.ts`   | No                                         |
-| `gitignore`          | Ignore patterns (node_modules, dist, .env)   | Both    | `kimi-fix.ts`   | **Yes** — `bun init` creates basic version |
+| File          | Purpose                                      | Profile | Defining Module | Entry Point?                               |
+| ------------- | -------------------------------------------- | ------- | --------------- | ------------------------------------------ |
+| `index.ts`    | Minimal Bun HTTP server (port 0 auto-assign) | App     | `kimi-fix.ts`   | **Yes** — `bun run start` (add manually)   |
+| `env.example` | Environment variable template                | Both    | `kimi-fix.ts`   | No                                         |
+| `gitignore`   | Ignore patterns (node_modules, dist, .env)   | Both    | `kimi-fix.ts`   | **Yes** — `bun init` creates basic version |
 
 ### Scripts Layer (6 files)
 
@@ -70,7 +70,7 @@
 | Step | Tool                 | Files Created                                | Collision Files                                        | Mitigation                                                                                                            |
 | ---- | -------------------- | -------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | 1    | `bun init -m -y`     | `package.json`, `node_modules/`, `bun.lockb` | None (minimal mode)                                    | `-m` skips `tsconfig.json`, `README.md`, `index.ts`, `.gitignore`                                                     |
-| 2    | `kimi-fix .`         | All 22 scaffold files                        | `tsconfig.json`, `.gitignore`, `index.ts`, `README.md` | `!pathExists()` guard in `kimi-fix.ts` (non-destructive). Field is already clear because `-m` skipped the four files. |
+| 2    | `kimi-fix .`         | All 23 scaffold files                        | `tsconfig.json`, `.gitignore`, `index.ts`, `README.md` | `!pathExists()` guard in `kimi-fix.ts` (non-destructive). Field is already clear because `-m` skipped the four files. |
 | 3    | `bun run check:fast` | Validation only                              | None                                                   | Confirms scaffold integrity                                                                                           |
 
 ```mermaid
@@ -86,7 +86,7 @@ flowchart TD
     G -- .gitignore missing --> H2[write hardened .gitignore]
     G -- index.ts missing --> H3[write entry point]
     G -- README.md missing --> H4[write project README]
-    G -- other 18 files --> H5[write remaining scaffold]
+    G -- other 19 files --> H5[write remaining scaffold]
     G -- files exist --> SKIP[skip — non-destructive]
 
     H1 --> I[bunfig.toml + oxfmt/oxlint + dx.config]
@@ -151,15 +151,18 @@ flowchart TD
 
 Domain effect handlers are scaffolded per-module during `kimi-fix`. **`KIMI_MODULES` defaults to `doctor`** when unset (copies `examples/dashboard` perf harness + `perf-doctor.ts`). Override with `KIMI_MODULES=image,trace` etc.
 
-| Module                 | Source                                              | Effect Symbol                 | Key Bun API                                    |
-| ---------------------- | --------------------------------------------------- | ----------------------------- | ---------------------------------------------- |
-| **`doctor`** (default) | `examples/dashboard/src/harness` + `perf-doctor.ts` | `kimi.effect.*` registry keys | `Bun.nanoseconds()`, fetch protocol benchmarks |
-| `image`                | `templates/modules/image/src/processor.ts`          | `kimi.effect.image`           | `Bun.Image`                                    |
-| `clock`                | `templates/modules/clock/src/processor.ts`          | `kimi.effect.clock`           | `Bun.nanoseconds()`                            |
-| `db`                   | `templates/modules/db/src/processor.ts`             | `kimi.effect.db`              | `bun:sqlite`                                   |
-| `uuid`                 | `templates/modules/uuid/src/processor.ts`           | `kimi.effect.uuid`            | `Bun.randomUUIDv7`                             |
-| `terminal`             | `templates/modules/terminal/src/processor.ts`       | `kimi.effect.terminal`        | `Bun.stdin.isTTY()` / ANSI styling             |
-| `perf`                 | alias of doctor harness                             | `kimi.effect.perf`            | `Bun.nanoseconds()`                            |
+| Module                 | Source                                                | Effect Symbol                 | Key Bun API                                    |
+| ---------------------- | ----------------------------------------------------- | ----------------------------- | ---------------------------------------------- |
+| **`doctor`** (default) | `examples/dashboard/src/harness` + `perf-doctor.ts`   | `kimi.effect.*` registry keys | `Bun.nanoseconds()`, fetch protocol benchmarks |
+| `image`                | `templates/modules/image/src/processor.ts`            | `kimi.effect.image`           | `Bun.Image`                                    |
+| `clock`                | `templates/modules/clock/src/processor.ts`            | `kimi.effect.clock`           | `Bun.nanoseconds()`                            |
+| `db`                   | `templates/modules/db/src/processor.ts`               | `kimi.effect.db`              | `bun:sqlite`                                   |
+| `http`                 | `templates/modules/http/src/processor.ts`             | `kimi.effect.http`            | `Bun.serve` / fetch                            |
+| `uuid`                 | `templates/modules/uuid/src/processor.ts`             | `kimi.effect.uuid`            | `Bun.randomUUIDv7`                             |
+| `terminal`             | `templates/modules/terminal/src/processor.ts`         | `kimi.effect.terminal`        | `Bun.stdin.isTTY()` / ANSI styling             |
+| `trading`              | `templates/modules/trading/src/bin/trading-doctor.ts` | `kimi.effect.trading`         | Artifact store / benchmark harness             |
+| `transpiler`           | `templates/modules/transpiler/src/processor.ts`       | `kimi.effect.transpiler`      | `Bun.Transpiler`                               |
+| `perf`                 | alias of doctor harness                               | `kimi.effect.perf`            | `Bun.nanoseconds()`                            |
 
 Registration (generated in the project init module when modules include `image`):
 
@@ -180,7 +183,7 @@ See: `examples/image-effect.md`, `examples/platform-absorption.md`.
 | -------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `bun init` without `-m`          | `tsconfig.json` is basic (`module: "Preserve"`), not hardened (`module: "ESNext"`) | `rm tsconfig.json && kimi-fix .`                                         |
 | `kimi-fix` after full `bun init` | `!pathExists()` skips `tsconfig.json`, `.gitignore`, `index.ts`, `README.md`       | `rm tsconfig.json .gitignore src/index.ts README.md && kimi-fix .`       |
-| Missing `bun run sync`           | `kimi-doctor --probe` shows stale `localDocsCount` vs repo manifest (28)           | `bun run sync && bun run sync:verify`                                    |
+| Missing `bun run sync`           | `kimi-doctor --probe` shows stale `localDocsCount` vs repo manifest (27)           | `bun run sync && bun run sync:verify`                                    |
 | `bun create` template has deps   | npm client (pnpm/yarn) runs install, not Bun                                       | Remove `dependencies` from template `package.json`                       |
 | Canvases stale in IDE            | Routing tables point to missing files                                              | Repo SSOT: `docs/canvases/` · copy to `~/.cursor/projects/.../canvases/` |
 
@@ -197,8 +200,8 @@ bun run sync:verify       # Runtime paths match repo paths
 
 | Check            | Expected                                    | Failure Mode                                                                                                                               |
 | ---------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `localDocsCount` | 28                                          | Missing rows in `canonical-references.toml` or stale `~/.kimi-code/` copy                                                                  |
-| `scaffoldFiles`  | 22                                          | `kimi-fix` skipped due to `pathExists`                                                                                                     |
+| `localDocsCount` | 27                                          | Missing rows in `canonical-references.toml` or stale `~/.kimi-code/` copy                                                                  |
+| `scaffoldFiles`  | 23                                          | `kimi-fix` skipped due to `pathExists`                                                                                                     |
 | `collisionRisk`  | 0                                           | `bun init` ran without `-m`                                                                                                                |
 | `bunfig.toml`    | `linker = "isolated"`, `globalStore = true` | Template stale or overwritten                                                                                                              |
 | `templatePolicy` | `bun run check:template-policy` exits 0     | `TEMPLATE_POLICY_CHECK_IDS` (29 layers): install/registry/scaffold/secrets/bootstrap, oxlint, oxfmt, typecheck, bun test on `templates/**` |
@@ -248,16 +251,16 @@ Notable layers: `bootstrap-bridge` (`kimi-new` → `bun init -m -y`), `bun-init-
 
 | Category              | Count  | % of Scaffold |
 | --------------------- | ------ | ------------- |
-| Config                | 7      | 31.8%         |
-| Docs                  | 5      | 22.7%         |
-| Source                | 4      | 18.2%         |
-| Scripts               | 6      | 27.3%         |
-| **Total Scaffold**    | **22** | **100%**      |
+| Config                | 8      | 34.8%         |
+| Docs                  | 6      | 26.1%         |
+| Source                | 3      | 13.0%         |
+| Scripts               | 6      | 26.1%         |
+| **Total Scaffold**    | **23** | **100%**      |
 | bun-create template   | 1      | —             |
 | desktop-runtime       | 1      | —             |
 | Herdr dashboard + MCP | 4      | —             |
-| Domain effect modules | 5      | —             |
-| **Grand Total**       | **33** | —             |
+| Domain effect modules | 9      | —             |
+| **Grand Total**       | **38** | —             |
 
 ## Related
 

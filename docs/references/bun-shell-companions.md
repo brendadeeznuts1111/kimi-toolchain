@@ -15,7 +15,7 @@ All inspection, table formatting, ANSI helpers, and inspection streaming live in
 | Strip ANSI                                    | `stripANSI()`                       | Hand-rolled regex                         |
 | Wrap text with ANSI awareness                 | `wrapAnsi()`                        | Manual slicing                            |
 | Custom inspection symbol                      | `customInspect`                     | Hard-coding `Bun.inspect.custom`          |
-| Stream → text                                 | `inspectStream()`                   | `new Response(stream).text()`             |
+| Stream → text                                 | `Bun.readableStreamToText(stream)`  | `new Response(stream).text()`             |
 
 ## JSON / Machine Output
 

@@ -426,7 +426,7 @@ Top-level `describe("…")` must use **kebab-case** and start with the file stem
 
 ### Imports
 
-- Use **relative imports** from `src/lib/` or `src/effect/`: `import { ... } from "../lib/utils.ts"`.
+- Use **relative imports** from `src/lib/` or `src/lib/effect/`: `import { ... } from "../lib/utils.ts"`.
 - Never use absolute paths or path aliases.
 - The `core/` files (`utils.ts`, `version.ts`, `paths.ts`, `tool-runner.ts`) are imported by almost everything — keep them lightweight and dependency-free.
 
