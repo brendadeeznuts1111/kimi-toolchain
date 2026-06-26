@@ -15,6 +15,10 @@ mock.module("../src/lib/herdr-cli.ts", () => ({
     if (mockCliError) return Effect.fail(mockCliError);
     return Effect.succeed(mockCliJson ?? "{}");
   },
+  herdrCliJson: <T>() => {
+    if (mockCliError) return Effect.fail(mockCliError);
+    return Effect.succeed((mockCliJson ? JSON.parse(mockCliJson) : {}) as T);
+  },
   herdrCliSync: () => {
     if (mockCliSyncThrow) throw mockCliSyncThrow;
     return mockCliSyncJson ?? "{}";
