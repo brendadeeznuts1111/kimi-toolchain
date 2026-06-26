@@ -6,26 +6,26 @@ Generated from `completions/bun-cli.json` (schema v1.2.0, Bun 1.4.0, revision 1.
 
 | Command | Flags | Value flags | Positional args | Req pos | Opt pos | File I/O | PM | Runtime | Debug | Network | Subcommands | Dynamic | Examples | Defaults (#) | Default values | Choices (#) | Choice values | Drift hash |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| add (a) | 40 | 14 | 1 | 0 | 1 | 4 | 29 | 1 | 6 | 6 | 0 | packages | 6 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| add (a) | 40 | 14 | 1 | 0 | 1 | 4 | 31 | 1 | 6 | 6 | 0 | packages | 6 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
 | audit | 3 | 2 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
-| build | 57 | 27 | 0 | 0 | 0 | 15 | 1 | 8 | 3 | 0 | 0 | files | 5 | 12 | --compile-autoload-dotenv=true), --compile-autoload-bunfig=true), --compile-autoload-tsconfig=false), --compile-autoload-package-json=false), --outdir=dist, --format=esm, --allow-unresolved='*', --packages=bundle, --entry-naming=[dir]/[name], --chunk-naming=[name]-[hash], --asset-naming=[name]-[hash], --env='disable' | 0 | — | 5a2cd0162582 |
+| build | 57 | 27 | 0 | 0 | 0 | 15 | 1 | 7 | 3 | 0 | 0 | files | 5 | 12 | --compile-autoload-dotenv=true), --compile-autoload-bunfig=true), --compile-autoload-tsconfig=false), --compile-autoload-package-json=false), --outdir=dist, --format=esm, --allow-unresolved='*', --packages=bundle, --entry-naming=[dir]/[name], --chunk-naming=[name]-[hash], --asset-naming=[name]-[hash], --env='disable' | 0 | — | 5a2cd0162582 |
 | create (c) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
 | exec | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
 | feedback | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
-| info | 35 | 14 | 2 | 0 | 2 | 4 | 24 | 1 | 6 | 6 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| info | 35 | 14 | 2 | 0 | 2 | 4 | 25 | 1 | 6 | 6 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
 | init | 6 | 0 | 2 | 0 | 2 | 0 | 1 | 0 | 1 | 0 | 0 | — | 4 | 0 | — | 0 | — | 5a2cd0162582 |
-| install (i) | 41 | 15 | 1 | 0 | 1 | 4 | 29 | 2 | 6 | 6 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| link | 34 | 14 | 1 | 0 | 1 | 4 | 24 | 1 | 6 | 6 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| outdated | 36 | 15 | 2 | 0 | 2 | 4 | 24 | 3 | 6 | 6 | 0 | — | 7 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| patch | 36 | 15 | 1 | 0 | 1 | 5 | 25 | 1 | 6 | 6 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| install (i) | 41 | 15 | 1 | 0 | 1 | 4 | 31 | 2 | 6 | 6 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| link | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | — | 2 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| outdated | 36 | 15 | 2 | 0 | 2 | 4 | 25 | 3 | 6 | 6 | 0 | — | 7 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| patch | 36 | 15 | 1 | 0 | 1 | 5 | 26 | 1 | 6 | 6 | 0 | — | 3 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
 | pm | 0 | 0 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 16 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
-| publish | 40 | 19 | 2 | 0 | 2 | 4 | 29 | 1 | 6 | 7 | 0 | — | 4 | 4 | --concurrent-scripts=2x, --tag=latest, --auth-type='web'), --gzip-level=9 | 0 | — | 5a2cd0162582 |
-| remove (rm) | 34 | 14 | 1 | 0 | 1 | 4 | 24 | 1 | 6 | 6 | 0 | packages | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| repl | 82 | 42 | 2 | 1 | 1 | 5 | 5 | 33 | 8 | 8 | 0 | — | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd0162582 |
-| run | 82 | 42 | 2 | 1 | 1 | 5 | 5 | 33 | 8 | 8 | 0 | scripts, files, binaries | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd0162582 |
-| test | 28 | 16 | 2 | 0 | 2 | 0 | 1 | 6 | 4 | 1 | 0 | files | 3 | 7 | --timeout=5000, --coverage-reporter='text', --coverage-dir='coverage', --bail=1, --reporter=console, --max-concurrency=20, --parallel=CPU | 0 | — | 5a2cd0162582 |
-| unlink | 34 | 14 | 1 | 0 | 1 | 4 | 24 | 1 | 6 | 6 | 0 | — | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
-| update | 38 | 15 | 1 | 0 | 1 | 4 | 25 | 4 | 6 | 6 | 0 | — | 4 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| publish | 40 | 19 | 2 | 0 | 2 | 4 | 30 | 1 | 6 | 7 | 0 | — | 4 | 4 | --concurrent-scripts=2x, --tag=latest, --auth-type='web'), --gzip-level=9 | 0 | — | 5a2cd0162582 |
+| remove (rm) | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | packages | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| repl | 82 | 42 | 2 | 1 | 1 | 5 | 4 | 35 | 8 | 8 | 0 | — | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd0162582 |
+| run | 82 | 42 | 2 | 1 | 1 | 5 | 4 | 35 | 8 | 8 | 0 | scripts, files, binaries | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto}, --dns-result-order={verbatim, (default), ipv4first, ipv6first}, --unhandled-rejections={strict} | 5a2cd0162582 |
+| test | 28 | 16 | 2 | 0 | 2 | 0 | 0 | 2 | 4 | 1 | 0 | files | 3 | 7 | --timeout=5000, --coverage-reporter='text', --coverage-dir='coverage', --bail=1, --reporter=console, --max-concurrency=20, --parallel=CPU | 0 | — | 5a2cd0162582 |
+| unlink | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | — | 1 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
+| update | 38 | 15 | 1 | 0 | 1 | 4 | 26 | 4 | 6 | 6 | 0 | — | 4 | 1 | --concurrent-scripts=2x | 0 | — | 5a2cd0162582 |
 | upgrade | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 5a2cd0162582 |
 | why | 0 | 0 | 3 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
 | x | 5 | 0 | 3 | 1 | 2 | 0 | 2 | 1 | 2 | 0 | 0 | — | 0 | 0 | — | 0 | — | 5a2cd0162582 |
@@ -134,7 +134,7 @@ Available: Yes
 | --- | --- | --- | --- | --- | --- | --- |
 | -c, --config | Yes | val | — | — | fileIO | Specify path to config file (bunfig.toml) |
 | -y, --yarn | No | — | — | — | pm | Write a yarn.lock file (yarn v1) |
-| -p, --production | No | — | — | — | pm | Don't install devDependencies |
+| -p, --production | No | — | — | — | pm, compile | Don't install devDependencies |
 | --no-save | No | — | — | — | pm | Don't update package.json or save a lockfile |
 | --save | No | — | — | — | pm | Save to package.json (true by default) |
 | --ca | Yes | val | — | — | network | Provide a Certificate Authority signing certificate |
@@ -163,7 +163,7 @@ Available: Yes
 | --lockfile-only | No | — | — | — | pm | Generate a lockfile without installing dependencies |
 | --linker | Yes | val | — | — | pm | Linker strategy (one of "isolated" or "hoisted") |
 | --minimum-release-age | Yes | val | — | — | pm | Only install packages published at least N seconds ago (security feature) |
-| --cpu | Yes | val | — | — | profiling | Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all) |
+| --cpu | Yes | val | — | — | pm | Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all) |
 | --os | Yes | val | — | — | pm | Override operating system for optional dependencies (e.g., linux, darwin, * for all) |
 | -h, --help | No | — | — | — | debug | Print this help menu |
 | -d, --dev | No | — | — | — | pm | Add dependency to "devDependencies" |
@@ -171,7 +171,7 @@ Available: Yes
 | --peer | No | — | — | — | pm | Add dependency to "peerDependencies" |
 | -E, --exact | No | — | — | — | pm | Add the exact version instead of the ^range |
 | --filter | Yes | val | — | — | runtime | Install packages for the matching workspaces |
-| -a, --analyze | No | — | — | — | compile | Analyze & install all dependencies of files passed as arguments recursively (using Bun's bundler) |
+| -a, --analyze | No | — | — | — | pm | Analyze & install all dependencies of files passed as arguments recursively (using Bun's bundler) |
 | --only-missing | No | — | — | — | pm | Only add dependencies to package.json if they are not already present |
 
 ### `bun add` flag defaults
@@ -180,7 +180,7 @@ Available: Yes
 | --- | --- | --- | --- | --- | --- | --- |
 | -c, --config | Yes | val | — | — | fileIO | Specify path to config file (bunfig.toml) |
 | -y, --yarn | No | — | — | — | pm | Write a yarn.lock file (yarn v1) |
-| -p, --production | No | — | — | — | pm | Don't install devDependencies |
+| -p, --production | No | — | — | — | pm, compile | Don't install devDependencies |
 | --no-save | No | — | — | — | pm | Don't update package.json or save a lockfile |
 | --save | No | — | — | — | pm | Save to package.json (true by default) |
 | --ca | Yes | val | — | — | network | Provide a Certificate Authority signing certificate |
@@ -209,14 +209,14 @@ Available: Yes
 | --lockfile-only | No | — | — | — | pm | Generate a lockfile without installing dependencies |
 | --linker | Yes | val | — | — | pm | Linker strategy (one of "isolated" or "hoisted") |
 | --minimum-release-age | Yes | val | — | — | pm | Only install packages published at least N seconds ago (security feature) |
-| --cpu | Yes | val | — | — | profiling | Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all) |
+| --cpu | Yes | val | — | — | pm | Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all) |
 | --os | Yes | val | — | — | pm | Override operating system for optional dependencies (e.g., linux, darwin, * for all) |
 | -h, --help | No | — | — | — | debug | Print this help menu |
 | -d, --dev | No | — | — | — | pm | Add dependency to "devDependencies" |
 | --optional | No | — | — | — | pm | Add dependency to "optionalDependencies" |
 | --peer | No | — | — | — | pm | Add dependency to "peerDependencies" |
 | -E, --exact | No | — | — | — | pm | Add the exact version instead of the ^range |
-| -a, --analyze | No | — | — | — | compile | Recursively analyze & install dependencies of files passed as arguments (using Bun's bundler) |
+| -a, --analyze | No | — | — | — | pm | Recursively analyze & install dependencies of files passed as arguments (using Bun's bundler) |
 | --only-missing | No | — | — | — | pm | Only add dependencies to package.json if they are not already present |
 
 ### `bun test` flag defaults
@@ -231,7 +231,7 @@ Available: Yes
 | --todo | No | — | — | — | test | Include tests that are marked with "test.todo()" |
 | --only | No | — | — | — | test | Run only tests that are marked with "test.only()" or "describe.only()" |
 | --pass-with-no-tests | No | — | — | — | test | Exit with code 0 when no tests are found |
-| --concurrent | No | — | — | — | runtime | Treat all tests as `test.concurrent()` tests |
+| --concurrent | No | — | — | — | test | Treat all tests as `test.concurrent()` tests |
 | --randomize | No | — | — | — | test | Run tests in random order |
 | --seed | Yes | val | — | — | test | Set the random seed for test randomization |
 | --coverage | No | — | — | — | debug | Generate a coverage profile |
@@ -243,12 +243,12 @@ Available: Yes
 | --reporter-outfile | Yes | val | — | — | test | Output file path for the reporter format (required with --reporter). |
 | --dots | No | — | — | — | test | Enable dots reporter. Shorthand for --reporter=dots. |
 | --only-failures | No | — | — | — | debug | Only display test failures, hiding passing tests. |
-| --max-concurrency | Yes | val | 20 | — | runtime | Maximum number of concurrent tests to execute at once. Default is 20. |
+| --max-concurrency | Yes | val | 20 | — | test | Maximum number of concurrent tests to execute at once. Default is 20. |
 | --path-ignore-patterns | Yes | val | — | — | test | Glob patterns for test file paths to ignore. |
-| --changed | Yes | val | — | — | pm, output | Only run test files affected by changed files according to git. Optionally pass a commit or branch to compare against. |
-| --isolate | No | — | — | — | runtime | Run each test file in a fresh global object. Leaked handles from one file cannot affect another. |
+| --changed | Yes | val | — | — | test | Only run test files affected by changed files according to git. Optionally pass a commit or branch to compare against. |
+| --isolate | No | — | — | — | test | Run each test file in a fresh global object. Leaked handles from one file cannot affect another. |
 | --parallel | Yes | val | CPU | — | runtime | Run test files in parallel using N worker processes. Implies --isolate. Defaults to CPU core count. |
-| --parallel-delay | Yes | val | — | — | runtime | Milliseconds the first --parallel worker must be busy before spawning the rest. 0 spawns all immediately. Default 5. |
+| --parallel-delay | Yes | val | — | — | test | Milliseconds the first --parallel worker must be busy before spawning the rest. 0 spawns all immediately. Default 5. |
 | --test-worker | No | — | — | — | test | (internal) Run as a --parallel worker, receiving files over IPC. |
 | --shard | Yes | val | — | — | test | Run a subset of test files, e.g. '--shard=1/3' runs the first of three shards. Useful for splitting tests across multiple CI jobs. |
 
@@ -256,7 +256,7 @@ Available: Yes
 
 | Flag | Has value | Value type | Default | Choices | Categories | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| --production | No | — | — | — | pm | Set NODE_ENV=production and enable minification |
+| --production | No | — | — | — | pm, compile | Set NODE_ENV=production and enable minification |
 | --compile | No | — | — | — | compile | Generate a standalone Bun executable containing your bundled code. Implies --production |
 | --compile-exec-argv | Yes | val | — | — | compile | Prepend arguments to the standalone executable's execArgv |
 | --compile-autoload-dotenv | No | — | true) | — | compile | Enable autoloading of .env files in standalone executable (default: true) |
@@ -303,7 +303,7 @@ Available: Yes
 | --conditions | Yes | val | — | — | runtime | Pass custom conditions to resolve |
 | --app | No | — | — | — | fileIO | (EXPERIMENTAL) Build a web app for production using Bun Bake. |
 | --server-components | No | — | — | — | runtime | (EXPERIMENTAL) Enable server components |
-| --env | Yes | val | 'disable' | — | runtime | Inline environment variables into the bundle as process.env.${name}. Defaults to 'disable'. To inline environment variables matching a prefix, use my prefix like 'FOO_PUBLIC_*'. |
+| --env | Yes | val | 'disable' | — | compile | Inline environment variables into the bundle as process.env.${name}. Defaults to 'disable'. To inline environment variables matching a prefix, use my prefix like 'FOO_PUBLIC_*'. |
 | --windows-hide-console | No | — | — | — | windows | When using --compile targeting Windows, prevent a Command prompt from opening alongside the executable |
 | --windows-icon | Yes | val | — | — | windows | When using --compile targeting Windows, assign an executable icon |
 | --windows-title | Yes | val | — | — | windows | When using --compile targeting Windows, set the executable product name |
