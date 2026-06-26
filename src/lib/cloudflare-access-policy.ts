@@ -142,8 +142,8 @@ export function parsePolicyConfig(yaml: string): AccessPolicyConfig {
       const entry = stack[i];
       if (!entry) continue;
       if (isStackEntry(entry, "object")) return entry.obj;
-      if (isStackEntry(entry, "policy")) return entry.policy as unknown as Record<string, unknown>;
-      if (isStackEntry(entry, "app")) return entry.app as unknown as Record<string, unknown>;
+      if (isStackEntry(entry, "policy")) return entry.policy as Record<string, unknown>;
+      if (isStackEntry(entry, "app")) return entry.app as Record<string, unknown>;
     }
     return null;
   }
@@ -587,13 +587,6 @@ export async function applyDiff(
 
 // ── API Helpers ──────────────────────────────────────────────────────
 
-interface ApiResponse<T = unknown> {
-  ok: boolean;
-  status: number;
-  text(): Promise<string>;
-  json(): Promise<{ result?: T; success?: boolean; errors?: Array<{ message: string }> }>;
-}
-
 export class CloudflareApiError extends Error {
   constructor(
     message: string,
@@ -628,12 +621,12 @@ async function apiCall<T = unknown>(
   body?: unknown,
   timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<T> {
-  const resp = (await fetchWithTimeout(`${API_BASE}/accounts/${accountId}${path}`, {
+  const resp = await fetchWithTimeout(`${API_BASE}/accounts/${accountId}${path}`, {
     method,
     headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
     timeoutMs,
-  })) as unknown as ApiResponse<T>;
+  });
 
   if (!resp.ok) {
     const text = await resp.text();
@@ -652,7 +645,7 @@ async function apiCall<T = unknown>(
     throw new CloudflareApiError(`Cloudflare API error: ${msg}`, 200, path, method, data.errors);
   }
 
-  const empty: T = method === "GET" ? ([] as unknown as T) : ({} as unknown as T);
+  const empty: T = method === "GET" ? ([] as T) : ({} as T);
   return (data.result ?? empty) as T;
 }
 
