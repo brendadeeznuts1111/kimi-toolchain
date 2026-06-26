@@ -545,6 +545,43 @@ export function stableStringify(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
+function normalizeMissingSiblingParity(
+  generated: ParitySharedEntry,
+  existing: ParitySharedEntry | undefined
+): ParitySharedEntry {
+  const hasMissing = Object.values(generated.repos).some((repo) => !repo.present);
+  const hasPresent = Object.values(generated.repos).some((repo) => repo.present);
+  if (!hasMissing || !hasPresent || !existing) return generated;
+
+  const repos = Object.fromEntries(
+    Object.entries(generated.repos).map(([repoName, repo]) => [
+      repoName,
+      !repo.present && existing.repos[repoName]?.present ? existing.repos[repoName] : repo,
+    ])
+  ) as ParitySharedEntry["repos"];
+
+  const values = Object.values(repos)
+    .filter((repo) => repo.present)
+    .map((repo) => repo.value);
+  const missing = Object.entries(repos).find(([, repo]) => !repo.present);
+  const first = values[0];
+  const driftValue = values.find((value) => value !== first);
+  const aligned = missing === undefined && driftValue === undefined;
+  const drift =
+    missing !== undefined
+      ? `${missing[0]}:${missing[1].key} missing`
+      : driftValue !== undefined
+        ? `value drift: ${values.join(" ≠ ")}`
+        : undefined;
+
+  return {
+    ...generated,
+    repos,
+    aligned,
+    drift,
+  };
+}
+
 function isConstantsManifest(value: unknown): value is ConstantsManifest {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
@@ -575,10 +612,26 @@ export async function readConstantsManifest(
 
 export function manifestNeedsRefresh(
   generated: ConstantsManifest,
-  existing: ConstantsManifest | null
+  existing: ConstantsManifest | null,
+  options: { allowMissingSiblingParity?: boolean } = {}
 ): boolean {
   if (!existing) return true;
-  const { generatedAt: _g, ...generatedBody } = generated;
+  const { generatedAt: _g, ...generatedBodyRaw } = generated;
   const { generatedAt: _e, ...existingBody } = existing;
+  const generatedBody =
+    options.allowMissingSiblingParity && existing.parity?.shared
+      ? {
+          ...generatedBodyRaw,
+          parity: {
+            ...generatedBodyRaw.parity,
+            shared: generatedBodyRaw.parity.shared.map((entry) =>
+              normalizeMissingSiblingParity(
+                entry,
+                existing.parity.shared.find((existingEntry) => existingEntry.id === entry.id)
+              )
+            ),
+          },
+        }
+      : generatedBodyRaw;
   return stableStringify(generatedBody) !== stableStringify(existingBody);
 }

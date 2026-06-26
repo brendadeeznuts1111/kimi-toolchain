@@ -47,6 +47,7 @@ const STEPS: CiStep[] = [
   { job: "quality", name: "format:check:ci", cmd: ["bun", "run", "format:check:ci"] },
   { job: "quality", name: "lint", cmd: ["bun", "run", "lint"] },
   { job: "quality", name: "typecheck", cmd: ["bun", "run", "typecheck"] },
+  { job: "quality", name: "build:compile", cmd: ["bun", "run", "build:compile"] },
   { job: "quality", name: "test:coverage:ci", cmd: ["bun", "run", "test:coverage:ci"] },
   { job: "quality", name: "test:smoke", cmd: ["bun", "run", "test:smoke"] },
   {
@@ -123,12 +124,24 @@ function selectedSteps(job: JobName): CiStep[] {
   return STEPS.filter((step) => step.job === job || step.crossCut === true);
 }
 
+function ciEnv(): Record<string, string | undefined> {
+  return {
+    CI: undefined,
+    GITHUB_ACTIONS: undefined,
+    GITLAB_CI: undefined,
+    HOME: Bun.env.HOME,
+    KIMI_CI_LOCAL: "true",
+    PATH:
+      Bun.env.PATH ??
+      "/Users/nolarose/.bun/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  };
+}
+
 async function runSteps(steps: CiStep[]): Promise<GateResult[]> {
   const results: GateResult[] = [];
   for (const step of steps) {
-    const result = await runGate(step.name, step.cmd, { cwd: REPO_ROOT });
+    const result = await runGate(step.name, step.cmd, { cwd: REPO_ROOT, env: ciEnv() });
     results.push(result);
-    if (result.exitCode !== 0) break;
   }
   return results;
 }
@@ -190,7 +203,9 @@ async function main(): Promise<number> {
   return ok ? 0 : 1;
 }
 
-main().catch((err: Error) => {
-  console.error("ci:local failed:", err.message);
+try {
+  process.exit(await main());
+} catch (err) {
+  console.error("ci:local failed:", err instanceof Error ? err.message : String(err));
   process.exit(1);
-});
+}

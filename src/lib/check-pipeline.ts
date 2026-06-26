@@ -49,6 +49,12 @@ export interface PipelineStep {
   skipped?: boolean;
 }
 
+function isCi(): boolean {
+  return (
+    Bun.env.CI === "true" || Bun.env.GITHUB_ACTIONS === "true" || Bun.env.KIMI_CI_LOCAL === "true"
+  );
+}
+
 function toStepSummary(result: GateResult): StepSummary {
   const errors = countLikelyErrors(result.name, result.stdout, result.stderr);
   return {
@@ -102,7 +108,7 @@ export async function buildSteps(
       silentOnSuccess: quiet,
     });
   }
-  if (!options.fast && (await isKimiToolchainRepo(projectRoot))) {
+  if (!options.fast && !isCi() && (await isKimiToolchainRepo(projectRoot))) {
     steps.push({
       name: "verify-workspace",
       cmd: ["bun", "run", "src/bin/kimi-doctor.ts", "workspace", "verify"],

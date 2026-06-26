@@ -55,6 +55,19 @@ describe("check-pipeline", () => {
     expect(releaseSsot?.cmd).toEqual(["bun", "run", "scripts/validate-release-ssot.ts"]);
   });
 
+  test("full check skips workspace verification in CI", async () => {
+    const previous = Bun.env.KIMI_CI_LOCAL;
+    try {
+      Bun.env.KIMI_CI_LOCAL = "true";
+      const steps = await buildSteps(REPO_ROOT, { ...baseOptions, fast: false }, null);
+      expect(steps.find((step) => step.name === "verify-workspace")).toBeUndefined();
+      expect(steps.find((step) => step.name === "format:check")).toBeDefined();
+    } finally {
+      if (previous === undefined) delete Bun.env.KIMI_CI_LOCAL;
+      else Bun.env.KIMI_CI_LOCAL = previous;
+    }
+  });
+
   test("check --dry-run does not create a test gate lock", async () => {
     const root = testTempDir("check-dry-run-lock-");
     const lockDir = join(root, "locks");

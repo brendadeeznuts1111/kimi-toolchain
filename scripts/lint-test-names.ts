@@ -50,6 +50,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "scaffold-agents": "src/lib/scaffold-agents.ts",
   "lint-test-names": "scripts/lint-test-names.ts",
   "lint-build-constants": "scripts/lint-build-constants.ts",
+  "build-compile": "scripts/build-compile.ts",
   "completion-matrix": "src/completions/completion-matrix.ts",
   "completion-taxonomy": "src/completions/flag-taxonomy.ts",
   "completion-taxonomy-coverage": "src/completions/taxonomy-coverage.ts",
