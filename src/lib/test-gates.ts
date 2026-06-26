@@ -57,6 +57,7 @@ export const UNIT_TEST_FILES = [
   "test/websocket-url-credentials.unit.test.ts",
   "test/version.unit.test.ts",
   "test/completion-matrix.unit.test.ts",
+  "test/completion-taxonomy.unit.test.ts",
   "test/execve-handoff.unit.test.ts",
   "test/fetch-header-casing.unit.test.ts",
 

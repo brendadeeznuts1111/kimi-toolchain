@@ -4,6 +4,8 @@
  * Shared between scripts/make-completion-matrix.ts and the snapshot test suite.
  */
 
+import { FLAG_CATEGORIES, type FlagCategory } from "./flag-taxonomy.ts";
+
 // ── Type definitions ────────────────────────────────────────────
 export interface FlagEntry {
   name: string;
@@ -81,151 +83,18 @@ export interface DynamicSources {
   sources: Record<string, unknown>;
 }
 
-// ── Flag taxonomy ───────────────────────────────────────────────
-export const FLAG_CATEGORIES = {
-  fileIO: new Set([
-    "outfile",
-    "outdir",
-    "outbase",
-    "entry-naming",
-    "chunk-naming",
-    "asset-naming",
-    "public-dir",
-    "assets",
-    "loader",
-    "tsconfig-override",
-    "cwd",
-    "config",
-    "env-file",
-    "cafile",
-    "cache-dir",
-    "public",
-    "routes",
-    "app",
-    "external",
-    "packages",
-    "target",
-    "sourcemap",
-    "minify",
-    "splitting",
-    "format",
-  ]),
-  pm: new Set([
-    "frozen-lockfile",
-    "production",
-    "development",
-    "dev",
-    "no-save",
-    "save",
-    "global",
-    "trust",
-    "no-trust",
-    "exact",
-    "optional",
-    "peer",
-    "resolutions",
-    "hoist",
-    "no-hoist",
-    "linker",
-    "omit",
-    "backend",
-    "concurrent-scripts",
-    "network-concurrency",
-    "registry",
-    "auth-type",
-    "tag",
-    "access",
-    "dry-run",
-    "no-cache",
-    "prefer-offline",
-    "no-verify",
-    "ignore-scripts",
-    "no-summary",
-    "no-progress",
-    "no-install",
-    "save-text-lockfile",
-    "lockfile-only",
-    "minimum-release-age",
-    "force",
-    "only-missing",
-    "yarn",
-  ]),
-  runtime: new Set([
-    "watch",
-    "hot",
-    "preload",
-    "import-meta-url",
-    "smol",
-    "no-deprecation",
-    "throw-deprecation",
-    "env-file",
-    "cwd",
-    "port",
-    "hostname",
-    "conditions",
-    "main-fields",
-    "extensions",
-    "target",
-    "format",
-    "packages",
-    "no-orphans",
-    "no-clear-screen",
-    "parallel",
-    "sequential",
-    "no-exit-on-error",
-    "workspaces",
-    "filter",
-    "bun",
-  ]),
-  debug: new Set([
-    "sourcemap",
-    "inspect",
-    "inspect-wait",
-    "inspect-brk",
-    "inspect-publish-port",
-    "verbose",
-    "silent",
-    "quiet",
-    "no-progress",
-    "no-summary",
-    "only-failures",
-    "coverage",
-    "coverage-reporter",
-    "coverage-dir",
-    "cpu-prof",
-    "revision",
-    "version",
-  ]),
-  network: new Set([
-    "timeout",
-    "prefer-offline",
-    "no-cache",
-    "registry",
-    "cert",
-    "ca",
-    "cafile",
-    "auth-type",
-    "proxy",
-    "network-concurrency",
-    "no-verify",
-    "tls-min-version",
-    "tls-max-version",
-    "no-deprecation",
-  ]),
-} as const;
+// Re-export taxonomy symbols for consumers that only import completion-matrix.
+export { FLAG_CATEGORIES } from "./flag-taxonomy.ts";
 
-export function classifyFlag(name: string): (keyof typeof FLAG_CATEGORIES | "uncategorized")[] {
-  const categories: (keyof typeof FLAG_CATEGORIES | "uncategorized")[] = [];
+export function classifyFlag(name: string): FlagCategory[] {
+  const categories: FlagCategory[] = [];
   for (const [cat, flags] of Object.entries(FLAG_CATEGORIES)) {
     if (flags.has(name)) categories.push(cat as keyof typeof FLAG_CATEGORIES);
   }
   return categories.length ? categories : ["uncategorized"];
 }
 
-export function countCategory(
-  flags: FlagEntry[],
-  category: keyof typeof FLAG_CATEGORIES | "uncategorized"
-): number {
+export function countCategory(flags: FlagEntry[], category: FlagCategory): number {
   return flags.filter((f) => classifyFlag(f.name).includes(category)).length;
 }
 

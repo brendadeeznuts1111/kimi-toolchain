@@ -51,6 +51,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "lint-test-names": "scripts/lint-test-names.ts",
   "lint-build-constants": "scripts/lint-build-constants.ts",
   "completion-matrix": "src/completions/completion-matrix.ts",
+  "completion-taxonomy": "src/completions/flag-taxonomy.ts",
   "constants-registry": "src/lib/constants-registry.ts",
   "optimizer-doctor": "src/lib/constant-optimizer.ts",
   "decision-list-diff": "src/lib/decision-ledger.ts",
