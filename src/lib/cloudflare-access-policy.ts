@@ -22,6 +22,7 @@ export interface PolicyConfig {
   include: Array<Record<string, unknown>>;
   exclude?: Array<Record<string, unknown>>;
   require?: Array<Record<string, unknown>>;
+  [key: string]: unknown;
 }
 
 export interface AppConfig {
@@ -33,6 +34,7 @@ export interface AppConfig {
   allowed_idps?: string[];
   app_launcher_visible?: boolean;
   policies: PolicyConfig[];
+  [key: string]: unknown;
 }
 
 export interface AccessPolicyConfig {

@@ -292,7 +292,7 @@ export function formatPropertyTableInspect(rows: PropertyTableRow[]): string {
       PROPERTY_TABLE_COLUMNS.map((col) => [col, row[col] === EMPTY_CELL ? "" : row[col]])
     )
   );
-  return Bun.inspect.table(plain, PROPERTY_TABLE_COLUMNS as string[]);
+  return Bun.inspect.table(plain, [...PROPERTY_TABLE_COLUMNS]);
 }
 
 function escapeMarkdownCell(value: string): string {

@@ -88,6 +88,7 @@ export async function parseFrontmatterFile(filePath: string): Promise<ParsedFron
 export interface FrontmatterTableRow {
   Key: string;
   Value: string;
+  [key: string]: unknown;
 }
 
 /** Format a frontmatter value for a table cell with full nested depth. */

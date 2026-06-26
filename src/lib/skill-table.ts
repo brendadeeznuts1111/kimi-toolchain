@@ -52,6 +52,7 @@ export interface SkillTableRow {
   tests: string;
   /** Comma-separated lib module basenames (verbose / JSON catalog). */
   modules?: string;
+  [key: string]: unknown;
 }
 
 export interface SkillCoverageDetail {

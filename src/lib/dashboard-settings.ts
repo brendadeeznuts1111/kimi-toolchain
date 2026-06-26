@@ -5,7 +5,7 @@
  * Client URL params (?canvas=, ?example=, identity) are applied in the browser.
  */
 
-import { GATE_LEVEL_PRUNE_MS, type GateLevel } from "../gates/types.ts";
+import { GATE_LEVEL_PRUNE_MS } from "../gates/types.ts";
 import {
   DEFAULT_PROBE_SERVER_HOST,
   PROBE_SERVER_HOST_ENV,
@@ -73,11 +73,8 @@ export function resolveDashboardProjectRoot(moduleDir = import.meta.dir): string
 
 function retentionMsPayload(): Record<string, number> {
   return Object.fromEntries(
-    (Object.entries(GATE_LEVEL_PRUNE_MS) as Array<[GateLevel, number]>).map(([level, ms]) => [
-      String(level),
-      ms,
-    ])
-  ) as Record<string, number>;
+    Object.entries(GATE_LEVEL_PRUNE_MS).map(([level, ms]) => [String(level), ms])
+  );
 }
 
 function parsePositiveInt(raw: string | undefined): number | undefined {
