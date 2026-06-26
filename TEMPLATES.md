@@ -493,7 +493,7 @@ jobs:
           bun-version: "1.4.0"
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun ci
 
       - name: Format check
         run: bun run format:check:ci
