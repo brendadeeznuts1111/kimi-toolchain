@@ -611,9 +611,7 @@ export async function readBenchmarkSnapshots(
     .slice(0, limit);
 
   return lines
-    .map((line) =>
-      safeParse<EffectBenchmarkSnapshot>(line, null as unknown as EffectBenchmarkSnapshot)
-    )
+    .map((line) => safeParse<EffectBenchmarkSnapshot | null>(line, null))
     .filter(
       (s): s is EffectBenchmarkSnapshot =>
         s !== null && typeof s === "object" && s.schemaVersion === SCHEMA_VERSION
