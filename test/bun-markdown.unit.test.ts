@@ -11,6 +11,7 @@ import {
   extractMarkdownSections,
   extractMarkdownTables,
   extractMarkdownTablesFallback,
+  renderMarkdownHtml,
 } from "../src/lib/bun-markdown.ts";
 
 const SIMPLE_MD = "# Hello\n\nThis is **bold** and *italic*.\n\n- item 1\n- item 2";
@@ -95,5 +96,44 @@ describe("bun-markdown", () => {
     expect(sections[0]?.content).toContain("First paragraph");
     expect(sections[1]?.title).toBe("Architecture");
     expect(sections[1]?.content).toContain("Second paragraph");
+  });
+
+  test("renderMarkdownHtml fallback escapes XSS payloads", () => {
+    const original = Bun.markdown?.html;
+    try {
+      if (Bun.markdown) {
+        (Bun.markdown as { html?: unknown }).html = undefined;
+      }
+      const html = renderMarkdownHtml(
+        "# <script>alert(1)</script>\n\n**<img onerror=alert(1)>**\n\n[<script>](javascript:alert)\n"
+      );
+      expect(html).not.toContain("<script>");
+      expect(html).not.toContain("<img onerror=alert(1)>");
+      expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+      expect(html).toContain("&lt;img onerror=alert(1)&gt;");
+      expect(html).not.toContain('href="javascript:alert"');
+      expect(html).toContain('href="#"');
+    } finally {
+      if (Bun.markdown && original) {
+        (Bun.markdown as { html?: unknown }).html = original;
+      }
+    }
+  });
+
+  test("renderMarkdownHtml fallback escapes mixed placeholder paragraphs", () => {
+    const original = Bun.markdown?.html;
+    try {
+      if (Bun.markdown) {
+        (Bun.markdown as { html?: unknown }).html = undefined;
+      }
+      const html = renderMarkdownHtml("**ok** <script>alert(1)</script>");
+      expect(html).toContain("<strong>ok</strong>");
+      expect(html).not.toContain("<script>");
+      expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    } finally {
+      if (Bun.markdown && original) {
+        (Bun.markdown as { html?: unknown }).html = original;
+      }
+    }
   });
 });
