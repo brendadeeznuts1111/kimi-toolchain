@@ -36,6 +36,7 @@ export interface EcosystemReference {
   noRepo?: true;
   /** Lifecycle status — agents should avoid deprecated entries. Defaults to "active" when absent. */
   status?: EcosystemReferenceStatus;
+  [key: string]: unknown;
 }
 
 /**
@@ -65,6 +66,7 @@ export interface LocalDocReference {
   canvasReadOrder?: number;
   /** examples/dashboard card ids (`card-*`) this canvas influences — v5.4 wiring SSOT */
   canvasInfluences?: readonly string[];
+  [key: string]: unknown;
 }
 
 export type RepoRole = "upstream" | "tool" | "dependency";
@@ -88,6 +90,7 @@ export interface RepoReference {
   frameworks?: readonly RepoFramework[];
   /** Expected package.json `name` when clonePath is validated. Defaults to `name`. */
   expectedPackageName?: string;
+  [key: string]: unknown;
 }
 
 export interface CanonicalReferencesManifest {

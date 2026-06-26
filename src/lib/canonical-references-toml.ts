@@ -179,29 +179,18 @@ export function serializeCanonicalReferencesToml(source: CanonicalReferencesToml
 
   for (const item of source.ecosystem) {
     lines.push(
-      formatTomlTableRow(
-        "ecosystem",
-        item as unknown as Record<string, unknown>,
-        ECOSYSTEM_FIELD_ORDER
-      ),
+      formatTomlTableRow("ecosystem", item as Record<string, unknown>, ECOSYSTEM_FIELD_ORDER),
       ""
     );
   }
   for (const item of source.localDocs) {
     lines.push(
-      formatTomlTableRow(
-        "localDocs",
-        item as unknown as Record<string, unknown>,
-        LOCAL_DOC_FIELD_ORDER
-      ),
+      formatTomlTableRow("localDocs", item as Record<string, unknown>, LOCAL_DOC_FIELD_ORDER),
       ""
     );
   }
   for (const item of source.repos) {
-    lines.push(
-      formatTomlTableRow("repos", item as unknown as Record<string, unknown>, REPO_FIELD_ORDER),
-      ""
-    );
+    lines.push(formatTomlTableRow("repos", item as Record<string, unknown>, REPO_FIELD_ORDER), "");
   }
 
   return `${lines.join("\n").trimEnd()}\n`;

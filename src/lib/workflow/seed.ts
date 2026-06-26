@@ -21,9 +21,7 @@ function json5Parse<T>(text: string, fallback: T): T {
 /** JSON5 stringify — Bun.JSON5 when available, else plain JSON. */
 function json5Stringify(payload: unknown): string {
   if (JSON5_READY) {
-    return (Bun as unknown as { JSON5: { stringify(v: unknown): string } }).JSON5.stringify(
-      payload
-    );
+    return (Bun as { JSON5: { stringify(v: unknown): string } }).JSON5.stringify(payload);
   }
   return JSON.stringify(payload, null, 2);
 }

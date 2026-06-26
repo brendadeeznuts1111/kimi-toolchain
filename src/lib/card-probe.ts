@@ -49,6 +49,7 @@ export interface CardStatus {
   error?: string;
   reason?: string;
   startHint?: string;
+  [key: string]: unknown;
 }
 
 const DEFAULT_TIMEOUT_MS = 5000;
@@ -389,7 +390,7 @@ export function formatCardProbeTable(statuses: CardStatus[]): string {
   const columns: (keyof CardStatus)[] = hasReasons
     ? ["cardId", "source", "status", "reason", "lastUpdated"]
     : ["cardId", "source", "status", "lastUpdated"];
-  return formatTable(statuses as unknown as Record<string, unknown>[], columns as string[], {
+  return formatTable<CardStatus>(statuses, columns as (keyof CardStatus)[], {
     colors: true,
   });
 }

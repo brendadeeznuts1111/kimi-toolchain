@@ -93,6 +93,7 @@ export interface FinishWorkReportV11 {
   results?: unknown[];
   followUp?: unknown;
   herdr?: unknown;
+  [key: string]: unknown;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -171,7 +172,7 @@ export function validateFinishWorkReportV11(raw: unknown): {
     return { ok: false, errors };
   }
 
-  return { ok: true, report: raw as unknown as FinishWorkReportV11, errors: [] };
+  return { ok: true, report: raw as FinishWorkReportV11, errors: [] };
 }
 
 export function defaultLatmBlock(invokedVia: string): FinishWorkPublicLatm {
