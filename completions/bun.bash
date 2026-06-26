@@ -62,6 +62,37 @@ _bun_complete() {
     feedback) flags=' --silent --elide-lines --version --revision --filter --bun --no-orphans --shell --workspaces --parallel --sequential --no-exit-on-error --watch --hot --no-clear-screen --smol --preload --require --import --inspect --inspect-wait --inspect-brk --cpu-prof --cpu-prof-name --cpu-prof-dir --cpu-prof-md --cpu-prof-interval --heap-prof --heap-prof-name --heap-prof-dir --heap-prof-md --if-present --no-install --install --i --eval --print --prefer-offline --prefer-latest --port --conditions --fetch-preconnect --experimental-http2-fetch --experimental-http3-fetch --max-http-header-size --dns-result-order --experimental-stream-iter --expose-gc --no-deprecation --throw-deprecation --title --zero-fill-buffers --use-system-ca --use-openssl-ca --use-bundled-ca --redis-preconnect --sql-preconnect --no-addons --unhandled-rejections --console-depth --user-agent --cron-title --cron-period --main-fields --preserve-symlinks --preserve-symlinks-main --extension-order --tsconfig-override --define --drop --feature --loader --no-macros --jsx-factory --jsx-fragment --jsx-import-source --jsx-runtime --jsx-side-effects --ignore-dce-annotations --env-file --no-env-file --cwd --config --help -v -F -b -r -i -e -p -d -l -c -h' ;;
   esac
 
+  # Complete values for flags with known choices
+  local flag= choices=
+  if [[ $cur == --*=* ]]; then
+    flag=${cur%%=*}
+  elif [[ $prev == --* || $prev == -* ]]; then
+    flag=$prev
+  fi
+
+  if [[ -n "$flag" ]]; then
+    case "$flag" in
+      --backend                     ) choices='hardlink clonefile clonefile_each_dir copyfile symlink' ;;
+      --cpu                         ) choices='arm64 x64 ia32 ppc64 s390x *' ;;
+      --dns-result-order            ) choices='verbatim ipv4first ipv6first' ;;
+      --install                     ) choices='auto fallback force' ;;
+      --linker                      ) choices='isolated hoisted' ;;
+      --omit                        ) choices='dev optional peer' ;;
+      --os                          ) choices='linux darwin win32 freebsd openbsd sunos aix *' ;;
+      --unhandled-rejections        ) choices='strict throw warn none warn-with-error-code' ;;
+    esac
+
+    if [[ -n "$choices" ]]; then
+      if [[ $cur == --*=* ]]; then
+        local prefix=${cur%%=*}=
+        COMPREPLY=( $(compgen -W "$choices" -P "$prefix" -- "${cur#*=}") )
+      else
+        COMPREPLY=( $(compgen -W "$choices" -- "$cur") )
+      fi
+      return
+    fi
+  fi
+
   if [[ $cur == -* ]]; then
     COMPREPLY=( $(compgen -W "$flags" -- "$cur") )
     return

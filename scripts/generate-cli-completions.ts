@@ -963,15 +963,21 @@ const FLAG_FIXUPS: Record<string, Record<string, FlagFixup>> = {
   },
   run: {
     "unhandled-rejections": { choices: UNHANDLED_REJECTIONS_CHOICES },
+    install: { choices: ["auto", "fallback", "force"] },
+    "dns-result-order": { choices: ["verbatim", "ipv4first", "ipv6first"] },
   },
   repl: {
     "unhandled-rejections": { choices: UNHANDLED_REJECTIONS_CHOICES },
+    install: { choices: ["auto", "fallback", "force"] },
+    "dns-result-order": { choices: ["verbatim", "ipv4first", "ipv6first"] },
   },
 };
 
 const GLOBAL_FLAG_FIXUPS: Record<string, FlagFixup> = {
   "unhandled-rejections": { choices: UNHANDLED_REJECTIONS_CHOICES },
   backend: { defaultValue: "clonefile", choices: BACKEND_CHOICES },
+  install: { choices: ["auto", "fallback", "force"] },
+  "dns-result-order": { choices: ["verbatim", "ipv4first", "ipv6first"] },
 };
 
 function applyFlagFixups(data: CompletionData): void {
@@ -1201,6 +1207,22 @@ function generateBashCompletion(data: CompletionData): string {
     .map((f) => `-${f.shortName}`)
     .join(" ");
 
+  // Collect all flags that have enumerated choices (global + per-command).
+  const choiceMap = new Map<string, string[]>();
+  for (const flag of data.globalFlags) {
+    if (flag.choices) choiceMap.set(`--${flag.name}`, flag.choices);
+  }
+  for (const cmd of Object.values(data.commands)) {
+    for (const flag of cmd.flags) {
+      if (!flag.choices) continue;
+      const key = `--${flag.name}`;
+      const existing = choiceMap.get(key);
+      if (!existing || flag.choices.length > existing.length) {
+        choiceMap.set(key, flag.choices);
+      }
+    }
+  }
+
   function escapeForBash(word: string): string {
     return word.replace(/'/g, "'\\''");
   }
@@ -1261,6 +1283,35 @@ function generateBashCompletion(data: CompletionData): string {
 
   lines.push(
     "  esac",
+    "",
+    "  # Complete values for flags with known choices",
+    "  local flag= choices=",
+    "  if [[ $cur == --*=* ]]; then",
+    "    flag=${cur%%=*}",
+    "  elif [[ $prev == --* || $prev == -* ]]; then",
+    "    flag=$prev",
+    "  fi",
+    "",
+    '  if [[ -n "$flag" ]]; then',
+    '    case "$flag" in',
+    ...Array.from(choiceMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([flagName, choices]) => {
+        const padded = flagName.padEnd(30, " ");
+        return `      ${padded}) choices='${escapeForBash(choices.join(" "))}' ;;`;
+      }),
+    "    esac",
+    "",
+    '    if [[ -n "$choices" ]]; then',
+    "      if [[ $cur == --*=* ]]; then",
+    "        local prefix=${cur%%=*}=",
+    '        COMPREPLY=( $(compgen -W "$choices" -P "$prefix" -- "${cur#*=}") )',
+    "      else",
+    '        COMPREPLY=( $(compgen -W "$choices" -- "$cur") )',
+    "      fi",
+    "      return",
+    "    fi",
+    "  fi",
     "",
     "  if [[ $cur == -* ]]; then",
     '    COMPREPLY=( $(compgen -W "$flags" -- "$cur") )',

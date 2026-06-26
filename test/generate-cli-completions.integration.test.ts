@@ -87,4 +87,53 @@ describe("generate-cli-completions integration", () => {
     expect(zsh).toContain("_bun_scripts");
     expect(zsh).toContain("_bun_installed_packages");
   });
+
+  test("flag choice metadata is normalized", async () => {
+    await runGenerator();
+
+    const data = JSON.parse(readText(JSON_PATH));
+
+    const installGlobal = data.globalFlags.find((f: { name: string }) => f.name === "install");
+    expect(installGlobal?.choices).toEqual(["auto", "fallback", "force"]);
+
+    for (const cmdName of ["run", "repl"]) {
+      const cmd = data.commands[cmdName];
+      const install = cmd.flags.find((f: { name: string }) => f.name === "install");
+      expect(install?.choices).toEqual(["auto", "fallback", "force"]);
+
+      const dns = cmd.flags.find((f: { name: string }) => f.name === "dns-result-order");
+      expect(dns?.choices).toEqual(["verbatim", "ipv4first", "ipv6first"]);
+    }
+  });
+
+  test("bash completion emits value suggestions for flags with choices", async () => {
+    await runGenerator();
+
+    const bash = readText(join(COMPLETIONS_DIR, "bun.bash"));
+
+    expect(bash).toContain("Complete values for flags with known choices");
+    expect(bash).toContain("--install                     ) choices=");
+    expect(bash).toContain("--dns-result-order            ) choices=");
+    expect(bash).toContain("--backend                     ) choices=");
+    expect(bash).toContain("--linker                      ) choices=");
+    expect(bash).toContain("--omit                        ) choices=");
+
+    // Sanity: legacy "(default)" marker should not leak into choices
+    expect(bash).not.toContain("choices='verbatim (default)");
+  });
+
+  test("bash completion script passes syntax check", async () => {
+    await runGenerator();
+
+    const proc = Bun.spawn(["bash", "-n", join(COMPLETIONS_DIR, "bun.bash")], {
+      cwd: ROOT,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const exit = await proc.exited;
+    const stderr = await Bun.readableStreamToText(proc.stderr);
+
+    expect(exit).toBe(0);
+    expect(stderr).toBe("");
+  });
 });

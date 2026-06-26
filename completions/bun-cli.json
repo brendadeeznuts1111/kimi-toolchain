@@ -2154,7 +2154,9 @@
           "hasValue": true,
           "valueType": "val",
           "choices": [
-            "auto"
+            "auto",
+            "fallback",
+            "force"
           ],
           "required": false,
           "multiple": false
@@ -2253,7 +2255,6 @@
           "valueType": "val",
           "choices": [
             "verbatim",
-            "(default)",
             "ipv4first",
             "ipv6first"
           ],
@@ -3158,7 +3159,9 @@
           "hasValue": true,
           "valueType": "val",
           "choices": [
-            "auto"
+            "auto",
+            "fallback",
+            "force"
           ],
           "required": false,
           "multiple": false
@@ -3257,7 +3260,6 @@
           "valueType": "val",
           "choices": [
             "verbatim",
-            "(default)",
             "ipv4first",
             "ipv6first"
           ],
@@ -9131,7 +9133,9 @@
       "hasValue": true,
       "valueType": "val",
       "choices": [
-        "auto"
+        "auto",
+        "fallback",
+        "force"
       ],
       "required": false,
       "multiple": false
@@ -9230,7 +9234,6 @@
       "valueType": "val",
       "choices": [
         "verbatim",
-        "(default)",
         "ipv4first",
         "ipv6first"
       ],
