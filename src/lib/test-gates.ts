@@ -459,6 +459,7 @@ export const INTEGRATION_TEST_FILES = [
   "test/generate-canonical-references.integration.test.ts",
   "test/generate-cli-completions.integration.test.ts",
   "test/completion-matrix.integration.test.ts",
+  "test/completion-matrix-cli.integration.test.ts",
   "test/decision-scoring.integration.test.ts",
   "test/effect-gates.integration.test.ts",
   "test/error-clustering.integration.test.ts",

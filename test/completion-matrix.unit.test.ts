@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
-// test/completions/snapshot.unit.test.ts
-// Snapshot contracts for generated artifacts
-// Uses bun:test snapshot matching with property matchers for dynamic values
+// test/completion-matrix.unit.test.ts
+// Snapshot contracts and pure-function tests for the completion matrix library
 
 import { describe, test, expect } from "bun:test";
 import {
@@ -344,13 +343,16 @@ describe("completion-matrix", () => {
 
       expect(html).toContain("<!DOCTYPE html>");
       expect(html).toContain("Bun CLI Completion Behavior Matrix");
-      expect(html).toContain("Schema v1.2.0");
-      expect(html).toContain("Bun 1.4.0");
-      expect(html).toContain("909ceece8ae5");
-      expect(html).toContain("<table>");
+      expect(html).toContain("Schema <code>v1.2.0</code>");
+      expect(html).toContain("Bun <code>1.4.0</code>");
+      expect(html).toContain("code>909ceece8ae5</code>");
+      expect(html).toContain("<table");
       expect(html).toContain("install");
       expect(html).toContain("pm install");
-      expect(html).toContain("Global flags: 84");
+      expect(html).toContain('class="summary"');
+      expect(html).toContain('id="summary"');
+      expect(html).toContain('id="top-level"');
+      expect(html).toContain('id="pm"');
     });
 
     test("escapes HTML special characters in metadata", () => {

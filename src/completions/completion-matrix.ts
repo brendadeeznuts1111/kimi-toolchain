@@ -533,35 +533,38 @@ export function makeHtmlReport(options: {
   pmRows: Record<string, string | number>[];
   globalFlagCount: number;
 }): string {
-  const head = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(options.title)}</title>
-  <style>
-    :root { --bg: #0f172a; --surface: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; }
-    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 2rem; }
-    h1 { margin: 0 0 0.5rem; }
-    .meta { color: var(--muted); margin-bottom: 1.5rem; }
-    table { border-collapse: collapse; width: 100%; background: var(--surface); border-radius: 0.5rem; overflow: hidden; margin-bottom: 2rem; }
-    th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--bg); }
-    th { background: #334155; font-weight: 600; }
-    tr:hover { background: rgba(255,255,255,0.03); }
-    .num { text-align: right; font-variant-numeric: tabular-nums; }
-  </style>
-</head>
-<body>
-  <h1>${escapeHtml(options.title)}</h1>
-  <p class="meta">
-    Schema v${escapeHtml(options.schema)} · Bun ${escapeHtml(options.bunVersion)} · ${escapeHtml(options.revision)} · hash ${escapeHtml(options.jsonHash)} · ${escapeHtml(options.generatedAt)}
-  </p>
-  <h2>Top-level commands</h2>`;
+  const css = `<style>
+:root { --bg: #0b1120; --surface: #151e32; --elevated: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --border: #334155; }
+* { box-sizing: border-box; }
+body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 2rem; line-height: 1.5; }
+header { max-width: 1200px; margin: 0 auto 2rem; }
+h1 { margin: 0 0 0.5rem; font-size: 1.75rem; }
+.meta { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+.meta code { background: var(--elevated); padding: 0.15rem 0.4rem; border-radius: 0.25rem; color: var(--accent); }
+nav { max-width: 1200px; margin: 0 auto 2rem; padding: 1rem; background: var(--surface); border-radius: 0.5rem; }
+nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 1rem; flex-wrap: wrap; }
+nav a { color: var(--accent); text-decoration: none; }
+nav a:hover { text-decoration: underline; }
+main { max-width: 1200px; margin: 0 auto; }
+section { margin-bottom: 3rem; }
+h2 { margin-top: 0; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+.card { background: var(--surface); padding: 1rem; border-radius: 0.5rem; text-align: center; }
+.card .value { font-size: 1.75rem; font-weight: 700; color: var(--accent); }
+.card .label { color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem; }
+table { border-collapse: collapse; width: 100%; background: var(--surface); border-radius: 0.5rem; overflow: hidden; margin-bottom: 1rem; font-size: 0.9rem; }
+th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+th { background: var(--elevated); font-weight: 600; position: sticky; top: 0; }
+tr:hover { background: rgba(255,255,255,0.03); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.empty { color: var(--muted); font-style: italic; }
+footer { max-width: 1200px; margin: 2rem auto 0; color: var(--muted); font-size: 0.85rem; text-align: center; }
+</style>`;
 
-  const renderTable = (rows: Record<string, string | number>[]) => {
-    if (rows.length === 0) return "<p>No data.</p>";
+  const renderTable = (rows: Record<string, string | number>[], id?: string) => {
+    if (rows.length === 0) return '<p class="empty">No data.</p>';
     const cols = Object.keys(rows[0]);
-    return `<table>
+    return `<table${id ? ` id="${id}"` : ""}>
   <thead>
     <tr>${cols.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr>
   </thead>
@@ -576,12 +579,59 @@ ${rows
 </table>`;
   };
 
-  const tail = `
-  <h2><code>bun pm</code> subcommands</h2>
-  ${renderTable(options.pmRows)}
-  <p class="meta">Global flags: ${options.globalFlagCount}</p>
+  const topLevelCount = options.topLevelRows.length;
+  const pmCount = options.pmRows.length;
+  const commandCount = topLevelCount + pmCount;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(options.title)}</title>
+  ${css}
+</head>
+<body>
+  <header>
+    <h1>${escapeHtml(options.title)}</h1>
+    <p class="meta">
+      Schema <code>v${escapeHtml(options.schema)}</code> ·
+      Bun <code>${escapeHtml(options.bunVersion)}</code> ·
+      revision <code>${escapeHtml(options.revision)}</code> ·
+      hash <code>${escapeHtml(options.jsonHash)}</code> ·
+      ${escapeHtml(options.generatedAt)}
+    </p>
+  </header>
+  <nav>
+    <ul>
+      <li><a href="#summary">Summary</a></li>
+      <li><a href="#top-level">Top-level commands</a></li>
+      <li><a href="#pm"><code>bun pm</code> subcommands</a></li>
+    </ul>
+  </nav>
+  <main>
+    <section id="summary">
+      <h2>Summary</h2>
+      <div class="summary">
+        <div class="card"><div class="value">${commandCount}</div><div class="label">commands</div></div>
+        <div class="card"><div class="value">${topLevelCount}</div><div class="label">top-level</div></div>
+        <div class="card"><div class="value">${pmCount}</div><div class="label">pm subcommands</div></div>
+        <div class="card"><div class="value">${options.globalFlagCount}</div><div class="label">global flags</div></div>
+      </div>
+    </section>
+    <section id="top-level">
+      <h2>Top-level commands</h2>
+      ${renderTable(options.topLevelRows, "top-level-table")}
+    </section>
+    <section id="pm">
+      <h2><code>bun pm</code> subcommands</h2>
+      ${renderTable(options.pmRows, "pm-table")}
+    </section>
+  </main>
+  <footer>
+    Generated by <code>scripts/make-completion-matrix.ts</code> ·
+    <a href="https://bun.sh">Bun</a>
+  </footer>
 </body>
 </html>`;
-
-  return `${head}\n${renderTable(options.topLevelRows)}\n${tail}`;
 }

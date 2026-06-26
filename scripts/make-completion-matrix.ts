@@ -12,11 +12,12 @@
  *   Bun.deepEquals / Bun.env
  *
  * Run via:
- *   bun run scripts/make-completion-matrix.ts
- *   bun run completions:matrix
- *   bun run completions:matrix --csv --html
- *   bun run completions:matrix --dry-run
- *   BUN_COMPLETION_BACKUP=1 bun run completions:matrix   (with gzip backup)
+ *   bun run scripts/make-completion-matrix.ts              # writes md/json/csv/html
+ *   bun run completions:matrix                             # npm alias
+ *   bun run completions:matrix --no-csv --no-html          # only md/json
+ *   bun run completions:matrix --dry-run                   # compute, do not write
+ *   bun run completions:matrix --check                     # CI: exit 1 if stale
+ *   BUN_COMPLETION_BACKUP=1 bun run completions:matrix     # also gzip backup
  */
 
 import { $ } from "bun";
@@ -46,8 +47,11 @@ const HTML_PATH = "completions/COMPLETION_MATRIX.html";
 // ── CLI options ─────────────────────────────────────────────────
 const args = Bun.argv.slice(2);
 const dryRun = args.includes("--dry-run");
-const writeCsv = args.includes("--csv");
-const writeHtml = args.includes("--html");
+const checkMode = args.includes("--check");
+const noCsv = args.includes("--no-csv");
+const noHtml = args.includes("--no-html");
+const writeCsv = !noCsv;
+const writeHtml = !noHtml;
 
 // ── Bun-native guard: only run as main module ───────────────────
 if (!Bun.main) {
@@ -207,8 +211,83 @@ output.push(
   flagsTable(typedData.commands.build)
 );
 
-// ── Dynamic source contract ─────────────────────────────────────
-const dynamicSources = buildDynamicSources(typedData.version, liveBunVersion, jsonHash);
+const matrixContent = output.join("\n");
+const csvContent = makeCsv(topLevelRows);
+
+function buildArtifacts(generatedAt: string): {
+  dynamicSources: ReturnType<typeof buildDynamicSources>;
+  htmlContent: string;
+} {
+  const dynamicSources = {
+    ...buildDynamicSources(typedData.version, liveBunVersion, jsonHash),
+    generatedAt,
+  };
+  const htmlContent = makeHtmlReport({
+    title: "Bun CLI Completion Behavior Matrix",
+    bunVersion: liveBunVersion,
+    revision: liveBunRevision,
+    schema: typedData.version,
+    jsonHash,
+    generatedAt: dynamicSources.generatedAt,
+    topLevelRows,
+    pmRows,
+    globalFlagCount: typedData.globalFlags.length,
+  });
+  return { dynamicSources, htmlContent };
+}
+
+async function readExisting(path: string): Promise<string | null> {
+  try {
+    return await Bun.file(path).text();
+  } catch {
+    return null;
+  }
+}
+
+async function checkArtifacts(): Promise<{ ok: boolean; messages: string[] }> {
+  const existingDynamic = await readExisting(DYNAMIC_SOURCES_PATH);
+  const generatedAt = existingDynamic
+    ? ((JSON.parse(existingDynamic).generatedAt as string) ?? new Date().toISOString())
+    : new Date().toISOString();
+  const { dynamicSources, htmlContent } = buildArtifacts(generatedAt);
+  const dynamicContent = JSON.stringify(dynamicSources, null, 2);
+
+  const checks: { name: string; path: string; actual: string }[] = [
+    { name: "Matrix", path: MATRIX_PATH, actual: matrixContent },
+    { name: "Dynamic sources", path: DYNAMIC_SOURCES_PATH, actual: dynamicContent },
+  ];
+  if (writeCsv) checks.push({ name: "CSV", path: CSV_PATH, actual: csvContent });
+  if (writeHtml) checks.push({ name: "HTML", path: HTML_PATH, actual: htmlContent });
+
+  const messages: string[] = [];
+  let ok = true;
+  for (const check of checks) {
+    const existing = await readExisting(check.path);
+    if (existing === null) {
+      ok = false;
+      messages.push(`❌ ${check.name} missing: ${check.path}`);
+    } else if (existing !== check.actual) {
+      ok = false;
+      messages.push(`❌ ${check.name} out of date: ${check.path}`);
+    } else {
+      messages.push(`✅ ${check.name} up to date: ${check.path}`);
+    }
+  }
+  return { ok, messages };
+}
+
+if (checkMode) {
+  const { ok, messages } = await checkArtifacts();
+  for (const message of messages) console.log(message);
+  console.log(
+    `\n${ok ? "✅" : "❌"} Check ${ok ? "passed" : "failed"}: matrix artifacts ${ok ? "are" : "are not"} up to date.`
+  );
+  process.exit(ok ? 0 : 1);
+}
+
+const now = new Date().toISOString();
+const { dynamicSources, htmlContent } = buildArtifacts(now);
+const dynamicContent = JSON.stringify(dynamicSources, null, 2);
 
 if (dryRun) {
   console.log(`🔍 Dry run: would write ${MATRIX_PATH}, ${DYNAMIC_SOURCES_PATH}`);
@@ -216,34 +295,22 @@ if (dryRun) {
   if (writeHtml) console.log(`🔍 Dry run: would write ${HTML_PATH}`);
 } else {
   // ── Bun-native write ──────────────────────────────────────────
-  await Bun.write(MATRIX_PATH, output.join("\n"));
+  await Bun.write(MATRIX_PATH, matrixContent);
   console.log(`✅ Wrote ${MATRIX_PATH} (${await Bun.file(MATRIX_PATH).size} bytes)`);
 
   // ── Bun-native JSON write ─────────────────────────────────────
-  await Bun.write(DYNAMIC_SOURCES_PATH, JSON.stringify(dynamicSources, null, 2));
+  await Bun.write(DYNAMIC_SOURCES_PATH, dynamicContent);
   console.log(`✅ Wrote ${DYNAMIC_SOURCES_PATH}`);
 
-  // ── Optional CSV export ───────────────────────────────────────
+  // ── CSV export ────────────────────────────────────────────────
   if (writeCsv) {
-    const csv = makeCsv(topLevelRows);
-    await Bun.write(CSV_PATH, csv);
+    await Bun.write(CSV_PATH, csvContent);
     console.log(`✅ Wrote ${CSV_PATH} (${await Bun.file(CSV_PATH).size} bytes)`);
   }
 
-  // ── Optional HTML report ──────────────────────────────────────
+  // ── HTML report ───────────────────────────────────────────────
   if (writeHtml) {
-    const html = makeHtmlReport({
-      title: "Bun CLI Completion Behavior Matrix",
-      bunVersion: liveBunVersion,
-      revision: liveBunRevision,
-      schema: typedData.version,
-      jsonHash,
-      generatedAt: dynamicSources.generatedAt,
-      topLevelRows,
-      pmRows,
-      globalFlagCount: typedData.globalFlags.length,
-    });
-    await Bun.write(HTML_PATH, html);
+    await Bun.write(HTML_PATH, htmlContent);
     console.log(`✅ Wrote ${HTML_PATH} (${await Bun.file(HTML_PATH).size} bytes)`);
   }
 
@@ -275,6 +342,7 @@ const statusRows: Record<string, string>[] = [
   { Artifact: "Bun revision", Path: "—", Hash: liveBunRevision },
 ];
 if (dryRun) statusRows.push({ Artifact: "Mode", Path: "dry-run", Hash: "—" });
+if (checkMode) statusRows.push({ Artifact: "Mode", Path: "check", Hash: "—" });
 if (writeCsv) statusRows.push({ Artifact: "CSV", Path: CSV_PATH, Hash: "—" });
 if (writeHtml) statusRows.push({ Artifact: "HTML", Path: HTML_PATH, Hash: "—" });
 
