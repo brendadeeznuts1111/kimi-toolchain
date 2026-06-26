@@ -14,10 +14,13 @@ export function extractEffectMethods(source: string): MethodDescriptor[] {
   const fnRegex = /export\s+async\s+function\s+(\w+)\s*\(([^)]*)\)/g;
   let match;
   while ((match = fnRegex.exec(source)) !== null) {
+    const name = match[1];
+    const params = match[2];
+    if (!name || params === undefined) continue;
     methods.push({
-      name: match[1],
+      name,
       async: true,
-      params: match[2]
+      params: params
         .split(",")
         .map((p) => p.trim())
         .filter(Boolean),
@@ -27,10 +30,13 @@ export function extractEffectMethods(source: string): MethodDescriptor[] {
   // export const name = async (...) =>
   const arrowRegex = /export\s+const\s+(\w+)\s*=\s*async\s*\(([^)]*)\)\s*=>/g;
   while ((match = arrowRegex.exec(source)) !== null) {
+    const name = match[1];
+    const params = match[2];
+    if (!name || params === undefined) continue;
     methods.push({
-      name: match[1],
+      name,
       async: true,
-      params: match[2]
+      params: params
         .split(",")
         .map((p) => p.trim())
         .filter(Boolean),
@@ -40,11 +46,14 @@ export function extractEffectMethods(source: string): MethodDescriptor[] {
   // export function name(params) (sync, skip if already captured)
   const syncFnRegex = /export\s+function\s+(\w+)\s*\(([^)]*)\)/g;
   while ((match = syncFnRegex.exec(source)) !== null) {
-    if (!methods.some((m) => m.name === match![1])) {
+    const name = match[1];
+    const params = match[2];
+    if (!name || params === undefined) continue;
+    if (!methods.some((m) => m.name === name)) {
       methods.push({
-        name: match[1],
+        name,
         async: false,
-        params: match[2]
+        params: params
           .split(",")
           .map((p) => p.trim())
           .filter(Boolean),

@@ -56,12 +56,16 @@ export async function apiTraceVerify(): Promise<Response> {
 
   // Verify first trace
   const expectedHex = "ab".repeat(32);
-  const verify = verifyTraceHash(traces[0], expectedHex);
+  const firstTrace = traces[0];
+  if (!firstTrace) {
+    return jsonResponse({ table, verification: null });
+  }
+  const verify = verifyTraceHash(firstTrace, expectedHex);
 
   return jsonResponse({
     table,
     verification: {
-      traceId: traces[0].traceId,
+      traceId: firstTrace.traceId,
       expectedHex: expectedHex.slice(0, 16) + "...",
       checks: verify.checks,
       valid: verify.valid,

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-26T02:12:42.462Z",
+  "generatedAt": "2026-06-26T07:16:49.434Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -283,6 +283,12 @@
       "repoPath": "docs/references/bun-runtime-scaffold.md",
       "runtimePath": "~/.kimi-code/docs/references/bun-runtime-scaffold.md",
       "purpose": "Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install)"
+    },
+    {
+      "id": "bunfig-config",
+      "repoPath": "docs/references/bunfig-config.md",
+      "runtimePath": "~/.kimi-code/docs/references/bunfig-config.md",
+      "purpose": "Bunfig.toml runtime, test, serve, and bun run configuration reference"
     },
     {
       "id": "testing-execution",

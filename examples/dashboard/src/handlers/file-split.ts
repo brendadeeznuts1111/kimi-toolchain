@@ -29,7 +29,7 @@ export async function apiCrypto() {
       if (currentContent.trim()) {
         sections.push({ name: currentName, content: currentContent.trim() });
       }
-      currentName = match[1]
+      currentName = (match[1] ?? "section")
         .replace(/[^a-zA-Z0-9]+/g, "-")
         .replace(/^-|-$/g, "")
         .toLowerCase();

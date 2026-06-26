@@ -2318,8 +2318,8 @@ async function main(): Promise<number> {
       try {
         const bunfigText = await Bun.file(bunfigPath).text();
         const consoleSection = bunfigText.match(/\[console\]([\s\S]*?)(?=\n\[|$)/);
-        const depthMatch = consoleSection ? consoleSection[1].match(/depth\s*=\s*(\d+)/) : null;
-        const consoleDepth = depthMatch ? Number(depthMatch[1]) : 2;
+        const depthMatch = consoleSection?.[1]?.match(/depth\s*=\s*(\d+)/) ?? null;
+        const consoleDepth = Number(depthMatch?.[1] ?? 2);
         if (consoleDepth >= 4) {
           results.push(ok("console.depth", `${consoleDepth} (bunfig.toml [console])`));
         } else {

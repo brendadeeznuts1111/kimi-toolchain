@@ -192,6 +192,11 @@ const MANIFEST_LOCAL_DOCS_ALL = [
       "Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install)",
   },
   {
+    id: "bunfig-config",
+    location: "docs/references",
+    purpose: "Bunfig.toml runtime, test, serve, and bun run configuration reference",
+  },
+  {
     id: "testing-execution",
     location: "docs/references",
     purpose:
