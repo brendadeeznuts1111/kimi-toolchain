@@ -227,13 +227,13 @@ BUN_FEATURE_FLAG_DISABLE_IGNORE_SCRIPTS=1 bun install
 
 Bun automatically installs `peerDependencies`. If a peer dependency is marked optional via `peerDependenciesMeta`, Bun will choose an existing dependency when possible rather than installing a new one.
 
-### npm registry metadata cache
+### NPM registry metadata cache
 
 Bun caches npm registry responses in a binary format at `~/.bun/install/cache/*.npm` (filename is a hash of the package name). This loads faster and is usually smaller than raw JSON.
 
 Bun ignores the `Age` header when evaluating `Cache-Control`, so metadata can be roughly 5 minutes behind the latest npm-published versions.
 
-### pnpm migration
+### Pnpm migration
 
 When `pnpm-lock.yaml` exists and `bun.lock` does not, Bun automatically migrates the project:
 
@@ -302,6 +302,60 @@ Platform differences:
 When targeting Bun (`--target=bun`), `using` and `await using` are left as-is (no transpilation to helper functions). This applies to `bun run`, `Bun.Transpiler({ target: "bun" })`, and `bun build --target=bun`.
 
 This improves runtime performance and avoids CommonJS wrapper bugs (e.g., `.cjs` files).
+
+### Running scripts and files
+
+Bun executes TypeScript, JSX, and TSX out of the box — every file is transpiled on the fly.
+
+```bash
+bun run index.ts
+bun index.ts                 # equivalent shorthand
+bun run index.tsx            # JSX/TSX works without extra config
+```
+
+Flag placement matters: Bun flags belong **before** `run` (or the file/script), otherwise they are passed through to the script itself.
+
+```bash
+bun --watch run dev          # ✓ Bun watches the process
+bun run dev --watch          # ✗ --watch is passed to the "dev" script
+```
+
+Common runtime flags for scaffolded projects:
+
+| Flag                  | Behavior                                                       |
+| --------------------- | -------------------------------------------------------------- |
+| `--watch`             | Restart the process on file changes                            |
+| `--hot`               | Enable hot module reload (runtime / test / bundler)            |
+| `--bun`               | Force Node-shebang CLIs to run under Bun                       |
+| `--smol`              | Run GC more often; useful on memory-constrained hosts          |
+| `--console-depth <n>` | Default depth for `console.log` object inspection (default: 2) |
+| `--if-present`        | Exit 0 when the requested script/file does not exist           |
+| `--silent`            | Do not print the script command before running it              |
+
+Run code from stdin (treated as TypeScript with JSX support):
+
+```bash
+echo "console.log('Hello')" | bun run -
+```
+
+Workspace and multi-script orchestration:
+
+```bash
+bun run --filter 'dashboard*' check       # run in matching workspace packages
+bun run --workspaces test                 # run in all workspace packages
+bun run --parallel build test lint        # run scripts concurrently
+bun run --sequential deploy               # run scripts sequentially
+bun run --parallel --no-exit-on-error build test lint   # keep going on failure
+```
+
+Resolution order for `bun run <name>`:
+
+1. `package.json` scripts
+2. Source files (e.g., `./index.ts`)
+3. Binaries from installed packages
+4. System commands
+
+Use `bun run <name>` when a built-in Bun command (like `bun test`) would otherwise shadow a `package.json` script of the same name.
 
 ## Related
 
