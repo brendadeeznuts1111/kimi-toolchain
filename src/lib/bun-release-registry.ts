@@ -40,7 +40,7 @@ export const BUN_RELEASE_HISTORY = {
     blogPublished: "2026-01-13T01:12:07.484Z",
     author: "Jarred Sumner",
     breaking: ["bun build --compile NAPI regression"],
-    featureCommitCount: 16,
+    featureCommitCount: 15,
   },
   "1.3.7": {
     version: "1.3.7",
@@ -56,57 +56,57 @@ export const BUN_RELEASE_HISTORY = {
   "1.3.8": {
     version: "1.3.8",
     tag: "bun-v1.3.8",
-    hash: "b64edcb490b486fb8af90cb2cb2dc51590453064",
+    hash: "aded701d1d2f89663a114c22ef6550153c9b23e4",
     url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.8",
     blogUrl: "https://bun.com/blog/bun-v1.3.8",
     blogPublished: "2026-01-29T10:38:16.000Z",
     author: "Jarred Sumner",
     breaking: ["none"],
-    featureCommitCount: 0,
+    featureCommitCount: 1,
   },
   "1.3.9": {
     version: "1.3.9",
     tag: "bun-v1.3.9",
-    hash: "cf6cdbbbadd50604bc17f21ed5d0612c920a5d9a",
+    hash: "a5246344fa40201931d5ffd274ef76d810759106",
     url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.9",
     blogUrl: "https://bun.com/blog/bun-v1.3.9",
     blogPublished: "2026-02-08T09:31:23.000Z",
     author: "Jarred Sumner",
     breaking: ["none"],
-    featureCommitCount: 0,
+    featureCommitCount: 13,
   },
   "1.3.10": {
     version: "1.3.10",
     tag: "bun-v1.3.10",
-    hash: "30e609e08073cf7114bfb278506962a5b19d0677",
+    hash: "b2d8504a09a6cf9f3282418570fa7205870bfc94",
     url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.10",
     blogUrl: "https://bun.com/blog/bun-v1.3.10",
     blogPublished: "2026-02-26T07:08:20.000Z",
     author: "Jarred Sumner",
     breaking: ["none"],
-    featureCommitCount: 0,
+    featureCommitCount: 14,
   },
   "1.3.11": {
     version: "1.3.11",
     tag: "bun-v1.3.11",
-    hash: "a04817ce2b7f1a1e8b7cbf8af8f2c027ab072f1d",
+    hash: "0b61853ac659a0126aa0ded8db3b1e358d3cc160",
     url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.11",
     blogUrl: "https://bun.com/blog/bun-v1.3.11",
     blogPublished: "2026-03-18T04:31:40.000Z",
     author: "Jarred Sumner",
     breaking: ["none"],
-    featureCommitCount: 0,
+    featureCommitCount: 3,
   },
   "1.3.12": {
     version: "1.3.12",
     tag: "bun-v1.3.12",
-    hash: "700fc117a2fd01ac0201deaa6fa69c5557acb04f",
+    hash: "1cc837687b1d1f8d558a40110fbe3e61cc41fbcd",
     url: "https://github.com/oven-sh/bun/releases/tag/bun-v1.3.12",
     blogUrl: "https://bun.com/blog/bun-v1.3.12",
     blogPublished: "2026-04-10T03:04:46.000Z",
     author: "Jarred Sumner",
     breaking: ["none"],
-    featureCommitCount: 0,
+    featureCommitCount: 16,
   },
   "1.3.13": {
     version: "1.3.13",
@@ -216,6 +216,7 @@ export interface ReleaseHistoryRow {
   author: string;
   breaking: string;
   breakingCount: number;
+  [key: string]: unknown;
 }
 
 export interface ReleaseHistoryMetrics {
