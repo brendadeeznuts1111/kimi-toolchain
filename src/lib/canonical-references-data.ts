@@ -377,6 +377,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     purpose: "Bunfig.toml runtime, test, serve, and bun run configuration reference",
   },
   {
+    id: "bun-install-config",
+    repoPath: "docs/references/bun-install-config.md",
+    runtimePath: "~/.kimi-code/docs/references/bun-install-config.md",
+    purpose:
+      "Bun install configuration reference: [install], scopes, cache, and platform selectors",
+  },
+  {
     id: "testing-execution",
     repoPath: "docs/references/testing-execution.md",
     runtimePath: "~/.kimi-code/docs/references/testing-execution.md",

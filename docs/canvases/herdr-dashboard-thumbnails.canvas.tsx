@@ -197,6 +197,12 @@ const MANIFEST_LOCAL_DOCS_ALL = [
     purpose: "Bunfig.toml runtime, test, serve, and bun run configuration reference",
   },
   {
+    id: "bun-install-config",
+    location: "docs/references",
+    purpose:
+      "Bun install configuration reference: [install], scopes, cache, and platform selectors",
+  },
+  {
     id: "testing-execution",
     location: "docs/references",
     purpose:
