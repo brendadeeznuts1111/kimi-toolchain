@@ -861,8 +861,7 @@ export interface LegacyDecisionInput extends Omit<
 }
 
 function normalizeLegacyDecisionInput(input: LegacyDecisionInput): DecisionInput {
-  const normalized = { ...input } as DecisionInput;
-  const raw = normalized as unknown as Record<string, unknown>;
+  const normalized = { ...input } as DecisionInput & Record<string, unknown>;
   if (!normalized.key) {
     normalized.key =
       input.trigger && typeof input.trigger === "object" && input.trigger.capabilityItem
@@ -875,7 +874,7 @@ function normalizeLegacyDecisionInput(input: LegacyDecisionInput): DecisionInput
       fullReasoning: input.rationaleOverride.fullReasoning ?? input.rationaleOverride.summary ?? "",
       evidence: input.rationaleOverride.evidence ?? [],
     };
-    delete raw.rationaleOverride;
+    delete normalized.rationaleOverride;
   }
   if (input.trigger && typeof input.trigger === "object") {
     normalized.triggerContext = {
@@ -883,11 +882,11 @@ function normalizeLegacyDecisionInput(input: LegacyDecisionInput): DecisionInput
       summary:
         input.trigger.summary || input.trigger.capabilityItem || input.action || "legacy trigger",
     };
-    delete raw.trigger;
+    delete normalized.trigger;
   }
   if (input.outcome && typeof input.outcome === "object") {
     normalized.outcomeDetail = input.outcome;
-    delete raw.outcome;
+    delete normalized.outcome;
   }
   if (
     input.alternatives &&
@@ -895,7 +894,7 @@ function normalizeLegacyDecisionInput(input: LegacyDecisionInput): DecisionInput
     typeof input.alternatives[0] === "object"
   ) {
     normalized.alternativeOptions = input.alternatives as DecisionAlternativeOption[];
-    delete raw.alternatives;
+    delete normalized.alternatives;
   }
   return normalized;
 }
