@@ -2,7 +2,7 @@
   "schema": "1.2.0",
   "bunVersion": "1.4.0",
   "jsonHash": "1c65916088b9",
-  "generatedAt": "2026-06-26T01:23:49.182Z",
+  "generatedAt": "2026-06-26T07:11:54.124Z",
   "sources": {
     "bare_bun": {
       "completes": [

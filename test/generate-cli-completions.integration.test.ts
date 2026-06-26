@@ -136,4 +136,34 @@ describe("generate-cli-completions integration", () => {
     expect(exit).toBe(0);
     expect(stderr).toBe("");
   });
+
+  test("fish completion emits value suggestions for flags with choices", async () => {
+    await runGenerator();
+
+    const fish = readText(join(COMPLETIONS_DIR, "bun.fish"));
+
+    expect(fish).toContain("-l install -r -a 'auto fallback force'");
+    expect(fish).toContain("-l dns-result-order -r -a 'verbatim ipv4first ipv6first'");
+    expect(fish).toContain(
+      "-l backend -r -a 'hardlink clonefile clonefile_each_dir copyfile symlink'"
+    );
+    expect(fish).toContain("-l linker -r -a 'isolated hoisted'");
+    expect(fish).toContain("-l omit -r -a 'dev optional peer'");
+
+    expect(fish).not.toContain("-l dns-result-order -r -a 'verbatim (default)");
+  });
+
+  test("zsh completion emits value suggestions for flags with choices", async () => {
+    await runGenerator();
+
+    const zsh = readText(join(COMPLETIONS_DIR, "bun.zsh"));
+
+    expect(zsh).toContain(": :(auto fallback force)");
+    expect(zsh).toContain(": :(verbatim ipv4first ipv6first)");
+    expect(zsh).toContain(": :(hardlink clonefile clonefile_each_dir copyfile symlink)");
+    expect(zsh).toContain(": :(isolated hoisted)");
+    expect(zsh).toContain(": :(dev optional peer)");
+
+    expect(zsh).not.toContain(": :(verbatim (default)");
+  });
 });

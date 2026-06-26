@@ -68,7 +68,7 @@ _bun_global_flags() {
     '( --heap-prof-md)--heap-prof-md[Generate markdown heap profile on exit (for CLI analysis)]'
     '( --if-present)--if-present[Exit without an error if the entrypoint does not exist]'
     '( --no-install)--no-install[Disable auto install in the Bun runtime]'
-    '( --install)--install[Configure auto-install behavior. One of "auto" (default, auto-installs when no node_modules), "fallback" (missing packages only), "force" (always).]'
+    '( --install)--install[Configure auto-install behavior. One of "auto" (default, auto-installs when no node_modules), "fallback" (missing packages only), "force" (always).]: :(auto fallback force)'
     '( -i --i) -i--i[Auto-install dependencies during execution. Equivalent to --install=fallback.]'
     '( -e --eval) -e--eval[Evaluate argument as a script]'
     '( -p --print) -p--print[Evaluate argument as a script and print the result]'
@@ -80,7 +80,7 @@ _bun_global_flags() {
     '( --experimental-http2-fetch)--experimental-http2-fetch[Offer h2 in fetch() TLS ALPN. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT=1]'
     '( --experimental-http3-fetch)--experimental-http3-fetch[Honor Alt-Svc: h3 in fetch() and upgrade to HTTP/3. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP3_CLIENT=1]'
     '( --max-http-header-size)--max-http-header-size[Set the maximum size of HTTP headers in bytes. Default is 16KiB]'
-    '( --dns-result-order)--dns-result-order[Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first]'
+    '( --dns-result-order)--dns-result-order[Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first]: :(verbatim ipv4first ipv6first)'
     '( --experimental-stream-iter)--experimental-stream-iter[Enable the experimental stream/iter API (node:stream/iter, node:zlib/iter).]'
     '( --expose-gc)--expose-gc[Expose gc() on the global object. Has no effect on Bun.gc().]'
     '( --no-deprecation)--no-deprecation[Suppress all reporting of the custom deprecation.]'
@@ -93,7 +93,7 @@ _bun_global_flags() {
     '( --redis-preconnect)--redis-preconnect[Preconnect to $REDIS_URL at startup]'
     '( --sql-preconnect)--sql-preconnect[Preconnect to PostgreSQL at startup]'
     '( --no-addons)--no-addons[Throw an error if process.dlopen is called, and disable export condition "node-addons"]'
-    '( --unhandled-rejections)--unhandled-rejections[One of "strict", "throw", "warn", "none", or "warn-with-error-code"]'
+    '( --unhandled-rejections)--unhandled-rejections[One of "strict", "throw", "warn", "none", or "warn-with-error-code"]: :(strict throw warn none warn-with-error-code)'
     '( --console-depth)--console-depth[Set the default depth for console.log object inspection (default: 2)]'
     '( --user-agent)--user-agent[Set the default User-Agent header for HTTP requests]'
     '( --cron-title)--cron-title[Title for cron execution mode]'
@@ -183,7 +183,7 @@ _bun() {
             '( --heap-prof-md)--heap-prof-md[Generate markdown heap profile on exit (for CLI analysis)]' \
             '( --if-present)--if-present[Exit without an error if the entrypoint does not exist]' \
             '( --no-install)--no-install[Disable auto install in the Bun runtime]' \
-            '( --install)--install[Configure auto-install behavior. One of "auto" (default, auto-installs when no node_modules), "fallback" (missing packages only), "force" (always).]' \
+            '( --install)--install[Configure auto-install behavior. One of "auto" (default, auto-installs when no node_modules), "fallback" (missing packages only), "force" (always).]: :(auto fallback force)' \
             '( -i --i) -i--i[Auto-install dependencies during execution. Equivalent to --install=fallback.]' \
             '( -e --eval) -e--eval[Evaluate argument as a script]' \
             '( -p --print) -p--print[Evaluate argument as a script and print the result]' \
@@ -195,7 +195,7 @@ _bun() {
             '( --experimental-http2-fetch)--experimental-http2-fetch[Offer h2 in fetch() TLS ALPN. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT=1]' \
             '( --experimental-http3-fetch)--experimental-http3-fetch[Honor Alt-Svc: h3 in fetch() and upgrade to HTTP/3. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP3_CLIENT=1]' \
             '( --max-http-header-size)--max-http-header-size[Set the maximum size of HTTP headers in bytes. Default is 16KiB]' \
-            '( --dns-result-order)--dns-result-order[Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first]' \
+            '( --dns-result-order)--dns-result-order[Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first]: :(verbatim ipv4first ipv6first)' \
             '( --experimental-stream-iter)--experimental-stream-iter[Enable the experimental stream/iter API (node:stream/iter, node:zlib/iter).]' \
             '( --expose-gc)--expose-gc[Expose gc() on the global object. Has no effect on Bun.gc().]' \
             '( --no-deprecation)--no-deprecation[Suppress all reporting of the custom deprecation.]' \
@@ -208,7 +208,7 @@ _bun() {
             '( --redis-preconnect)--redis-preconnect[Preconnect to $REDIS_URL at startup]' \
             '( --sql-preconnect)--sql-preconnect[Preconnect to PostgreSQL at startup]' \
             '( --no-addons)--no-addons[Throw an error if process.dlopen is called, and disable export condition "node-addons"]' \
-            '( --unhandled-rejections)--unhandled-rejections[One of "strict", "throw", "warn", "none", or "warn-with-error-code"]' \
+            '( --unhandled-rejections)--unhandled-rejections[One of "strict", "throw", "warn", "none", or "warn-with-error-code"]: :(strict throw warn none warn-with-error-code)' \
             '( --console-depth)--console-depth[Set the default depth for console.log object inspection (default: 2)]' \
             '( --user-agent)--user-agent[Set the default User-Agent header for HTTP requests]' \
             '( --cron-title)--cron-title[Title for cron execution mode]' \
@@ -311,7 +311,7 @@ _bun() {
             '( --heap-prof-md)--heap-prof-md[Generate markdown heap profile on exit (for CLI analysis)]' \
             '( --if-present)--if-present[Exit without an error if the entrypoint does not exist]' \
             '( --no-install)--no-install[Disable auto install in the Bun runtime]' \
-            '( --install)--install[Configure auto-install behavior. One of "auto" (default, auto-installs when no node_modules), "fallback" (missing packages only), "force" (always).]' \
+            '( --install)--install[Configure auto-install behavior. One of "auto" (default, auto-installs when no node_modules), "fallback" (missing packages only), "force" (always).]: :(auto fallback force)' \
             '( -i --i) -i--i[Auto-install dependencies during execution. Equivalent to --install=fallback.]' \
             '( -e --eval) -e--eval[Evaluate argument as a script]' \
             '( -p --print) -p--print[Evaluate argument as a script and print the result]' \
@@ -323,7 +323,7 @@ _bun() {
             '( --experimental-http2-fetch)--experimental-http2-fetch[Offer h2 in fetch() TLS ALPN. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP2_CLIENT=1]' \
             '( --experimental-http3-fetch)--experimental-http3-fetch[Honor Alt-Svc: h3 in fetch() and upgrade to HTTP/3. Same as BUN_FEATURE_FLAG_EXPERIMENTAL_HTTP3_CLIENT=1]' \
             '( --max-http-header-size)--max-http-header-size[Set the maximum size of HTTP headers in bytes. Default is 16KiB]' \
-            '( --dns-result-order)--dns-result-order[Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first]' \
+            '( --dns-result-order)--dns-result-order[Set the default order of DNS lookup results. Valid orders: verbatim (default), ipv4first, ipv6first]: :(verbatim ipv4first ipv6first)' \
             '( --experimental-stream-iter)--experimental-stream-iter[Enable the experimental stream/iter API (node:stream/iter, node:zlib/iter).]' \
             '( --expose-gc)--expose-gc[Expose gc() on the global object. Has no effect on Bun.gc().]' \
             '( --no-deprecation)--no-deprecation[Suppress all reporting of the custom deprecation.]' \
@@ -336,7 +336,7 @@ _bun() {
             '( --redis-preconnect)--redis-preconnect[Preconnect to $REDIS_URL at startup]' \
             '( --sql-preconnect)--sql-preconnect[Preconnect to PostgreSQL at startup]' \
             '( --no-addons)--no-addons[Throw an error if process.dlopen is called, and disable export condition "node-addons"]' \
-            '( --unhandled-rejections)--unhandled-rejections[One of "strict", "throw", "warn", "none", or "warn-with-error-code"]' \
+            '( --unhandled-rejections)--unhandled-rejections[One of "strict", "throw", "warn", "none", or "warn-with-error-code"]: :(strict throw warn none warn-with-error-code)' \
             '( --console-depth)--console-depth[Set the default depth for console.log object inspection (default: 2)]' \
             '( --user-agent)--user-agent[Set the default User-Agent header for HTTP requests]' \
             '( --cron-title)--cron-title[Title for cron execution mode]' \
@@ -391,17 +391,17 @@ _bun() {
             '( --trust)--trust[Add to trustedDependencies in the project'\''s package.json and install the package(s)]' \
             '( -g --global) -g--global[Install globally]' \
             '( --cwd)--cwd[Set a specific cwd]' \
-            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]' \
+            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]: :(hardlink clonefile clonefile_each_dir copyfile symlink)' \
             '( --registry)--registry[Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables]' \
             '( --concurrent-scripts)--concurrent-scripts[Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)]' \
             '( --network-concurrency)--network-concurrency[Maximum number of concurrent network requests (default 48)]' \
             '( --save-text-lockfile)--save-text-lockfile[Save a text-based lockfile]' \
-            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]' \
+            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]: :(dev optional peer)' \
             '( --lockfile-only)--lockfile-only[Generate a lockfile without installing dependencies]' \
-            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]' \
+            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]: :(isolated hoisted)' \
             '( --minimum-release-age)--minimum-release-age[Only install packages published at least N seconds ago (security feature)]' \
-            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
-            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
+            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]: :(arm64 x64 ia32 ppc64 s390x *)' \
+            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]: :(linux darwin win32 freebsd openbsd sunos aix *)' \
             '( -h --help) -h--help[Print this help menu]' \
             '( -d --dev) -d--dev[Add dependency to "devDependencies"]' \
             '( --optional)--optional[Add dependency to "optionalDependencies"]' \
@@ -435,17 +435,17 @@ _bun() {
             '( --trust)--trust[Add to trustedDependencies in the project'\''s package.json and install the package(s)]' \
             '( -g --global) -g--global[Install globally]' \
             '( --cwd)--cwd[Set a specific cwd]' \
-            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]' \
+            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]: :(hardlink clonefile clonefile_each_dir copyfile symlink)' \
             '( --registry)--registry[Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables]' \
             '( --concurrent-scripts)--concurrent-scripts[Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)]' \
             '( --network-concurrency)--network-concurrency[Maximum number of concurrent network requests (default 48)]' \
             '( --save-text-lockfile)--save-text-lockfile[Save a text-based lockfile]' \
-            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]' \
+            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]: :(dev optional peer)' \
             '( --lockfile-only)--lockfile-only[Generate a lockfile without installing dependencies]' \
-            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]' \
+            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]: :(isolated hoisted)' \
             '( --minimum-release-age)--minimum-release-age[Only install packages published at least N seconds ago (security feature)]' \
-            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
-            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
+            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]: :(arm64 x64 ia32 ppc64 s390x *)' \
+            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]: :(linux darwin win32 freebsd openbsd sunos aix *)' \
             '( -h --help) -h--help[Print this help menu]' \
             '( -d --dev) -d--dev[Add dependency to "devDependencies"]' \
             '( --optional)--optional[Add dependency to "optionalDependencies"]' \
@@ -478,17 +478,17 @@ _bun() {
             '( --trust)--trust[Add to trustedDependencies in the project'\''s package.json and install the package(s)]' \
             '( -g --global) -g--global[Install globally]' \
             '( --cwd)--cwd[Set a specific cwd]' \
-            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]' \
+            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]: :(hardlink clonefile clonefile_each_dir copyfile symlink)' \
             '( --registry)--registry[Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables]' \
             '( --concurrent-scripts)--concurrent-scripts[Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)]' \
             '( --network-concurrency)--network-concurrency[Maximum number of concurrent network requests (default 48)]' \
             '( --save-text-lockfile)--save-text-lockfile[Save a text-based lockfile]' \
-            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]' \
+            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]: :(dev optional peer)' \
             '( --lockfile-only)--lockfile-only[Generate a lockfile without installing dependencies]' \
-            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]' \
+            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]: :(isolated hoisted)' \
             '( --minimum-release-age)--minimum-release-age[Only install packages published at least N seconds ago (security feature)]' \
-            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
-            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
+            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]: :(arm64 x64 ia32 ppc64 s390x *)' \
+            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]: :(linux darwin win32 freebsd openbsd sunos aix *)' \
             '( -h --help) -h--help[Print this help menu]'
           _bun_installed_packages
           ;;
@@ -516,17 +516,17 @@ _bun() {
             '( --trust)--trust[Add to trustedDependencies in the project'\''s package.json and install the package(s)]' \
             '( -g --global) -g--global[Install globally]' \
             '( --cwd)--cwd[Set a specific cwd]' \
-            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]' \
+            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]: :(hardlink clonefile clonefile_each_dir copyfile symlink)' \
             '( --registry)--registry[Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables]' \
             '( --concurrent-scripts)--concurrent-scripts[Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)]' \
             '( --network-concurrency)--network-concurrency[Maximum number of concurrent network requests (default 48)]' \
             '( --save-text-lockfile)--save-text-lockfile[Save a text-based lockfile]' \
-            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]' \
+            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]: :(dev optional peer)' \
             '( --lockfile-only)--lockfile-only[Generate a lockfile without installing dependencies]' \
-            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]' \
+            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]: :(isolated hoisted)' \
             '( --minimum-release-age)--minimum-release-age[Only install packages published at least N seconds ago (security feature)]' \
-            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
-            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
+            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]: :(arm64 x64 ia32 ppc64 s390x *)' \
+            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]: :(linux darwin win32 freebsd openbsd sunos aix *)' \
             '( -h --help) -h--help[Print this help menu]' \
             '( --latest)--latest[Update packages to their latest versions]' \
             '( -i --interactive) -i--interactive[Show an interactive list of outdated packages to select for update]' \
@@ -563,17 +563,17 @@ _bun() {
             '( --trust)--trust[Add to trustedDependencies in the project'\''s package.json and install the package(s)]' \
             '( -g --global) -g--global[Install globally]' \
             '( --cwd)--cwd[Set a specific cwd]' \
-            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]' \
+            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]: :(hardlink clonefile clonefile_each_dir copyfile symlink)' \
             '( --registry)--registry[Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables]' \
             '( --concurrent-scripts)--concurrent-scripts[Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)]' \
             '( --network-concurrency)--network-concurrency[Maximum number of concurrent network requests (default 48)]' \
             '( --save-text-lockfile)--save-text-lockfile[Save a text-based lockfile]' \
-            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]' \
+            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]: :(dev optional peer)' \
             '( --lockfile-only)--lockfile-only[Generate a lockfile without installing dependencies]' \
-            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]' \
+            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]: :(isolated hoisted)' \
             '( --minimum-release-age)--minimum-release-age[Only install packages published at least N seconds ago (security feature)]' \
-            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
-            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
+            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]: :(arm64 x64 ia32 ppc64 s390x *)' \
+            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]: :(linux darwin win32 freebsd openbsd sunos aix *)' \
             '( -h --help) -h--help[Print this help menu]' \
             '( -F --filter) -F--filter[Display outdated dependencies for each matching workspace]' \
             '( -r --recursive) -r--recursive[Check outdated packages in all workspaces]'
@@ -602,17 +602,17 @@ _bun() {
             '( --trust)--trust[Add to trustedDependencies in the project'\''s package.json and install the package(s)]' \
             '( -g --global) -g--global[Install globally]' \
             '( --cwd)--cwd[Set a specific cwd]' \
-            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]' \
+            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]: :(hardlink clonefile clonefile_each_dir copyfile symlink)' \
             '( --registry)--registry[Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables]' \
             '( --concurrent-scripts)--concurrent-scripts[Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)]' \
             '( --network-concurrency)--network-concurrency[Maximum number of concurrent network requests (default 48)]' \
             '( --save-text-lockfile)--save-text-lockfile[Save a text-based lockfile]' \
-            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]' \
+            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]: :(dev optional peer)' \
             '( --lockfile-only)--lockfile-only[Generate a lockfile without installing dependencies]' \
-            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]' \
+            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]: :(isolated hoisted)' \
             '( --minimum-release-age)--minimum-release-age[Only install packages published at least N seconds ago (security feature)]' \
-            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
-            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
+            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]: :(arm64 x64 ia32 ppc64 s390x *)' \
+            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]: :(linux darwin win32 freebsd openbsd sunos aix *)' \
             '( -h --help) -h--help[Print this help menu]'
           ;;
         unlink)
@@ -639,17 +639,17 @@ _bun() {
             '( --trust)--trust[Add to trustedDependencies in the project'\''s package.json and install the package(s)]' \
             '( -g --global) -g--global[Install globally]' \
             '( --cwd)--cwd[Set a specific cwd]' \
-            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]' \
+            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]: :(hardlink clonefile clonefile_each_dir copyfile symlink)' \
             '( --registry)--registry[Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables]' \
             '( --concurrent-scripts)--concurrent-scripts[Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)]' \
             '( --network-concurrency)--network-concurrency[Maximum number of concurrent network requests (default 48)]' \
             '( --save-text-lockfile)--save-text-lockfile[Save a text-based lockfile]' \
-            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]' \
+            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]: :(dev optional peer)' \
             '( --lockfile-only)--lockfile-only[Generate a lockfile without installing dependencies]' \
-            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]' \
+            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]: :(isolated hoisted)' \
             '( --minimum-release-age)--minimum-release-age[Only install packages published at least N seconds ago (security feature)]' \
-            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
-            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
+            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]: :(arm64 x64 ia32 ppc64 s390x *)' \
+            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]: :(linux darwin win32 freebsd openbsd sunos aix *)' \
             '( -h --help) -h--help[Print this help menu]'
           ;;
         publish)
@@ -676,17 +676,17 @@ _bun() {
             '( --trust)--trust[Add to trustedDependencies in the project'\''s package.json and install the package(s)]' \
             '( -g --global) -g--global[Install globally]' \
             '( --cwd)--cwd[Set a specific cwd]' \
-            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]' \
+            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]: :(hardlink clonefile clonefile_each_dir copyfile symlink)' \
             '( --registry)--registry[Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables]' \
             '( --concurrent-scripts)--concurrent-scripts[Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)]' \
             '( --network-concurrency)--network-concurrency[Maximum number of concurrent network requests (default 48)]' \
             '( --save-text-lockfile)--save-text-lockfile[Save a text-based lockfile]' \
-            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]' \
+            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]: :(dev optional peer)' \
             '( --lockfile-only)--lockfile-only[Generate a lockfile without installing dependencies]' \
-            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]' \
+            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]: :(isolated hoisted)' \
             '( --minimum-release-age)--minimum-release-age[Only install packages published at least N seconds ago (security feature)]' \
-            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
-            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
+            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]: :(arm64 x64 ia32 ppc64 s390x *)' \
+            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]: :(linux darwin win32 freebsd openbsd sunos aix *)' \
             '( -h --help) -h--help[Print this help menu]' \
             '( --access)--access[Set access level for scoped packages]' \
             '( --tag)--tag[Tag the release. Default is "latest"]' \
@@ -719,17 +719,17 @@ _bun() {
             '( --trust)--trust[Add to trustedDependencies in the project'\''s package.json and install the package(s)]' \
             '( -g --global) -g--global[Install globally]' \
             '( --cwd)--cwd[Set a specific cwd]' \
-            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]' \
+            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]: :(hardlink clonefile clonefile_each_dir copyfile symlink)' \
             '( --registry)--registry[Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables]' \
             '( --concurrent-scripts)--concurrent-scripts[Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)]' \
             '( --network-concurrency)--network-concurrency[Maximum number of concurrent network requests (default 48)]' \
             '( --save-text-lockfile)--save-text-lockfile[Save a text-based lockfile]' \
-            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]' \
+            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]: :(dev optional peer)' \
             '( --lockfile-only)--lockfile-only[Generate a lockfile without installing dependencies]' \
-            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]' \
+            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]: :(isolated hoisted)' \
             '( --minimum-release-age)--minimum-release-age[Only install packages published at least N seconds ago (security feature)]' \
-            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
-            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
+            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]: :(arm64 x64 ia32 ppc64 s390x *)' \
+            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]: :(linux darwin win32 freebsd openbsd sunos aix *)' \
             '( -h --help) -h--help[Print this help menu]' \
             '( --commit)--commit[Install a package containing modifications in `dir`]' \
             '( --patches-dir)--patches-dir[The directory to put the patch file in (only if --commit is used)]'
@@ -762,17 +762,17 @@ _bun() {
             '( --trust)--trust[Add to trustedDependencies in the project'\''s package.json and install the package(s)]' \
             '( -g --global) -g--global[Install globally]' \
             '( --cwd)--cwd[Set a specific cwd]' \
-            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]' \
+            '( --backend)--backend[Platform-specific optimizations for installing dependencies. Possible values: "clonefile" (default), "hardlink", "symlink", "copyfile"]: :(hardlink clonefile clonefile_each_dir copyfile symlink)' \
             '( --registry)--registry[Use a specific registry by default, overriding .npmrc, bunfig.toml and environment variables]' \
             '( --concurrent-scripts)--concurrent-scripts[Maximum number of concurrent jobs for lifecycle scripts (default: 2x CPU cores)]' \
             '( --network-concurrency)--network-concurrency[Maximum number of concurrent network requests (default 48)]' \
             '( --save-text-lockfile)--save-text-lockfile[Save a text-based lockfile]' \
-            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]' \
+            '( --omit)--omit[Exclude '\''dev'\'', '\''optional'\'', or '\''peer'\'' dependencies from install]: :(dev optional peer)' \
             '( --lockfile-only)--lockfile-only[Generate a lockfile without installing dependencies]' \
-            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]' \
+            '( --linker)--linker[Linker strategy (one of "isolated" or "hoisted")]: :(isolated hoisted)' \
             '( --minimum-release-age)--minimum-release-age[Only install packages published at least N seconds ago (security feature)]' \
-            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]' \
-            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]' \
+            '( --cpu)--cpu[Override CPU architecture for optional dependencies (e.g., x64, arm64, * for all)]: :(arm64 x64 ia32 ppc64 s390x *)' \
+            '( --os)--os[Override operating system for optional dependencies (e.g., linux, darwin, * for all)]: :(linux darwin win32 freebsd openbsd sunos aix *)' \
             '( -h --help) -h--help[Print this help menu]' \
             '( --json)--json[Output in JSON format]'
           ;;
