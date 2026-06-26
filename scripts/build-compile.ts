@@ -70,6 +70,7 @@ function parseCli(): { dryRun: boolean; json: boolean; only: string[] } {
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (arg === undefined) continue;
     if (arg === "--dry-run" || arg === "--dryrun") {
       dryRun = true;
       continue;

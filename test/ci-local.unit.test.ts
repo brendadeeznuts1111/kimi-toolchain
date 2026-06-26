@@ -27,16 +27,20 @@ describe("ci-local", () => {
     expect(parsed.mergeGate).toBe("local-ci");
     expect(parsed.job).toBe("quality");
     expect(parsed.steps?.map((step) => step.name)).toEqual([
-      "sync",
-      "sync:verify",
-      "check",
+      "format:check:ci",
+      "lint",
+      "typecheck",
       "build:compile",
       "test:coverage:ci",
       "test:smoke",
-      "dashboard-feed",
+      "effect-gates",
+      "effect-benchmark",
+      "effect-benchmark-auto-train",
+      "probe-cards",
+      "config-status",
     ]);
-    expect(parsed.steps?.find((step) => step.name === "dashboard-feed")?.cmd).toContain(
-      "reports/ci-results.rss"
+    expect(parsed.steps?.find((step) => step.name === "build:compile")?.cmd).toBe(
+      "bun run build:compile"
     );
   });
 });

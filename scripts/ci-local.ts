@@ -47,6 +47,7 @@ const STEPS: CiStep[] = [
   { job: "quality", name: "format:check:ci", cmd: ["bun", "run", "format:check:ci"] },
   { job: "quality", name: "lint", cmd: ["bun", "run", "lint"] },
   { job: "quality", name: "typecheck", cmd: ["bun", "run", "typecheck"] },
+  { job: "quality", name: "build:compile", cmd: ["bun", "run", "build:compile"] },
   { job: "quality", name: "test:coverage:ci", cmd: ["bun", "run", "test:coverage:ci"] },
   { job: "quality", name: "test:smoke", cmd: ["bun", "run", "test:smoke"] },
   {
