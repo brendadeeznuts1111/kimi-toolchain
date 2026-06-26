@@ -204,6 +204,47 @@ When `node_modules` exists, Bun checks the `package.json` of the installed packa
 
 If `bun.lock` is missing or `package.json` changed, tarballs are downloaded eagerly. If `bun.lock` exists and `package.json` unchanged, missing dependencies are downloaded lazily.
 
+### Lifecycle scripts and `trustedDependencies`
+
+For security, Bun does **not** execute lifecycle scripts (`postinstall`, etc.) of installed dependencies by default. To allow lifecycle scripts for a specific package, add it to `trustedDependencies` in `package.json` and re-install:
+
+```json package.json
+{
+  "trustedDependencies": ["my-trusted-package"]
+}
+```
+
+The project's own `{pre|post}install` and `{pre|post}prepare` scripts still run at the appropriate time. Adjust maximum concurrent lifecycle scripts with `--concurrent-scripts` (default: 2× CPU cores / GOMAXPROCS).
+
+To disable Bun's native-dependency optimizations for popular packages:
+
+```bash
+BUN_FEATURE_FLAG_DISABLE_NATIVE_DEPENDENCY_LINKER=1 bun install
+BUN_FEATURE_FLAG_DISABLE_IGNORE_SCRIPTS=1 bun install
+```
+
+### Peer dependencies
+
+Bun automatically installs `peerDependencies`. If a peer dependency is marked optional via `peerDependenciesMeta`, Bun will choose an existing dependency when possible rather than installing a new one.
+
+### npm registry metadata cache
+
+Bun caches npm registry responses in a binary format at `~/.bun/install/cache/*.npm` (filename is a hash of the package name). This loads faster and is usually smaller than raw JSON.
+
+Bun ignores the `Age` header when evaluating `Cache-Control`, so metadata can be roughly 5 minutes behind the latest npm-published versions.
+
+### pnpm migration
+
+When `pnpm-lock.yaml` exists and `bun.lock` does not, Bun automatically migrates the project:
+
+- Converts `pnpm-lock.yaml` to `bun.lock`
+- Preserves versions, resolution info, dependency relationships, peer dependencies, and patched dependencies
+- Migrates `pnpm-workspace.yaml` workspace packages and catalogs to `package.json` `workspaces`
+- Migrates `pnpm.overrides` to root-level `overrides`
+- Migrates `pnpm.patchedDependencies` to root-level `patchedDependencies`
+
+Requirements: pnpm lockfile version 7+, workspace packages must have a `name`, and every referenced catalog entry must be defined.
+
 ## Bun runtime features (Bun ≥1.3.14)
 
 ### `process.execve()` — replace process image
