@@ -300,6 +300,7 @@ export function markdownToHtmlFallback(text: string): string {
     .map((p) => {
       const trimmed = p.trim();
       if (!trimmed) return "";
+      // Only placeholder-only paragraphs bypass escaping; mixed text is escaped below.
       if (isPlaceholderToken(trimmed)) return trimmed;
       if (trimmed.includes("\u0000HTML")) {
         const rendered = splitPlaceholderParagraph(trimmed)
