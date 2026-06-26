@@ -1035,7 +1035,9 @@ test("visible probe", () => {
       const args = bunTestArgsForTier(TEST_TIER_SPECS.unit, { repoRoot: REPO_ROOT });
       expect(readTimeoutMsFromBunTestArgs(args)).toBe(TEST_TIER_SPECS.unit.timeoutMs);
       expect(args).not.toContain("--preload");
-      expect(resolveKimiTestPreloadPath(REPO_ROOT)).toBe(KIMI_BUNFIG_TEST_CONTRACT.preload[0] ?? "");
+      expect(resolveKimiTestPreloadPath(REPO_ROOT)).toBe(
+        KIMI_BUNFIG_TEST_CONTRACT.preload[0] ?? ""
+      );
     });
 
     test("native bun test: bunfig preload runs before tests", async () => {

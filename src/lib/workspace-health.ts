@@ -526,15 +526,15 @@ export async function auditWorkspaceHealth(
     const isBlocker = isToolchain && canonicalClonePresent;
     if (slug) {
       const active = isCursorSlugActive(slug);
-    const activeHint = active
-      ? " (ACTIVE — close this agent chat, quit Cursor, reopen kimi-toolchain.code-workspace)"
-      : "";
-    checks.push({
-      name: "cursor-workspace",
-      status: isBlocker ? "error" : "warn",
-      message: `legacy slug ${slug}${activeHint} — run kimi-toolchain workspace fix --deep`,
-      fixable: true,
-    });
+      const activeHint = active
+        ? " (ACTIVE — close this agent chat, quit Cursor, reopen kimi-toolchain.code-workspace)"
+        : "";
+      checks.push({
+        name: "cursor-workspace",
+        status: isBlocker ? "error" : "warn",
+        message: `legacy slug ${slug}${activeHint} — run kimi-toolchain workspace fix --deep`,
+        fixable: true,
+      });
     }
   }
 

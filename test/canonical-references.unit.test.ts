@@ -100,7 +100,10 @@ describe("canonical-references", () => {
 
   test("ecosystemReferenceInspectRow uses formatted status column", () => {
     const repoNameById = new Map(REPO_REFERENCES.map((r) => [r.id, r.name]));
-    const row = ecosystemReferenceInspectRow(ECOSYSTEM_BY_ID["bun"] ?? getEcosystem("bun"), repoNameById);
+    const row = ecosystemReferenceInspectRow(
+      ECOSYSTEM_BY_ID["bun"] ?? getEcosystem("bun"),
+      repoNameById
+    );
     expect(row.status).toBe("✅ active");
     expect(row.repoId).toBe("bun-upstream");
   });

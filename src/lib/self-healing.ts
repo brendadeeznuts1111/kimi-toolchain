@@ -433,25 +433,29 @@ function inferPlaybook(cluster: ErrorCluster, taxonomyId: string): ClusterPlaybo
   }
 
   if (text.includes("timeout") || text.includes("timed out")) {
-    return CLUSTER_PLAYBOOKS.timeout_hang ?? {
-      title: "Investigate timeout or hang",
-      reason: "Cluster text referenced a timeout but no timeout playbook was registered.",
-      command: ["bun", "run", "doctor", "--quick"],
-      safeToAutoApply: false,
-      status: "manual",
-      confidence: 0.5,
-    };
+    return (
+      CLUSTER_PLAYBOOKS.timeout_hang ?? {
+        title: "Investigate timeout or hang",
+        reason: "Cluster text referenced a timeout but no timeout playbook was registered.",
+        command: ["bun", "run", "doctor", "--quick"],
+        safeToAutoApply: false,
+        status: "manual",
+        confidence: 0.5,
+      }
+    );
   }
 
   if (text.includes("lockfile") || text.includes("bun.lock")) {
-    return CLUSTER_PLAYBOOKS.lockfile_issue ?? {
-      title: "Inspect lockfile issue",
-      reason: "Cluster text referenced a lockfile issue but no lockfile playbook was registered.",
-      command: ["bun", "install"],
-      safeToAutoApply: false,
-      status: "manual",
-      confidence: 0.5,
-    };
+    return (
+      CLUSTER_PLAYBOOKS.lockfile_issue ?? {
+        title: "Inspect lockfile issue",
+        reason: "Cluster text referenced a lockfile issue but no lockfile playbook was registered.",
+        command: ["bun", "install"],
+        safeToAutoApply: false,
+        status: "manual",
+        confidence: 0.5,
+      }
+    );
   }
 
   return {
