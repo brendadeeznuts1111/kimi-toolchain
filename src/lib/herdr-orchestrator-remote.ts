@@ -272,7 +272,7 @@ export function notifyWebhook(
         body: JSON.stringify(payload),
         timeoutMs: 10_000,
       });
-      const status = (res as unknown as { status: number }).status;
+      const status = res.status;
       if (status >= 400 && retriesLeft > 0) {
         await Bun.sleep(retryDelayMs);
         return attempt(retriesLeft - 1);
