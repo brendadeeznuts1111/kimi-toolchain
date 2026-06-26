@@ -195,6 +195,7 @@ async function fetchBunReferenceModules(): Promise<ApiModuleInfo[]> {
 
     for (const match of html.matchAll(/href="(\/reference\/[^"]+)"/g)) {
       const path = match[1];
+      if (!path) continue;
       if (seen.has(path)) continue;
       seen.add(path);
 
@@ -232,9 +233,10 @@ async function fetchBunDocsIndex(): Promise<DocPageInfo[]> {
     const seen = new Set<string>();
 
     for (const match of text.matchAll(/^-\s*\[([^\]]+)\]\(([^)]+)\)(?::\s*(.+))?$/gm)) {
-      const title = match[1].trim();
-      const url = match[2].trim();
+      const title = match[1]?.trim();
+      const url = match[2]?.trim();
       const description = match[3]?.trim();
+      if (!title || !url) continue;
 
       if (seen.has(url)) continue;
       seen.add(url);
@@ -274,8 +276,9 @@ async function fetchRuntimeApis(): Promise<RuntimeApiInfo[]> {
 
     // Match table rows like: | HTTP Server | [`Bun.serve`](/runtime/http/server) |
     for (const match of markdown.matchAll(/^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/gm)) {
-      const topic = match[1].trim();
-      const apiCell = match[2].trim();
+      const topic = match[1]?.trim();
+      const apiCell = match[2]?.trim();
+      if (!topic || !apiCell) continue;
 
       if (!topic || topic === "Topic" || seen.has(topic)) continue;
       seen.add(topic);
@@ -283,7 +286,7 @@ async function fetchRuntimeApis(): Promise<RuntimeApiInfo[]> {
       // Extract API names: Bun.serve, $, Bun.build, etc.
       const apiNames: string[] = [];
       for (const apiMatch of apiCell.matchAll(/`([^`]+)`/g)) {
-        const name = apiMatch[1].trim();
+        const name = apiMatch[1]?.trim();
         if (name && !apiNames.includes(name)) apiNames.push(name);
       }
 
@@ -311,7 +314,7 @@ function parseDocSections(markdown: string, pageUrl: string): DocSectionInfo[] {
   const seen = new Set<string>();
 
   for (const match of markdown.matchAll(/^(#{2,4})\s+(.+)$/gm)) {
-    const rawTitle = match[2]
+    const rawTitle = (match[2] ?? "")
       .replace(/<[^>]+>/g, "")
       .replace(/[`_*]/g, "")
       .trim();
@@ -367,30 +370,45 @@ function parseFlag(line: string): FlagInfo | null {
 
       if (match.length === 5) {
         // Pattern with short flag, long flag, and value
-        [, shortName, longName, valueSpec, description] = match;
+        shortName = match[1];
+        longName = match[2]!;
+        valueSpec = match[3];
+        description = match[4] ?? "";
       } else if (match.length === 4) {
-        if (match[1].startsWith("-") && match[1].length === 2) {
+        const first = match[1] ?? "";
+        const second = match[2] ?? "";
+        if (first.startsWith("-") && first.length === 2) {
           // Short flag with long flag
-          [, shortName, longName, description] = match;
-        } else if (match[2].startsWith("<")) {
+          shortName = first;
+          longName = second;
+          description = match[3] ?? "";
+        } else if (second.startsWith("<")) {
           // Long flag with value
-          [, longName, valueSpec, description] = match;
+          longName = first;
+          valueSpec = second;
+          description = match[3] ?? "";
         } else {
           // Long flag without value
-          [, longName, description] = match;
+          longName = first;
+          description = second;
         }
       } else if (match.length === 3) {
-        if (match[1].length === 2) {
+        const first = match[1] ?? "";
+        const second = match[2] ?? "";
+        if (first.length === 2) {
           // Short flag only
-          [, shortName, description] = match;
+          shortName = first;
+          description = second;
           longName = shortName.replace("-", "--");
         } else {
           // Long flag without value
-          [, longName, description] = match;
+          longName = first;
+          description = second;
         }
       } else {
         continue;
       }
+      if (!longName || !description) continue;
 
       // Extract additional info from description
       const hasValue = !!valueSpec;
@@ -413,7 +431,7 @@ function parseFlag(line: string): FlagInfo | null {
         /(?:One of|Valid (?:orders?|values?|options?)):?\s*"?([^"]+)"?/
       );
       if (choicesMatch) {
-        choices = choicesMatch[1]
+        choices = (choicesMatch[1] ?? "")
           .split(/[,\s]+/)
           .map((s) => s.replace(/[",]/g, "").trim())
           .filter(Boolean);
@@ -555,7 +573,9 @@ function parsePmSubcommands(helpText: string): Record<string, SubcommandInfo> {
       // Parse lines like: "bun pm pack                 create a tarball of the current workspace"
       const match = line.match(/^\s+bun pm (\S+)(?:\s+(.+))?$/);
       if (match) {
-        const [, name, description = ""] = match;
+        const name = match[1];
+        const description = match[2] ?? "";
+        if (!name) continue;
         subcommands[name] = {
           name,
           description: description.trim(),
@@ -605,6 +625,7 @@ function parseHelpOutput(helpText: string, commandName: string): CommandInfo {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (line === undefined) continue;
     const trimmed = line.trim();
 
     // Extract command description (usually the first non-usage, non-section line)
@@ -626,7 +647,7 @@ function parseHelpOutput(helpText: string, commandName: string): CommandInfo {
     if (trimmed.startsWith("Alias:")) {
       const aliasMatch = trimmed.match(/Alias:\s*(.+)/);
       if (aliasMatch) {
-        command.aliases = aliasMatch[1]
+        command.aliases = (aliasMatch[1] ?? "")
           .split(/[,\s]+/)
           .map((a) => a.trim())
           .filter(Boolean);
@@ -765,8 +786,9 @@ function getMainCommands(helpText: string): string[] {
     if (inCommands && line.match(/^\s+\w+/)) {
       // Extract command name (first word after whitespace)
       const match = line.match(/^\s+(\w+)/);
-      if (match) {
-        commands.push(match[1]);
+      const commandName = match?.[1];
+      if (commandName) {
+        commands.push(commandName);
       }
     }
   }
@@ -1096,6 +1118,7 @@ async function generateCompletions(): Promise<void> {
         const content = await response.text();
 
         const cmd = completionData.commands[commandName];
+        if (!cmd) return;
         cmd.docUrl = page.url;
         cmd.docContent = content;
         cmd.sections = parseDocSections(content, page.url);
