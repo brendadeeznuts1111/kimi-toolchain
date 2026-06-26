@@ -76,7 +76,7 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 | File                         | Purpose                                                                                                                                                                                                           |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DIRECTIVE.md`               | Pattern-Hardened Preservation Protocol (v2.0.0) — Bun-native absolutism, 3× deletion metric, §V anti-pattern playbook, mandatory `[SURVIVORSHIP AUDIT]` / `[SELF-REJECT]`.                                        |
-| `package.json`               | Project metadata, `bin` map (31 registered CLI tools), npm scripts, dependencies (`effect`, `js-yaml`), `trustedDependencies` policy, devDependencies (`@types/bun`, `oxfmt`, `oxlint`, `ts-morph`, `typescript`) |
+| `package.json`               | Project metadata, `bin` map (32 registered CLI tools), npm scripts, dependencies (`effect`, `js-yaml`), `trustedDependencies` policy, devDependencies (`@types/bun`, `oxfmt`, `oxlint`, `ts-morph`, `typescript`) |
 | `bunfig.toml`                | Bun install policy (`[install]`), test defaults (`[test]`), and build-time define constants (`[define]`)                                                                                                          |
 | `tsconfig.json`              | TypeScript strict, ESNext, bundler resolution, `noEmit`, includes `src/`, `test/`, `scripts/`, `types/*.d.ts`                                                                                                     |
 | `dx.config.toml`             | Project DX policy: runtime (`containers = "none"`), quality gate script aliases, `[finishWork]` gates, `[herdr]` orchestration layout, `[cloudflare]` read-only mode, `[[endpoints]]` inventory (10 endpoints)    |
@@ -130,7 +130,7 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 
 | Directory            | Contents                                                                                                                                                                                                                                                                                               |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/bin/`           | CLI entry points (31 registered bins in `package.json` `bin`) plus source-only tools (`herdr-*.ts`, `kimi-dashboard.ts`, `kimi-config.ts`, `kimi-identity.ts`, `machine-bun.ts`, etc.). Source-only tools run via `bun run src/bin/<tool>.ts`, `package.json` scripts, or the `kimi-toolchain` router. |
+| `src/bin/`           | CLI entry points (32 registered bins in `package.json` `bin`) plus source-only tools (`herdr-*.ts`, `kimi-dashboard.ts`, `kimi-config.ts`, `kimi-identity.ts`, `machine-bun.ts`, etc.). Source-only tools run via `bun run src/bin/<tool>.ts`, `package.json` scripts, or the `kimi-toolchain` router. |
 | `src/lib/`           | Shared library modules. Flat by default to avoid deep imports and circular dependencies. `src/lib/effect/` is the intentional exception for Effect adapters. See `src/lib/README.md` for the domain map.                                                                                               |
 | `src/install-hooks/` | `postinstall.ts` — Bun package hook that idempotently sets up `~/.kimi-code/`.                                                                                                                                                                                                                         |
 | `src/kimi-hooks/`    | Kimi Code lifecycle hooks (e.g., `log-tool-failure.ts`) that are declared in `~/.kimi-code/config.toml` `[[hooks]]`.                                                                                                                                                                                   |
@@ -153,6 +153,7 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 
 | Bin                      | Entry                               |
 | ------------------------ | ----------------------------------- |
+| `herdr-latm`             | `src/bin/herdr-latm.ts`             |
 | `kimi-bake`              | `src/bin/kimi-bake.ts`              |
 | `kimi-capabilities`      | `src/bin/kimi-capabilities.ts`      |
 | `kimi-cleanup-legacy`    | `src/bin/kimi-cleanup-legacy.ts`    |

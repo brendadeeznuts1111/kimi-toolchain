@@ -52,7 +52,7 @@ const TOOL_INVENTORY = [
     "Scaffold / Release",
     "kimi-bake, kimi-cleanup-legacy, kimi-context-gen, kimi-fix, kimi-new, kimi-release",
   ],
-  ["Herdr", ""],
+  ["Herdr", "herdr-latm"],
   [
     "Infrastructure",
     "kimi-dashboard-mcp (MCP stdio), kimi-mcp (MCP stdio), kimi-restore-baseline, kimi-toolchain (router), kimi-workflow, unified-shell-bridge (MCP stdio)",
@@ -246,11 +246,11 @@ const TOOL_CATEGORIES = [
   { id: "gov", label: "Governance", count: 6 },
   { id: "heal", label: "Heal / Memory", count: 7 },
   { id: "scaffold", label: "Scaffold", count: 6 },
-  { id: "herdr", label: "Herdr", count: 0 },
+  { id: "herdr", label: "Herdr", count: 1 },
   { id: "infra", label: "Router / Bridge", count: 6 },
 ] as const;
 
-const BIN_COUNT = 31;
+const BIN_COUNT = 32;
 const LIB_COUNT = 414;
 const UNIT_COUNT = 426;
 const INTEGRATION_COUNT = 20;

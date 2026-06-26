@@ -27,6 +27,7 @@
     "url": "https://github.com/brendadeeznuts1111/kimi-toolchain.git"
   },
   "bin": {
+    "herdr-latm": "src/bin/herdr-latm.ts",
     "kimi-bake": "src/bin/kimi-bake.ts",
     "kimi-capabilities": "src/bin/kimi-capabilities.ts",
     "kimi-cleanup-legacy": "src/bin/kimi-cleanup-legacy.ts",
