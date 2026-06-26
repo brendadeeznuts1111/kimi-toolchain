@@ -1,0 +1,4895 @@
+{
+  "schema": "1.2.0",
+  "generatedAt": "2026-06-26T00:36:20.012Z",
+  "totalFlags": 713,
+  "categorizedFlags": 443,
+  "uncategorizedFlags": 132,
+  "coveragePercent": 62.13,
+  "byCategory": {
+    "uncategorized": 132,
+    "fileIO": 68,
+    "pm": 251,
+    "runtime": 79,
+    "debug": 74,
+    "network": 68
+  },
+  "globalFlags": [
+    {
+      "flag": "silent",
+      "categories": [
+        "debug"
+      ]
+    },
+    {
+      "flag": "elide-lines",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "version",
+      "categories": [
+        "debug"
+      ]
+    },
+    {
+      "flag": "revision",
+      "categories": [
+        "debug"
+      ]
+    },
+    {
+      "flag": "filter",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "bun",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "no-orphans",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "shell",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "workspaces",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "parallel",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "sequential",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "no-exit-on-error",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "watch",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "hot",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "no-clear-screen",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "smol",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "preload",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "require",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "import",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "inspect",
+      "categories": [
+        "debug"
+      ]
+    },
+    {
+      "flag": "inspect-wait",
+      "categories": [
+        "debug"
+      ]
+    },
+    {
+      "flag": "inspect-brk",
+      "categories": [
+        "debug"
+      ]
+    },
+    {
+      "flag": "cpu-prof",
+      "categories": [
+        "debug"
+      ]
+    },
+    {
+      "flag": "cpu-prof-name",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "cpu-prof-dir",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "cpu-prof-md",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "cpu-prof-interval",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "heap-prof",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "heap-prof-name",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "heap-prof-dir",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "heap-prof-md",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "if-present",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "no-install",
+      "categories": [
+        "pm"
+      ]
+    },
+    {
+      "flag": "install",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "i",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "eval",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "print",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "prefer-offline",
+      "categories": [
+        "pm",
+        "network"
+      ]
+    },
+    {
+      "flag": "prefer-latest",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "port",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "conditions",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "fetch-preconnect",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "experimental-http2-fetch",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "experimental-http3-fetch",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "max-http-header-size",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "dns-result-order",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "experimental-stream-iter",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "expose-gc",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "no-deprecation",
+      "categories": [
+        "runtime",
+        "network"
+      ]
+    },
+    {
+      "flag": "throw-deprecation",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "title",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "zero-fill-buffers",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "use-system-ca",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "use-openssl-ca",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "use-bundled-ca",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "redis-preconnect",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "sql-preconnect",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "no-addons",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "unhandled-rejections",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "console-depth",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "user-agent",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "cron-title",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "cron-period",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "main-fields",
+      "categories": [
+        "runtime"
+      ]
+    },
+    {
+      "flag": "preserve-symlinks",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "preserve-symlinks-main",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "extension-order",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "tsconfig-override",
+      "categories": [
+        "fileIO"
+      ]
+    },
+    {
+      "flag": "define",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "drop",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "feature",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "loader",
+      "categories": [
+        "fileIO"
+      ]
+    },
+    {
+      "flag": "no-macros",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "jsx-factory",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "jsx-fragment",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "jsx-import-source",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "jsx-runtime",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "jsx-side-effects",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "ignore-dce-annotations",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "env-file",
+      "categories": [
+        "fileIO",
+        "runtime"
+      ]
+    },
+    {
+      "flag": "no-env-file",
+      "categories": [
+        "uncategorized"
+      ]
+    },
+    {
+      "flag": "cwd",
+      "categories": [
+        "fileIO",
+        "runtime"
+      ]
+    },
+    {
+      "flag": "config",
+      "categories": [
+        "fileIO"
+      ]
+    },
+    {
+      "flag": "help",
+      "categories": [
+        "uncategorized"
+      ]
+    }
+  ],
+  "commands": [
+    {
+      "command": "run",
+      "flags": [
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "elide-lines",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "filter",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "bun",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "no-orphans",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "shell",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "workspaces",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "parallel",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "sequential",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "no-exit-on-error",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "watch",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "hot",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "no-clear-screen",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "smol",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "preload",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "require",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "import",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "inspect",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "inspect-wait",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "inspect-brk",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "cpu-prof",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "cpu-prof-name",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cpu-prof-dir",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cpu-prof-md",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cpu-prof-interval",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "heap-prof",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "heap-prof-name",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "heap-prof-dir",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "heap-prof-md",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "if-present",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-install",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "install",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "i",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "eval",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "print",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "prefer-offline",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "prefer-latest",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "port",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "conditions",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "fetch-preconnect",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "experimental-http2-fetch",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "experimental-http3-fetch",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "max-http-header-size",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "dns-result-order",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "experimental-stream-iter",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "expose-gc",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-deprecation",
+          "categories": [
+            "runtime",
+            "network"
+          ]
+        },
+        {
+          "flag": "throw-deprecation",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "title",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "zero-fill-buffers",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "use-system-ca",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "use-openssl-ca",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "use-bundled-ca",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "redis-preconnect",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "sql-preconnect",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-addons",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "unhandled-rejections",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "console-depth",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "user-agent",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cron-title",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cron-period",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "main-fields",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "preserve-symlinks",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "preserve-symlinks-main",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "extension-order",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "tsconfig-override",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "define",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "drop",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "feature",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "loader",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-macros",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "jsx-factory",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "jsx-fragment",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "jsx-import-source",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "jsx-runtime",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "jsx-side-effects",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "ignore-dce-annotations",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "env-file",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "no-env-file",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "elide-lines",
+        "shell",
+        "require",
+        "import",
+        "cpu-prof-name",
+        "cpu-prof-dir",
+        "cpu-prof-md",
+        "cpu-prof-interval",
+        "heap-prof",
+        "heap-prof-name",
+        "heap-prof-dir",
+        "heap-prof-md",
+        "if-present",
+        "install",
+        "i",
+        "eval",
+        "print",
+        "prefer-latest",
+        "fetch-preconnect",
+        "experimental-http2-fetch",
+        "experimental-http3-fetch",
+        "max-http-header-size",
+        "dns-result-order",
+        "experimental-stream-iter",
+        "expose-gc",
+        "title",
+        "zero-fill-buffers",
+        "use-system-ca",
+        "use-openssl-ca",
+        "use-bundled-ca",
+        "redis-preconnect",
+        "sql-preconnect",
+        "no-addons",
+        "unhandled-rejections",
+        "console-depth",
+        "user-agent",
+        "cron-title",
+        "cron-period",
+        "preserve-symlinks",
+        "preserve-symlinks-main",
+        "extension-order",
+        "define",
+        "drop",
+        "feature",
+        "no-macros",
+        "jsx-factory",
+        "jsx-fragment",
+        "jsx-import-source",
+        "jsx-runtime",
+        "jsx-side-effects",
+        "ignore-dce-annotations",
+        "no-env-file",
+        "help"
+      ]
+    },
+    {
+      "command": "test",
+      "flags": [
+        {
+          "flag": "no-orphans",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "timeout",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "update-snapshots",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "rerun-each",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "retry",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "todo",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "only",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "pass-with-no-tests",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "concurrent",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "randomize",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "seed",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "coverage",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "coverage-reporter",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "coverage-dir",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "bail",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "test-name-pattern",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "reporter",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "reporter-outfile",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "dots",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "only-failures",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "max-concurrency",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "path-ignore-patterns",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "changed",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "isolate",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "parallel",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "parallel-delay",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "test-worker",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "shard",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "update-snapshots",
+        "rerun-each",
+        "retry",
+        "todo",
+        "only",
+        "pass-with-no-tests",
+        "concurrent",
+        "randomize",
+        "seed",
+        "bail",
+        "test-name-pattern",
+        "reporter",
+        "reporter-outfile",
+        "dots",
+        "max-concurrency",
+        "path-ignore-patterns",
+        "changed",
+        "isolate",
+        "parallel-delay",
+        "test-worker",
+        "shard"
+      ]
+    },
+    {
+      "command": "x",
+      "flags": [
+        {
+          "flag": "bun",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "package",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-install",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "package"
+      ]
+    },
+    {
+      "command": "repl",
+      "flags": [
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "elide-lines",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "filter",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "bun",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "no-orphans",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "shell",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "workspaces",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "parallel",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "sequential",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "no-exit-on-error",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "watch",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "hot",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "no-clear-screen",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "smol",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "preload",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "require",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "import",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "inspect",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "inspect-wait",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "inspect-brk",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "cpu-prof",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "cpu-prof-name",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cpu-prof-dir",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cpu-prof-md",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cpu-prof-interval",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "heap-prof",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "heap-prof-name",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "heap-prof-dir",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "heap-prof-md",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "if-present",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-install",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "install",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "i",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "eval",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "print",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "prefer-offline",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "prefer-latest",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "port",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "conditions",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "fetch-preconnect",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "experimental-http2-fetch",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "experimental-http3-fetch",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "max-http-header-size",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "dns-result-order",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "experimental-stream-iter",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "expose-gc",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-deprecation",
+          "categories": [
+            "runtime",
+            "network"
+          ]
+        },
+        {
+          "flag": "throw-deprecation",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "title",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "zero-fill-buffers",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "use-system-ca",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "use-openssl-ca",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "use-bundled-ca",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "redis-preconnect",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "sql-preconnect",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-addons",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "unhandled-rejections",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "console-depth",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "user-agent",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cron-title",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cron-period",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "main-fields",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "preserve-symlinks",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "preserve-symlinks-main",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "extension-order",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "tsconfig-override",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "define",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "drop",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "feature",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "loader",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-macros",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "jsx-factory",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "jsx-fragment",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "jsx-import-source",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "jsx-runtime",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "jsx-side-effects",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "ignore-dce-annotations",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "env-file",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "no-env-file",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "elide-lines",
+        "shell",
+        "require",
+        "import",
+        "cpu-prof-name",
+        "cpu-prof-dir",
+        "cpu-prof-md",
+        "cpu-prof-interval",
+        "heap-prof",
+        "heap-prof-name",
+        "heap-prof-dir",
+        "heap-prof-md",
+        "if-present",
+        "install",
+        "i",
+        "eval",
+        "print",
+        "prefer-latest",
+        "fetch-preconnect",
+        "experimental-http2-fetch",
+        "experimental-http3-fetch",
+        "max-http-header-size",
+        "dns-result-order",
+        "experimental-stream-iter",
+        "expose-gc",
+        "title",
+        "zero-fill-buffers",
+        "use-system-ca",
+        "use-openssl-ca",
+        "use-bundled-ca",
+        "redis-preconnect",
+        "sql-preconnect",
+        "no-addons",
+        "unhandled-rejections",
+        "console-depth",
+        "user-agent",
+        "cron-title",
+        "cron-period",
+        "preserve-symlinks",
+        "preserve-symlinks-main",
+        "extension-order",
+        "define",
+        "drop",
+        "feature",
+        "no-macros",
+        "jsx-factory",
+        "jsx-fragment",
+        "jsx-import-source",
+        "jsx-runtime",
+        "jsx-side-effects",
+        "ignore-dce-annotations",
+        "no-env-file",
+        "help"
+      ]
+    },
+    {
+      "command": "exec",
+      "flags": [],
+      "uncategorized": []
+    },
+    {
+      "command": "install",
+      "flags": [
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "yarn",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "no-save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "ca",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "cafile",
+          "categories": [
+            "fileIO",
+            "network"
+          ]
+        },
+        {
+          "flag": "dry-run",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "frozen-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "force",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cache-dir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-cache",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "quiet",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-progress",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-summary",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-verify",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "ignore-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "trust",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "global",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "backend",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "registry",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "concurrent-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "network-concurrency",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "save-text-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "omit",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "lockfile-only",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "linker",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "minimum-release-age",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cpu",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "os",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "dev",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "optional",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "peer",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "exact",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "filter",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "analyze",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "only-missing",
+          "categories": [
+            "pm"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "cpu",
+        "os",
+        "help",
+        "analyze"
+      ]
+    },
+    {
+      "command": "add",
+      "flags": [
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "yarn",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "no-save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "ca",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "cafile",
+          "categories": [
+            "fileIO",
+            "network"
+          ]
+        },
+        {
+          "flag": "dry-run",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "frozen-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "force",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cache-dir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-cache",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "quiet",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-progress",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-summary",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-verify",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "ignore-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "trust",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "global",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "backend",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "registry",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "concurrent-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "network-concurrency",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "save-text-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "omit",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "lockfile-only",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "linker",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "minimum-release-age",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cpu",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "os",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "dev",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "optional",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "peer",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "exact",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "analyze",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "only-missing",
+          "categories": [
+            "pm"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "cpu",
+        "os",
+        "help",
+        "analyze"
+      ]
+    },
+    {
+      "command": "remove",
+      "flags": [
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "yarn",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "no-save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "ca",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "cafile",
+          "categories": [
+            "fileIO",
+            "network"
+          ]
+        },
+        {
+          "flag": "dry-run",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "frozen-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "force",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cache-dir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-cache",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "quiet",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-progress",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-summary",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-verify",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "ignore-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "trust",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "global",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "backend",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "registry",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "concurrent-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "network-concurrency",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "save-text-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "omit",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "lockfile-only",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "linker",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "minimum-release-age",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cpu",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "os",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "cpu",
+        "os",
+        "help"
+      ]
+    },
+    {
+      "command": "update",
+      "flags": [
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "yarn",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "no-save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "ca",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "cafile",
+          "categories": [
+            "fileIO",
+            "network"
+          ]
+        },
+        {
+          "flag": "dry-run",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "frozen-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "force",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cache-dir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-cache",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "quiet",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-progress",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-summary",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-verify",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "ignore-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "trust",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "global",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "backend",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "registry",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "concurrent-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "network-concurrency",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "save-text-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "omit",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "lockfile-only",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "linker",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "minimum-release-age",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cpu",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "os",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "latest",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "interactive",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "filter",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "recursive",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "cpu",
+        "os",
+        "help",
+        "latest",
+        "interactive",
+        "recursive"
+      ]
+    },
+    {
+      "command": "audit",
+      "flags": [
+        {
+          "flag": "json",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "audit-level",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "ignore",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "json",
+        "audit-level",
+        "ignore"
+      ]
+    },
+    {
+      "command": "outdated",
+      "flags": [
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "yarn",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "no-save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "ca",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "cafile",
+          "categories": [
+            "fileIO",
+            "network"
+          ]
+        },
+        {
+          "flag": "dry-run",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "frozen-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "force",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cache-dir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-cache",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "quiet",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-progress",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-summary",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-verify",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "ignore-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "trust",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "global",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "backend",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "registry",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "concurrent-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "network-concurrency",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "save-text-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "omit",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "lockfile-only",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "linker",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "minimum-release-age",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cpu",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "os",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "filter",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "recursive",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "cpu",
+        "os",
+        "help",
+        "recursive"
+      ]
+    },
+    {
+      "command": "link",
+      "flags": [
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "yarn",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "no-save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "ca",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "cafile",
+          "categories": [
+            "fileIO",
+            "network"
+          ]
+        },
+        {
+          "flag": "dry-run",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "frozen-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "force",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cache-dir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-cache",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "quiet",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-progress",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-summary",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-verify",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "ignore-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "trust",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "global",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "backend",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "registry",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "concurrent-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "network-concurrency",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "save-text-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "omit",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "lockfile-only",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "linker",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "minimum-release-age",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cpu",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "os",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "cpu",
+        "os",
+        "help"
+      ]
+    },
+    {
+      "command": "unlink",
+      "flags": [
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "yarn",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "no-save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "ca",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "cafile",
+          "categories": [
+            "fileIO",
+            "network"
+          ]
+        },
+        {
+          "flag": "dry-run",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "frozen-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "force",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cache-dir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-cache",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "quiet",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-progress",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-summary",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-verify",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "ignore-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "trust",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "global",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "backend",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "registry",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "concurrent-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "network-concurrency",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "save-text-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "omit",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "lockfile-only",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "linker",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "minimum-release-age",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cpu",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "os",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "cpu",
+        "os",
+        "help"
+      ]
+    },
+    {
+      "command": "publish",
+      "flags": [
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "yarn",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "no-save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "ca",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "cafile",
+          "categories": [
+            "fileIO",
+            "network"
+          ]
+        },
+        {
+          "flag": "dry-run",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "frozen-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "force",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cache-dir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-cache",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "quiet",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-progress",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-summary",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-verify",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "ignore-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "trust",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "global",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "backend",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "registry",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "concurrent-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "network-concurrency",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "save-text-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "omit",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "lockfile-only",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "linker",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "minimum-release-age",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cpu",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "os",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "access",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "tag",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "otp",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "auth-type",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "gzip-level",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "tolerate-republish",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "cpu",
+        "os",
+        "help",
+        "otp",
+        "gzip-level",
+        "tolerate-republish"
+      ]
+    },
+    {
+      "command": "patch",
+      "flags": [
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "yarn",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "no-save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "ca",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "cafile",
+          "categories": [
+            "fileIO",
+            "network"
+          ]
+        },
+        {
+          "flag": "dry-run",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "frozen-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "force",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cache-dir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-cache",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "quiet",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-progress",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-summary",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-verify",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "ignore-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "trust",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "global",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "backend",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "registry",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "concurrent-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "network-concurrency",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "save-text-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "omit",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "lockfile-only",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "linker",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "minimum-release-age",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cpu",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "os",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "commit",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "patches-dir",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "cpu",
+        "os",
+        "help",
+        "commit",
+        "patches-dir"
+      ]
+    },
+    {
+      "command": "pm",
+      "flags": [],
+      "uncategorized": []
+    },
+    {
+      "command": "info",
+      "flags": [
+        {
+          "flag": "config",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "yarn",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "no-save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "save",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "ca",
+          "categories": [
+            "network"
+          ]
+        },
+        {
+          "flag": "cafile",
+          "categories": [
+            "fileIO",
+            "network"
+          ]
+        },
+        {
+          "flag": "dry-run",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "frozen-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "force",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cache-dir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "no-cache",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "silent",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "quiet",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "verbose",
+          "categories": [
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-progress",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-summary",
+          "categories": [
+            "pm",
+            "debug"
+          ]
+        },
+        {
+          "flag": "no-verify",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "ignore-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "trust",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "global",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cwd",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "backend",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "registry",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "concurrent-scripts",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "network-concurrency",
+          "categories": [
+            "pm",
+            "network"
+          ]
+        },
+        {
+          "flag": "save-text-lockfile",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "omit",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "lockfile-only",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "linker",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "minimum-release-age",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "cpu",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "os",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "json",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "cpu",
+        "os",
+        "help",
+        "json"
+      ]
+    },
+    {
+      "command": "why",
+      "flags": [],
+      "uncategorized": []
+    },
+    {
+      "command": "build",
+      "flags": [
+        {
+          "flag": "production",
+          "categories": [
+            "pm"
+          ]
+        },
+        {
+          "flag": "compile",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "compile-exec-argv",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "compile-autoload-dotenv",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-compile-autoload-dotenv",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "compile-autoload-bunfig",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-compile-autoload-bunfig",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "compile-autoload-tsconfig",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-compile-autoload-tsconfig",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "compile-autoload-package-json",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-compile-autoload-package-json",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "compile-executable-path",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "bytecode",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "watch",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "no-clear-screen",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "target",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "outdir",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "outfile",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "metafile",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "metafile-md",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "sourcemap",
+          "categories": [
+            "fileIO",
+            "debug"
+          ]
+        },
+        {
+          "flag": "banner",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "footer",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "format",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "root",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "splitting",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "public-path",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "external",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "allow-unresolved",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "reject-unresolved",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "packages",
+          "categories": [
+            "fileIO",
+            "runtime"
+          ]
+        },
+        {
+          "flag": "entry-naming",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "chunk-naming",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "asset-naming",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "react-fast-refresh",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "react-compiler",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "no-bundle",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "emit-dce-annotations",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "minify",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "minify-syntax",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "minify-whitespace",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "minify-identifiers",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "keep-names",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "css-chunking",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "conditions",
+          "categories": [
+            "runtime"
+          ]
+        },
+        {
+          "flag": "app",
+          "categories": [
+            "fileIO"
+          ]
+        },
+        {
+          "flag": "server-components",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "env",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "windows-hide-console",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "windows-icon",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "windows-title",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "windows-publisher",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "windows-version",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "windows-description",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "windows-copyright",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "debug-dump-server-files",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "debug-no-minify",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "compile",
+        "compile-exec-argv",
+        "compile-autoload-dotenv",
+        "no-compile-autoload-dotenv",
+        "compile-autoload-bunfig",
+        "no-compile-autoload-bunfig",
+        "compile-autoload-tsconfig",
+        "no-compile-autoload-tsconfig",
+        "compile-autoload-package-json",
+        "no-compile-autoload-package-json",
+        "compile-executable-path",
+        "bytecode",
+        "metafile",
+        "metafile-md",
+        "banner",
+        "footer",
+        "root",
+        "public-path",
+        "allow-unresolved",
+        "reject-unresolved",
+        "react-fast-refresh",
+        "react-compiler",
+        "no-bundle",
+        "emit-dce-annotations",
+        "minify-syntax",
+        "minify-whitespace",
+        "minify-identifiers",
+        "keep-names",
+        "css-chunking",
+        "server-components",
+        "env",
+        "windows-hide-console",
+        "windows-icon",
+        "windows-title",
+        "windows-publisher",
+        "windows-version",
+        "windows-description",
+        "windows-copyright",
+        "debug-dump-server-files",
+        "debug-no-minify"
+      ]
+    },
+    {
+      "command": "init",
+      "flags": [
+        {
+          "flag": "help",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "yes",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "minimal",
+          "categories": [
+            "uncategorized"
+          ]
+        },
+        {
+          "flag": "react",
+          "categories": [
+            "uncategorized"
+          ]
+        }
+      ],
+      "uncategorized": [
+        "help",
+        "yes",
+        "minimal",
+        "react"
+      ]
+    },
+    {
+      "command": "create",
+      "flags": [],
+      "uncategorized": []
+    },
+    {
+      "command": "upgrade",
+      "flags": [],
+      "uncategorized": []
+    },
+    {
+      "command": "feedback",
+      "flags": [],
+      "uncategorized": []
+    }
+  ],
+  "uncategorized": [
+    "allow-unresolved",
+    "analyze",
+    "audit-level",
+    "bail",
+    "banner",
+    "bytecode",
+    "changed",
+    "commit",
+    "compile",
+    "compile-autoload-bunfig",
+    "compile-autoload-dotenv",
+    "compile-autoload-package-json",
+    "compile-autoload-tsconfig",
+    "compile-exec-argv",
+    "compile-executable-path",
+    "concurrent",
+    "console-depth",
+    "cpu",
+    "cpu-prof-dir",
+    "cpu-prof-interval",
+    "cpu-prof-md",
+    "cpu-prof-name",
+    "cron-period",
+    "cron-title",
+    "css-chunking",
+    "debug-dump-server-files",
+    "debug-no-minify",
+    "define",
+    "dns-result-order",
+    "dots",
+    "drop",
+    "elide-lines",
+    "emit-dce-annotations",
+    "env",
+    "eval",
+    "experimental-http2-fetch",
+    "experimental-http3-fetch",
+    "experimental-stream-iter",
+    "expose-gc",
+    "extension-order",
+    "feature",
+    "fetch-preconnect",
+    "footer",
+    "gzip-level",
+    "heap-prof",
+    "heap-prof-dir",
+    "heap-prof-md",
+    "heap-prof-name",
+    "help",
+    "i",
+    "if-present",
+    "ignore",
+    "ignore-dce-annotations",
+    "import",
+    "install",
+    "interactive",
+    "isolate",
+    "json",
+    "jsx-factory",
+    "jsx-fragment",
+    "jsx-import-source",
+    "jsx-runtime",
+    "jsx-side-effects",
+    "keep-names",
+    "latest",
+    "max-concurrency",
+    "max-http-header-size",
+    "metafile",
+    "metafile-md",
+    "minify-identifiers",
+    "minify-syntax",
+    "minify-whitespace",
+    "minimal",
+    "no-addons",
+    "no-bundle",
+    "no-compile-autoload-bunfig",
+    "no-compile-autoload-dotenv",
+    "no-compile-autoload-package-json",
+    "no-compile-autoload-tsconfig",
+    "no-env-file",
+    "no-macros",
+    "only",
+    "os",
+    "otp",
+    "package",
+    "parallel-delay",
+    "pass-with-no-tests",
+    "patches-dir",
+    "path-ignore-patterns",
+    "prefer-latest",
+    "preserve-symlinks",
+    "preserve-symlinks-main",
+    "print",
+    "public-path",
+    "randomize",
+    "react",
+    "react-compiler",
+    "react-fast-refresh",
+    "recursive",
+    "redis-preconnect",
+    "reject-unresolved",
+    "reporter",
+    "reporter-outfile",
+    "require",
+    "rerun-each",
+    "retry",
+    "root",
+    "seed",
+    "server-components",
+    "shard",
+    "shell",
+    "sql-preconnect",
+    "test-name-pattern",
+    "test-worker",
+    "title",
+    "todo",
+    "tolerate-republish",
+    "unhandled-rejections",
+    "update-snapshots",
+    "use-bundled-ca",
+    "use-openssl-ca",
+    "use-system-ca",
+    "user-agent",
+    "windows-copyright",
+    "windows-description",
+    "windows-hide-console",
+    "windows-icon",
+    "windows-publisher",
+    "windows-title",
+    "windows-version",
+    "yes",
+    "zero-fill-buffers"
+  ]
+}

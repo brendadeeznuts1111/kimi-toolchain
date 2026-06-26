@@ -5,6 +5,9 @@
  * Reads completions/bun-cli.json and produces:
  *   - completions/COMPLETION_MATRIX.md   (human-readable flag taxonomy)
  *   - completions/DYNAMIC_SOURCES.json   (machine-readable dynamic completion contract)
+ *   - completions/flag-taxonomy.json     (flag category coverage report)
+ *   - completions/COMPLETION_MATRIX.csv  (spreadsheet export)
+ *   - completions/COMPLETION_MATRIX.html (self-contained dashboard)
  *
  * Enhanced with Bun-native APIs throughout:
  *   Bun.file / Bun.write / Bun.SHA256 / Bun.inspect.table / Bun.stringWidth
@@ -36,6 +39,7 @@ import {
   criticalInheritedFlags,
   type CompletionData,
 } from "../src/completions/completion-matrix.ts";
+import { buildTaxonomyCoverage } from "../src/completions/taxonomy-coverage.ts";
 
 // ── Constants ───────────────────────────────────────────────────
 const JSON_PATH = "completions/bun-cli.json";
@@ -43,6 +47,7 @@ const MATRIX_PATH = "completions/COMPLETION_MATRIX.md";
 const DYNAMIC_SOURCES_PATH = "completions/DYNAMIC_SOURCES.json";
 const CSV_PATH = "completions/COMPLETION_MATRIX.csv";
 const HTML_PATH = "completions/COMPLETION_MATRIX.html";
+const TAXONOMY_PATH = "completions/flag-taxonomy.json";
 
 // ── CLI options ─────────────────────────────────────────────────
 const args = Bun.argv.slice(2);
@@ -217,6 +222,8 @@ const csvContent = makeCsv(topLevelRows);
 function buildArtifacts(generatedAt: string): {
   dynamicSources: ReturnType<typeof buildDynamicSources>;
   htmlContent: string;
+  taxonomyContent: string;
+  coverageReport: ReturnType<typeof buildTaxonomyCoverage>;
 } {
   const dynamicSources = {
     ...buildDynamicSources(typedData.version, liveBunVersion, jsonHash),
@@ -233,7 +240,9 @@ function buildArtifacts(generatedAt: string): {
     pmRows,
     globalFlagCount: typedData.globalFlags.length,
   });
-  return { dynamicSources, htmlContent };
+  const coverageReport = buildTaxonomyCoverage(typedData, generatedAt);
+  const taxonomyContent = JSON.stringify(coverageReport, null, 2);
+  return { dynamicSources, htmlContent, taxonomyContent, coverageReport };
 }
 
 async function readExisting(path: string): Promise<string | null> {
@@ -249,12 +258,13 @@ async function checkArtifacts(): Promise<{ ok: boolean; messages: string[] }> {
   const generatedAt = existingDynamic
     ? ((JSON.parse(existingDynamic).generatedAt as string) ?? new Date().toISOString())
     : new Date().toISOString();
-  const { dynamicSources, htmlContent } = buildArtifacts(generatedAt);
+  const { dynamicSources, htmlContent, taxonomyContent } = buildArtifacts(generatedAt);
   const dynamicContent = JSON.stringify(dynamicSources, null, 2);
 
   const checks: { name: string; path: string; actual: string }[] = [
     { name: "Matrix", path: MATRIX_PATH, actual: matrixContent },
     { name: "Dynamic sources", path: DYNAMIC_SOURCES_PATH, actual: dynamicContent },
+    { name: "Taxonomy", path: TAXONOMY_PATH, actual: taxonomyContent },
   ];
   if (writeCsv) checks.push({ name: "CSV", path: CSV_PATH, actual: csvContent });
   if (writeHtml) checks.push({ name: "HTML", path: HTML_PATH, actual: htmlContent });
@@ -286,11 +296,12 @@ if (checkMode) {
 }
 
 const now = new Date().toISOString();
-const { dynamicSources, htmlContent } = buildArtifacts(now);
+const { dynamicSources, htmlContent, taxonomyContent, coverageReport } = buildArtifacts(now);
 const dynamicContent = JSON.stringify(dynamicSources, null, 2);
 
 if (dryRun) {
   console.log(`🔍 Dry run: would write ${MATRIX_PATH}, ${DYNAMIC_SOURCES_PATH}`);
+  console.log(`🔍 Dry run: would write ${TAXONOMY_PATH}`);
   if (writeCsv) console.log(`🔍 Dry run: would write ${CSV_PATH}`);
   if (writeHtml) console.log(`🔍 Dry run: would write ${HTML_PATH}`);
 } else {
@@ -301,6 +312,12 @@ if (dryRun) {
   // ── Bun-native JSON write ─────────────────────────────────────
   await Bun.write(DYNAMIC_SOURCES_PATH, dynamicContent);
   console.log(`✅ Wrote ${DYNAMIC_SOURCES_PATH}`);
+
+  // ── Taxonomy coverage report ──────────────────────────────────
+  await Bun.write(TAXONOMY_PATH, taxonomyContent);
+  console.log(
+    `✅ Wrote ${TAXONOMY_PATH} (${coverageReport.coveragePercent}% coverage, ${coverageReport.uncategorizedFlags} uncategorized)`
+  );
 
   // ── CSV export ────────────────────────────────────────────────
   if (writeCsv) {
@@ -338,6 +355,7 @@ if (!Bun.deepEquals(actualSorted, expectedSorted)) {
 const statusRows: Record<string, string>[] = [
   { Artifact: "Matrix", Path: MATRIX_PATH, Hash: jsonHash },
   { Artifact: "Dynamic sources", Path: DYNAMIC_SOURCES_PATH, Hash: "—" },
+  { Artifact: "Taxonomy", Path: TAXONOMY_PATH, Hash: "—" },
   { Artifact: "Bun version", Path: bunPath ?? "—", Hash: liveBunVersion },
   { Artifact: "Bun revision", Path: "—", Hash: liveBunRevision },
 ];
