@@ -73,9 +73,10 @@ export function resolveDashboardProjectRoot(moduleDir = import.meta.dir): string
 
 function retentionMsPayload(): Record<string, number> {
   return Object.fromEntries(
-    (Object.entries(GATE_LEVEL_PRUNE_MS) as unknown as Array<[GateLevel, number]>).map(
-      ([level, ms]) => [String(level), ms]
-    )
+    (Object.entries(GATE_LEVEL_PRUNE_MS) as Array<[GateLevel, number]>).map(([level, ms]) => [
+      String(level),
+      ms,
+    ])
   ) as Record<string, number>;
 }
 
