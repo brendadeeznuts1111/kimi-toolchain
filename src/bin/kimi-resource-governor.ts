@@ -37,6 +37,8 @@ import { ParallelGovernor } from "../lib/governor-parallel.ts";
 import { cachedExec } from "../lib/governor-cache.ts";
 import { createLogger } from "../lib/logger.ts";
 
+type CountRow = { c: number };
+
 const logger = createLogger(Bun.argv, "kimi-resource-governor");
 const GOVERNOR_DIR = governorDir();
 const DB_PATH = join(GOVERNOR_DIR, "resource-cache.sqlite");
@@ -46,7 +48,7 @@ const DB_PATH = join(GOVERNOR_DIR, "resource-cache.sqlite");
 async function getDiskUsage(dir: string): Promise<number> {
   try {
     const result = await governedSpawn(["du", "-sk", dir]);
-    const kb = parseInt(result.stdout.split(/\s+/)[0], 10);
+    const kb = parseInt(result.stdout.split(/\s+/)[0] ?? "", 10);
     return Math.round(kb / 1024);
   } catch {
     return 0;
@@ -97,11 +99,11 @@ function doctor(): Array<{
   }
 
   // Cache health
-  const cacheCount = (db.query("SELECT COUNT(*) as c FROM diagnostic_cache").get() as any).c;
+  const cacheCount = (db.query("SELECT COUNT(*) as c FROM diagnostic_cache").get() as CountRow).c;
   const expiredCount = (
     db
       .query("SELECT COUNT(*) as c FROM diagnostic_cache WHERE expires_at < ?")
-      .get(Date.now()) as any
+      .get(Date.now()) as CountRow
   ).c;
   checks.push({
     name: "cache",
@@ -113,7 +115,7 @@ function doctor(): Array<{
   // Stuck sessions
   const stuck = db
     .query("SELECT COUNT(*) as c FROM resource_sessions WHERE ended_at IS NULL AND started_at < ?")
-    .get(Date.now() - DEFAULTS.wallClockMs * 2) as any;
+    .get(Date.now() - DEFAULTS.wallClockMs * 2) as CountRow;
   checks.push({
     name: "stuck-sessions",
     status: stuck.c > 0 ? "warn" : "ok",
@@ -314,8 +316,8 @@ async function main(): Promise<number> {
     const db = getDb();
     const active = db
       .query("SELECT COUNT(*) as c FROM resource_sessions WHERE ended_at IS NULL")
-      .get() as any;
-    const total = db.query("SELECT COUNT(*) as c FROM resource_sessions").get() as any;
+      .get() as CountRow;
+    const total = db.query("SELECT COUNT(*) as c FROM resource_sessions").get() as CountRow;
     db.close();
 
     logger.line(`  Active sessions: ${active.c}`);
