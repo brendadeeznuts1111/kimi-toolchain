@@ -494,3 +494,94 @@ export function buildDynamicSources(
     },
   };
 }
+
+// ── Export helpers ──────────────────────────────────────────────
+
+function csvCell(value: string | number): string {
+  const text = String(value);
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+export function makeCsv(rows: Record<string, string | number>[]): string {
+  if (rows.length === 0) return "";
+  const cols = Object.keys(rows[0]);
+  const header = cols.map(csvCell).join(",");
+  const body = rows.map((r) => cols.map((c) => csvCell(r[c])).join(","));
+  return [header, ...body].join("\n");
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function makeHtmlReport(options: {
+  title: string;
+  bunVersion: string;
+  revision: string;
+  schema: string;
+  jsonHash: string;
+  generatedAt: string;
+  topLevelRows: Record<string, string | number>[];
+  pmRows: Record<string, string | number>[];
+  globalFlagCount: number;
+}): string {
+  const head = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(options.title)}</title>
+  <style>
+    :root { --bg: #0f172a; --surface: #1e293b; --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 2rem; }
+    h1 { margin: 0 0 0.5rem; }
+    .meta { color: var(--muted); margin-bottom: 1.5rem; }
+    table { border-collapse: collapse; width: 100%; background: var(--surface); border-radius: 0.5rem; overflow: hidden; margin-bottom: 2rem; }
+    th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--bg); }
+    th { background: #334155; font-weight: 600; }
+    tr:hover { background: rgba(255,255,255,0.03); }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(options.title)}</h1>
+  <p class="meta">
+    Schema v${escapeHtml(options.schema)} · Bun ${escapeHtml(options.bunVersion)} · ${escapeHtml(options.revision)} · hash ${escapeHtml(options.jsonHash)} · ${escapeHtml(options.generatedAt)}
+  </p>
+  <h2>Top-level commands</h2>`;
+
+  const renderTable = (rows: Record<string, string | number>[]) => {
+    if (rows.length === 0) return "<p>No data.</p>";
+    const cols = Object.keys(rows[0]);
+    return `<table>
+  <thead>
+    <tr>${cols.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr>
+  </thead>
+  <tbody>
+${rows
+  .map(
+    (r) =>
+      `    <tr>${cols.map((c) => `<td${typeof r[c] === "number" ? ' class="num"' : ""}>${escapeHtml(String(r[c]))}</td>`).join("")}</tr>`
+  )
+  .join("\n")}
+  </tbody>
+</table>`;
+  };
+
+  const tail = `
+  <h2><code>bun pm</code> subcommands</h2>
+  ${renderTable(options.pmRows)}
+  <p class="meta">Global flags: ${options.globalFlagCount}</p>
+</body>
+</html>`;
+
+  return `${head}\n${renderTable(options.topLevelRows)}\n${tail}`;
+}

@@ -6,6 +6,8 @@
 import { describe, test, expect } from "bun:test";
 import {
   makeTable,
+  makeCsv,
+  makeHtmlReport,
   classifyFlag,
   cleanAliases,
   inheritsGlobals,
@@ -294,6 +296,78 @@ describe("completion-matrix", () => {
 
       expect(matrixHeader).toContain(`schema v${schema}`);
       expect(dynamicSources.schema).toBe(schema);
+    });
+  });
+
+  // ── 8. CSV export ───────────────────────────────────────────────
+  describe("makeCsv export", () => {
+    test("produces RFC 4180-style CSV", () => {
+      const rows = [
+        { Command: "install", Flags: 41 },
+        { Command: "build", Flags: 57 },
+      ];
+
+      expect(makeCsv(rows)).toBe("Command,Flags\ninstall,41\nbuild,57");
+    });
+
+    test("quotes cells containing commas, quotes, or newlines", () => {
+      const rows = [
+        { Command: "install", Description: "a, b" },
+        { Command: "build", Description: 'say "hi"' },
+      ];
+
+      expect(makeCsv(rows)).toBe('Command,Description\ninstall,"a, b"\nbuild,"say ""hi"""');
+    });
+
+    test("returns empty string for empty rows", () => {
+      expect(makeCsv([])).toBe("");
+    });
+  });
+
+  // ── 9. HTML report ──────────────────────────────────────────────
+  describe("makeHtmlReport", () => {
+    test("renders a self-contained HTML document", () => {
+      const html = makeHtmlReport({
+        title: "Bun CLI Completion Behavior Matrix",
+        bunVersion: "1.4.0",
+        revision: "452139e36",
+        schema: "1.2.0",
+        jsonHash: "909ceece8ae5",
+        generatedAt: "2026-06-25T12:44:00.000Z",
+        topLevelRows: [
+          { Command: "install", Flags: 41 },
+          { Command: "build", Flags: 57 },
+        ],
+        pmRows: [{ Path: "pm install", Flags: 12 }],
+        globalFlagCount: 84,
+      });
+
+      expect(html).toContain("<!DOCTYPE html>");
+      expect(html).toContain("Bun CLI Completion Behavior Matrix");
+      expect(html).toContain("Schema v1.2.0");
+      expect(html).toContain("Bun 1.4.0");
+      expect(html).toContain("909ceece8ae5");
+      expect(html).toContain("<table>");
+      expect(html).toContain("install");
+      expect(html).toContain("pm install");
+      expect(html).toContain("Global flags: 84");
+    });
+
+    test("escapes HTML special characters in metadata", () => {
+      const html = makeHtmlReport({
+        title: "Bun <script>alert(1)</script>",
+        bunVersion: "1.0.0",
+        revision: "abc",
+        schema: "1.0.0",
+        jsonHash: "deadbeef1234",
+        generatedAt: "now",
+        topLevelRows: [],
+        pmRows: [],
+        globalFlagCount: 0,
+      });
+
+      expect(html).not.toContain("<script>alert(1)</script>");
+      expect(html).toContain("Bun &lt;script&gt;alert(1)&lt;/script&gt;");
     });
   });
 });
