@@ -1,5 +1,6 @@
 import { join } from "path";
 import { describe, expect, test } from "bun:test";
+import { REPO_ROOT } from "./helpers.ts";
 import {
   buildBaselineFromViolations,
   defaultConfig,
@@ -23,8 +24,6 @@ function v(ruleId: string, file: string, line: number): Violation {
     replacement: "y",
   };
 }
-
-const REPO_ROOT = join(import.meta.dir, "..");
 
 describe("bun-native-lint", () => {
   test("enforce rules fail even when baselined", () => {

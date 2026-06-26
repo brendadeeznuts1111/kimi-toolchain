@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
+import { REPO_ROOT } from "./helpers.ts";
 import { canonicalRepoRoot } from "../src/lib/paths.ts";
 import {
   resolveSyncManagedDesktopPath,
   resolveSyncManagedSourcePath,
 } from "../src/lib/desktop-sync.ts";
-
-const REPO_ROOT = join(import.meta.dir, "..");
 
 describe("paths canonical-repo-root", () => {
   test("resolves from repo root unchanged", () => {

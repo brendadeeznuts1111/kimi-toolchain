@@ -1,7 +1,7 @@
 /**
  * Test preload — ensures KIMI_TEST_HOME exists for isolated unit tests.
  * TZ: bun test defaults to UTC unless overridden. Either pass TZ on the CLI
- * (`TZ=America/Los_Angeles bun test`) or set process.env.TZ at runtime in a test
+ * (`TZ=America/Los_Angeles bun test`) or set Bun.env.TZ at runtime in a test
  * (see test/bun-tz-runtime.unit.test.ts — multiple changes per run, unlike Jest).
  * Wall clock: setSystemTime(date) from bun:test (see test/bun-set-system-time.unit.test.ts).
  * When TZ is unset, setup pins Etc/UTC for Bun.cron (UTC schedules).

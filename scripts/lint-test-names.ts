@@ -49,6 +49,7 @@ const UNIT_STEM_SOURCE: Record<string, string> = {
   "cloudflare-access-dashboard": "src/lib/cloudflare-access.ts",
   "scaffold-agents": "src/lib/scaffold-agents.ts",
   "lint-test-names": "scripts/lint-test-names.ts",
+  "ci-local": "scripts/ci-local.ts",
   "lint-build-constants": "scripts/lint-build-constants.ts",
   "build-compile": "scripts/build-compile.ts",
   "completion-matrix": "src/completions/completion-matrix.ts",

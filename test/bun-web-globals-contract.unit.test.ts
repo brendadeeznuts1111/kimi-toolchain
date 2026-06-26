@@ -191,7 +191,7 @@ describe("globalThis.gc", () => {
   const runAndPrint = (expr: string, ...args: string[]): string => {
     const result = Bun.spawnSync({
       cmd: [process.execPath, ...args, "--print", expr],
-      env: { ...process.env, NODE_ENV: "test" },
+      env: { ...Bun.env, NODE_ENV: "test" },
     });
     if (!result.success) throw new Error(result.stderr.toString());
     return result.stdout.toString().trim();
