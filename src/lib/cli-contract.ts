@@ -182,17 +182,26 @@ function suggestFlag(unknown: string, candidates: string[]): string | undefined 
     const m = a.length;
     const n = b.length;
     const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-    for (let i = 0; i <= m; i++) dp[i][0] = i;
-    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 0; i <= m; i++) {
+      const row = dp[i];
+      if (row) row[0] = i;
+    }
+    const firstRow = dp[0];
+    if (!firstRow) return Infinity;
+    for (let j = 0; j <= n; j++) firstRow[j] = j;
     for (let i = 1; i <= m; i++) {
+      const row = dp[i];
+      const prevRow = dp[i - 1];
+      if (!row || !prevRow) continue;
       for (let j = 1; j <= n; j++) {
-        dp[i][j] =
-          a[i - 1] === b[j - 1]
-            ? dp[i - 1][j - 1]
-            : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+        const deletion = prevRow[j] ?? Infinity;
+        const insertion = row[j - 1] ?? Infinity;
+        const substitution = prevRow[j - 1] ?? Infinity;
+        row[j] =
+          a[i - 1] === b[j - 1] ? substitution : 1 + Math.min(deletion, insertion, substitution);
       }
     }
-    return dp[m][n];
+    return dp[m]?.[n] ?? Infinity;
   }
 
   let best: string | undefined;
@@ -273,7 +282,8 @@ export function parseCliFlags(
   const positional: string[] = [];
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
-    if (!arg || !arg.startsWith("--")) {
+    if (!arg) continue;
+    if (!arg.startsWith("--")) {
       positional.push(arg);
       continue;
     }

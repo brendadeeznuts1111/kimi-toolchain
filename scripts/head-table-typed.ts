@@ -220,7 +220,9 @@ export function buildJsonLdBlockRows(html: string): TypedRow[] {
 
   let fusedChars = title.length;
   for (let i = 0; i < blocks.length; i++) {
-    const jsonText = blocks[i].replace(/^<script[^>]*>/i, "").replace(/<\/script>$/i, "");
+    const block = blocks[i];
+    if (!block) continue;
+    const jsonText = block.replace(/^<script[^>]*>/i, "").replace(/<\/script>$/i, "");
     fusedChars += jsonText.length;
     const data = JSON.parse(jsonText) as Record<string, unknown>;
     const schemaType = String(data["@type"] ?? "?");
@@ -372,6 +374,7 @@ export function buildContentRows(html: string, md: string): TypedRow[] {
   const seenFlags = new Set<string>();
   for (const m of md.matchAll(/`(--[a-z][a-z0-9-]*)`/g)) {
     const flag = m[1];
+    if (!flag) continue;
     if (seenFlags.has(flag)) continue;
     seenFlags.add(flag);
     rows.push(row("Code", flag, flag, "CLI flag"));
@@ -481,9 +484,11 @@ function parseMdFrontmatter(md: string): Record<string, string> {
   const m = md.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return {};
   const out: Record<string, string> = {};
-  for (const line of m[1].split("\n")) {
+  const body = m[1];
+  if (!body) return out;
+  for (const line of body.split("\n")) {
     const kv = line.match(/^(\w+):\s*"?([^"]*)"?\s*$/);
-    if (kv) out[kv[1]] = kv[2];
+    if (kv?.[1] && kv[2] !== undefined) out[kv[1]] = kv[2];
   }
   return out;
 }

@@ -49,6 +49,9 @@ export function parseFrontmatterText(text: string, file = ""): ParsedFrontmatter
 
   const delimiter = match[1] as FrontmatterDelimiter;
   const raw = match[2];
+  if (raw === undefined) {
+    return { data: {}, body: text, meta: { file, parsed: new Date().toISOString(), format: "none" } };
+  }
   const body = text.slice(match[0].length).replace(/^\r?\n/, "");
 
   const data =
@@ -129,6 +132,7 @@ export function parseFrontmatterCliArgs(argv: string[]): FrontmatterCliArgs | { 
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (!arg) continue;
     if (arg === "--json") {
       json = true;
       continue;

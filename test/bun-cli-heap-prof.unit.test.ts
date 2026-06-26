@@ -28,7 +28,7 @@ describe("bun-cli-heap-prof", () => {
       expect(cap.stderr).toContain("Heap profile written to:");
       const files = [...new Glob("Heap.*.md").scanSync({ cwd: dir })];
       expect(files.length).toBeGreaterThan(0);
-      const content = await Bun.file(join(dir, files[0])).text();
+      const content = await Bun.file(join(dir, files[0] ?? "")).text();
       expect(content).toContain("# Bun Heap Profile");
       expect(content).toContain("## Summary");
     });

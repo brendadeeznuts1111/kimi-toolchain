@@ -28,7 +28,7 @@ describe("bun-build", () => {
       });
       expect(result.success).toBe(true);
       expect(result.outputs.length).toBeGreaterThan(0);
-      expect(result.outputs[0].kind).toBe("entry-point");
+      expect(result.outputs[0]?.kind ?? "").toBe("entry-point");
     } finally {
       removePath(FIXTURE_DIR, { recursive: true, force: true });
     }
@@ -60,7 +60,7 @@ describe("bun-build", () => {
       expect(result.success).toBe(true);
       // compile: true produces an executable binary (kind may vary by Bun version)
       expect(result.outputs.length).toBeGreaterThan(0);
-      expect(["entry-point", "executable", "bytecode"]).toContain(result.outputs[0].kind);
+      expect(["entry-point", "executable", "bytecode"]).toContain(result.outputs[0]?.kind ?? "");
     } finally {
       removePath(FIXTURE_DIR, { recursive: true, force: true });
     }

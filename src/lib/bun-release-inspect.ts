@@ -143,7 +143,9 @@ export function formatReleaseHistoryMarkdown(
   properties?: readonly string[]
 ): string {
   if (!isTableInput(rows)) return "";
-  const keys = properties ?? Object.keys(rows[0]);
+  const first = rows[0];
+  if (!first) return "";
+  const keys = properties ?? Object.keys(first);
   const header = `| ${keys.join(" | ")} |`;
   const sep = `| ${keys.map(() => "---").join(" | ")} |`;
   const body = rows.map((row) => {

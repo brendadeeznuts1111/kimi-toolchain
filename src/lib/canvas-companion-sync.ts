@@ -60,9 +60,11 @@ async function formatCanvasSources(
   await makeDir(dir, { recursive: true });
   const relToTmp = new Map<string, string>();
   for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (!entry) continue;
     const tmp = join(dir, `${i}.tsx`);
-    relToTmp.set(entries[i].relPath, tmp);
-    await Bun.write(tmp, entries[i].source);
+    relToTmp.set(entry.relPath, tmp);
+    await Bun.write(tmp, entry.source);
   }
   try {
     const proc = Bun.spawn(

@@ -60,7 +60,7 @@ describe("cli-runtime", () => {
       expect(pathExists(path)).toBe(true);
       const lines = readText(path).trim().split("\n");
       expect(lines.length).toBeGreaterThan(0);
-      const entry = JSON.parse(lines[lines.length - 1]);
+      const entry = JSON.parse(lines[lines.length - 1] ?? "{}");
       expect(entry.message).toBe("telemetry flush test");
       expect(entry.tool).toBe("test-cli");
       expect(entry.traceId).toBe(Bun.env.KIMI_TRACE_ID);

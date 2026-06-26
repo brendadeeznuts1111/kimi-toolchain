@@ -20,8 +20,8 @@ describe("success-metrics", () => {
     const taxonomy = await loadTaxonomy(join(REPO_ROOT, "error-taxonomy.yml"));
     const coverage = auditErrorCoverage(taxonomy);
     expect(coverage.coverage).toBeGreaterThanOrEqual(ERROR_COVERAGE_TARGET);
-    expect(coverage.records[0].context?.inputs).toBeDefined();
-    expect(coverage.records[0].context?.environment).toBeDefined();
+    expect(coverage.records[0]?.context?.inputs).toBeDefined();
+    expect(coverage.records[0]?.context?.environment).toBeDefined();
   });
 
   test("metric thresholds include release cadence and ledger evidence", () => {

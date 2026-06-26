@@ -130,10 +130,12 @@ export function parseDashboardCardsFromHtml(
   const panelRe = /id="(card-[^"]+)"[^>]*>\s*<h2>([^<]*)<\/h2>/g;
   for (const match of html.matchAll(panelRe)) {
     const id = match[1];
+    const title = match[2];
+    if (!id || title === undefined) continue;
     if (!/^card-[\w-]+$/.test(id)) {
       throw new Error(`dashboard.html: malformed card id "${id}" — must match card-[\\w-]+`);
     }
-    panels.push({ id, title: match[2].trim() });
+    panels.push({ id, title: title.trim() });
   }
 
   const scriptStart = html.indexOf("<script>");
@@ -142,6 +144,7 @@ export function parseDashboardCardsFromHtml(
 
   for (const match of script.matchAll(/card\("(card-[^"]+)"/g)) {
     const cardId = match[1];
+    if (!cardId) continue;
     const idx = match.index ?? 0;
     const iifeStart = findEnclosingIifeStart(script, idx);
     const block = script.slice(iifeStart, idx);

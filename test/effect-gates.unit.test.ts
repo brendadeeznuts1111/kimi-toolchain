@@ -63,7 +63,7 @@ describe("effect-gates", () => {
       (v) => v.gate === EFFECT_GATES.directPromise
     );
     expect(promiseViolations.length).toBeGreaterThan(0);
-    expect(promiseViolations[0].message).toContain(".then()");
+    expect(promiseViolations[0]?.message).toContain(".then()");
   });
 
   test("ignores Promise usage inside comments and strings", async () => {
@@ -98,7 +98,7 @@ describe("effect-gates", () => {
       (v) => v.gate === EFFECT_GATES.missingServiceTag
     );
     expect(tagViolations.length).toBe(1);
-    expect(tagViolations[0].message).toContain("UserService");
+    expect(tagViolations[0]?.message).toContain("UserService");
   });
 
   test("detects domain purity violations", async () => {
@@ -111,7 +111,7 @@ describe("effect-gates", () => {
     const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
     const purityViolations = report.violations.filter((v) => v.gate === EFFECT_GATES.domainPurity);
     expect(purityViolations.length).toBe(1);
-    expect(purityViolations[0].message).toContain("Bun.env access");
+    expect(purityViolations[0]?.message).toContain("Bun.env access");
   });
 
   test("detects Effect.runPromise outside permitted boundary", async () => {
@@ -126,8 +126,8 @@ describe("effect-gates", () => {
       (v) => v.gate === EFFECT_GATES.runPromiseBoundary
     );
     expect(boundaryViolations.length).toBe(1);
-    expect(boundaryViolations[0].message).toContain("Effect.runPromise");
-    expect(boundaryViolations[0].location).toContain("src/lib/service.ts");
+    expect(boundaryViolations[0]?.message).toContain("Effect.runPromise");
+    expect(boundaryViolations[0]?.location).toContain("src/lib/service.ts");
   });
 
   test("detects console.* outside scripts and src/bin", async () => {
@@ -142,7 +142,7 @@ describe("effect-gates", () => {
       (v) => v.gate === EFFECT_GATES.consoleBoundary
     );
     expect(consoleViolations.length).toBe(1);
-    expect(consoleViolations[0].message).toContain("console.*");
+    expect(consoleViolations[0]?.message).toContain("console.*");
   });
 
   test("allows console.* in src/bin", async () => {
@@ -168,7 +168,7 @@ describe("effect-gates", () => {
       (v) => v.gate === EFFECT_GATES.processEnvBoundary
     );
     expect(envViolations.length).toBe(1);
-    expect(envViolations[0].message).toContain("Bun.env");
+    expect(envViolations[0]?.message).toContain("Bun.env");
   });
 
   test("detects fs imports in plugin paths", async () => {
@@ -181,7 +181,7 @@ describe("effect-gates", () => {
     const report = await buildEffectGatesReport({ projectRoot: tmpDir, tool: "test" });
     const fsViolations = report.violations.filter((v) => v.gate === EFFECT_GATES.nodeFsPlugin);
     expect(fsViolations.length).toBe(1);
-    expect(fsViolations[0].message).toContain("Bun.file");
+    expect(fsViolations[0]?.message).toContain("Bun.file");
   });
 
   test("skips bare Promise scan under src/lib/effect", async () => {
@@ -235,7 +235,7 @@ describe("effect-gates", () => {
     });
     const streamViolations = report.violations.filter((v) => v.gate === EFFECT_GATES.eventStream);
     expect(streamViolations.length).toBeGreaterThan(0);
-    expect(streamViolations[0].message).toContain("EventEmitter");
+    expect(streamViolations[0]?.message).toContain("EventEmitter");
   });
 
   test("ignores EventEmitter usage outside src/services", async () => {
@@ -312,8 +312,8 @@ describe("effect-gates", () => {
     await appendEffectGatesSnapshot(tmpDir, report);
     const snapshots = await readEffectGatesSnapshots(tmpDir);
     expect(snapshots).toHaveLength(1);
-    expect(snapshots[0].tool).toBe("test");
-    expect(snapshots[0].schemaVersion).toBe(EFFECT_GATES_REPORT_SCHEMA_VERSION);
+    expect(snapshots[0]?.tool).toBe("test");
+    expect(snapshots[0]?.schemaVersion).toBe(EFFECT_GATES_REPORT_SCHEMA_VERSION);
   });
 
   test("detects regressions between snapshots", () => {
@@ -362,8 +362,8 @@ describe("effect-gates", () => {
 
     const regressions = detectRegressions(current, previous);
     expect(regressions).toHaveLength(1);
-    expect(regressions[0].message).toContain("direct-promise");
-    expect(regressions[0].message).toContain("1 to 3");
+    expect(regressions[0]?.message).toContain("direct-promise");
+    expect(regressions[0]?.message).toContain("1 to 3");
   });
 
   test("no regressions when counts are stable or improved", () => {

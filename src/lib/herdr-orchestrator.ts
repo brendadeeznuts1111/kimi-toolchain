@@ -858,12 +858,17 @@ export async function evaluateCrossWorkspaceHandoffs(
       const toParsed = parseHostSession(rule.toSession || rule.fromSession || "");
       const remoteHosts = config.remoteHosts;
 
-      if (toParsed.host && remoteHosts[toParsed.host]) {
+      if (toParsed.host) {
+        const remoteHost = remoteHosts[toParsed.host];
+        if (!remoteHost) {
+          pushResult({ rule, ok: false, detail: `remote host not configured: ${toParsed.host}` });
+          continue;
+        }
         const resolvedHosts = normalizeRemoteHostConfig(
-          { [toParsed.host]: remoteHosts[toParsed.host] },
+          { [toParsed.host]: remoteHost },
           config.remoteDefaults
         );
-        const resolved = resolvedHosts[toParsed.host!];
+        const resolved = resolvedHosts[toParsed.host];
         if (resolved) {
           const sshStartResult = await sshExec(resolved, [
             "herdr",
@@ -879,9 +884,11 @@ export async function evaluateCrossWorkspaceHandoffs(
             // Forward source agent's native session info for cross-host handoff
             // Query the source agent for agent_session data
             const fromParsed = parseHostSession(rule.fromSession || "");
-            if (fromParsed.host && remoteHosts[fromParsed.host]) {
+            if (fromParsed.host) {
+              const fromRemoteHost = remoteHosts[fromParsed.host];
+              if (!fromRemoteHost) continue;
               const fromResolved = normalizeRemoteHostConfig(
-                { [fromParsed.host]: remoteHosts[fromParsed.host] },
+                { [fromParsed.host]: fromRemoteHost },
                 config.remoteDefaults
               )[fromParsed.host];
               if (fromResolved) {
@@ -952,12 +959,18 @@ export async function evaluateCrossWorkspaceHandoffs(
       const sf = rule.spawnFallback;
       const remoteHosts = config.remoteHosts;
 
-      if (sf.host && remoteHosts[sf.host]) {
+      if (sf.host) {
+        const remoteHost = remoteHosts[sf.host];
+        if (!remoteHost) {
+          pushResult({ rule, ok: false, detail: `remote host not configured: ${sf.host}` });
+          continue;
+        }
         const resolvedHosts = normalizeRemoteHostConfig(
-          { [sf.host]: remoteHosts[sf.host] },
+          { [sf.host]: remoteHost },
           config.remoteDefaults
         );
-        const resolved = resolvedHosts[sf.host!];
+        const resolved = resolvedHosts[sf.host];
+        if (!resolved) continue;
         if (resolved) {
           const targetSession = sf.session || rule.toSession || rule.fromSession || "";
           const targetWorkspace = sf.workspace || rule.toWorkspace;
@@ -1073,6 +1086,10 @@ export async function evaluateCrossWorkspaceHandoffs(
         config.remoteDefaults
       );
       const resolved = resolvedHosts[toParsed.host!];
+      if (!resolved) {
+        pushResult({ rule, ok: false, detail: `remote host not resolved: ${toParsed.host}` });
+        continue;
+      }
       const sshResult = await sshExec(resolved, [
         "herdr",
         "--session",

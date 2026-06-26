@@ -124,6 +124,9 @@ async function runScaffold(args: string[]): Promise<number> {
   const filtered = args.filter((a) => a !== "--dry-run");
 
   const name = filtered[0];
+  if (!name) {
+    throw new CliError({ message: "Missing project name" });
+  }
   if (!NAME_RE.test(name)) {
     throw new CliError({ message: `Invalid project name: ${name}` });
   }

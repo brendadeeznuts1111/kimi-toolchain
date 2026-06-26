@@ -22,7 +22,7 @@ describe("error-embedding", () => {
     const vector = embedText("Tool timed out after 30000ms while running bun test");
     expect(vector.length).toBe(EMBEDDING_DIM);
     let norm = 0;
-    for (let i = 0; i < vector.length; i++) norm += vector[i] * vector[i];
+    for (let i = 0; i < vector.length; i++) norm += (vector[i] ?? 0) * (vector[i] ?? 0);
     expect(norm).toBeCloseTo(1, 5);
   });
 
@@ -147,8 +147,8 @@ describe("error-clustering", () => {
       );
       expect(report.totalFailures).toBe(1);
       const updated = await readFailureRecords(failurePath);
-      expect(updated[0].errorId).toBeTruthy();
-      expect(updated[0].clusterId).toBeTruthy();
+      expect(updated[0]?.errorId).toBeTruthy();
+      expect(updated[0]?.clusterId).toBeTruthy();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

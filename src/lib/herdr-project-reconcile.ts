@@ -225,9 +225,10 @@ function resolveAgentsTab(
   const nonExtra = snapshot.tabs.filter((tab) => !extraLabels.has(normalizeLabel(tab.label)));
   if (nonExtra.length === 1) return nonExtra[0] ?? null;
   if (nonExtra.length > 1) {
-    return [...nonExtra].sort(
-      (a, b) => paneSortKey(`${a.tabId}:p1`) - paneSortKey(`${b.tabId}:p1`)
-    )[0];
+    return (
+      [...nonExtra].sort((a, b) => paneSortKey(`${a.tabId}:p1`) - paneSortKey(`${b.tabId}:p1`))[0] ??
+      null
+    );
   }
   return snapshot.tabs[0] ?? null;
 }

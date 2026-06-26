@@ -753,7 +753,12 @@ describe("bun-release-compliance compression", () => {
       decompressZstd,
     } as Record<string, (data: Uint8Array) => Uint8Array>;
     const data = new TextEncoder().encode(`kimi-toolchain ${_algo} round-trip`);
-    expect(new TextDecoder().decode(mod[decompressFn](mod[compressFn](data)))).toBe(
+    const compress = mod[compressFn];
+    const decompress = mod[decompressFn];
+    expect(compress).toBeDefined();
+    expect(decompress).toBeDefined();
+    if (!compress || !decompress) return;
+    expect(new TextDecoder().decode(decompress(compress(data)))).toBe(
       `kimi-toolchain ${_algo} round-trip`
     );
   });
@@ -767,7 +772,13 @@ describe("bun-release-compliance compression", () => {
       string,
       (data: string | Uint8Array) => unknown
     >;
-    expect(mod.detectFormat((mod[compressFn] as (d: string) => Uint8Array)("test"))).toBe(expected);
+    const compress = mod[compressFn] as ((d: string) => Uint8Array) | undefined;
+    expect(compress).toBeDefined();
+    if (!compress) return;
+    const detect = mod.detectFormat;
+    expect(detect).toBeDefined();
+    if (!detect) return;
+    expect(detect(compress("test"))).toBe(expected);
   });
 
   test("autoCompress selects best algorithm for 100KB of repeated data", () => {

@@ -24,7 +24,7 @@ function buildCheck(diagnostic: OxlintDiagnostic): HealthCheck {
   const message = diagnostic.message ?? "lint issue";
   const location =
     diagnostic.labels && diagnostic.labels.length > 0
-      ? ` at ${diagnostic.labels[0].message ?? ""}`
+      ? ` at ${diagnostic.labels[0]?.message ?? ""}`
       : "";
   return {
     name: `oxlint:${rule}`,

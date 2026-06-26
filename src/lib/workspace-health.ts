@@ -524,7 +524,8 @@ export async function auditWorkspaceHealth(
   if (legacyCursorSlugs.length > 0) {
     const slug = legacyCursorSlugs[0];
     const isBlocker = isToolchain && canonicalClonePresent;
-    const active = isCursorSlugActive(slug);
+    if (slug) {
+      const active = isCursorSlugActive(slug);
     const activeHint = active
       ? " (ACTIVE — close this agent chat, quit Cursor, reopen kimi-toolchain.code-workspace)"
       : "";
@@ -534,6 +535,7 @@ export async function auditWorkspaceHealth(
       message: `legacy slug ${slug}${activeHint} — run kimi-toolchain workspace fix --deep`,
       fixable: true,
     });
+    }
   }
 
   const indexPath = join(home, ".kimi-code", "sessions", "session_index.jsonl");

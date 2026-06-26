@@ -398,12 +398,15 @@ export function renderMarkdownStructured(
     const headingRe = /^(#{1,6})\s+(.+)$/gm;
     let match: RegExpExecArray | null;
     while ((match = headingRe.exec(text)) !== null) {
-      headings.push({ level: match[1].length, text: match[2].trim() });
+      const marks = match[1];
+      const headingText = match[2];
+      if (!marks || !headingText) continue;
+      headings.push({ level: marks.length, text: headingText.trim() });
     }
 
     const codeblockRe = /```(\w*)\n([\s\S]*?)```/g;
     while ((match = codeblockRe.exec(text)) !== null) {
-      codeblocks.push({ lang: match[1] || "text", code: match[2].trimEnd() });
+      codeblocks.push({ lang: match[1] || "text", code: (match[2] ?? "").trimEnd() });
     }
   }
 
@@ -552,11 +555,13 @@ function extractMarkdownSectionsFallback(text: string): MarkdownSection[] {
   if (matches.length === 0) return sections;
 
   for (let i = 0; i < matches.length; i++) {
-    const match = matches[i]!;
+    const match = matches[i];
+    if (!match?.[1] || !match[2] || match.index === undefined) continue;
     const level = match[1].length;
     const title = match[2].trim();
-    const start = match.index! + match[0].length;
-    const end = i + 1 < matches.length ? matches[i + 1]!.index! : text.length;
+    const start = match.index + match[0].length;
+    const nextMatch = i + 1 < matches.length ? matches[i + 1] : undefined;
+    const end = nextMatch?.index ?? text.length;
     const body = text.slice(start, end).trim();
     const paragraphs = body
       .split(/\n\n+/)

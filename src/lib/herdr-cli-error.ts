@@ -163,7 +163,8 @@ export function probeHerdrServerProcesses(): {
   ];
 
   for (const cmd of attempts) {
-    if (!Bun.which(cmd[0])) break;
+    const executable = cmd[0];
+    if (!executable || !Bun.which(executable)) break;
     const proc = Bun.spawnSync({ cmd, stdout: "pipe", stderr: "pipe" });
     const raw = proc.stdout ? new TextDecoder().decode(proc.stdout).trim() : "";
     if (!raw) continue;
@@ -173,7 +174,8 @@ export function probeHerdrServerProcesses(): {
     }
   }
 
-  return { processes: [], pgrepCommand: attempts[0]!.join(" "), raw: "" };
+  const fallback = attempts[0] ?? ["pgrep", "-fl", "herdr server"];
+  return { processes: [], pgrepCommand: fallback.join(" "), raw: "" };
 }
 
 /** Substitute resolved server PIDs into recovery steps (dry-run materialization). */

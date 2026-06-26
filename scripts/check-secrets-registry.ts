@@ -186,17 +186,21 @@ const kimiSecretsSrc = await Bun.file(kimiSecretsPath).text();
 const templateMatch = kimiSecretsSrc.match(/const template = `([\s\S]+?)`;/);
 if (templateMatch) {
   const templateBody = templateMatch[1];
-  for (const [svc, secrets] of Object.entries(policy)) {
-    if (svc === "$schema") continue;
-    if (!templateBody.includes(`"${svc}"`)) {
-      error("init-template", `Service "${svc}" missing from kimi-secrets init template`);
-    }
-    for (const secretName of Object.keys(secrets)) {
-      if (!templateBody.includes(`"${secretName}"`)) {
-        error(
-          "init-template",
-          `Secret "${svc}/${secretName}" missing from kimi-secrets init template`
-        );
+  if (!templateBody) {
+    error("init-template", "Unable to read kimi-secrets init template body");
+  } else {
+    for (const [svc, secrets] of Object.entries(policy)) {
+      if (svc === "$schema") continue;
+      if (!templateBody.includes(`"${svc}"`)) {
+        error("init-template", `Service "${svc}" missing from kimi-secrets init template`);
+      }
+      for (const secretName of Object.keys(secrets)) {
+        if (!templateBody.includes(`"${secretName}"`)) {
+          error(
+            "init-template",
+            `Secret "${svc}/${secretName}" missing from kimi-secrets init template`
+          );
+        }
       }
     }
   }

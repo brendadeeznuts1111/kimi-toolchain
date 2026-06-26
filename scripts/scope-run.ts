@@ -31,6 +31,7 @@ function parseCli(): { json: boolean; projectRoot: string; writeLog: boolean } {
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (!arg) continue;
     if (arg === "--json") {
       json = true;
       continue;

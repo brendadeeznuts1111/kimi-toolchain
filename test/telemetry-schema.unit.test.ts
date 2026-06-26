@@ -74,8 +74,8 @@ describe("telemetry schema", () => {
     const content = readFileSync(path, "utf8");
     const lines = content.trim().split("\n");
     expect(lines.length).toBe(2);
-    expect(JSON.parse(lines[0]).message).toBe("first run");
-    expect(JSON.parse(lines[1]).message).toBe("second run");
+    expect(JSON.parse(lines[0] ?? "{}").message).toBe("first run");
+    expect(JSON.parse(lines[1] ?? "{}").message).toBe("second run");
 
     rmSync(dir, { recursive: true, force: true });
   });

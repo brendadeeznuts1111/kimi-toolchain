@@ -13,6 +13,7 @@ function parseCli(argv: string[]): { logPath: string; command: string } {
   let command = "";
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (!arg) continue;
     if (arg === "--log") {
       const next = argv[++i];
       if (!next) throw new Error("--log requires a path");

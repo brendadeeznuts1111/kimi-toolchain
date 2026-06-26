@@ -100,7 +100,7 @@ export function buildSkillCoverageDetails(rows: SkillCoverageRow[]): SkillCovera
 export function readFrontmatterScalar(head: string, key: string): string {
   const match = head.match(new RegExp(`^${key}:\\s*(.+)$`, "m"));
   if (!match) return "—";
-  const value = match[1].trim();
+  const value = match[1]?.trim() ?? "";
   if (value.startsWith("|")) return "(block)";
   return value.replace(/^"|"$/g, "");
 }
@@ -109,7 +109,7 @@ export function readFrontmatterScalar(head: string, key: string): string {
 export function countFrontmatterList(head: string, key: string): number {
   const block = head.match(new RegExp(`^${key}:\\s*\\n((?:\\s+-\\s+.+\\n)+)`, "m"));
   if (!block) return 0;
-  return (block[1].match(/^\s+-\s+/gm) ?? []).length;
+  return (block[1]?.match(/^\s+-\s+/gm) ?? []).length;
 }
 
 /** Extract YAML frontmatter (between first two `---` lines). */

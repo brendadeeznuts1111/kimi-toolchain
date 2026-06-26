@@ -174,6 +174,9 @@ export function verifyJwt(token: string, secret: string, config: JwtConfig = {})
   }
 
   const [headerB64, payloadB64, signature] = parts;
+  if (!headerB64 || !payloadB64 || !signature) {
+    throw { type: "jwt_invalid_format" } as { type: JwtError };
+  }
 
   let header: JwtHeader;
   try {
@@ -233,8 +236,12 @@ export function decodeJwt(token: string): { header: JwtHeader; claims: JwtClaims
     throw { type: "jwt_invalid_format" } as { type: JwtError };
   }
 
-  const header = JSON.parse(new TextDecoder().decode(decodeBase64UrlBytes(parts[0])));
-  const claims = JSON.parse(new TextDecoder().decode(decodeBase64UrlBytes(parts[1])));
+  const [headerB64, payloadB64] = parts;
+  if (!headerB64 || !payloadB64) {
+    throw { type: "jwt_invalid_format" } as { type: JwtError };
+  }
+  const header = JSON.parse(new TextDecoder().decode(decodeBase64UrlBytes(headerB64)));
+  const claims = JSON.parse(new TextDecoder().decode(decodeBase64UrlBytes(payloadB64)));
 
   return { header, claims };
 }

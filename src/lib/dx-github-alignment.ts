@@ -382,7 +382,10 @@ function bunScriptsFromCommands(commands: readonly string[]): string[] {
   const scripts = new Set<string>();
   for (const command of commands) {
     const matches = command.matchAll(/\bbun\s+run\s+([A-Za-z0-9:_-]+)/g);
-    for (const match of matches) scripts.add(match[1]);
+    for (const match of matches) {
+      const script = match[1];
+      if (script) scripts.add(script);
+    }
   }
   return [...scripts];
 }

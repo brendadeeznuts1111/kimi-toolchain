@@ -13,7 +13,10 @@ function resolveTemplateDir(): string {
     join(import.meta.dir, "..", "..", "templates", "scaffold"),
     join(import.meta.dir, "..", "templates", "scaffold"),
   ];
-  return candidates.find((dir) => pathExists(dir)) ?? candidates[0];
+  return (
+    candidates.find((dir) => pathExists(dir)) ??
+    join(import.meta.dir, "..", "..", "templates", "scaffold")
+  );
 }
 
 const TEMPLATE_DIR = resolveTemplateDir();
@@ -170,7 +173,7 @@ export async function scaffoldAdr(
   const existing: number[] = [];
   const glob = new Bun.Glob("*.md");
   for await (const file of glob.scan({ cwd: adrDir, absolute: false })) {
-    const num = parseInt(file.split("-")[0], 10);
+    const num = parseInt(file.split("-")[0] ?? "", 10);
     if (!isNaN(num)) existing.push(num);
   }
   const nextNum = (existing.length > 0 ? Math.max(...existing) : 0) + 1;
@@ -183,7 +186,10 @@ export async function scaffoldAdr(
   const filename = `${paddedNum}-${slug}.md`;
   const filepath = join(adrDir, filename);
 
-  const content = ADR_TEMPLATE.replace("{{DATE}}", new Date().toISOString().split("T")[0])
+  const content = ADR_TEMPLATE.replace(
+    "{{DATE}}",
+    new Date().toISOString().split("T")[0] ?? new Date().toISOString()
+  )
     .replace("{{DECIDERS}}", "@team")
     .replace("{{TITLE}}", title);
 

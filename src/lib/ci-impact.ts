@@ -307,6 +307,7 @@ function globToRegExp(pattern: string): RegExp {
       source += "[^/]";
       continue;
     }
+    if (char === undefined) continue;
     source += escapeRegExp(char);
   }
   return new RegExp(`${source}$`);

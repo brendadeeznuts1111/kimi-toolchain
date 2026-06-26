@@ -184,11 +184,11 @@ describe("artifact-store", () => {
       expect(queries).toHaveLength(2);
       expect(queries[0]?.gate).toBe("strategy-performance");
       expect(queries[0]?.limit).toBe(2);
-      expect(queries[1]?.paths).toEqual([perfFiles[0]]);
+      expect(queries[1]?.paths).toEqual([perfFiles[0] ?? ""]);
 
       const resolved = await store.resolveDependsOn(queries);
       expect(resolved[0]?.paths).toHaveLength(2);
-      expect(resolved[1]?.paths).toEqual([perfFiles[0]]);
+      expect(resolved[1]?.paths).toEqual([perfFiles[0] ?? ""]);
 
       const envelope = await store.readEnvelope(relativePath);
       expect(envelope?.metadata?.lineageMermaid).toContain("graph TD");

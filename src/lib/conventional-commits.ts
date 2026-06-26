@@ -16,6 +16,7 @@ export function parseCommit(hash: string, subject: string, body: string): Commit
   if (!match) return null;
 
   const [, type, scope, _msg] = match;
+  if (!type) return null;
   const breaking = subject.endsWith("!") || body.includes("BREAKING CHANGE:");
 
   return { hash, subject, body, type: type.toLowerCase(), scope, breaking };
@@ -71,7 +72,7 @@ export function determineBump(commits: Commit[]): "major" | "minor" | "patch" | 
 }
 
 export function bumpVersion(current: string, bump: "major" | "minor" | "patch"): string {
-  const [major, minor, patch] = current.replace(/^v/, "").split(".").map(Number);
+  const [major = 0, minor = 0, patch = 0] = current.replace(/^v/, "").split(".").map(Number);
   if (bump === "major") return `${major + 1}.0.0`;
   if (bump === "minor") return `${major}.${minor + 1}.0`;
   return `${major}.${minor}.${patch + 1}`;

@@ -206,7 +206,7 @@ async function main(): Promise<number> {
     });
     logger.info(`Stored session: ${sessionId}`);
   } else if (command === "recall") {
-    const limit = parseInt(args[1], 10) || 5;
+    const limit = parseInt(args[1] ?? "", 10) || 5;
     const sessions = recallSessions(project, limit);
     logger.section(`Recent sessions for ${project}`);
     for (const s of sessions) {
@@ -312,7 +312,7 @@ async function main(): Promise<number> {
       logger.line(`  [${r.type}] ${r.label} (${r.project})`);
     }
   } else if (command === "prune") {
-    const days = parseInt(args[1], 10) || 30;
+    const days = parseInt(args[1] ?? "", 10) || 30;
     const deleted = pruneOldSessions(days);
     logger.info(`Pruned ${deleted} sessions older than ${days} days`);
   } else if (command === "stats") {

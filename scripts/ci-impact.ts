@@ -32,6 +32,7 @@ function parseCli(): CliOptions {
   const options: CliOptions = { json: argv.includes("--json") };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (!arg) continue;
     if (arg === "--base") {
       options.base = argv[++i];
       continue;

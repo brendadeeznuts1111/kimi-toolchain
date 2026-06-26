@@ -126,8 +126,11 @@ function buildContractRationale(context: ContractRationaleContext): DecisionRati
   const evidence: DecisionEvidence[] = [
     { type: "contractDiff", contractFile: context.contractFile },
   ];
-  if (context.oldHash) evidence[0].oldHash = context.oldHash;
-  if (context.newHash) evidence[0].newHash = context.newHash;
+  const diffEvidence = evidence[0];
+  if (diffEvidence) {
+    if (context.oldHash) diffEvidence.oldHash = context.oldHash;
+    if (context.newHash) diffEvidence.newHash = context.newHash;
+  }
   return { summary, fullReasoning, evidence };
 }
 

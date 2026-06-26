@@ -77,7 +77,10 @@ const CODE_LITERAL_CHARS = new Set(["(", ")", "[", "]", "{", "}"]);
 
 function shannonEntropy(bytes: Uint8Array): number {
   const counts = new Uint32Array(256);
-  for (let i = 0; i < bytes.length; i++) counts[bytes[i]!]++;
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = bytes[i];
+    if (byte !== undefined) counts[byte] = (counts[byte] ?? 0) + 1;
+  }
   let entropy = 0;
   const n = bytes.length;
   for (let i = 0; i < 256; i++) {

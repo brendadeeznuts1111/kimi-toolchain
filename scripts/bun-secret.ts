@@ -13,7 +13,7 @@ import { isBunSecretsAvailable } from "../src/lib/secrets-storage.ts";
 
 const [cmd, domain, name, value] = Bun.argv.slice(2);
 
-function usage(): void {
+function usage(): never {
   console.log("Usage: bun run secret <set|get|delete> <domain> <name> [value]");
   console.log("       service namespace: com.factory-wager.<domain>");
   process.exit(1);
@@ -21,10 +21,13 @@ function usage(): void {
 
 async function main(): Promise<void> {
   if (!cmd || !domain || !name) usage();
+  const command = cmd;
+  const targetDomain = domain;
+  const targetName = name;
 
-  const service = domainService(domain);
+  const service = domainService(targetDomain);
 
-  switch (cmd) {
+  switch (command) {
     case "set": {
       if (!value) {
         console.error("Usage: bun run secret set <domain> <name> <value>");
@@ -34,12 +37,12 @@ async function main(): Promise<void> {
         console.error("Bun.secrets unavailable — cannot set secrets in this runtime");
         process.exit(1);
       }
-      await setSecret(domain, name, value);
-      console.log(`✅ Set ${domain}/${name} (${service})`);
+      await setSecret(targetDomain, targetName, value);
+      console.log(`✅ Set ${targetDomain}/${targetName} (${service})`);
       break;
     }
     case "get": {
-      const secret = await getSecret(domain, name);
+      const secret = await getSecret(targetDomain, targetName);
       if (secret == null) process.exit(1);
       console.log(secret);
       break;
@@ -49,8 +52,12 @@ async function main(): Promise<void> {
         console.error("Bun.secrets unavailable — cannot delete secrets in this runtime");
         process.exit(1);
       }
-      const deleted = await deleteSecret(domain, name);
-      console.log(deleted ? `🗑 Deleted ${domain}/${name}` : `❌ Not found: ${domain}/${name}`);
+      const deleted = await deleteSecret(targetDomain, targetName);
+      console.log(
+        deleted
+          ? `🗑 Deleted ${targetDomain}/${targetName}`
+          : `❌ Not found: ${targetDomain}/${targetName}`
+      );
       process.exit(deleted ? 0 : 1);
       break;
     }

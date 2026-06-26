@@ -50,7 +50,7 @@ describe("governor-parallel", () => {
     expect(results).toEqual([1, 2]);
 
     // The second task should start at least 80ms after the first
-    expect(timestamps[1] - timestamps[0]).toBeGreaterThanOrEqual(80);
+    expect((timestamps[1] ?? 0) - (timestamps[0] ?? 0)).toBeGreaterThanOrEqual(80);
     expect(gov.available).toBe(1);
     expect(gov.queued).toBe(0);
   });

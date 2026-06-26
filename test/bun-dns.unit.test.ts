@@ -626,8 +626,8 @@ describe("bun-dns typed resolve variants", () => {
       expect(Array.isArray(records)).toBe(true);
       if (records.length > 0) {
         const r = records[0];
-        expect(typeof r.exchange).toBe("string");
-        expect(typeof r.priority).toBe("number");
+        expect(typeof r?.exchange).toBe("string");
+        expect(typeof r?.priority).toBe("number");
       }
     } catch (err) {
       expect(err).toBeInstanceOf(Error);
@@ -673,8 +673,8 @@ describe("bun-dns typed resolve variants", () => {
       expect(Array.isArray(records)).toBe(true);
       if (records.length > 0) {
         const r = records[0];
-        expect(typeof r.name).toBe("string");
-        expect(typeof r.port).toBe("number");
+        expect(typeof r?.name).toBe("string");
+        expect(typeof r?.port).toBe("number");
       }
     } catch {
       // SRV may not resolve in all environments

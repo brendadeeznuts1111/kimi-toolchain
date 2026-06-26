@@ -206,7 +206,9 @@ export function autoCompress(
           : candidate.ratio * 0.6 + (candidate.ns / 1_000_000) * 0.4,
   }));
   scored.sort((a, b) => a.score - b.score);
-  return scored[0];
+  const best = scored[0];
+  if (!best) throw new Error("No compression candidates produced");
+  return best;
 }
 
 export interface CompressionBenchmark {

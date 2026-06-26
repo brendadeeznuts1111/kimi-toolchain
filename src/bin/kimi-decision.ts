@@ -59,7 +59,8 @@ function argValue(args: string[], flag: string): string | null {
 function argValues(args: string[], flag: string): string[] {
   const values: string[] = [];
   for (let index = 0; index < args.length; index++) {
-    if (args[index] === flag && args[index + 1]) values.push(args[index + 1]);
+    const value = args[index + 1];
+    if (args[index] === flag && value) values.push(value);
   }
   return values;
 }
@@ -68,8 +69,10 @@ function nonFlagArgs(args: string[]): string[] {
   const values: string[] = [];
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
+    if (!arg) continue;
     if (arg.startsWith("--")) {
-      if (args[index + 1] && !args[index + 1].startsWith("--")) index++;
+      const next = args[index + 1];
+      if (next && !next.startsWith("--")) index++;
       continue;
     }
     values.push(arg);

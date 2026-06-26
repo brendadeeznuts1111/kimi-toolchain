@@ -93,7 +93,10 @@ describe("scaffold-doctor", () => {
 
     test("mixed presence — some present, some missing", async () => {
       // Only create the first 3 files
-      for (const name of EXPECTED_FILE_NAMES.slice(0, 3)) touch(join(tmpDir, FILE_PATHS[name]));
+      for (const name of EXPECTED_FILE_NAMES.slice(0, 3)) {
+        const filePath = FILE_PATHS[name];
+        if (filePath) touch(join(tmpDir, filePath));
+      }
 
       const checks = await checkScaffold(tmpDir);
 

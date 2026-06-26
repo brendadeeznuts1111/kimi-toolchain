@@ -38,5 +38,7 @@ export function resolveAgentArgv(agentName: string): string[] {
 }
 
 export function resolveAgentPath(agentName: string): string {
-  return resolveAgentArgv(agentName)[0];
+  const executable = resolveAgentArgv(agentName)[0];
+  if (!executable) throw new Error(`Unable to resolve agent: ${agentName}`);
+  return executable;
 }

@@ -31,6 +31,7 @@ export function tokenizeShellCommand(command: string): string[] {
   let i = 0;
   while (i < command.length) {
     const ch = command[i];
+    if (ch === undefined) break;
     if (/\s/.test(ch)) {
       i++;
       continue;
@@ -48,7 +49,7 @@ export function tokenizeShellCommand(command: string): string[] {
       continue;
     }
     let end = i;
-    while (end < command.length && !/\s/.test(command[end])) end++;
+    while (end < command.length && !/\s/.test(command[end] ?? "")) end++;
     tokens.push(command.slice(i, end));
     i = end;
   }
@@ -124,7 +125,7 @@ export function planGrokRoleTabAgent(
   if (!parsed) return null;
 
   const argv = [...parsed.argv];
-  const grokPath = resolveAgentArgv("grok")[0];
+  const grokPath = resolveAgentArgv("grok")[0] ?? "grok";
   if (argv[0] === "grok") argv[0] = grokPath;
 
   const customStatus = options.customStatus || options.tabLabel || parsed.role;

@@ -302,14 +302,16 @@ export async function scanTochangeMarkers(repoRoot: string): Promise<TochangeMar
       const text = await Bun.file(join(repoRoot, rel)).text();
       const lines = text.split("\n");
       for (let i = 0; i < lines.length; i++) {
-        const match = lines[i].match(MARKER_RE);
+        const line = lines[i];
+        if (line === undefined) continue;
+        const match = line.match(MARKER_RE);
         if (!match) continue;
         markers.push({
-          id: match[2],
-          kind: match[1] as TochangeMarkerKind,
+          id: match[2] ?? "",
+          kind: (match[1] ?? "TODO") as TochangeMarkerKind,
           file: rel,
           line: i + 1,
-          text: lines[i].trim(),
+          text: line.trim(),
         });
       }
     }
@@ -335,7 +337,7 @@ export async function scanDirectStreamReads(repoRoot: string): Promise<DirectStr
       const lines = text.split("\n");
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (!STREAM_READ_CALL_RE.test(line)) continue;
+        if (!line || !STREAM_READ_CALL_RE.test(line)) continue;
         if (/^\s*(\/\/|\*)/.test(line)) continue;
         hits.push({ file: rel, line: i + 1 });
       }

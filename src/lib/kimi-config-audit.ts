@@ -235,9 +235,10 @@ export async function auditKimiConfig(
   // ── Loop control audit ───────────────────────────────────────────────
   const loopMatch = text.match(/\[loop_control\]\s*\n([\s\S]*?)(?=\n\[|\n*$)/);
   if (loopMatch) {
-    const hasMaxSteps = loopMatch[1].includes("max_steps_per_turn");
-    const maxStepsMatch = loopMatch[1].match(/max_steps_per_turn\s*=\s*(\d+)/);
-    const maxSteps = maxStepsMatch ? parseInt(maxStepsMatch[1], 10) : undefined;
+    const loopBody = loopMatch[1] ?? "";
+    const hasMaxSteps = loopBody.includes("max_steps_per_turn");
+    const maxStepsMatch = loopBody.match(/max_steps_per_turn\s*=\s*(\d+)/);
+    const maxSteps = maxStepsMatch ? parseInt(maxStepsMatch[1] ?? "", 10) : undefined;
 
     if (hasMaxSteps && maxSteps !== undefined && maxSteps < 50) {
       checks.push({
@@ -262,8 +263,8 @@ export async function auditKimiConfig(
       });
     }
 
-    const reservedMatch = loopMatch[1].match(/reserved_context_size\s*=\s*(\d+)/);
-    const reserved = reservedMatch ? parseInt(reservedMatch[1], 10) : undefined;
+    const reservedMatch = loopBody.match(/reserved_context_size\s*=\s*(\d+)/);
+    const reserved = reservedMatch ? parseInt(reservedMatch[1] ?? "", 10) : undefined;
     if (reserved !== undefined && reserved < 20000) {
       checks.push({
         name: "context-reserve",

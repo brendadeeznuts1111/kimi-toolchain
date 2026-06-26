@@ -75,6 +75,7 @@ function parseInventoryArgs(argv: string[]): {
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (!arg) continue;
     if (arg === "--roots") roots = argv[++i];
     else if (arg === "--config") configFile = argv[++i];
     else if (arg === "--project") projectRoot = argv[++i] ?? projectRoot;
@@ -149,6 +150,7 @@ function parseExtractArgs(argv: string[]): {
   const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (!arg) continue;
     if (arg === "--file") file = argv[++i];
     else if (arg === "--class") className = argv[++i];
     else if (arg === "--table") table = argv[++i];
@@ -445,7 +447,7 @@ const program = Effect.gen(function* () {
   }
 
   if (results.length === 1) {
-    logger.info(`Extracted: ${results[0].payload.sourceLabel}`);
+    logger.info(`Extracted: ${results[0]?.payload.sourceLabel ?? "unknown"}`);
   } else {
     logger.info(`Extracted ${results.length} tables from ${configFile}`);
   }

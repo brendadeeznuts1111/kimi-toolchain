@@ -60,8 +60,8 @@ describe("compile-target", () => {
     const caps = await probeCompileCapabilities();
     // Bun 1.4.0 >> 1.3.9, so ESM + bytecode should be supported
     if (caps.bunVersion.startsWith("1.")) {
-      const major = parseInt(caps.bunVersion.split(".")[0], 10);
-      const minor = parseInt(caps.bunVersion.split(".")[1], 10);
+      const major = parseInt(caps.bunVersion.split(".")[0] ?? "", 10);
+      const minor = parseInt(caps.bunVersion.split(".")[1] ?? "", 10);
       if (major > 1 || (major === 1 && minor >= 4)) {
         expect(caps.esmBytecode).toBe(true);
       }

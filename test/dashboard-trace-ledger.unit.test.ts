@@ -84,11 +84,11 @@ describe.serial("dashboard-trace-ledger", () => {
     expect(data.stats.avgDurationMs).toBe(100);
     expect(data.stats.byTool["kimi-doctor"]).toBe(1);
     expect(data.recentEvents.length).toBe(1);
-    expect(data.recentEvents[0].traceId).toBe(trace.traceId);
-    expect(data.recentEvents[0].tool).toBe("kimi-doctor");
-    expect(data.recentEvents[0].section).toBe("system");
-    expect(data.recentEvents[0].status).toBe("ok");
-    expect(data.recentEvents[0].durationMs).toBe(100);
+    expect(data.recentEvents[0]?.traceId).toBe(trace.traceId);
+    expect(data.recentEvents[0]?.tool).toBe("kimi-doctor");
+    expect(data.recentEvents[0]?.section).toBe("system");
+    expect(data.recentEvents[0]?.status).toBe("ok");
+    expect(data.recentEvents[0]?.durationMs).toBe(100);
   });
 
   test("apiTraceLedger counts errors correctly", async () => {
@@ -148,8 +148,8 @@ describe.serial("dashboard-trace-ledger", () => {
     expect(data.stats.totalEvents).toBe(55);
     expect(data.recentEvents.length).toBe(50);
     // Newest first — highest durationMs should be first
-    expect(data.recentEvents[0].durationMs).toBe(54);
-    expect(data.recentEvents[49].durationMs).toBe(5);
+    expect(data.recentEvents[0]?.durationMs).toBe(54);
+    expect(data.recentEvents[49]?.durationMs).toBe(5);
   });
 
   test("apiTraceGraph returns found:false for unknown traceId", async () => {
@@ -205,7 +205,7 @@ describe.serial("dashboard-trace-ledger", () => {
     expect(typeof data.tree).toBe("string");
     expect(data.tree).toContain("kimi-doctor");
     expect(data.nodes.length).toBeGreaterThan(0);
-    expect(data.nodes[0].events.length).toBeGreaterThanOrEqual(1);
+    expect(data.nodes[0]?.events.length).toBeGreaterThanOrEqual(1);
   });
 
   test("apiTraceGraph returns 400 when traceId is missing", async () => {
@@ -382,10 +382,10 @@ describe.serial("dashboard-trace-ledger", () => {
     };
     expect(data.traceSummaries.length).toBe(2);
     // trace2 is newer, should be first
-    expect(data.traceSummaries[0].traceId).toBe(trace2);
-    expect(data.traceSummaries[0].eventCount).toBe(1);
-    expect(data.traceSummaries[0].hasErrors).toBe(true);
-    expect(data.traceSummaries[0].status).toBe("error");
+    expect(data.traceSummaries[0]?.traceId).toBe(trace2);
+    expect(data.traceSummaries[0]?.eventCount).toBe(1);
+    expect(data.traceSummaries[0]?.hasErrors).toBe(true);
+    expect(data.traceSummaries[0]?.status).toBe("error");
     // trace1 has 2 events, 2 sections, no errors
     const t1 = data.traceSummaries.find((t) => t.traceId === trace1);
     expect(t1).toBeDefined();

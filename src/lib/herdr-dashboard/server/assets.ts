@@ -15,7 +15,7 @@ export function resolveHerdrDashboardTemplatesDir(): string {
     join(import.meta.dir, "..", "..", "..", "..", "templates"),
     join(import.meta.dir, "..", "..", "..", "templates"),
   ];
-  return candidates.find((dir) => pathExists(join(dir, DASHBOARD_HTML_NAME))) ?? candidates[0];
+  return candidates.find((dir) => pathExists(join(dir, DASHBOARD_HTML_NAME))) ?? join(import.meta.dir, "..", "..", "..", "..", "templates");
 }
 
 /** Resolve a dashboard template asset by filename. */

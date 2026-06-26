@@ -176,9 +176,12 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
       // Bun text reporter: " src/lib/utils.ts | 19.05 | 15.00 | ..."
       const bunFileMatch = line.match(/^\s*(\S+\.ts)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/);
       if (bunFileMatch) {
-        const pct = parseFloat(bunFileMatch[3]);
+        const path = bunFileMatch[1];
+        const percentageText = bunFileMatch[3];
+        if (!path || !percentageText) continue;
+        const pct = parseFloat(percentageText);
         report.files.push({
-          path: bunFileMatch[1].trim(),
+          path: path.trim(),
           percentage: pct,
           covered: Math.round(pct),
           total: 100,
@@ -188,18 +191,22 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
       // Legacy table: "| file.ts | 50.00% | 10/20 |"
       const fileMatch = line.match(/\|\s*([^|]+\.ts)\s*\|\s*([\d.]+)%\s*\|\s*(\d+)\/(\d+)\s*\|/);
       if (fileMatch) {
+        const [, path, percentage, covered, total] = fileMatch;
+        if (!path || !percentage || !covered || !total) continue;
         report.files.push({
-          path: fileMatch[1].trim(),
-          percentage: parseFloat(fileMatch[2]),
-          covered: parseInt(fileMatch[3], 10),
-          total: parseInt(fileMatch[4], 10),
+          path: path.trim(),
+          percentage: parseFloat(percentage),
+          covered: parseInt(covered, 10),
+          total: parseInt(total, 10),
         });
       }
 
       // Bun summary: "All files | 23.81 | 27.27 |"
       const bunTotalMatch = line.match(/All files\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|/);
       if (bunTotalMatch && !foundTotal) {
-        report.percentage = parseFloat(bunTotalMatch[2]);
+        const percentage = bunTotalMatch[2];
+        if (!percentage) continue;
+        report.percentage = parseFloat(percentage);
         report.total = 100;
         report.covered = Math.round(report.percentage);
         foundTotal = true;
@@ -207,9 +214,11 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
 
       const totalMatch = line.match(/All files.*?(\d+(?:\.\d+)?)%.*?(\d+)\/(\d+)/);
       if (totalMatch && !foundTotal) {
-        report.percentage = parseFloat(totalMatch[1]);
-        report.covered = parseInt(totalMatch[2], 10);
-        report.total = parseInt(totalMatch[3], 10);
+        const [, percentage, covered, total] = totalMatch;
+        if (!percentage || !covered || !total) continue;
+        report.percentage = parseFloat(percentage);
+        report.covered = parseInt(covered, 10);
+        report.total = parseInt(total, 10);
         foundTotal = true;
       }
     }
@@ -230,9 +239,11 @@ async function checkCoverage(projectDir: string, _threshold = 70): Promise<Cover
         let hitLines = 0;
         for (const line of lcov.split("\n")) {
           if (line.startsWith("DA:")) {
-            const [, hits] = line.split(":")[1].split(",");
+            const da = line.split(":")[1];
+            if (!da) continue;
+            const [, hits] = da.split(",");
             totalLines++;
-            if (parseInt(hits, 10) > 0) hitLines++;
+            if (parseInt(hits ?? "", 10) > 0) hitLines++;
           }
         }
         report.total = totalLines;
@@ -416,7 +427,7 @@ async function main(): Promise<number> {
       `CHANGELOG.md: ${gov.hasChangelog ? "present" : "MISSING"}`
     );
   } else if (command === "coverage") {
-    const threshold = parseInt(args[1], 10) || 70;
+    const threshold = parseInt(args[1] ?? "", 10) || 70;
     logger.section(`Test Coverage Gate (threshold: ${threshold}%)`);
     const cov = await checkCoverage(projectDir, threshold);
 
@@ -811,8 +822,8 @@ async function main(): Promise<number> {
   } else if (command === "score") {
     const fastScore = args.includes("--fast");
     const minIndex = args.findIndex((arg) => arg === "--min");
-    const minScore =
-      minIndex >= 0 && args[minIndex + 1] ? parseFloat(args[minIndex + 1]) : undefined;
+    const minScoreValue = minIndex >= 0 ? args[minIndex + 1] : undefined;
+    const minScore = minScoreValue ? parseFloat(minScoreValue) : undefined;
     logger.section(fastScore ? "Computing Fast R-Score" : "Computing R-Score");
     const score = await computeRScore(projectDir, { fast: fastScore });
 
@@ -825,6 +836,9 @@ async function main(): Promise<number> {
     logger.info("Breakdown:");
     for (const [key, value] of Object.entries(score.breakdown)) {
       const weight = WEIGHTS[key as keyof typeof WEIGHTS];
+      if (weight === undefined) continue;
+      if (weight === undefined) continue;
+      if (weight === undefined) continue;
       const indicator = breakdownIndicator(value, weight);
       logger.line(`    ${indicator} ${key}: ${formatPoints(value)}/${weight}`);
     }
@@ -857,6 +871,7 @@ async function main(): Promise<number> {
       const history = await readJsonFileOr(SCORE_HISTORY, [], isRScoreArray);
       if (history.length > 1) {
         const prev = history[history.length - 2];
+        if (!prev) return 1;
         const delta = score.total - prev.total;
         const arrow = delta > 0 ? "↑" : delta < 0 ? "↓" : "→";
         const deltaStr = formatPoints(Math.abs(delta));

@@ -223,7 +223,9 @@ function parseMimallocSize(value: string): number {
   if (normalized === "0" || normalized === "") return 0;
   const match = normalized.match(/^([0-9.]+)\s*(b|kib|mib|gib|kb|mb|gb|k|m|g)?$/);
   if (!match) return Number.NaN;
-  const num = Number.parseFloat(match[1]);
+  const amount = match[1];
+  if (!amount) return Number.NaN;
+  const num = Number.parseFloat(amount);
   const unit = match[2] ?? "b";
   const multipliers: Record<string, number> = {
     b: 1,
@@ -253,10 +255,10 @@ function parseMimallocRow(
     .filter(Boolean);
   if (columns.length < 5) return undefined;
   return {
-    peak: parseMimallocSize(columns[1]),
-    total: parseMimallocSize(columns[2]),
-    freed: parseMimallocSize(columns[3]),
-    current: parseMimallocSize(columns[4]),
+    peak: parseMimallocSize(columns[1] ?? ""),
+    total: parseMimallocSize(columns[2] ?? ""),
+    freed: parseMimallocSize(columns[3] ?? ""),
+    current: parseMimallocSize(columns[4] ?? ""),
   };
 }
 
@@ -283,14 +285,14 @@ export function parseMimallocStats(raw: string): MimallocStats | undefined {
     cached: parseMimallocRow(raw, "cached") ?? { peak: 0, total: 0, freed: 0, current: 0 },
     pages: parseMimallocRow(raw, "pages") ?? { peak: 0, total: 0, freed: 0, current: 0 },
     threads: parseMimallocRow(raw, "threads") ?? { peak: 0, total: 0, freed: 0, current: 0 },
-    elapsedSeconds: elapsedMatch ? Number.parseFloat(elapsedMatch[1]) : Number.NaN,
+    elapsedSeconds: elapsedMatch ? Number.parseFloat(elapsedMatch[1] ?? "") : Number.NaN,
     process: processMatch
       ? {
-          userSeconds: Number.parseFloat(processMatch[1]),
-          systemSeconds: Number.parseFloat(processMatch[2]),
-          faults: Number.parseInt(processMatch[3], 10),
-          rssBytes: parseMimallocSize(`${processMatch[4]} ${processMatch[5]}`),
-          commitBytes: parseMimallocSize(`${processMatch[6]} ${processMatch[7]}`),
+          userSeconds: Number.parseFloat(processMatch[1] ?? ""),
+          systemSeconds: Number.parseFloat(processMatch[2] ?? ""),
+          faults: Number.parseInt(processMatch[3] ?? "", 10),
+          rssBytes: parseMimallocSize(`${processMatch[4] ?? ""} ${processMatch[5] ?? ""}`),
+          commitBytes: parseMimallocSize(`${processMatch[6] ?? ""} ${processMatch[7] ?? ""}`),
         }
       : {
           userSeconds: Number.NaN,

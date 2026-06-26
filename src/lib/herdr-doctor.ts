@@ -311,9 +311,9 @@ function parseIntegrationVersions(output: string) {
   const versions: Record<string, number> = {};
   for (const line of output.split(/\r?\n/)) {
     const match = line.match(/^(\w+):\s+current\s+\(v(\d+)\)/);
-    if (match) versions[match[1]] = Number(match[2]);
+    if (match?.[1]) versions[match[1]] = Number(match[2] ?? "0");
     const missing = line.match(/^(\w+):\s+not installed/);
-    if (missing) versions[missing[1]] = 0;
+    if (missing?.[1]) versions[missing[1]] = 0;
   }
   return versions;
 }

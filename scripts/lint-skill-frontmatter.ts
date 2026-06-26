@@ -86,7 +86,8 @@ function parseFrontmatter(text: string): Map<string, string | null> | null {
 
   let endIndex = -1;
   for (let i = 1; i < lines.length; i++) {
-    if (lines[i].trimRight() === "---") {
+    const line = lines[i];
+    if (line?.trimRight() === "---") {
       endIndex = i;
       break;
     }
@@ -100,6 +101,7 @@ function parseFrontmatter(text: string): Map<string, string | null> | null {
 
   for (let i = 1; i < endIndex; i++) {
     const line = lines[i];
+    if (line === undefined) continue;
 
     // Inside multiline block scalar
     if (isMultiline) {
@@ -108,7 +110,7 @@ function parseFrontmatter(text: string): Map<string, string | null> | null {
         continue;
       }
       // End of multiline
-      entries.set(currentKey!, multilineValue.join("\n").trim());
+      if (currentKey) entries.set(currentKey, multilineValue.join("\n").trim());
       isMultiline = false;
       multilineValue = [];
     }
@@ -116,8 +118,10 @@ function parseFrontmatter(text: string): Map<string, string | null> | null {
     // Key: value (scalar)
     const kvMatch = line.match(/^(\w[\w_]*):\s*(.*)$/);
     if (kvMatch) {
-      const key = kvMatch[1]!;
-      const value = kvMatch[2]!.trim();
+      const key = kvMatch[1];
+      const rawValue = kvMatch[2];
+      if (!key || rawValue === undefined) continue;
+      const value = rawValue.trim();
 
       if (value === "|") {
         // Block scalar indicator
@@ -234,14 +238,16 @@ function checkDependencies(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (line === undefined) continue;
     if (line.trimRight() === "---") {
       if (deps.length > 0) break; // reached end of frontmatter
       continue;
     }
     if (inDeps) {
       const match = line.match(/^\s{2}-\s+(\S[\w-]*)/);
-      if (match) {
-        deps.push(match[1]!);
+      const dependency = match?.[1];
+      if (dependency) {
+        deps.push(dependency);
         continue;
       }
       // No more list items — exit

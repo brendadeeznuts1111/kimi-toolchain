@@ -31,8 +31,8 @@ describe("doctor-pipeline", () => {
         })
       );
       expect(checks).toHaveLength(1);
-      expect(checks[0].status).toBe("error");
-      expect(checks[0].message).toBe("failed: missing-sub-doctor-tool");
+      expect(checks[0]?.status).toBe("error");
+      expect(checks[0]?.message).toBe("failed: missing-sub-doctor-tool");
     } finally {
       Bun.env.HOME = prevHome;
       rmSync(tmpHome, { recursive: true, force: true });
@@ -66,8 +66,8 @@ describe("doctor-pipeline", () => {
         })
       );
       expect(checks).toHaveLength(1);
-      expect(checks[0].status).toBe("ok");
-      expect(checks[0].message).toContain("passed");
+      expect(checks[0]?.status).toBe("ok");
+      expect(checks[0]?.message).toContain("passed");
     } finally {
       Bun.env.HOME = prevHome;
       rmSync(tmpHome, { recursive: true, force: true });

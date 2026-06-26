@@ -25,8 +25,8 @@ describe("dashboard-card-registry", () => {
       </script>`;
     const cards = parseDashboardCardsFromHtml(html);
     expect(cards.length).toBe(1);
-    expect(cards[0].id).toBe("card-gates");
-    expect(cards[0].apiRoute).toBe("/api/gates");
+    expect(cards[0]?.id).toBe("card-gates");
+    expect(cards[0]?.apiRoute).toBe("/api/gates");
   });
 
   test("parseDashboardCardsFromHtml reads routes from external dashboard.js script source", async () => {

@@ -34,7 +34,7 @@ describe("error-taxonomy", () => {
   test("loadTaxonomy falls back to unknown when file missing", async () => {
     const taxonomy = await loadTaxonomy(join(tmpdir(), "missing-taxonomy.yml"));
     expect(taxonomy.categories.length).toBe(1);
-    expect(taxonomy.categories[0].id).toBe("unknown");
+    expect(taxonomy.categories[0]?.id).toBe("unknown");
   });
 
   test("loadTaxonomy parses yaml categories", async () => {
@@ -47,7 +47,7 @@ describe("error-taxonomy", () => {
     );
     const taxonomy = await loadTaxonomy(path);
     expect(taxonomy.version).toBe(2);
-    expect(taxonomy.categories[0].id).toBe("test_cat");
+    expect(taxonomy.categories[0]?.id).toBe("test_cat");
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -184,8 +184,8 @@ describe("error-taxonomy suggestions", () => {
   test("getSuggestions returns suggestion and autoFix", () => {
     const results = getSuggestions("Agent max steps exceeded in turn", sampleTaxonomy);
     expect(results.length).toBe(1);
-    expect(results[0].categoryId).toBe("max_steps_exceeded");
-    expect(results[0].autoFix).toBe("bun run check:fast");
+    expect(results[0]?.categoryId).toBe("max_steps_exceeded");
+    expect(results[0]?.autoFix).toBe("bun run check:fast");
   });
 
   test("buildClassifiedFailure sets taxonomyId alias", () => {

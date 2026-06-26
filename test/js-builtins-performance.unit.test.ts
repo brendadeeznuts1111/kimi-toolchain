@@ -33,8 +33,8 @@ describe("js-builtins-performance", () => {
   test("RegExp matchAll works correctly", () => {
     const matches = [..."a1b2c3".matchAll(/([a-z])(\d)/g)];
     expect(matches.length).toBe(3);
-    expect(matches[0][1]).toBe("a");
-    expect(matches[0][2]).toBe("1");
+    expect(matches[0]?.[1]).toBe("a");
+    expect(matches[0]?.[2]).toBe("1");
   });
 
   test("RegExp replace with function callback", () => {

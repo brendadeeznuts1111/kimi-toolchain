@@ -67,6 +67,7 @@ async function parseRestoreBaselineArgs(args: string[]): Promise<RestoreConfig |
 
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
+    if (!arg) continue;
     if (arg === "-h" || arg === "--help") return { help: true };
     if (arg === "-a" || arg === "--archive") {
       const value = args[index + 1];

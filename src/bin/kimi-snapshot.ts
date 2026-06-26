@@ -133,7 +133,7 @@ async function doctor(): Promise<
   // Storage usage
   try {
     const result = await $`du -sk ${SNAPSHOT_DIR}`.nothrow().quiet();
-    const kb = parseInt(result.stdout.toString().split(/\s+/)[0], 10);
+    const kb = parseInt(result.stdout.toString().split(/\s+/)[0] ?? "", 10);
     const mb = Math.round(kb / 1024);
     checks.push({
       name: "storage",
@@ -254,7 +254,7 @@ async function main(): Promise<number> {
       }
     }
   } else if (command === "cleanup") {
-    const days = parseInt(args[1], 10) || 30;
+    const days = parseInt(args[1] ?? "", 10) || 30;
     const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
     const snaps = await listSnapshots();
     let removed = 0;

@@ -533,7 +533,7 @@ function runProcess(
               await recordTraceEvent(
                 buildTraceEvent({
                   traceId: parentTraceId,
-                  childTraceIds: [traceOverlay.KIMI_TRACE_ID],
+                  childTraceIds: traceOverlay.KIMI_TRACE_ID ? [traceOverlay.KIMI_TRACE_ID] : [],
                   eventType: "subprocess",
                   tool: step.id,
                   command: step.command,

@@ -205,7 +205,7 @@ export function auditErrorCoverage(taxonomy: Taxonomy): ErrorCoverageAudit {
   const unclassified = records
     .map((record, index) => ({ record, fixture: MANAGED_FAILURE_FIXTURES[index] }))
     .filter((entry) => entry.record.taxonomyId === "unknown")
-    .map((entry) => entry.fixture);
+    .flatMap((entry) => (entry.fixture ? [entry.fixture] : []));
   const classified = records.length - unclassified.length;
   return {
     total: records.length,

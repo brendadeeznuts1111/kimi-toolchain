@@ -407,7 +407,7 @@ export async function runBunCliContractProbes(): Promise<CliContractProbeResult[
 // ── bunfig [test] options ───────────────────────────────────────────
 
 function extractRunningOrder(output: string): string[] {
-  return [...output.matchAll(/RUNNING: (\w+)/g)].map((m) => m[1]);
+  return [...output.matchAll(/RUNNING: (\w+)/g)].flatMap((m) => (m[1] ? [m[1]] : []));
 }
 
 export async function probeBunfigRandomizeSeed(): Promise<CliContractProbeResult> {
@@ -428,12 +428,14 @@ for (const name of ["alpha","bravo","charlie","delta","echo"]) {
     }
     orders.push(extractRunningOrder(`${stdout}${stderr}`));
   }
+  const first = orders[0] ?? [];
+  const second = orders[1] ?? [];
   const ok =
-    orders[0].length === 5 &&
-    orders[1].length === 5 &&
-    orders[0].join() === orders[1].join() &&
-    orders[0].join() !== "alpha,bravo,charlie,delta,echo";
-  return probe("cli.bunfig.randomize-seed", ok, ok ? orders[0].join(",") : "order mismatch");
+    first.length === 5 &&
+    second.length === 5 &&
+    first.join() === second.join() &&
+    first.join() !== "alpha,bravo,charlie,delta,echo";
+  return probe("cli.bunfig.randomize-seed", ok, ok ? first.join(",") : "order mismatch");
 }
 
 export async function probeBunfigSeedWithoutRandomize(): Promise<CliContractProbeResult> {

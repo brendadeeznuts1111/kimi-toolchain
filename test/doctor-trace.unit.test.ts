@@ -36,7 +36,7 @@ describe("doctor-trace", () => {
       // Logger should have the same traceId wired from env
       logger.info("test");
       const logs = logger.getLogs();
-      expect(logs[logs.length - 1].traceId).toBe(trace.traceId);
+      expect(logs[logs.length - 1]?.traceId).toBe(trace.traceId);
     } finally {
       if (prev === undefined) delete Bun.env[TRACE_ID_ENV];
       else Bun.env[TRACE_ID_ENV] = prev;

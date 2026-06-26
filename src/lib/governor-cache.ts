@@ -25,7 +25,9 @@ export async function cachedExec(
 ): Promise<string> {
   const log = resolveLogger(options?.logger);
   const cwd = options?.cwd || Bun.cwd;
-  const key = hashCommand(command[0], command.slice(1), cwd);
+  const executable = command[0];
+  if (!executable) throw new Error("cachedExec requires a command");
+  const key = hashCommand(executable, command.slice(1), cwd);
 
   if (!options?.force) {
     const cached = getCached(key);

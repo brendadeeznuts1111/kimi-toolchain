@@ -330,7 +330,9 @@ function buildClusters(
     let bestIndex = -1;
     let bestSimilarity = 0;
     for (let index = 0; index < clusters.length; index++) {
-      const similarity = cosineSimilarity(record.vector, clusters[index].centroid);
+      const candidate = clusters[index];
+      if (!candidate) continue;
+      const similarity = cosineSimilarity(record.vector, candidate.centroid);
       if (similarity > bestSimilarity) {
         bestSimilarity = similarity;
         bestIndex = index;
@@ -339,6 +341,7 @@ function buildClusters(
 
     if (bestIndex >= 0 && bestSimilarity >= threshold) {
       const cluster = clusters[bestIndex];
+      if (!cluster) continue;
       cluster.members.push(record);
       cluster.similarities.push(bestSimilarity);
       cluster.centroid = mergeCentroid(cluster.members);
@@ -366,15 +369,17 @@ function buildClusters(
 }
 
 function mergeCentroid(members: EmbeddedFailure[]): Float32Array {
-  const centroid = new Float32Array(members[0].vector.length);
+  const first = members[0];
+  if (!first) return new Float32Array();
+  const centroid = new Float32Array(first.vector.length);
   for (const member of members) {
     for (let i = 0; i < centroid.length; i++) {
-      centroid[i] += member.vector[i] / members.length;
+      centroid[i] = (centroid[i] ?? 0) + (member.vector[i] ?? 0) / members.length;
     }
   }
   const norm = Math.sqrt(centroid.reduce((sum, value) => sum + value * value, 0));
   if (norm > 0) {
-    for (let i = 0; i < centroid.length; i++) centroid[i] /= norm;
+    for (let i = 0; i < centroid.length; i++) centroid[i] = (centroid[i] ?? 0) / norm;
   }
   return centroid;
 }
@@ -482,7 +487,7 @@ function dominantTaxonomy(counts: Record<string, number>): string {
   const entries = Object.entries(counts);
   if (entries.length === 0) return "unknown";
   entries.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  return entries[0][0];
+  return entries[0]?.[0] ?? "unknown";
 }
 
 async function writeClusterMetadata(report: ErrorClusterReport, path: string): Promise<void> {

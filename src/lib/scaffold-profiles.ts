@@ -22,7 +22,10 @@ function resolveTemplateDir(): string {
     join(import.meta.dir, "..", "..", "templates", "scaffold"),
     join(import.meta.dir, "..", "templates", "scaffold"),
   ];
-  return candidates.find((dir) => pathExists(dir)) ?? candidates[0];
+  return (
+    candidates.find((dir) => pathExists(dir)) ??
+    join(import.meta.dir, "..", "..", "templates", "scaffold")
+  );
 }
 
 const TEMPLATE_DIR = resolveTemplateDir();
@@ -60,8 +63,9 @@ export function resolveScaffoldProfile(argv: readonly string[]): ScaffoldProfile
   let explicit: ScaffoldProfile | null = null;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (!arg) continue;
     if (arg === "--profile") {
-      explicit = parseProfileValue(argv[i + 1]);
+      explicit = parseProfileValue(argv[i + 1] ?? "");
       continue;
     }
     if (arg.startsWith("--profile=")) {
@@ -75,6 +79,7 @@ export function filterScaffoldArgv(argv: readonly string[]): string[] {
   const filtered: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (!arg) continue;
     if (arg === "--profile") {
       i++;
       continue;

@@ -114,7 +114,9 @@ function resolvePmPath(path: string) {
   const parts = path.split(" ");
   let target: typeof typedData.commands.pm | undefined = typedData.commands.pm;
   for (let i = 1; i < parts.length; i++) {
-    target = target?.subcommands?.[parts[i]];
+    const part = parts[i];
+    if (!part) return undefined;
+    target = target?.subcommands?.[part];
   }
   return target;
 }

@@ -94,8 +94,9 @@ export function argValue(argv: string[], flag: string): string | undefined {
 export function argValues(argv: string[], flag: string): string[] {
   const values: string[] = [];
   for (let i = 2; i < argv.length; i++) {
-    if (argv[i] === flag && i + 1 < argv.length) {
-      values.push(argv[i + 1]!);
+    const value = argv[i + 1];
+    if (argv[i] === flag && value !== undefined) {
+      values.push(value);
     }
   }
   return values;
@@ -168,7 +169,11 @@ function printGlobalHelp(): void {
   }
 }
 
-function printSubcommandHelp(cmd: Subcommand): void {
+function printSubcommandHelp(cmd: Subcommand | undefined): void {
+  if (!cmd) {
+    printGlobalHelp();
+    return;
+  }
   logger.section(cmd.name);
   logger.line(cmd.description);
   logger.line(`Usage: kimi-mcp ${cmd.usage}`);

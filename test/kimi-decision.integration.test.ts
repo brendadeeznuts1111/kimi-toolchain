@@ -89,7 +89,7 @@ describe("kimi-decision CLI", () => {
       const log = JSON.parse(list.stdout) as { decisions: Array<{ decisionId: string }> };
       expect(explanation.latest?.decisionId).toBe("decision-format-fix");
       expect(explanation.rootCauseChain).toEqual(["trace-root", "trace-child"]);
-      expect(log.decisions[0].decisionId).toBe("decision-format-fix");
+      expect(log.decisions[0]?.decisionId).toBe("decision-format-fix");
     } finally {
       rmSync(home, { recursive: true, force: true });
     }

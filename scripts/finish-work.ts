@@ -69,6 +69,7 @@ function parseCli(): CliOptions {
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
+    if (!arg) continue;
     if (arg === "--dry-run" || arg === "--dryrun") {
       dryRun = true;
       continue;

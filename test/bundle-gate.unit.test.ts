@@ -127,10 +127,10 @@ describe("bundle-gate parse", () => {
     const section = extractSection(SAMPLE_REPORT, "Largest Modules by Output Contribution");
     const modules = parseLargestModules(section);
     expect(modules.length).toBe(5);
-    expect(modules[0].module).toContain("typescript");
-    expect(modules[0].pctOfTotal).toBe(84);
-    expect(modules[0].format).toBe("cjs");
-    expect(modules[0].outputBytes).toBeGreaterThan(8_000_000);
+    expect(modules[0]?.module).toContain("typescript");
+    expect(modules[0]?.pctOfTotal).toBe(84);
+    expect(modules[0]?.format).toBe("cjs");
+    expect(modules[0]?.outputBytes).toBeGreaterThan(8_000_000);
   });
 
   test("parseLargestModules skips header divider", () => {
@@ -154,7 +154,7 @@ describe("bundle-gate parse", () => {
 | 161.43 KB | 1.5% | \`test.js\` | esm |
 `);
     expect(result.length).toBe(1);
-    expect(result[0].outputBytes).toBeCloseTo(161.43 * 1024, -1);
+    expect(result[0]?.outputBytes).toBeCloseTo(161.43 * 1024, -1);
   });
 
   test("parseLargestModules returns empty for empty input", () => {

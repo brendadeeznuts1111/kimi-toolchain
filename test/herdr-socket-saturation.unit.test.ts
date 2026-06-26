@@ -28,7 +28,7 @@ describe("herdr-socket-saturation backoff", () => {
     expect(resolveHerdrReconnectDelayMs("connect EAGAIN", 0, delays)).toBe(
       HERDR_SOCKET_SATURATION_RECONNECT_FLOOR_MS
     );
-    expect(resolveHerdrReconnectDelayMs("connect EAGAIN", 1, delays)).toBe(delays[1]);
+    expect(resolveHerdrReconnectDelayMs("connect EAGAIN", 1, delays)).toBe(delays[1] ?? null);
   });
 
   test("resolveHerdrReconnectDelayMs keeps 1s first delay for non-saturation errors", () => {

@@ -146,17 +146,26 @@ function levenshteinDistance(a: string, b: string): number {
   if (m === 0) return n;
   if (n === 0) return m;
   const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 0; i <= m; i++) {
+    const row = dp[i];
+    if (row) row[0] = i;
+  }
+  const firstRow = dp[0];
+  if (!firstRow) return Infinity;
+  for (let j = 0; j <= n; j++) firstRow[j] = j;
   for (let i = 1; i <= m; i++) {
+    const row = dp[i];
+    const prevRow = dp[i - 1];
+    if (!row || !prevRow) continue;
     for (let j = 1; j <= n; j++) {
-      dp[i][j] =
-        a[i - 1] === b[j - 1]
-          ? dp[i - 1][j - 1]
-          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      const deletion = prevRow[j] ?? Infinity;
+      const insertion = row[j - 1] ?? Infinity;
+      const substitution = prevRow[j - 1] ?? Infinity;
+      row[j] =
+        a[i - 1] === b[j - 1] ? substitution : 1 + Math.min(deletion, insertion, substitution);
     }
   }
-  return dp[m][n];
+  return dp[m]?.[n] ?? Infinity;
 }
 
 /** Suggest the closest registered tool name for an unknown input. */

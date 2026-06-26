@@ -414,10 +414,10 @@ export function auditApps(apps: AccessApplication[], tokens: ServiceToken[]): Ap
     if (app.session_duration) {
       const hourMatch = app.session_duration.match(/^(\d+)h$/);
       if (hourMatch) {
-        sessionHours = Number.parseInt(hourMatch[1], 10);
+        sessionHours = Number.parseInt(hourMatch[1] ?? "", 10);
       } else {
         const dayMatch = app.session_duration.match(/^(\d+)d$/);
-        if (dayMatch) sessionHours = Number.parseInt(dayMatch[1], 10) * 24;
+        if (dayMatch) sessionHours = Number.parseInt(dayMatch[1] ?? "", 10) * 24;
       }
     }
     if (sessionHours > 168) {

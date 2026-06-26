@@ -41,9 +41,9 @@ describe("reclassify-failure-ledger", () => {
     expect(report.reclassified).toBe(2);
     expect(report.byTarget.opaque_hook_output).toBe(1);
     expect(report.byTarget.runtime_sync_drift).toBe(1);
-    expect(updated[0].taxonomyId).toBe("opaque_hook_output");
-    expect(updated[1].taxonomyId).toBe("runtime_sync_drift");
-    expect(updated[2].taxonomyId).toBe("lint_failure");
+    expect(updated[0]?.taxonomyId).toBe("opaque_hook_output");
+    expect(updated[1]?.taxonomyId).toBe("runtime_sync_drift");
+    expect(updated[2]?.taxonomyId).toBe("lint_failure");
   });
 
   test("reclassifyFailureRecords maps final unknown buckets", async () => {

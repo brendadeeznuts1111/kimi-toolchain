@@ -66,6 +66,7 @@ async function getRecentChanges(projectDir: string, commits = 5): Promise<GitCha
     const match = line.match(/^(.+?)\s+\|\s+(\d+)\s+([+-]+)$/);
     if (match) {
       const [, file, _count, signs] = match;
+      if (!file || !signs) continue;
       const insertions = (signs.match(/\+/g) || []).length;
       const deletions = (signs.match(/-/g) || []).length;
       changes.push({ file: file.trim(), status: "M", insertions, deletions });
@@ -479,7 +480,7 @@ async function main(): Promise<number> {
       logger.info(`Run: kimi-debug trace ${mostChanged.file}`);
     }
   } else if (command === "diff") {
-    const commits = parseInt(args[1], 10) || 3;
+    const commits = parseInt(args[1] ?? "", 10) || 3;
     logger.section(`Diff Summary (last ${commits} commits)`);
 
     const changes = await getRecentChanges(projectDir, commits);

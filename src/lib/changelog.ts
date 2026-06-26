@@ -19,7 +19,7 @@ const CONVENTIONAL_RE = /^(\w+)(?:\(([^)]+)\))?!?:\s*(.+)$/;
 export function commitsToSection(commits: Commit[], version: string): ChangelogSection {
   const section: ChangelogSection = {
     version,
-    date: new Date().toISOString().split("T")[0],
+    date: new Date().toISOString().split("T")[0] ?? new Date().toISOString(),
     added: [],
     changed: [],
     fixed: [],

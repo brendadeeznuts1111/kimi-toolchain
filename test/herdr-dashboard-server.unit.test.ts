@@ -79,10 +79,10 @@ describe("herdr-dashboard-server", () => {
     const payload = await fetchDashboardCanvases();
     const orders = payload.canvases.map((c) => c.readOrder ?? 99);
     for (let i = 1; i < orders.length; i++) {
-      expect(orders[i]).toBeGreaterThanOrEqual(orders[i - 1]);
+      expect(orders[i] ?? 0).toBeGreaterThanOrEqual(orders[i - 1] ?? 0);
     }
     // Hub (readOrder 1) must be first
-    expect(payload.canvases[0].id).toBe("unified");
+    expect(payload.canvases[0]?.id).toBe("unified");
   });
 
   test("fetchDashboardCanvases entries have required metadata", async () => {

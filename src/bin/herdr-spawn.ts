@@ -11,7 +11,12 @@ if (isDirectRun(import.meta.path)) {
   }
 
   const cmd = resolveAgentArgv(agent);
+  const executable = cmd[0];
+  if (!executable) {
+    process.stderr.write(`unable to resolve agent: ${agent}\n`);
+    process.exit(1);
+  }
   const extra = Bun.argv.slice(3);
-  const code = await handoffInheritedSpawn([cmd[0], ...cmd.slice(1), ...extra]);
+  const code = await handoffInheritedSpawn([executable, ...cmd.slice(1), ...extra]);
   process.exit(code);
 }

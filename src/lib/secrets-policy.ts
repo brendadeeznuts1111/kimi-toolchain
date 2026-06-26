@@ -188,5 +188,5 @@ export function isStale(
 }
 
 export function todayDateString(): string {
-  return new Date().toISOString().split("T")[0];
+  return new Date().toISOString().split("T")[0] ?? new Date().toISOString();
 }

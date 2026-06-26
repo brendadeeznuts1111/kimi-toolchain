@@ -464,11 +464,15 @@ export function expandClonePath(clonePath: string): string {
 }
 
 export function getEcosystem(id: EcosystemId): EcosystemReference {
-  return ECOSYSTEM_BY_ID[id];
+  const ref = ECOSYSTEM_BY_ID[id];
+  if (!ref) throw new Error(`Unknown ecosystem reference: ${id}`);
+  return ref;
 }
 
 export function getRepo(id: RepoId): RepoReference {
-  return REPO_BY_ID[id];
+  const ref = REPO_BY_ID[id];
+  if (!ref) throw new Error(`Unknown repo reference: ${id}`);
+  return ref;
 }
 
 /** Resolve a repository from a GitHub URL (or normalized equivalent). */

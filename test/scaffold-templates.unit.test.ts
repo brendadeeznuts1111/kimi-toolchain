@@ -234,7 +234,7 @@ describe("scaffold-templates", () => {
       expect(content).not.toContain("{{DECIDERS}}");
       expect(content).not.toContain("{{DATE}}");
 
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0] ?? "";
       expect(content).toContain(today);
     });
 

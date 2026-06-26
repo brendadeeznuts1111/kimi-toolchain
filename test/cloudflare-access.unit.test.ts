@@ -56,28 +56,28 @@ describe("cloudflare-access logic", () => {
       const past = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
       const violations = checkTokenExpiry([token({ expires_at: past })], 30);
       expect(violations).toHaveLength(1);
-      expect(violations[0].reason).toBe("expired");
-      expect(violations[0].daysRemaining).toBeLessThanOrEqual(-5);
+      expect(violations[0]?.reason).toBe("expired");
+      expect(violations[0]?.daysRemaining).toBeLessThanOrEqual(-5);
     });
 
     test("flags tokens expiring within warn window", () => {
       const soon = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString();
       const violations = checkTokenExpiry([token({ expires_at: soon })], 30);
       expect(violations).toHaveLength(1);
-      expect(violations[0].reason).toBe("expiring-soon");
-      expect(violations[0].daysRemaining).toBe(10);
+      expect(violations[0]?.reason).toBe("expiring-soon");
+      expect(violations[0]?.daysRemaining).toBe(10);
     });
 
     test("flags tokens with no expiry", () => {
       const violations = checkTokenExpiry([token({ expires_at: null })], 30);
       expect(violations).toHaveLength(1);
-      expect(violations[0].reason).toBe("no-expiry");
+      expect(violations[0]?.reason).toBe("no-expiry");
     });
 
     test("flags tokens with unparseable expiry", () => {
       const violations = checkTokenExpiry([token({ expires_at: "not-a-date" })], 30);
       expect(violations).toHaveLength(1);
-      expect(violations[0].reason).toBe("no-expiry");
+      expect(violations[0]?.reason).toBe("no-expiry");
     });
 
     test("skips tokens without id", () => {
@@ -113,8 +113,8 @@ describe("cloudflare-access logic", () => {
     test("flags app with no policies as allow-everyone", () => {
       const findings = auditApps([app({ policies: [] })], []);
       expect(findings).toHaveLength(1);
-      expect(findings[0].reason).toBe("allow-everyone");
-      expect(findings[0].detail).toContain("No policies");
+      expect(findings[0]?.reason).toBe("allow-everyone");
+      expect(findings[0]?.detail).toContain("No policies");
     });
 
     test("flags bypass policy", () => {

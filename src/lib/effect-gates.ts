@@ -831,6 +831,7 @@ export function deriveSessionCountsFromSnapshots(
 
   const newest = snapshots[0];
   const oldest = snapshots[snapshots.length - 1];
+  if (!newest || !oldest) return null;
   const improved = (before: number, after: number) => Math.max(0, before - after);
 
   return {

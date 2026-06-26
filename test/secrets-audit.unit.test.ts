@@ -33,8 +33,8 @@ describe("secrets-audit", () => {
         await appendSecretAudit(path, record());
         const records = await readSecretAudit(path);
         expect(records).toHaveLength(1);
-        expect(records[0].service).toBe("kimi-toolchain");
-        expect(records[0].action).toBe("get");
+        expect(records[0]?.service).toBe("kimi-toolchain");
+        expect(records[0]?.action).toBe("get");
       } finally {
         cleanup(path);
       }

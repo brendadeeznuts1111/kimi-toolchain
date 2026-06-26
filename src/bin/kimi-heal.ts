@@ -130,7 +130,8 @@ function threshold(): number | undefined {
 function argValues(flag: string): string[] {
   const values: string[] = [];
   for (let index = 0; index < Bun.argv.length; index++) {
-    if (Bun.argv[index] === flag && Bun.argv[index + 1]) values.push(Bun.argv[index + 1]);
+    const value = Bun.argv[index + 1];
+    if (Bun.argv[index] === flag && value) values.push(value);
   }
   return values;
 }

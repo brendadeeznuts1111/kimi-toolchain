@@ -8,6 +8,7 @@ import {
   CANONICAL_REFERENCES_SCHEMA_VERSION,
   type CanonicalReferencesManifest,
   ECOSYSTEM_BY_ID,
+  getEcosystem,
   ECOSYSTEM_REFERENCES,
   LOCAL_DOC_BY_ID,
   LOCAL_DOC_REFERENCES,
@@ -99,7 +100,7 @@ describe("canonical-references", () => {
 
   test("ecosystemReferenceInspectRow uses formatted status column", () => {
     const repoNameById = new Map(REPO_REFERENCES.map((r) => [r.id, r.name]));
-    const row = ecosystemReferenceInspectRow(ECOSYSTEM_BY_ID["bun"], repoNameById);
+    const row = ecosystemReferenceInspectRow(ECOSYSTEM_BY_ID["bun"] ?? getEcosystem("bun"), repoNameById);
     expect(row.status).toBe("✅ active");
     expect(row.repoId).toBe("bun-upstream");
   });
@@ -200,7 +201,7 @@ describe("canonical-references", () => {
 
   test("REPO_BY_ID and getRepo provide O(1) typed lookup", () => {
     expect(getRepo("kimi-toolchain").name).toBe("kimi-toolchain");
-    expect(REPO_BY_ID["effect-upstream"].provides).toEqual(["effect"]);
+    expect(REPO_BY_ID["effect-upstream"]?.provides).toEqual(["effect"]);
     expect(getRepo("oxc-upstream").language).toBe("rust");
   });
 
@@ -360,10 +361,10 @@ describe("canonical-references", () => {
   });
 
   test("ECOSYSTEM_BY_ID and LOCAL_DOC_BY_ID provide O(1) typed lookup", () => {
-    expect(ECOSYSTEM_BY_ID["bun"].minVersion).toBe("1.4.0");
-    expect(ECOSYSTEM_BY_ID["effect"].package).toBe("effect");
-    expect(LOCAL_DOC_BY_ID["agents"].repoPath).toBe("AGENTS.md");
-    expect(LOCAL_DOC_BY_ID["unified"].cursorCanvas).toContain("kimi-toolchain");
+    expect(ECOSYSTEM_BY_ID["bun"]?.minVersion).toBe("1.4.0");
+    expect(ECOSYSTEM_BY_ID["effect"]?.package).toBe("effect");
+    expect(LOCAL_DOC_BY_ID["agents"]?.repoPath).toBe("AGENTS.md");
+    expect(LOCAL_DOC_BY_ID["unified"]?.cursorCanvas).toContain("kimi-toolchain");
   });
 
   test("auditCanonicalReferencesHealth passes for aligned repo + runtime", async () => {

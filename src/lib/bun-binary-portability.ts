@@ -15,7 +15,7 @@ export function glibcVersionAboveFloor(v: string): boolean {
   const parts = v.split(".").map(Number);
   for (let i = 0; i < GLIBC_FLOOR.length; i++) {
     const a = parts[i] ?? 0;
-    const b = GLIBC_FLOOR[i];
+    const b = GLIBC_FLOOR[i] ?? 0;
     if (a !== b) return a > b;
   }
   return false;
@@ -80,7 +80,8 @@ export const ALLOWED_DELAY_ONLY = new Set(["vcruntime140_1.dll"]);
 function pushPeImport(imports: PeImport[], kind: PeImportKind, line: string): PeImportKind | null {
   const inline = line.match(/Name:\s*(\S+)/);
   if (inline) {
-    imports.push({ dll: inline[1], kind });
+    const dll = inline[1];
+    if (dll) imports.push({ dll, kind });
     return null;
   }
   return kind;
@@ -98,7 +99,8 @@ export function parsePeImports(readobjOutput: string): PeImport[] {
     } else if (currentKind) {
       const m = line.match(/^\s*Name:\s*(\S+)/);
       if (m) {
-        imports.push({ dll: m[1], kind: currentKind });
+        const dll = m[1];
+        if (dll) imports.push({ dll, kind: currentKind });
         currentKind = null;
       }
     }

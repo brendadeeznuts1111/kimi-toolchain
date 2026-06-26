@@ -76,7 +76,7 @@ function resolveManifestPath(): string {
     join(import.meta.dir, "..", "manifest.toml"),
   ];
   const found = candidates.find((d) => pathExists(d));
-  return found ?? candidates[0];
+  return found ?? join(import.meta.dir, "..", "..", "manifest.toml");
 }
 
 async function loadManifest(): Promise<Manifest> {

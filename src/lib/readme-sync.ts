@@ -99,7 +99,8 @@ function extractReadmeScripts(readme: string, pkgScripts: Record<string, string>
 
   let match: RegExpExecArray | null;
   while ((match = SCRIPT_PATTERN.exec(readme)) !== null) {
-    found.push(match[1]);
+    const script = match[1];
+    if (script) found.push(script);
   }
 
   const codeBlocks = readme.match(CODE_BLOCK_PATTERN) || [];

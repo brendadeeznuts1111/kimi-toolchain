@@ -200,11 +200,13 @@ export function criticalInheritedFlags(
 
 export function makeTable<T extends Record<string, string | number>>(rows: T[]): string {
   if (rows.length === 0) return "";
-  const cols = Object.keys(rows[0]);
+  const first = rows[0];
+  if (!first) return "";
+  const cols = Object.keys(first);
   const cell = (v: string | number): string => String(v).replace(/\|/g, "\\|");
   const header = "| " + cols.join(" | ") + " |";
   const sep = "|" + cols.map(() => " --- ").join("|") + "|";
-  const body = rows.map((r) => "| " + cols.map((c) => cell(r[c])).join(" | ") + " |").join("\n");
+  const body = rows.map((r) => "| " + cols.map((c) => cell(r[c] ?? "")).join(" | ") + " |").join("\n");
   return [header, sep, body].join("\n");
 }
 
@@ -279,7 +281,9 @@ export function buildPmRows(
     const parts = row.path.split(" ");
     let target: CommandEntry | undefined = pmCommand;
     for (let i = 1; i < parts.length; i++) {
-      target = target?.subcommands?.[parts[i]];
+      const part = parts[i];
+      if (!part) return row;
+      target = target?.subcommands?.[part];
     }
     const reqPos = (target?.positionalArgs || []).filter((a) => a.required).length;
     const optPos = (target?.positionalArgs || []).length - reqPos;
@@ -371,9 +375,11 @@ function csvCell(value: string | number): string {
 
 export function makeCsv(rows: Record<string, string | number>[]): string {
   if (rows.length === 0) return "";
-  const cols = Object.keys(rows[0]);
+  const first = rows[0];
+  if (!first) return "";
+  const cols = Object.keys(first);
   const header = cols.map(csvCell).join(",");
-  const body = rows.map((r) => cols.map((c) => csvCell(r[c])).join(","));
+  const body = rows.map((r) => cols.map((c) => csvCell(r[c] ?? "")).join(","));
   return [header, ...body].join("\n");
 }
 
@@ -427,7 +433,9 @@ footer { max-width: 1200px; margin: 2rem auto 0; color: var(--muted); font-size:
 
   const renderTable = (rows: Record<string, string | number>[], id?: string) => {
     if (rows.length === 0) return '<p class="empty">No data.</p>';
-    const cols = Object.keys(rows[0]);
+    const first = rows[0];
+    if (!first) return '<p class="empty">No data.</p>';
+    const cols = Object.keys(first);
     return `<table${id ? ` id="${id}"` : ""}>
   <thead>
     <tr>${cols.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr>

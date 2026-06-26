@@ -16,7 +16,7 @@ export async function getSwapUsedMB(): Promise<number> {
   const out = await $`sysctl -n vm.swapusage`.quiet().nothrow();
   if (out.exitCode !== 0) return 0;
   const match = out.stdout.toString().match(/used\s*=\s*([\d.]+)M/i);
-  return match ? Math.round(parseFloat(match[1])) : 0;
+  return match ? Math.round(parseFloat(match[1] ?? "")) : 0;
 }
 
 export async function getMemoryPressureFreePct(): Promise<number | null> {
@@ -24,7 +24,7 @@ export async function getMemoryPressureFreePct(): Promise<number | null> {
     const out = await $`memory_pressure -Q`.quiet().nothrow();
     if (out.exitCode !== 0) return null;
     const match = out.stdout.toString().match(/free percentage:\s*(\d+)%/i);
-    return match ? parseInt(match[1], 10) : null;
+    return match ? parseInt(match[1] ?? "", 10) : null;
   } catch {
     return null;
   }

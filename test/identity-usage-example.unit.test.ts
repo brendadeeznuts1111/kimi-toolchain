@@ -43,7 +43,7 @@ async function parseSetCookie(res: Response): Promise<string | null> {
   const cookie = res.headers.get("Set-Cookie");
   if (!cookie) return null;
   const match = cookie.match(/session=([^;]+)/);
-  return match ? match[1] : null;
+  return match?.[1] ?? null;
 }
 
 async function login(

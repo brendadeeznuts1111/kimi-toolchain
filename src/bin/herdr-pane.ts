@@ -432,7 +432,7 @@ async function main() {
         if (label === undefined && !parseFlag(args, "--clear")) {
           die("Missing label or --clear");
         }
-        await Effect.runPromise(renamePane(paneId, label));
+        await Effect.runPromise(renamePane(paneId, label ?? null));
         break;
       }
 

@@ -101,6 +101,10 @@ async function main(): Promise<number> {
   }
 
   const tool = args[0];
+  if (!tool) {
+    printToolHelp();
+    return 1;
+  }
   const rest = args.slice(1);
 
   if (tool === "restore-baseline") {

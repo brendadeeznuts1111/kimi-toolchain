@@ -132,7 +132,7 @@ export function parsePolicyConfig(yaml: string): AccessPolicyConfig {
   function currentList(): Array<Record<string, unknown>> | null {
     for (let i = stack.length - 1; i >= 0; i--) {
       const entry = stack[i];
-      if (isStackEntry(entry, "list")) return entry.arr;
+      if (entry && isStackEntry(entry, "list")) return entry.arr;
     }
     return null;
   }
@@ -140,6 +140,7 @@ export function parsePolicyConfig(yaml: string): AccessPolicyConfig {
   function currentObject(): Record<string, unknown> | null {
     for (let i = stack.length - 1; i >= 0; i--) {
       const entry = stack[i];
+      if (!entry) continue;
       if (isStackEntry(entry, "object")) return entry.obj;
       if (isStackEntry(entry, "policy")) return entry.policy as unknown as Record<string, unknown>;
       if (isStackEntry(entry, "app")) return entry.app as unknown as Record<string, unknown>;
@@ -148,13 +149,14 @@ export function parsePolicyConfig(yaml: string): AccessPolicyConfig {
   }
 
   function popUntil(indent: number) {
-    while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
+    while (stack.length > 1 && (stack[stack.length - 1]?.indent ?? -1) >= indent) {
       stack.pop();
     }
   }
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
+    if (raw === undefined) continue;
     const trimmed = raw.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
 
@@ -162,6 +164,7 @@ export function parsePolicyConfig(yaml: string): AccessPolicyConfig {
     popUntil(indent);
 
     const parent = stack[stack.length - 1];
+    if (!parent) continue;
 
     // scoped: true
     if (trimmed === "scoped: true") {

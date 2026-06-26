@@ -612,6 +612,7 @@ describe("identity-service > IdentityLive full auth flow", () => {
           sessions.push(session.id);
         }
         const oldest = sessions[0];
+        if (!oldest) throw new Error("expected at least one session");
         const retrieved = yield* id.getSession(oldest);
         return { oldest, retrieved };
       }),

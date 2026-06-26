@@ -594,7 +594,7 @@ async function main(): Promise<number> {
     logger.section("Fixing CONTEXT.md");
     const hashes = await hashConfigs(projectDir);
     const { score } = await computeFreshness(projectDir, hashes);
-    const threshold = parseInt(args[1], 10) || 7;
+    const threshold = parseInt(args[1] ?? "", 10) || 7;
 
     if (score < threshold) {
       logger.warn(`Freshness ${score}/10 < threshold ${threshold}/10 — regenerating`);

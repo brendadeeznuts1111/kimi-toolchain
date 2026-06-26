@@ -168,7 +168,7 @@ describe("changelog", () => {
       const commits: Commit[] = [];
       const section = commitsToSection(commits, "2.0.0");
       expect(section.version).toBe("2.0.0");
-      expect(section.date).toBe(new Date().toISOString().split("T")[0]);
+      expect(section.date).toBe(new Date().toISOString().split("T")[0] ?? "");
     });
   });
 

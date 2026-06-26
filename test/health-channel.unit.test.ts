@@ -93,7 +93,7 @@ describe("health-channel", () => {
       });
       const lines = await readFileLines();
       expect(lines.length).toBe(1);
-      const parsed = JSON.parse(lines[0]);
+      const parsed = JSON.parse(lines[0] ?? "{}");
       expect(parsed.kind).toBe("tool:start");
       expect(parsed.tool).toBe("test");
     });
@@ -212,7 +212,7 @@ describe("health-channel", () => {
         } catch {}
       }
       expect(received.length).toBe(1);
-      expect(received[0].kind).toBe("tool:start");
+      expect(received[0]?.kind).toBe("tool:start");
     });
   });
 });

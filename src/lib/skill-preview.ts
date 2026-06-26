@@ -70,6 +70,7 @@ export function parsePreviewCliArgs(args: string[]): PreviewCliArgs | { error: s
       columns = value;
       continue;
     }
+    if (!arg) continue;
     if (arg.startsWith("--")) {
       return { error: `unknown flag: ${arg}` };
     }

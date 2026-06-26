@@ -3379,8 +3379,10 @@ export function parseBunLinkHelpFlags(output: string): string[] {
     }
     const shortLong = line.match(/^\s*-([a-zA-Z]),\s*(--[\w-]+)/);
     if (shortLong) {
-      flags.add(`-${shortLong[1]}`);
-      flags.add(shortLong[2]);
+      const shortFlag = shortLong[1];
+      const longFlag = shortLong[2];
+      if (shortFlag) flags.add(`-${shortFlag}`);
+      if (longFlag) flags.add(longFlag);
       continue;
     }
     const shortOnly = line.match(/^\s*-([a-zA-Z]),/);

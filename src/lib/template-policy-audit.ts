@@ -800,7 +800,7 @@ export async function auditTemplateScaffoldMarkers(
     const path = join(root, SCAFFOLD_DIR, filename);
     if (!(await Bun.file(path).exists())) continue;
     const text = await Bun.file(path).text();
-    for (const needle of TEMPLATE_MARKERS[marker]) {
+    for (const needle of TEMPLATE_MARKERS[marker] ?? []) {
       if (text.includes(needle)) continue;
       violations.push({
         file: `${SCAFFOLD_DIR}/${filename}`,

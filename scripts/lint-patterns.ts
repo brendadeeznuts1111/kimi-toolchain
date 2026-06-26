@@ -102,6 +102,7 @@ async function main() {
     const lines = text.split("\n");
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
+      if (line === undefined) continue;
       const lineNo = i + 1;
       if (isCommentOrDocLine(line)) continue;
 

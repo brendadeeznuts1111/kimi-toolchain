@@ -39,8 +39,8 @@ describe("completion-taxonomy", () => {
     const mod = await loadTaxonomyFromSource(TAXONOMY_PATH);
     expect(mod.FLAG_CATEGORIES).toBeDefined();
     expect(Object.keys(mod.FLAG_CATEGORIES).sort()).toEqual(EXPECTED_CATEGORIES.sort());
-    expect(mod.FLAG_CATEGORIES.fileIO.has("outfile")).toBe(true);
-    expect(mod.FLAG_CATEGORIES.pm.has("frozen-lockfile")).toBe(true);
+    expect(mod.FLAG_CATEGORIES.fileIO?.has("outfile")).toBe(true);
+    expect(mod.FLAG_CATEGORIES.pm?.has("frozen-lockfile")).toBe(true);
   });
 
   test("validateTaxonomy passes for current source", async () => {

@@ -12,7 +12,10 @@ const SEMVER_PKG_RE = /^(.+?)@(.+?)\s/;
 export function parseSemverIssueMessage(message: string): { pkg: string; version: string } | null {
   const match = message.match(SEMVER_PKG_RE);
   if (!match) return null;
-  return { pkg: match[1], version: match[2] };
+  const pkg = match[1];
+  const version = match[2];
+  if (!pkg || !version) return null;
+  return { pkg, version };
 }
 
 /** Flag dependencies whose version does not satisfy a simple caret baseline. */

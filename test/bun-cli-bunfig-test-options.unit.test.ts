@@ -8,7 +8,7 @@ import { spawnCaptured, withTempDir, writeText } from "./helpers.ts";
 import { join } from "path";
 
 function extractOrder(output: string): string[] {
-  return [...output.matchAll(/RUNNING: (\w+)/g)].map((m) => m[1]);
+  return [...output.matchAll(/RUNNING: (\w+)/g)].flatMap((m) => (m[1] ? [m[1]] : []));
 }
 
 describe("bun-cli-bunfig-test-options contract probes", () => {
