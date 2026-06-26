@@ -3,7 +3,7 @@
  *
  * Indirect terminal: smoke `setScreenshotPng` then `fetch` `/api/thumbnail` (encode in server on GET).
  *
- * @see https://bun.com/docs/runtime/image#terminals
+ * @see {@link BUN_IMAGE_TERMINALS_URL}
  * @see docs/references/dashboard-thumbnails.md — Terminals + call-site map
  */
 

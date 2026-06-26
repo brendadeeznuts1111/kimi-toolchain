@@ -232,54 +232,108 @@ export function markdownToHtmlFallback(text: string): string {
     if (end > 0) body = body.slice(end + 4).trimStart();
   }
 
-  const codeBlocks: string[] = [];
-  body = body.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-    const idx = codeBlocks.length;
-    codeBlocks.push(
-      `<pre><code class="language-${lang || "text"}">${Bun.escapeHTML(code.trimEnd())}</code></pre>`
-    );
-    return `\x00CODEBLOCK${idx}\x00`;
-  });
+  const placeholders: string[] = [];
+  function stash(html: string): string {
+    const idx = placeholders.length;
+    placeholders.push(html);
+    return `\x00HTML${idx}\x00`;
+  }
 
-  body = body.replace(/`([^`]+)`/g, (_, code: string) => `<code>${Bun.escapeHTML(code)}</code>`);
-  // Single-pass heading conversion: match 1–6 # characters.
-  body = body.replace(/^(#{1,6})\s+(.+)$/gm, (_, hashes: string, content: string) => {
-    const level = hashes.length;
-    return `<h${level}>${content}</h${level}>`;
-  });
-  // Single-pass bold/italic: must try triple-star first, then double, then single.
-  body = body.replace(
-    /\*\*\*([^*]+)\*\*\*|\*\*([^*]+)\*\*|\*([^*]+)\*/g,
-    (_, strongEm, strong, em) => {
-      if (strongEm !== undefined) return `<strong><em>${strongEm}</em></strong>`;
-      if (strong !== undefined) return `<strong>${strong}</strong>`;
-      return `<em>${em}</em>`;
-    }
+  body = body.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+    stash(
+      `<pre><code class="language-${escapeHtml(lang || "text")}">${escapeHtml(code.trimEnd())}</code></pre>`
+    )
   );
-  body = body.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
-  body = body.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+  body = body.replace(/`([^`]+)`/g, (_, code: string) => stash(`<code>${escapeHtml(code)}</code>`));
+  body = body.replace(/^#{6}\s+(.+)$/gm, (_, t: string) => stash(`<h6>${escapeHtml(t)}</h6>`));
+  body = body.replace(/^#{5}\s+(.+)$/gm, (_, t: string) => stash(`<h5>${escapeHtml(t)}</h5>`));
+  body = body.replace(/^#{4}\s+(.+)$/gm, (_, t: string) => stash(`<h4>${escapeHtml(t)}</h4>`));
+  body = body.replace(/^#{3}\s+(.+)$/gm, (_, t: string) => stash(`<h3>${escapeHtml(t)}</h3>`));
+  body = body.replace(/^#{2}\s+(.+)$/gm, (_, t: string) => stash(`<h2>${escapeHtml(t)}</h2>`));
+  body = body.replace(/^#{1}\s+(.+)$/gm, (_, t: string) => stash(`<h1>${escapeHtml(t)}</h1>`));
+  body = body.replace(/\*\*\*([^*]+)\*\*\*/g, (_, t: string) =>
+    stash(`<strong><em>${escapeHtml(t)}</em></strong>`)
+  );
+  body = body.replace(/\*\*([^*]+)\*\*/g, (_, t: string) =>
+    stash(`<strong>${escapeHtml(t)}</strong>`)
+  );
+  body = body.replace(/\*([^*]+)\*/g, (_, t: string) => stash(`<em>${escapeHtml(t)}</em>`));
+  body = body.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt: string, src: string) =>
+    stash(`<img src="${escapeHtml(sanitizeMarkdownUrl(src))}" alt="${escapeHtml(alt)}">`)
+  );
+  body = body.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label: string, href: string) =>
+    stash(`<a href="${escapeHtml(sanitizeMarkdownUrl(href))}">${escapeHtml(label)}</a>`)
+  );
+
+  function isPlaceholderToken(token: string): boolean {
+    return (
+      token.startsWith("\u0000HTML") &&
+      token.endsWith("\u0000") &&
+      /^HTML\d+$/.test(token.slice(1, -1))
+    );
+  }
+
+  function splitPlaceholderParagraph(text: string): string[] {
+    const parts: string[] = [];
+    let cursor = 0;
+    while (cursor < text.length) {
+      const start = text.indexOf("\u0000HTML", cursor);
+      if (start === -1) {
+        parts.push(text.slice(cursor));
+        break;
+      }
+      if (start > cursor) parts.push(text.slice(cursor, start));
+      const end = text.indexOf("\u0000", start + 1);
+      if (end === -1) {
+        parts.push(text.slice(start));
+        break;
+      }
+      parts.push(text.slice(start, end + 1));
+      cursor = end + 1;
+    }
+    return parts;
+  }
 
   const paragraphs = body.split(/\n\n+/);
   body = paragraphs
     .map((p) => {
       const trimmed = p.trim();
       if (!trimmed) return "";
-      if (trimmed.startsWith("<h") || trimmed.startsWith("<pre") || trimmed.startsWith("\x00"))
-        return trimmed;
-      return `<p>${trimmed.replace(/\n/g, "<br>")}</p>`;
+      // Only placeholder-only paragraphs bypass escaping; mixed text is escaped below.
+      if (isPlaceholderToken(trimmed)) return trimmed;
+      if (trimmed.includes("\u0000HTML")) {
+        const rendered = splitPlaceholderParagraph(trimmed)
+          .map((part) => (isPlaceholderToken(part) ? part : escapeHtml(part)))
+          .join("");
+        return `<p>${rendered.replace(/\n/g, "<br>")}</p>`;
+      }
+      return `<p>${escapeHtml(trimmed).replace(/\n/g, "<br>")}</p>`;
     })
     .join("\n");
 
-  // Restore code blocks in a single pass.
-  if (codeBlocks.length > 0) {
-    body = body.replace(
-      // eslint-disable-next-line no-control-regex
-      /\u0000CODEBLOCK(\d+)\u0000/g,
-      (_, idx: string) => codeBlocks[Number(idx)] ?? ""
-    );
+  for (let idx = placeholders.length - 1; idx >= 0; idx--) {
+    const placeholder = placeholders[idx];
+    if (placeholder !== undefined) {
+      body = body.replaceAll(`\x00HTML${idx}\x00`, placeholder);
+    }
   }
 
   return body;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function sanitizeMarkdownUrl(url: string): string {
+  const trimmed = url.trim();
+  if (/^(?:javascript|vbscript|data):/i.test(trimmed)) return "#";
+  return trimmed;
 }
 
 // ── .ansi() — terminal rendering ───────────────────────────────────

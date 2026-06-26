@@ -196,6 +196,24 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "success",
 ] as const;
+/** @generated canvas-routing-meta — bun run canvas:generate; do not edit */
+const CANVAS_ROUTING_COUNT = CANVAS_ROUTING.length;
+
+const _CANVAS_ROUTING_ROW_TONE = [
+  "info",
+  "neutral",
+  "neutral",
+  "warning",
+  "neutral",
+  "neutral",
+  "neutral",
+  "warning",
+  "neutral",
+  "neutral",
+  "neutral",
+  "neutral",
+  "success",
+] as const;
 function CanvasLink({
   label,
   path,
