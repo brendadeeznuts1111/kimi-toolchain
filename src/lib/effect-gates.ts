@@ -819,7 +819,7 @@ export async function readEffectGatesSnapshots(
     .slice(0, limit);
 
   return lines
-    .map((line) => safeParse<EffectGatesReport>(line, null as unknown as EffectGatesReport))
+    .map((line) => safeParse<EffectGatesReport | null>(line, null))
     .filter((r): r is EffectGatesReport => r !== null && typeof r === "object");
 }
 
