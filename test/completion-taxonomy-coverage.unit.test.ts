@@ -41,6 +41,10 @@ describe("completion-taxonomy-coverage", () => {
     expect(report.categorizedFlags).toBe(3);
     expect(report.uncategorizedFlags).toBe(0);
     expect(report.coveragePercent).toBe(100);
+    expect(report.uniqueFlags).toBe(3);
+    expect(report.uniqueCategorizedFlags).toBe(3);
+    expect(report.uniqueUncategorizedFlags).toBe(0);
+    expect(report.uniqueCoveragePercent).toBe(100);
     expect(report.uncategorized).toEqual([]);
   });
 
@@ -87,5 +91,86 @@ describe("completion-taxonomy-coverage", () => {
     expect(report.byCategory.network).toBe(1);
     expect(report.byCategory.pm).toBe(1);
     expect(report.byCategory.uncategorized).toBe(1);
+  });
+
+  test("category distribution tracks unique flags", () => {
+    const data = makeData({
+      globalFlags: [{ name: "cwd", hasValue: false }],
+      commands: {
+        build: {
+          name: "build",
+          flags: [{ name: "cwd", hasValue: false }],
+          positionalArgs: [],
+          examples: [],
+        },
+      },
+    });
+
+    const report = buildTaxonomyCoverage(data);
+    expect(report.uniqueFlags).toBe(1);
+    expect(report.categoryDistribution.fileIO.total).toBe(2);
+    expect(report.categoryDistribution.fileIO.unique).toBe(1);
+    expect(report.categoryDistribution.runtime.total).toBe(2);
+    expect(report.categoryDistribution.runtime.unique).toBe(1);
+  });
+
+  test("command breakdown summarizes per-command coverage", () => {
+    const data = makeData({
+      globalFlags: [],
+      commands: {
+        install: {
+          name: "install",
+          flags: [
+            { name: "frozen-lockfile", hasValue: false },
+            { name: "unknown-install-flag", hasValue: false },
+          ],
+          positionalArgs: [],
+          examples: [],
+        },
+      },
+    });
+
+    const report = buildTaxonomyCoverage(data);
+    const install = report.commandBreakdown.find((c) => c.command === "install")!;
+    expect(install.totalFlags).toBe(2);
+    expect(install.categorizedFlags).toBe(1);
+    expect(install.uncategorizedFlags).toBe(1);
+    expect(install.coveragePercent).toBe(50);
+    expect(install.byCategory.pm).toBe(1);
+    expect(install.byCategory.uncategorized).toBe(1);
+  });
+
+  test("multi-category flags are reported with their categories", () => {
+    const data = makeData({
+      globalFlags: [{ name: "cwd", hasValue: false }],
+      commands: {},
+    });
+
+    const report = buildTaxonomyCoverage(data);
+    const entry = report.multiCategoryFlags.find((m) => m.flag === "cwd")!;
+    expect(entry).toBeDefined();
+    expect(entry.categories).toContain("fileIO");
+    expect(entry.categories).toContain("runtime");
+  });
+
+  test("occurrence histogram lists shared flags", () => {
+    const data = makeData({
+      globalFlags: [{ name: "cwd", hasValue: false }],
+      commands: {
+        run: {
+          name: "run",
+          flags: [{ name: "cwd", hasValue: false }],
+          positionalArgs: [],
+          examples: [],
+        },
+      },
+    });
+
+    const report = buildTaxonomyCoverage(data);
+    const entry = report.occurrenceHistogram.find((o) => o.flag === "cwd")!;
+    expect(entry).toBeDefined();
+    expect(entry.occurrences).toBe(2);
+    expect(entry.commands).toContain("(global)");
+    expect(entry.commands).toContain("run");
   });
 });

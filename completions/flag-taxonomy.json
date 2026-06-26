@@ -1,10 +1,14 @@
 {
   "schema": "1.2.0",
-  "generatedAt": "2026-06-26T00:41:27.165Z",
+  "generatedAt": "2026-06-26T00:44:16.034Z",
   "totalFlags": 713,
   "categorizedFlags": 713,
   "uncategorizedFlags": 0,
   "coveragePercent": 100,
+  "uniqueFlags": 217,
+  "uniqueCategorizedFlags": 217,
+  "uniqueUncategorizedFlags": 0,
+  "uniqueCoveragePercent": 100,
   "byCategory": {
     "uncategorized": 0,
     "fileIO": 71,
@@ -20,6 +24,2209 @@
     "resolution": 15,
     "output": 6
   },
+  "categoryDistribution": {
+    "uncategorized": {
+      "total": 0,
+      "unique": 0,
+      "uniquePercent": 0
+    },
+    "fileIO": {
+      "total": 71,
+      "unique": 23,
+      "uniquePercent": 10.6
+    },
+    "pm": {
+      "total": 278,
+      "unique": 45,
+      "uniquePercent": 20.74
+    },
+    "runtime": {
+      "total": 130,
+      "unique": 44,
+      "uniquePercent": 20.28
+    },
+    "debug": {
+      "total": 96,
+      "unique": 21,
+      "uniquePercent": 9.68
+    },
+    "network": {
+      "total": 86,
+      "unique": 16,
+      "uniquePercent": 7.37
+    },
+    "compile": {
+      "total": 44,
+      "unique": 33,
+      "uniquePercent": 15.21
+    },
+    "test": {
+      "total": 23,
+      "unique": 19,
+      "uniquePercent": 8.76
+    },
+    "jsx": {
+      "total": 18,
+      "unique": 8,
+      "uniquePercent": 3.69
+    },
+    "profiling": {
+      "total": 40,
+      "unique": 11,
+      "uniquePercent": 5.07
+    },
+    "windows": {
+      "total": 7,
+      "unique": 7,
+      "uniquePercent": 3.23
+    },
+    "resolution": {
+      "total": 15,
+      "unique": 5,
+      "uniquePercent": 2.3
+    },
+    "output": {
+      "total": 6,
+      "unique": 3,
+      "uniquePercent": 1.38
+    }
+  },
+  "commandBreakdown": [
+    {
+      "command": "run",
+      "totalFlags": 82,
+      "categorizedFlags": 82,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 5,
+        "pm": 5,
+        "runtime": 33,
+        "debug": 8,
+        "network": 8,
+        "compile": 5,
+        "test": 2,
+        "jsx": 5,
+        "profiling": 10,
+        "windows": 0,
+        "resolution": 5,
+        "output": 1,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "test",
+      "totalFlags": 28,
+      "categorizedFlags": 28,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 0,
+        "pm": 1,
+        "runtime": 6,
+        "debug": 4,
+        "network": 1,
+        "compile": 0,
+        "test": 16,
+        "jsx": 0,
+        "profiling": 0,
+        "windows": 0,
+        "resolution": 0,
+        "output": 1,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "x",
+      "totalFlags": 5,
+      "categorizedFlags": 5,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 0,
+        "pm": 2,
+        "runtime": 1,
+        "debug": 2,
+        "network": 0,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 0,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "repl",
+      "totalFlags": 82,
+      "categorizedFlags": 82,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 5,
+        "pm": 5,
+        "runtime": 33,
+        "debug": 8,
+        "network": 8,
+        "compile": 5,
+        "test": 2,
+        "jsx": 5,
+        "profiling": 10,
+        "windows": 0,
+        "resolution": 5,
+        "output": 1,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "exec",
+      "totalFlags": 0,
+      "categorizedFlags": 0,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 0,
+      "byCategory": {
+        "fileIO": 0,
+        "pm": 0,
+        "runtime": 0,
+        "debug": 0,
+        "network": 0,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 0,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "install",
+      "totalFlags": 41,
+      "categorizedFlags": 41,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 4,
+        "pm": 29,
+        "runtime": 2,
+        "debug": 6,
+        "network": 6,
+        "compile": 1,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 1,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "add",
+      "totalFlags": 40,
+      "categorizedFlags": 40,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 4,
+        "pm": 29,
+        "runtime": 1,
+        "debug": 6,
+        "network": 6,
+        "compile": 1,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 1,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "remove",
+      "totalFlags": 34,
+      "categorizedFlags": 34,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 4,
+        "pm": 24,
+        "runtime": 1,
+        "debug": 6,
+        "network": 6,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 1,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "update",
+      "totalFlags": 38,
+      "categorizedFlags": 38,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 4,
+        "pm": 25,
+        "runtime": 4,
+        "debug": 6,
+        "network": 6,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 1,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "audit",
+      "totalFlags": 3,
+      "categorizedFlags": 3,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 0,
+        "pm": 1,
+        "runtime": 0,
+        "debug": 0,
+        "network": 0,
+        "compile": 0,
+        "test": 1,
+        "jsx": 0,
+        "profiling": 0,
+        "windows": 0,
+        "resolution": 0,
+        "output": 1,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "outdated",
+      "totalFlags": 36,
+      "categorizedFlags": 36,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 4,
+        "pm": 24,
+        "runtime": 3,
+        "debug": 6,
+        "network": 6,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 1,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "link",
+      "totalFlags": 34,
+      "categorizedFlags": 34,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 4,
+        "pm": 24,
+        "runtime": 1,
+        "debug": 6,
+        "network": 6,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 1,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "unlink",
+      "totalFlags": 34,
+      "categorizedFlags": 34,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 4,
+        "pm": 24,
+        "runtime": 1,
+        "debug": 6,
+        "network": 6,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 1,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "publish",
+      "totalFlags": 40,
+      "categorizedFlags": 40,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 4,
+        "pm": 29,
+        "runtime": 1,
+        "debug": 6,
+        "network": 7,
+        "compile": 1,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 1,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "patch",
+      "totalFlags": 36,
+      "categorizedFlags": 36,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 5,
+        "pm": 25,
+        "runtime": 1,
+        "debug": 6,
+        "network": 6,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 1,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "pm",
+      "totalFlags": 0,
+      "categorizedFlags": 0,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 0,
+      "byCategory": {
+        "fileIO": 0,
+        "pm": 0,
+        "runtime": 0,
+        "debug": 0,
+        "network": 0,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 0,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "info",
+      "totalFlags": 35,
+      "categorizedFlags": 35,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 4,
+        "pm": 24,
+        "runtime": 1,
+        "debug": 6,
+        "network": 6,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 1,
+        "windows": 0,
+        "resolution": 0,
+        "output": 1,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "why",
+      "totalFlags": 0,
+      "categorizedFlags": 0,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 0,
+      "byCategory": {
+        "fileIO": 0,
+        "pm": 0,
+        "runtime": 0,
+        "debug": 0,
+        "network": 0,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 0,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "build",
+      "totalFlags": 57,
+      "categorizedFlags": 57,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 15,
+        "pm": 1,
+        "runtime": 8,
+        "debug": 3,
+        "network": 0,
+        "compile": 25,
+        "test": 0,
+        "jsx": 2,
+        "profiling": 0,
+        "windows": 7,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "init",
+      "totalFlags": 4,
+      "categorizedFlags": 4,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 100,
+      "byCategory": {
+        "fileIO": 0,
+        "pm": 1,
+        "runtime": 0,
+        "debug": 1,
+        "network": 0,
+        "compile": 1,
+        "test": 0,
+        "jsx": 1,
+        "profiling": 0,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "create",
+      "totalFlags": 0,
+      "categorizedFlags": 0,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 0,
+      "byCategory": {
+        "fileIO": 0,
+        "pm": 0,
+        "runtime": 0,
+        "debug": 0,
+        "network": 0,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 0,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "upgrade",
+      "totalFlags": 0,
+      "categorizedFlags": 0,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 0,
+      "byCategory": {
+        "fileIO": 0,
+        "pm": 0,
+        "runtime": 0,
+        "debug": 0,
+        "network": 0,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 0,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    },
+    {
+      "command": "feedback",
+      "totalFlags": 0,
+      "categorizedFlags": 0,
+      "uncategorizedFlags": 0,
+      "coveragePercent": 0,
+      "byCategory": {
+        "fileIO": 0,
+        "pm": 0,
+        "runtime": 0,
+        "debug": 0,
+        "network": 0,
+        "compile": 0,
+        "test": 0,
+        "jsx": 0,
+        "profiling": 0,
+        "windows": 0,
+        "resolution": 0,
+        "output": 0,
+        "uncategorized": 0
+      }
+    }
+  ],
+  "multiCategoryFlags": [
+    {
+      "flag": "cwd",
+      "categories": [
+        "fileIO",
+        "runtime"
+      ],
+      "occurrences": 13,
+      "commands": [
+        "(global)",
+        "run",
+        "repl",
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "cafile",
+      "categories": [
+        "fileIO",
+        "network"
+      ],
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "network-concurrency",
+      "categories": [
+        "pm",
+        "network"
+      ],
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "no-cache",
+      "categories": [
+        "pm",
+        "network"
+      ],
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "no-progress",
+      "categories": [
+        "pm",
+        "debug"
+      ],
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "no-summary",
+      "categories": [
+        "pm",
+        "debug"
+      ],
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "no-verify",
+      "categories": [
+        "pm",
+        "network"
+      ],
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "registry",
+      "categories": [
+        "pm",
+        "network"
+      ],
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "cpu-prof",
+      "categories": [
+        "debug",
+        "profiling"
+      ],
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "env-file",
+      "categories": [
+        "fileIO",
+        "runtime"
+      ],
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "no-deprecation",
+      "categories": [
+        "runtime",
+        "network"
+      ],
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "prefer-offline",
+      "categories": [
+        "pm",
+        "network"
+      ],
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "auth-type",
+      "categories": [
+        "pm",
+        "network"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "publish"
+      ]
+    },
+    {
+      "flag": "changed",
+      "categories": [
+        "pm",
+        "output"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "test"
+      ]
+    },
+    {
+      "flag": "format",
+      "categories": [
+        "fileIO",
+        "runtime"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    },
+    {
+      "flag": "packages",
+      "categories": [
+        "fileIO",
+        "runtime"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    },
+    {
+      "flag": "sourcemap",
+      "categories": [
+        "fileIO",
+        "debug"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    },
+    {
+      "flag": "target",
+      "categories": [
+        "fileIO",
+        "runtime"
+      ],
+      "occurrences": 1,
+      "commands": [
+        "build"
+      ]
+    }
+  ],
+  "occurrenceHistogram": [
+    {
+      "flag": "help",
+      "occurrences": 14,
+      "commands": [
+        "(global)",
+        "run",
+        "repl",
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info",
+        "init"
+      ]
+    },
+    {
+      "flag": "silent",
+      "occurrences": 14,
+      "commands": [
+        "(global)",
+        "run",
+        "x",
+        "repl",
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "config",
+      "occurrences": 13,
+      "commands": [
+        "(global)",
+        "run",
+        "repl",
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "cwd",
+      "occurrences": 13,
+      "commands": [
+        "(global)",
+        "run",
+        "repl",
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "production",
+      "occurrences": 11,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info",
+        "build"
+      ]
+    },
+    {
+      "flag": "verbose",
+      "occurrences": 11,
+      "commands": [
+        "x",
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "backend",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "ca",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "cache-dir",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "cafile",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "concurrent-scripts",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "cpu",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "dry-run",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "force",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "frozen-lockfile",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "global",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "ignore-scripts",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "linker",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "lockfile-only",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "minimum-release-age",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "network-concurrency",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "no-cache",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "no-progress",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "no-save",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "no-summary",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "no-verify",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "omit",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "os",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "quiet",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "registry",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "save",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "save-text-lockfile",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "trust",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "yarn",
+      "occurrences": 10,
+      "commands": [
+        "install",
+        "add",
+        "remove",
+        "update",
+        "outdated",
+        "link",
+        "unlink",
+        "publish",
+        "patch",
+        "info"
+      ]
+    },
+    {
+      "flag": "filter",
+      "occurrences": 6,
+      "commands": [
+        "(global)",
+        "run",
+        "repl",
+        "install",
+        "update",
+        "outdated"
+      ]
+    },
+    {
+      "flag": "bun",
+      "occurrences": 4,
+      "commands": [
+        "(global)",
+        "run",
+        "x",
+        "repl"
+      ]
+    },
+    {
+      "flag": "conditions",
+      "occurrences": 4,
+      "commands": [
+        "(global)",
+        "run",
+        "repl",
+        "build"
+      ]
+    },
+    {
+      "flag": "no-clear-screen",
+      "occurrences": 4,
+      "commands": [
+        "(global)",
+        "run",
+        "repl",
+        "build"
+      ]
+    },
+    {
+      "flag": "no-install",
+      "occurrences": 4,
+      "commands": [
+        "(global)",
+        "run",
+        "x",
+        "repl"
+      ]
+    },
+    {
+      "flag": "no-orphans",
+      "occurrences": 4,
+      "commands": [
+        "(global)",
+        "run",
+        "test",
+        "repl"
+      ]
+    },
+    {
+      "flag": "parallel",
+      "occurrences": 4,
+      "commands": [
+        "(global)",
+        "run",
+        "test",
+        "repl"
+      ]
+    },
+    {
+      "flag": "watch",
+      "occurrences": 4,
+      "commands": [
+        "(global)",
+        "run",
+        "repl",
+        "build"
+      ]
+    },
+    {
+      "flag": "console-depth",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "cpu-prof",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "cpu-prof-dir",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "cpu-prof-interval",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "cpu-prof-md",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "cpu-prof-name",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "cron-period",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "cron-title",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "define",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "dns-result-order",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "drop",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "elide-lines",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "env-file",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "eval",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "experimental-http2-fetch",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "experimental-http3-fetch",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "experimental-stream-iter",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "expose-gc",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "extension-order",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "feature",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "fetch-preconnect",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "heap-prof",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "heap-prof-dir",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "heap-prof-md",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "heap-prof-name",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "hot",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "i",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "if-present",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "ignore-dce-annotations",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "import",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "inspect",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "inspect-brk",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "inspect-wait",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "install",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "jsx-factory",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "jsx-fragment",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "jsx-import-source",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "jsx-runtime",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "jsx-side-effects",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "loader",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "main-fields",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "max-http-header-size",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "no-addons",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "no-deprecation",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "no-env-file",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "no-exit-on-error",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "no-macros",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "port",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "prefer-latest",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "prefer-offline",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "preload",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "preserve-symlinks",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "preserve-symlinks-main",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "print",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "react",
+      "occurrences": 3,
+      "commands": [
+        "init"
+      ]
+    },
+    {
+      "flag": "redis-preconnect",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "require",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "sequential",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "shell",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "smol",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "sql-preconnect",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "throw-deprecation",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "title",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "tsconfig-override",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "unhandled-rejections",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "use-bundled-ca",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "use-openssl-ca",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "use-system-ca",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "user-agent",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "workspaces",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "zero-fill-buffers",
+      "occurrences": 3,
+      "commands": [
+        "(global)",
+        "run",
+        "repl"
+      ]
+    },
+    {
+      "flag": "analyze",
+      "occurrences": 2,
+      "commands": [
+        "install",
+        "add"
+      ]
+    },
+    {
+      "flag": "dev",
+      "occurrences": 2,
+      "commands": [
+        "install",
+        "add"
+      ]
+    },
+    {
+      "flag": "exact",
+      "occurrences": 2,
+      "commands": [
+        "install",
+        "add"
+      ]
+    },
+    {
+      "flag": "json",
+      "occurrences": 2,
+      "commands": [
+        "audit",
+        "info"
+      ]
+    },
+    {
+      "flag": "only-missing",
+      "occurrences": 2,
+      "commands": [
+        "install",
+        "add"
+      ]
+    },
+    {
+      "flag": "optional",
+      "occurrences": 2,
+      "commands": [
+        "install",
+        "add"
+      ]
+    },
+    {
+      "flag": "peer",
+      "occurrences": 2,
+      "commands": [
+        "install",
+        "add"
+      ]
+    },
+    {
+      "flag": "recursive",
+      "occurrences": 2,
+      "commands": [
+        "update",
+        "outdated"
+      ]
+    }
+  ],
   "globalFlags": [
     {
       "flag": "silent",
