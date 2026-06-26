@@ -605,7 +605,7 @@ function loadImpactConfig(): Effect.Effect<ImpactConfig, PipelineConfigError, Pi
           message: cause instanceof Error ? cause.message : Bun.inspect(cause),
         }),
     });
-    const config = safeParse<ImpactConfig>(text, null as unknown as ImpactConfig, isImpactConfig);
+    const config = safeParse<ImpactConfig | null>(text, null, isImpactConfig);
     if (!config) {
       return yield* Effect.fail(new PipelineConfigError({ path, message: "invalid config shape" }));
     }
