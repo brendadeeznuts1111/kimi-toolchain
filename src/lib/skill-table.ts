@@ -161,7 +161,7 @@ export async function buildSkillTableRows(
 /** Format rows with Bun.inspect.table (via formatTable). */
 export function formatSkillTable(rows: SkillTableRow[], verbose = false): string {
   const columns = verbose ? SKILL_TABLE_VERBOSE_COLUMNS : SKILL_TABLE_COLUMNS;
-  return formatTable(rows as unknown as Record<string, unknown>[], columns as unknown as string[]);
+  return formatTable<SkillTableRow>(rows, columns);
 }
 
 /** Pass to Bun.inspect() to render a table via [customInspect]. */
