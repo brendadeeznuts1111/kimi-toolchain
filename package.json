@@ -119,7 +119,6 @@
     "mcp": "bun run src/bin/kimi-mcp.ts",
     "test": "bun run scripts/test-run.ts",
     "test:watch": "NODE_ENV=test bun test --watch --isolate",
-    "test:unit": "bun run scripts/test-fast.ts",
     "test:fast": "bun run scripts/test-fast.ts",
     "test:fast:dots": "bun run scripts/test-fast.ts -- --dots",
     "test:fast:quiet": "bun run scripts/test-fast.ts -- --quiet",

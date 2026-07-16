@@ -244,13 +244,6 @@ export const KIMI_TEST_RUN_ENTRIES = {
     tier: "unit",
     selection: "explicit-file-list",
   },
-  unit: {
-    packageScript: "test:unit",
-    command: "bun run scripts/test-fast.ts",
-    runner: "runTestTier",
-    tier: "unit",
-    selection: "explicit-file-list",
-  },
   changed: {
     packageScript: "test:changed",
     command: "bun run scripts/test-changed.ts",

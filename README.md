@@ -296,7 +296,6 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run test:shard` | Test tier script |
 | `bun run test:smoke` | Test tier script |
 | `bun run test:smol` | Test tier script |
-| `bun run test:unit` | Test tier script |
 | `bun run test:watch` | Test tier script |
 | `bun run toolchain` | Run kimi-toolchain from repo |
 | `bun run trace` | Run kimi-trace from repo |
