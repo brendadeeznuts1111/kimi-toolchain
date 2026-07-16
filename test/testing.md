@@ -7,12 +7,13 @@
 
 ```
 package.json scripts
-  → scripts/test-fast.ts | test-run.ts | test-changed.ts | run-tests.ts
+  → scripts/test-fast.ts | test-changed.ts | run-tests.ts
   → src/lib/test-runtime.ts (env, tiers, CLI forwarding, Bun doc contracts)
   → bun test
 
 File lists & timeouts: src/lib/test-gates.ts
 Naming & patterns:     scripts/lint-test-names.ts (runs in bun run lint)
+Group coverage:        validated by lint-test-names + test/test-gates.unit.test.ts
 Preload:               bunfig.toml [test].preload → test/setup.ts
 ```
 
@@ -26,44 +27,72 @@ Preload:               bunfig.toml [test].preload → test/setup.ts
 
 ## Entry points
 
-| Command                 | Selection              | Implementation                                 | When to use                             |
-| ----------------------- | ---------------------- | ---------------------------------------------- | --------------------------------------- |
-| `bun run test:fast`     | Explicit unit files    | `scripts/test-fast.ts` → `runTestTier("unit")` | Default iteration; `check:fast`         |
-| `bun run test:changed`  | Git import graph       | `scripts/test-changed.ts`                      | Pre-commit; only impacted tests         |
-| `bun run test:changed:group` | Changed files in a group | `scripts/test-fast.ts --group --changed=HEAD --dots` | Avoid re-running unaffected group tests |
-| `bun run test:changed:path`  | Changed files under a path | `scripts/test-fast.ts --path --changed=HEAD --dots` | Avoid re-running unaffected path tests  |
-| `bun run test:group:*`  | Domain group           | `scripts/test-fast.ts --group=<name> --dots`   | Mutually exclusive groups; see below    |
-| `bun run test:path`     | Arbitrary glob         | `scripts/test-fast.ts --path '<glob>'`         | Any test file path(s)                   |
-| `bun run test:parallel` | Full discovery         | bare `bun test`                                | Full suite locally; breadth safety net  |
-| `bun run test:shard`    | Full discovery + shard | bare `bun test` + `--shard`                    | CI matrix; `BUN_TEST_SHARD=M/N` locally |
-| `bun run test`          | Explicit per tier      | `scripts/test-run.ts` → `runAllTestTiers`      | Full suite: unit → integration → smoke  |
-| `bun test <file>`       | Single file            | Bare Bun discovery                             | Single-file debug                       |
-| `bun test`              | Full discovery         | Bare Bun discovery                             | Avoid in CI; use tier scripts           |
+| Command                      | Selection                  | Implementation                                       | When to use                             |
+| ---------------------------- | -------------------------- | ---------------------------------------------------- | --------------------------------------- |
+| `bun run test:fast`          | Explicit unit files        | `scripts/test-fast.ts` → `runTestTier("unit")`       | Default iteration; `check:fast`         |
+| `bun run test:changed`       | Git import graph           | `scripts/test-changed.ts`                            | Pre-commit; only impacted tests         |
+| `bun run test:changed:group` | Changed files in a group   | `scripts/test-fast.ts --group --changed=HEAD --dots` | Avoid re-running unaffected group tests |
+| `bun run test:changed:path`  | Changed files under a path | `scripts/test-fast.ts --path --changed=HEAD --dots`  | Avoid re-running unaffected path tests  |
+| `bun run test:group`         | Domain group               | `scripts/test-fast.ts --group=<name> --dots`         | Mutually exclusive groups; see below    |
+| `bun run test:path`          | Arbitrary glob             | `scripts/test-fast.ts --path '<glob>'`               | Any test file path(s)                   |
+| `bun run test:parallel`      | Full discovery             | bare `bun test`                                      | Full suite locally; breadth safety net  |
+| `bun run test:shard`         | Full discovery + shard     | bare `bun test` + `--shard`                          | CI matrix; `BUN_TEST_SHARD=M/N` locally |
+| `bun run test`               | Explicit per tier          | `scripts/run-tests.ts` → `runAllTestTiers`           | Full suite: unit → integration → smoke  |
+| `bun test <file>`            | Single file                | Bare Bun discovery                                   | Single-file debug                       |
+| `bun test`                   | Full discovery             | Bare Bun discovery                                   | Avoid in CI; use tier scripts           |
 
 See [testing-execution.md](../docs/references/testing-execution.md) for the four-script model, `--changed` limitations, and why `describe` is presentation-only for sharding/parallelism.
 
-### Domain groups (`test:group:*`)
+### Domain groups (`test:group`)
 
-Groups are defined in `src/lib/test-gates.ts` (`TEST_GROUPS`). They are **mutually exclusive** — a file belongs to exactly one group — so combining groups never duplicates work.
+Groups are defined in `src/lib/test-gates.ts` (`TEST_GROUPS`). They are **mutually exclusive** — every unit test file belongs to exactly one group — so combining groups never duplicates work. The group set is validated by `scripts/lint-test-names.ts` and `test/test-gates.unit.test.ts`.
 
-| Group       | Covers |
-| ----------- | ------ |
-| `bun`       | Bun API / runtime compliance tests (`test/bun-*.unit.test.ts`) |
-| `core`      | Shared library core: `lib`, `tool-*`, `cache`, `event-bus`, `logger`, `ndjson`, `wrap-ansi`, `source-map-memory` |
-| `dashboard` | Herdr dashboard modules (`test/herdr-dashboard-*.unit.test.ts`) |
-| `doctor`    | `kimi-doctor` and gate tests (`test/doctor-*`, `test/*-gate.unit.test.ts`, `test/kimi-doctor-*`) |
-| `effect`    | Effect-TS pipeline tests (`test/effect/**/*.unit.test.ts`) |
-| `examples`  | Example workspace tests (`test/examples-*.unit.test.ts`) |
-| `herdr`     | Herdr runtime tests excluding dashboard files |
-| `infra`     | CI, governance, guardian, health, finish-work, scope-preflight |
-| `mcp`       | MCP tests including `test/bun-docs-mcp*.unit.test.ts` |
-| `secrets`   | Secrets, auth, identity tests |
+| Group         | Covers                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| `agent`       | Agent meta tests (`agent-diagnosis`, `agents-md-sync`, `capabilities`)                           |
+| `artifact`    | Artifact, archive, and portal tests                                                              |
+| `build`       | Build, bundle, compile-target tests                                                              |
+| `bun`         | Bun API / runtime compliance tests (`test/bun-*.unit.test.ts`)                                   |
+| `check`       | Check pipeline and GitHub alignment tests                                                        |
+| `cloudflare`  | Cloudflare Access and DX config tests                                                            |
+| `config`      | Config, defaults, and `bunfig` tests                                                             |
+| `core`        | Shared library and toolchain-meta catch-all (`lib`, `cache`, `logger`, test infra, etc.)         |
+| `dashboard`   | Herdr dashboard modules (`test/herdr-dashboard-*.unit.test.ts`, `test/dashboard-*.unit.test.ts`) |
+| `data`        | Tables, property-tables, completions, markdown parsing                                           |
+| `decision`    | Decision, r-score, and rationale tests                                                           |
+| `discover`    | Repo discovery and inventory tests                                                               |
+| `doctor`      | `kimi-doctor` and doctor-specific gate tests                                                     |
+| `effect`      | Effect-TS pipeline tests (`test/effect/**/*.unit.test.ts`)                                       |
+| `error`       | Error handling and formatting tests                                                              |
+| `examples`    | Example workspace tests (`test/examples-*.unit.test.ts`)                                         |
+| `gate`        | Generic gate tests (`test/*-gate.unit.test.ts`, card-probe, autophagy, audit-effects)            |
+| `git`         | Git helpers, conventional commits, changelog                                                     |
+| `governance`  | Governance and success-metrics tests                                                             |
+| `governor`    | Resource governor and memory-governor tests                                                      |
+| `handoff`     | Handoff and finish-work tests                                                                    |
+| `health`      | Health, workspace-health, and hygiene tests                                                      |
+| `herdr`       | Herdr runtime tests excluding dashboard files                                                    |
+| `infra`       | CI, guardian, scope-preflight, finish-work                                                       |
+| `kimi`        | Kimi CLI and config tests excluding doctor                                                       |
+| `lint`        | Lint, testing-docs, and doc-link tests                                                           |
+| `mcp`         | MCP tests including `test/bun-docs-mcp*.unit.test.ts`                                            |
+| `performance` | Performance, benchmark, and effect-benchmark tests                                               |
+| `runtime`     | Runtime introspection, version, verify-bun-features                                              |
+| `scaffold`    | Scaffold, template-policy, and scaffold-quality tests                                            |
+| `secrets`     | Secrets, auth, and identity tests                                                                |
+| `serve`       | Serve, HTTP, WebSocket, and fetch tests                                                          |
+| `skill`       | Skill, frontmatter, and skill-contract tests                                                     |
+| `sync`        | Desktop sync and scan-tree-sync tests                                                            |
+| `taxonomy`    | Taxonomy and taxonomy-coverage tests                                                             |
+| `tool`        | Tool runner, registry, and unified shell bridge tests                                            |
+| `webview`     | Webview and bun-docs-webview tests                                                               |
+| `workspace`   | Workspace, path-hygiene, and workspace-runtime tests                                             |
 
 Run a group:
 
 ```bash
-bun run test:group:bun
-bun run test:group:core -- --quiet
+bun run test:group -- bun
+bun run test:group -- core --quiet
 bun run test:path -- 'test/lib.unit.test.ts' 'test/tool-*.unit.test.ts' --dots
 ```
 
@@ -320,21 +349,21 @@ Per-release Bun API bugfix verification lives in `test/bun-release-compliance.un
 
 ### Recommended flag combinations
 
-| Use case             | Command                                                                  | Key flags                           | Defaults / preset                           | Notes                                                      |
-| -------------------- | ------------------------------------------------------------------------ | ----------------------------------- | ------------------------------------------- | ---------------------------------------------------------- |
-| Fast smoke / gate    | `bun test -t serve-probe ./test/portal-convergence.unit.test.ts`         | `-t`, explicit file                 | Single process; 5000 ms/test                | Best for pre-push and quick checks; avoid `--changed`      |
-| Focused watch loop   | `bun test --watch ./test/portal-convergence.unit.test.ts -t serve-probe` | `--watch`, file, `-t`               | `--watch` auto-isolates; restarts on change | Avoid `--changed` for focused work                         |
-| Branch-wide watch    | `bun run test:changed:watch`                                             | `--changed`, `--watch`              | Re-filters on every `.ts` edit              | Stays alive when no changes                                |
-| Parallel execution   | `bun test --parallel`                                                    | `--parallel`                        | Workers = CPU count; implies `--isolate`    | Good default for most runs                                 |
-| CI shard (job 2/3)   | `bun test --shard=2/3 --parallel --bail`                                 | `--shard`, `--parallel`, `--bail`   | `--bail` defaults to 1                      | Deterministic round-robin; combine with `--changed` on PRs |
-| Full tier, stop fast | `bun run test:fast -- --bail=1`                                          | `--bail`                            | Tier runner adds `--isolate --parallel=4`   | Bail after 1 failure                                       |
-| Domain group, compact| `bun run test:group:bun`                                                 | `--group`, `--dots`                 | Preset in package.json                      | No overlap between groups                                  |
-| Domain group, quiet  | `bun run test:group:core -- --quiet`                                     | `--group`, `--quiet`                | Only failures + summary                     | Pass extra flags after `--`                                |
-| Arbitrary path glob  | `bun run test:path -- 'test/lib*.unit.test.ts' --dots`                   | `--path`, `--dots`                  | Any glob relative to repo root              | Multiple globs allowed                                     |
-| Reproducible random  | `bun test --seed 12345`                                                  | `--seed`                            | `--seed` implies `--randomize`              | Same seed = same order                                     |
-| Debug flaky tests    | `bun test --isolate --retry=3 --bail=1 ./test/flaky.test.ts`             | `--isolate`, `--retry`, `--bail`    | `--retry` defaults to 1; `--bail` to 1      | Avoid `--parallel` when debugging                          |
-| Coverage for CI      | `bun test --coverage --coverage-reporter lcov --parallel`                | `--coverage`, `--coverage-reporter` | Default reporter `text`; dir `coverage/`    | Aggregates across parallel workers                         |
-| Update snapshots     | `bun test -u ./test/component.test.ts`                                   | `-u` / `--update-snapshots`         | Updates only matched snapshots              | Only run on files you intend to update                     |
+| Use case              | Command                                                                  | Key flags                           | Defaults / preset                           | Notes                                                      |
+| --------------------- | ------------------------------------------------------------------------ | ----------------------------------- | ------------------------------------------- | ---------------------------------------------------------- |
+| Fast smoke / gate     | `bun test -t serve-probe ./test/portal-convergence.unit.test.ts`         | `-t`, explicit file                 | Single process; 5000 ms/test                | Best for pre-push and quick checks; avoid `--changed`      |
+| Focused watch loop    | `bun test --watch ./test/portal-convergence.unit.test.ts -t serve-probe` | `--watch`, file, `-t`               | `--watch` auto-isolates; restarts on change | Avoid `--changed` for focused work                         |
+| Branch-wide watch     | `bun run test:changed:watch`                                             | `--changed`, `--watch`              | Re-filters on every `.ts` edit              | Stays alive when no changes                                |
+| Parallel execution    | `bun test --parallel`                                                    | `--parallel`                        | Workers = CPU count; implies `--isolate`    | Good default for most runs                                 |
+| CI shard (job 2/3)    | `bun test --shard=2/3 --parallel --bail`                                 | `--shard`, `--parallel`, `--bail`   | `--bail` defaults to 1                      | Deterministic round-robin; combine with `--changed` on PRs |
+| Full tier, stop fast  | `bun run test:fast -- --bail=1`                                          | `--bail`                            | Tier runner adds `--isolate --parallel=4`   | Bail after 1 failure                                       |
+| Domain group, compact | `bun run test:group -- bun --dots`                                       | `--group`, `--dots`                 | Pass name after `--`                        | No overlap between groups                                  |
+| Domain group, quiet   | `bun run test:group -- core --quiet`                                     | `--group`, `--quiet`                | Only failures + summary                     | Pass extra flags after `--`                                |
+| Arbitrary path glob   | `bun run test:path -- 'test/lib*.unit.test.ts' --dots`                   | `--path`, `--dots`                  | Any glob relative to repo root              | Multiple globs allowed                                     |
+| Reproducible random   | `bun test --seed 12345`                                                  | `--seed`                            | `--seed` implies `--randomize`              | Same seed = same order                                     |
+| Debug flaky tests     | `bun test --isolate --retry=3 --bail=1 ./test/flaky.test.ts`             | `--isolate`, `--retry`, `--bail`    | `--retry` defaults to 1; `--bail` to 1      | Avoid `--parallel` when debugging                          |
+| Coverage for CI       | `bun test --coverage --coverage-reporter lcov --parallel`                | `--coverage`, `--coverage-reporter` | Default reporter `text`; dir `coverage/`    | Aggregates across parallel workers                         |
+| Update snapshots      | `bun test -u ./test/component.test.ts`                                   | `-u` / `--update-snapshots`         | Updates only matched snapshots              | Only run on files you intend to update                     |
 
 Code constants: `BUN_TEST_FLAG_INTERACTIONS` (16 compositions), `BUN_TEST_DEFAULTS`, and `BUN_TEST_RECOMMENDED_COMBINATIONS` (7 presets) in `src/lib/test-runtime.ts`.
 

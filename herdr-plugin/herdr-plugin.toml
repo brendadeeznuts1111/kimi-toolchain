@@ -62,7 +62,7 @@ command = ["bun", "run", "build:portal:gate"]
 id = "run-test-gates"
 title = "Run Test Gates"
 contexts = ["workspace"]
-command = ["bun", "run", "test:gates"]
+command = ["bun", "run", "test:portal-convergence:fast"]
 
 [[actions]]
 id = "bun-ssot-status"

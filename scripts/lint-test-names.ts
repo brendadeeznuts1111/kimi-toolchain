@@ -19,7 +19,7 @@
 
 import { basename, join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
-import { UNIT_TEST_FILES } from "../src/lib/test-gates.ts";
+import { UNIT_TEST_FILES, validateTestGroupCoverage } from "../src/lib/test-gates.ts";
 
 const REPO_ROOT = Bun.fileURLToPath(import.meta.resolve("./.."));
 
@@ -559,6 +559,19 @@ export async function lintDuplicateTestTitles(
   return violations;
 }
 
+export function lintTestGroupCoverage(root: string = REPO_ROOT): string[] {
+  const { ok, orphans, duplicates } = validateTestGroupCoverage(root);
+  if (ok) return [];
+  const violations: string[] = [];
+  for (const file of orphans) {
+    violations.push(`${file}: unit test file is not covered by any TEST_GROUP`);
+  }
+  for (const { file, groups } of duplicates) {
+    violations.push(`${file}: unit test file is covered by multiple groups (${groups.join(", ")})`);
+  }
+  return violations;
+}
+
 // ── Test naming rules ────────────────────────────────────────────────
 
 export async function lintTestNames(
@@ -703,18 +716,21 @@ async function main(): Promise<void> {
     scoped.targetDir !== null ? scoped.conventionFiles : namesOnly ? [] : undefined;
   const onlyNames = scoped.targetDir !== null ? scoped.nameFiles : undefined;
 
-  const [nameViolations, conventionViolations, duplicateViolations] = await Promise.all([
-    lintTestNames(REPO_ROOT, onlyNames),
-    namesOnly && scoped.targetDir === null
-      ? Promise.resolve([])
-      : lintTestConventions(REPO_ROOT, onlyConvention),
-    lintDuplicateTestTitles(REPO_ROOT, onlyNames),
-  ]);
+  const [nameViolations, conventionViolations, duplicateViolations, groupCoverageViolations] =
+    await Promise.all([
+      lintTestNames(REPO_ROOT, onlyNames),
+      namesOnly && scoped.targetDir === null
+        ? Promise.resolve([])
+        : lintTestConventions(REPO_ROOT, onlyConvention),
+      lintDuplicateTestTitles(REPO_ROOT, onlyNames),
+      Promise.resolve(lintTestGroupCoverage(REPO_ROOT)),
+    ]);
 
   const ok =
     nameViolations.length === 0 &&
     conventionViolations.length === 0 &&
-    duplicateViolations.length === 0;
+    duplicateViolations.length === 0 &&
+    groupCoverageViolations.length === 0;
 
   if (json) {
     console.log(
@@ -728,6 +744,7 @@ async function main(): Promise<void> {
           naming: { ok: nameViolations.length === 0, violations: nameViolations },
           duplicates: { ok: duplicateViolations.length === 0, violations: duplicateViolations },
           conventions: { ok: conventionViolations.length === 0, violations: conventionViolations },
+          groups: { ok: groupCoverageViolations.length === 0, violations: groupCoverageViolations },
         },
         null,
         2
@@ -760,6 +777,14 @@ async function main(): Promise<void> {
     exit = 1;
   } else {
     console.log("lint:duplicate-test-titles OK");
+  }
+
+  if (groupCoverageViolations.length > 0) {
+    console.error(`\n✗ Test group coverage violations: ${groupCoverageViolations.length}\n`);
+    for (const line of groupCoverageViolations) console.error(`  ${line}`);
+    exit = 1;
+  } else {
+    console.log("lint:test-group-coverage OK");
   }
 
   if (namesOnly && scoped.targetDir === null) {

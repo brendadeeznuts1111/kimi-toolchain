@@ -222,7 +222,7 @@ export const BUN_TEST_RUN_EXAMPLES = {
 /** How kimi-toolchain runs tests vs bare `bun test`. */
 export const BUN_TEST_RUN_STRATEGY = {
   bare: "bun-test-recursive-discovery-single-process",
-  kimiFull: "package-test-scripts-test-run-runAllTestTiers",
+  kimiFull: "package-test-scripts-run-tests-runAllTestTiers",
   kimiFast: "package-test-fast-scripts-test-fast-runTestTier-unit",
   preload: "bunfig-[test].preload-before-tier-invocations",
   failure: "non-zero-exit-abort-tier-chain-on-first-failure",
@@ -233,7 +233,7 @@ export const BUN_TEST_RUN_STRATEGY = {
 export const KIMI_TEST_RUN_ENTRIES = {
   all: {
     packageScript: "test",
-    command: "bun run scripts/test-run.ts",
+    command: "bun run scripts/run-tests.ts",
     runner: "runAllTestTiers",
     selection: "explicit-file-list-per-tier",
   },
@@ -246,13 +246,13 @@ export const KIMI_TEST_RUN_ENTRIES = {
   },
   changed: {
     packageScript: "test:changed",
-    command: "bun run scripts/test-changed.ts",
+    command: "bun run scripts/test-changed.ts -- --dots",
     runner: "bunTestArgsForChanged",
     selection: "git-import-graph",
   },
   changedPush: {
     packageScript: "test:changed:push",
-    command: "bun run scripts/test-changed.ts --push",
+    command: "bun run scripts/test-changed.ts --push --dots",
     runner: "bunTestArgsForChanged",
     selection: "git-import-graph",
   },

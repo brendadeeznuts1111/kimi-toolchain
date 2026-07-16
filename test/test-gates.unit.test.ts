@@ -4,8 +4,10 @@ import {
   FAST_TEST_TIMEOUT_MS,
   INTEGRATION_TEST_FILES,
   SMOKE_TEST_FILES,
+  TEST_GROUPS,
   UNIT_TEST_FILES,
   useFastUnitCoverage,
+  validateTestGroupCoverage,
 } from "../src/lib/test-gates.ts";
 import { buildBunTestArgs } from "../src/lib/test-runtime.ts";
 import { REPO_ROOT } from "./helpers.ts";
@@ -76,6 +78,14 @@ describe("test-gates", () => {
     );
 
     expect(unclassifiedTests).toEqual([]);
+  });
+
+  test("TEST_GROUPS covers every unit file exactly once", () => {
+    const { ok, orphans, duplicates } = validateTestGroupCoverage(REPO_ROOT);
+    expect(orphans).toEqual([]);
+    expect(duplicates).toEqual([]);
+    expect(ok).toBe(true);
+    expect(Object.keys(TEST_GROUPS).length).toBeGreaterThanOrEqual(10);
   });
 
   test("buildBunTestArgs ci mode uses CI timeout and junit reporter", () => {

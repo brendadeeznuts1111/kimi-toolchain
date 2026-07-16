@@ -265,7 +265,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run sync:manifest` | Runtime sync script |
 | `bun run sync:verify` | Runtime sync script |
 | `bun run sync:verify:baseline` | Runtime sync script |
-| `bun run test` | scripts/test-run.ts |
+| `bun run test` | scripts/run-tests.ts |
 | `bun run test:changed` | Test tier script |
 | `bun run test:changed:group` | Test tier script |
 | `bun run test:changed:path` | Test tier script |
@@ -278,18 +278,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run test:coverage:fast` | Test tier script |
 | `bun run test:debug` | Test tier script |
 | `bun run test:fast` | Test tier script |
-| `bun run test:fast:dots` | Test tier script |
-| `bun run test:fast:quiet` | Test tier script |
-| `bun run test:gates` | Test tier script |
 | `bun run test:group` | Test tier script |
-| `bun run test:group:bun` | Test tier script |
-| `bun run test:group:core` | Test tier script |
-| `bun run test:group:dashboard` | Test tier script |
-| `bun run test:group:doctor` | Test tier script |
-| `bun run test:group:effect` | Test tier script |
-| `bun run test:group:herdr` | Test tier script |
-| `bun run test:group:mcp` | Test tier script |
-| `bun run test:group:secrets` | Test tier script |
 | `bun run test:integration` | Test tier script |
 | `bun run test:parallel` | Test tier script |
 | `bun run test:path` | Test tier script |
@@ -333,7 +322,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run fix`                          | Run kimi-fix from repo                                             |
 | `bun run new`                          | Run kimi-new from repo                                             |
 | `bun run governance`                   | Run kimi-governance from repo                                      |
-| `bun run test`                         | Full suite: unit → integration → smoke (`test-run.ts`)             |
+| `bun run test`                         | Full suite: unit → integration → smoke (`run-tests.ts`)            |
 | `bun run test:fast`                    | Unit gate only (`UNIT_TEST_FILES`, 30s, `--parallel=4 --isolate`)  |
 | `bun run test:group` `<name>`          | Domain group run (mutually exclusive groups)                       |
 | `bun run test:path -- '<glob>'`        | Arbitrary test path glob                                           |

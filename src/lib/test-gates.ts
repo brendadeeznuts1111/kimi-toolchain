@@ -406,7 +406,6 @@ export const UNIT_TEST_FILES = [
   "test/herdr-dashboard-server.unit.test.ts",
   "test/herdr-remote-host-probe.unit.test.ts",
   "test/hook-gates.unit.test.ts",
-  "test/bun-release-compliance.unit.test.ts",
   "test/bun-secrets-runtime.unit.test.ts",
   "test/bun-compile-autoload.unit.test.ts",
   "test/bun-console-j.unit.test.ts",
@@ -512,49 +511,315 @@ export function useFastUnitCoverage(packageName: string | undefined): boolean {
  * Each value is either a list of glob patterns or an object with `include` /
  * `exclude` patterns relative to the repo root. Groups are designed to be
  * mutually exclusive so running multiple groups does not duplicate files.
+ *
+ * `core` is the catch-all bucket for shared library and toolchain-meta tests
+ * that do not have a dedicated domain group. The lint gate validates that
+ * every file in `UNIT_TEST_FILES` belongs to exactly one group.
  */
 export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude?: string[] }> = {
+  agent: [
+    "test/agent-diagnosis.unit.test.ts",
+    "test/agents-md-sync.unit.test.ts",
+    "test/capabilities.unit.test.ts",
+  ],
+  artifact: [
+    "test/artifact-*.unit.test.ts",
+    "test/archive-*.unit.test.ts",
+    "test/sync-archive.unit.test.ts",
+    "test/artifact-portal.unit.test.ts",
+    "test/portal-convergence.unit.test.ts",
+  ],
+  build: [
+    "test/build-*.unit.test.ts",
+    "test/build-compile.unit.test.ts",
+    "test/bundle-*.unit.test.ts",
+    "test/compile-target.unit.test.ts",
+  ],
   bun: {
     include: ["test/bun-*.unit.test.ts", "test/bun-*/**/*.unit.test.ts"],
-    exclude: ["test/bun-docs-mcp*.unit.test.ts"],
+    exclude: [
+      "test/bun-docs-mcp*.unit.test.ts",
+      "test/bun-docs-webview*.unit.test.ts",
+      "test/bun-http-agent-keepalive.unit.test.ts",
+      "test/bun-serve-protocol.unit.test.ts",
+      "test/bun-utils-runtime.unit.test.ts",
+      "test/bun-webview-automation.unit.test.ts",
+      "test/bun-yaml-serve.unit.test.ts",
+    ],
   },
+  check: {
+    include: ["test/check-*.unit.test.ts", "test/dx-github-alignment.unit.test.ts"],
+    exclude: ["test/check-lint-scoped.unit.test.ts"],
+  },
+  cloudflare: ["test/cloudflare-*.unit.test.ts", "test/dx-cloudflare-config.unit.test.ts"],
+  config: {
+    include: [
+      "test/config-*.unit.test.ts",
+      "test/defaults-*.unit.test.ts",
+      "test/bunfig-*.unit.test.ts",
+      "test/dx-config.unit.test.ts",
+      "test/config-status.unit.test.ts",
+      "test/config-lifecycle.unit.test.ts",
+      "test/config-loader.unit.test.ts",
+    ],
+    exclude: ["test/bunfig-policy-gate.unit.test.ts", "test/kimi-config-audit.unit.test.ts"],
+  },
+  core: {
+    include: [
+      "test/lib.unit.test.ts",
+      "test/cache.unit.test.ts",
+      "test/event-bus.unit.test.ts",
+      "test/logger.unit.test.ts",
+      "test/ndjson.unit.test.ts",
+      "test/wrap-ansi.unit.test.ts",
+      "test/source-map-memory.unit.test.ts",
+      "test/paths.unit.test.ts",
+      "test/timing.unit.test.ts",
+      "test/boundary.unit.test.ts",
+      "test/compression.unit.test.ts",
+      "test/execve-handoff.unit.test.ts",
+      "test/shadowrealm.unit.test.ts",
+      "test/expect-type-of.unit.test.ts",
+      "test/telemetry-schema.unit.test.ts",
+      "test/quiet-mode.unit.test.ts",
+      "test/open-check-source.unit.test.ts",
+      "test/run-if-not-inflight.unit.test.ts",
+      "test/readme-sync.unit.test.ts",
+      "test/gate-registry.unit.test.ts",
+      "test/gate-runner.unit.test.ts",
+      "test/hook-gates.unit.test.ts",
+      "test/hook-error-ledger.unit.test.ts",
+      "test/hook-failure-text.unit.test.ts",
+      "test/githook-templates.unit.test.ts",
+      "test/github-pr-checks.unit.test.ts",
+      "test/contract-signing.unit.test.ts",
+      "test/gates-trading.unit.test.ts",
+      "test/machine-bun-policy.unit.test.ts",
+      "test/machine-bun-ssot.unit.test.ts",
+      "test/self-healing.unit.test.ts",
+      "test/predictive-doctor.unit.test.ts",
+      "test/scoped-gate-cache.unit.test.ts",
+      "test/scoped-test-cache.unit.test.ts",
+      "test/context-sync-from-report.unit.test.ts",
+      "test/condition-evaluator.unit.test.ts",
+      "test/feature-flags-constants.unit.test.ts",
+      "test/image-audit.unit.test.ts",
+      "test/inspect.unit.test.ts",
+      "test/introspection-docs.unit.test.ts",
+      "test/upgrade-advisor.unit.test.ts",
+      "test/canonical-references.unit.test.ts",
+      "test/validate-release-ssot.unit.test.ts",
+      "test/audit-release-blogs.unit.test.ts",
+      "test/audit-endpoints-metadata.unit.test.ts",
+      "test/deep-audit-webview-report.unit.test.ts",
+      "test/tochange-tracker.unit.test.ts",
+      "test/workflow.unit.test.ts",
+      "test/cli-contract.unit.test.ts",
+      "test/constant-optimizer.unit.test.ts",
+      "test/optimizer-doctor.unit.test.ts",
+      "test/reclassify-failure-ledger.unit.test.ts",
+      "test/constants-heal.unit.test.ts",
+      "test/log-preview.unit.test.ts",
+      "test/resolve-dev-secrets.unit.test.ts",
+      "test/deletion-metric.unit.test.ts",
+      "test/test-gates.unit.test.ts",
+      "test/test-runtime.unit.test.ts",
+      "test/test-run-guard.unit.test.ts",
+      "test/harness/**/*.unit.test.ts",
+      "test/parallel-console*.unit.test.ts",
+      "test/html-reporter.unit.test.ts",
+      "test/email-i18n.unit.test.ts",
+      "test/tuning-set-version.unit.test.ts",
+    ],
+    exclude: [],
+  },
+  dashboard: [
+    "test/herdr-dashboard-*.unit.test.ts",
+    "test/dashboard-*.unit.test.ts",
+    "test/dashboard-card-*.unit.test.ts",
+  ],
+  data: [
+    "test/property-table*.unit.test.ts",
+    "test/table-schema.unit.test.ts",
+    "test/markdown-table.unit.test.ts",
+    "test/url-decomposer.unit.test.ts",
+    "test/head-table-typed.unit.test.ts",
+    "test/toml-property-table.unit.test.ts",
+    "test/completion-*.unit.test.ts",
+    "test/graph-to-mermaid.unit.test.ts",
+  ],
+  decision: [
+    "test/decision-*.unit.test.ts",
+    "test/r-score.unit.test.ts",
+    "test/decision-rationale.unit.test.ts",
+  ],
+  discover: ["test/discover*.unit.test.ts"],
   doctor: {
-    include: ["test/doctor-*.unit.test.ts", "test/doctor-*/**/*.unit.test.ts", "test/*-gate.unit.test.ts", "test/kimi-doctor-*.unit.test.ts"],
-    exclude: ["test/secrets-gate.unit.test.ts", "test/herdr-dashboard-*-gate.unit.test.ts"],
+    include: [
+      "test/doctor-*.unit.test.ts",
+      "test/doctor-*/**/*.unit.test.ts",
+      "test/kimi-doctor-*.unit.test.ts",
+      "test/kimi-doctor-gate.unit.test.ts",
+    ],
+    exclude: ["test/herdr-dashboard-*-gate.unit.test.ts"],
   },
+  effect: {
+    include: [
+      "test/effect/**/*.unit.test.ts",
+      "test/effect-docs.unit.test.ts",
+      "test/effect-gates.unit.test.ts",
+    ],
+    exclude: [],
+  },
+  error: [
+    "test/error-*.unit.test.ts",
+    "test/error-taxonomy.unit.test.ts",
+    "test/error-suggest.unit.test.ts",
+  ],
+  examples: ["test/examples-*.unit.test.ts"],
+  gate: {
+    include: [
+      "test/*-gate.unit.test.ts",
+      "test/card-probe*.unit.test.ts",
+      "test/autophagy-scan.unit.test.ts",
+      "test/audit-effects.unit.test.ts",
+      "test/hardcoded-secret-audit.unit.test.ts",
+      "test/bunfig-policy-gate.unit.test.ts",
+      "test/runtime-utils-coverage-gate.unit.test.ts",
+    ],
+    exclude: [
+      "test/herdr-dashboard-*-gate.unit.test.ts",
+      "test/kimi-doctor-gate.unit.test.ts",
+      "test/bundle-gate.unit.test.ts",
+      "test/guardian/perf-gate.unit.test.ts",
+    ],
+  },
+  git: [
+    "test/git-helpers.unit.test.ts",
+    "test/conventional-commits.unit.test.ts",
+    "test/changelog.unit.test.ts",
+  ],
+  governance: [
+    "test/governance-*.unit.test.ts",
+    "test/governance-check.unit.test.ts",
+    "test/success-metrics.unit.test.ts",
+  ],
+  governor: ["test/governor-*.unit.test.ts", "test/memory-governor.unit.test.ts"],
+  handoff: ["test/handoff-*.unit.test.ts"],
+  health: [
+    "test/health-*.unit.test.ts",
+    "test/workspace-health.unit.test.ts",
+    "test/ecosystem-health.unit.test.ts",
+    "test/cleanup-hygiene.unit.test.ts",
+    "test/deep-hygiene.unit.test.ts",
+    "test/root-hygiene.unit.test.ts",
+  ],
   herdr: {
     include: ["test/herdr-*.unit.test.ts", "test/herdr/**/*.unit.test.ts"],
     exclude: ["test/herdr-dashboard-*.unit.test.ts"],
   },
-  dashboard: ["test/herdr-dashboard-*.unit.test.ts", "test/dashboard-*.unit.test.ts"],
-  mcp: ["test/mcp-*.unit.test.ts", "test/bun-docs-mcp*.unit.test.ts"],
-  secrets: [
-    "test/secrets-*.unit.test.ts",
-    "test/secret-*.unit.test.ts",
-    "test/token-auth.unit.test.ts",
-    "test/identity-*.unit.test.ts",
-  ],
-  examples: ["test/examples-*.unit.test.ts"],
   infra: [
     "test/ci-*.unit.test.ts",
-    "test/governance-*.unit.test.ts",
     "test/guardian*.unit.test.ts",
-    "test/health-*.unit.test.ts",
+    "test/guardian/**/*.unit.test.ts",
     "test/scope-preflight.unit.test.ts",
     "test/finish-work-*.unit.test.ts",
+    "test/guardian/perf-gate.unit.test.ts",
   ],
-  core: [
-    "test/lib.unit.test.ts",
+  kimi: {
+    include: [
+      "test/kimi-*.unit.test.ts",
+      "test/kimi-governance.unit.test.ts",
+      "test/kimi-config-audit.unit.test.ts",
+    ],
+    exclude: ["test/kimi-doctor-*.unit.test.ts", "test/kimi-doctor-gate.unit.test.ts"],
+  },
+  lint: [
+    "test/lint-*.unit.test.ts",
+    "test/testing-docs-lint.unit.test.ts",
+    "test/context-bloat-lint.unit.test.ts",
+    "test/check-lint-scoped.unit.test.ts",
+    "test/doc-links-lint.unit.test.ts",
+    "test/markdown-dead-links.unit.test.ts",
+  ],
+  mcp: [
+    "test/mcp-*.unit.test.ts",
+    "test/bun-docs-mcp*.unit.test.ts",
+    "test/bun-docs-webview.unit.test.ts",
+  ],
+  performance: [
+    "test/perf-*.unit.test.ts",
+    "test/benchmark-*.unit.test.ts",
+    "test/gzip-performance.unit.test.ts",
+    "test/arm64-jsc-performance.unit.test.ts",
+    "test/buffer-from-performance.unit.test.ts",
+    "test/js-builtins-performance.unit.test.ts",
+    "test/effect-benchmark*.unit.test.ts",
+  ],
+  runtime: {
+    include: [
+      "test/runtime-*.unit.test.ts",
+      "test/bun-utils-runtime.unit.test.ts",
+      "test/version.unit.test.ts",
+      "test/verify-bun-features-runner.unit.test.ts",
+      "test/desktop-runtime-deps.unit.test.ts",
+    ],
+    exclude: ["test/runtime-utils-coverage-gate.unit.test.ts"],
+  },
+  scaffold: [
+    "test/scaffold-*.unit.test.ts",
+    "test/scaffold-*/**/*.unit.test.ts",
+    "test/template-policy-audit.unit.test.ts",
+    "test/scaffold-quality.unit.test.ts",
+  ],
+  secrets: {
+    include: [
+      "test/secrets-*.unit.test.ts",
+      "test/secret-*.unit.test.ts",
+      "test/token-auth.unit.test.ts",
+      "test/identity-*.unit.test.ts",
+    ],
+    exclude: ["test/secrets-gate.unit.test.ts"],
+  },
+  serve: [
+    "test/serve-*.unit.test.ts",
+    "test/http-*.unit.test.ts",
+    "test/websocket*.unit.test.ts",
+    "test/bun-yaml-serve.unit.test.ts",
+    "test/bun-serve-protocol.unit.test.ts",
+    "test/bun-http-agent-keepalive.unit.test.ts",
+    "test/fetch-header-casing.unit.test.ts",
+  ],
+  skill: [
+    "test/skill-*.unit.test.ts",
+    "test/frontmatter.unit.test.ts",
+    "test/skill-contract.unit.test.ts",
+    "test/skill-table.unit.test.ts",
+  ],
+  sync: ["test/desktop-sync.unit.test.ts", "test/scan-tree-sync.unit.test.ts"],
+  taxonomy: ["test/taxonomy-*.unit.test.ts", "test/taxonomy-coverage.unit.test.ts"],
+  tool: [
     "test/tool-*.unit.test.ts",
     "test/tool-*/**/*.unit.test.ts",
-    "test/cache.unit.test.ts",
-    "test/event-bus.unit.test.ts",
-    "test/logger.unit.test.ts",
-    "test/ndjson.unit.test.ts",
-    "test/wrap-ansi.unit.test.ts",
-    "test/source-map-memory.unit.test.ts",
+    "test/external-tool-runner.unit.test.ts",
+    "test/provider-contract.unit.test.ts",
+    "test/unified-shell-bridge.unit.test.ts",
   ],
-  effect: ["test/effect/**/*.unit.test.ts"],
+  webview: [
+    "test/webview-*.unit.test.ts",
+    "test/webview-console.unit.test.ts",
+    "test/bun-webview-automation.unit.test.ts",
+  ],
+  workspace: {
+    include: [
+      "test/workspace-*.unit.test.ts",
+      "test/path-hygiene.unit.test.ts",
+      "test/path-alignment.unit.test.ts",
+      "test/workspace-known-blockers.unit.test.ts",
+      "test/workspace-runtime.unit.test.ts",
+    ],
+    exclude: ["test/workspace-health.unit.test.ts"],
+  },
 };
 
 /** Resolve one or more test group patterns to a sorted, deduplicated file list. */
@@ -569,7 +834,11 @@ export function resolveTestGroupFiles(
   const maybeAdd = (file: string) => {
     const normalized = file.replace(/\\/g, "/");
     if (excluded.has(normalized)) return;
-    if (options.existingOnly !== false && !(UNIT_TEST_FILES as readonly string[]).includes(normalized)) return;
+    if (
+      options.existingOnly !== false &&
+      !(UNIT_TEST_FILES as readonly string[]).includes(normalized)
+    )
+      return;
     seen.add(normalized);
   };
 
@@ -578,8 +847,8 @@ export function resolveTestGroupFiles(
 
   for (const group of groups) {
     const entry = TEST_GROUPS[group];
-    const include = Array.isArray(entry) ? entry : entry?.include ?? [group];
-    const exclude = Array.isArray(entry) ? [] : entry?.exclude ?? [];
+    const include = Array.isArray(entry) ? entry : (entry?.include ?? [group]);
+    const exclude = Array.isArray(entry) ? [] : (entry?.exclude ?? []);
 
     for (const pattern of exclude) {
       for (const file of scan(pattern)) {
@@ -599,4 +868,36 @@ export function resolveTestGroupFiles(
 /** All known group names. */
 export function listTestGroups(): string[] {
   return Object.keys(TEST_GROUPS).sort();
+}
+
+/** Result of validating that every unit test file belongs to exactly one group. */
+export interface TestGroupCoverageResult {
+  ok: boolean;
+  orphans: string[];
+  duplicates: { file: string; groups: string[] }[];
+}
+
+/** Verify that `UNIT_TEST_FILES` is fully and uniquely covered by `TEST_GROUPS`. */
+export function validateTestGroupCoverage(repoRoot: string): TestGroupCoverageResult {
+  const unitFiles = new Set<string>(UNIT_TEST_FILES as readonly string[]);
+  const fileToGroups = new Map<string, string[]>();
+
+  for (const group of Object.keys(TEST_GROUPS)) {
+    for (const file of resolveTestGroupFiles(repoRoot, [group])) {
+      const groups = fileToGroups.get(file) ?? [];
+      groups.push(group);
+      fileToGroups.set(file, groups);
+    }
+  }
+
+  const orphans: string[] = [];
+  for (const file of unitFiles) {
+    if (!fileToGroups.has(file)) orphans.push(file);
+  }
+
+  const duplicates = [...fileToGroups.entries()]
+    .filter(([, groups]) => groups.length > 1)
+    .map(([file, groups]) => ({ file, groups: groups.sort() }));
+
+  return { ok: orphans.length === 0 && duplicates.length === 0, orphans, duplicates };
 }

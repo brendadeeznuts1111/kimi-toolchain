@@ -15,57 +15,57 @@ Bun's test runner has two independent axes:
 
 ## Four primary entry points
 
-| Script            | Selection                                       | Distribution                                    | Typical use                                                            |
-| ----------------- | ----------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------- |
-| `test:fast`       | Explicit `UNIT_TEST_FILES` from `test-gates.ts` | `--parallel=4`, chunked batches                 | Default iteration; `check:fast`; pre-commit when hooks run unit gate   |
-| `test:group:*`    | Domain group from `TEST_GROUPS`                 | `--isolate`, optional `--dots` / `--quiet`      | Focused domain runs without overlap                                    |
-| `test:path`       | Arbitrary glob(s)                               | `--isolate`, optional reporter flags            | One-off path selection                                                 |
-| `test:changed`    | Git import graph (`--changed=HEAD`)             | `--parallel=4`                                  | Pre-commit speed — only tests transitively depending on changed source |
-| `test:parallel`   | Bun recursive discovery (all `*.test.ts` tiers) | `--parallel=4`, `--bail`, `--retry=2`, `--dots` | Full-suite local throughput                                            |
-| `test:shard`      | Same as `test:parallel`                         | above + `--shard=${BUN_TEST_SHARD:-1/1}`        | CI matrix; local shard simulation                                      |
+| Script          | Selection                                       | Distribution                                    | Typical use                                                            |
+| --------------- | ----------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------- |
+| `test:fast`     | Explicit `UNIT_TEST_FILES` from `test-gates.ts` | `--parallel=4`, chunked batches                 | Default iteration; `check:fast`; pre-commit when hooks run unit gate   |
+| `test:group`    | Domain group from `TEST_GROUPS`                 | `--isolate`, optional `--dots` / `--quiet`      | Focused domain runs without overlap                                    |
+| `test:path`     | Arbitrary glob(s)                               | `--isolate`, optional reporter flags            | One-off path selection                                                 |
+| `test:changed`  | Git import graph (`--changed=HEAD`)             | `--parallel=4`                                  | Pre-commit speed — only tests transitively depending on changed source |
+| `test:parallel` | Bun recursive discovery (all `*.test.ts` tiers) | `--parallel=4`, `--bail`, `--retry=2`, `--dots` | Full-suite local throughput                                            |
+| `test:shard`    | Same as `test:parallel`                         | above + `--shard=${BUN_TEST_SHARD:-1/1}`        | CI matrix; local shard simulation                                      |
 
 ### Related scripts
 
-| Script               | Role                                                                                            |
-| -------------------- | ----------------------------------------------------------------------------------------------- |
-| `test`               | Tier chain via `scripts/test-run.ts`: unit → integration → smoke (explicit file lists per tier) |
-| `test:ci`            | CI shard using `${CI_NODE_INDEX}/${CI_NODE_TOTAL}`                                              |
-| `test:changed:push`  | `test-changed.ts --push` — compares against `@{upstream}` for pre-push                          |
-| `test:changed:shard` | `--changed=main` + parallel + shard — PR jobs with branch filter                                |
-| `test:changed:group` | Group + `--changed=HEAD` — only changed tests inside a domain group                             |
-| `test:changed:path`  | Path glob + `--changed=HEAD` — only changed tests under a path                                  |
-| `check:fast:changed` | Full fast gate scoped to changed files, with pass cache                                         |
+| Script               | Role                                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| `test`               | Tier chain via `scripts/run-tests.ts`: unit → integration → smoke (explicit file lists per tier) |
+| `test:ci`            | CI shard using `${CI_NODE_INDEX}/${CI_NODE_TOTAL}`                                               |
+| `test:changed:push`  | `test-changed.ts --push` — compares against `@{upstream}` for pre-push                           |
+| `test:changed:shard` | `--changed=main` + parallel + shard — PR jobs with branch filter                                 |
+| `test:changed:group` | Group + `--changed=HEAD` — only changed tests inside a domain group                              |
+| `test:changed:path`  | Path glob + `--changed=HEAD` — only changed tests under a path                                   |
+| `check:fast:changed` | Full fast gate scoped to changed files, with pass cache                                          |
 
 ### Implementation map
 
 ```
 package.json scripts
   test:fast          → scripts/test-fast.ts        → runTestTier("unit")
-  test:group:*       → scripts/test-fast.ts        → resolveTestGroupFiles(<name>) → runBunTest
+  test:group         → scripts/test-fast.ts        → resolveTestGroupFiles(<name>) → runBunTest
   test:path          → scripts/test-fast.ts        → resolveTestGroupFiles(<glob>, existingOnly=false) → runBunTest
   test:changed       → scripts/test-changed.ts     → bunTestArgsForChanged(HEAD | upstream)
   test:changed:group → scripts/test-fast.ts        → resolveTestGroupFiles(<name>) + --changed=HEAD
   test:changed:path  → scripts/test-fast.ts        → resolveTestGroupFiles(<glob>) + --changed=HEAD
   test:parallel      → bare bun test               → full discovery
   test:shard         → bare bun test + --shard     → full discovery, one shard
-  test               → scripts/test-run.ts         → runAllTestTiers
+  test               → scripts/run-tests.ts        → runAllTestTiers
 ```
 
 ---
 
 ## Selection axis
 
-| Mode                   | Mechanism                          | Scope                                                                         |
-| ---------------------- | ---------------------------------- | ----------------------------------------------------------------------------- |
-| **Explicit file list** | `test-gates.ts` → tier runners     | Unit / integration / smoke lists only                                         |
-| **Domain group**       | `TEST_GROUPS` → `resolveTestGroupFiles` | Mutually exclusive groups (`bun`, `core`, `doctor`, `herdr`, …)          |
-| **Arbitrary path**     | `--path <glob>`                    | Any test file matching the provided glob(s)                                   |
-| **Git import graph**   | Bun `--changed`                    | Any discovered test file whose static import graph reaches a git-changed file |
-| **Group/path + changed** | `--group <name> --changed=HEAD`  | Intersection of a group/path with the changed-import graph                    |
-| **Scoped pass cache**  | `.kimi/.last-good-scoped-gates`    | Skip `test:fast` when staged files are a subset of a previous pass            |
-| **Full discovery**     | Bun recursive `*.test.ts` patterns | All test files in the repo (unit, integration, smoke, db, etc.)               |
+| Mode                     | Mechanism                               | Scope                                                                         |
+| ------------------------ | --------------------------------------- | ----------------------------------------------------------------------------- |
+| **Explicit file list**   | `test-gates.ts` → tier runners          | Unit / integration / smoke lists only                                         |
+| **Domain group**         | `TEST_GROUPS` → `resolveTestGroupFiles` | Mutually exclusive groups (`bun`, `core`, `doctor`, `herdr`, …)               |
+| **Arbitrary path**       | `--path <glob>`                         | Any test file matching the provided glob(s)                                   |
+| **Git import graph**     | Bun `--changed`                         | Any discovered test file whose static import graph reaches a git-changed file |
+| **Group/path + changed** | `--group <name> --changed=HEAD`         | Intersection of a group/path with the changed-import graph                    |
+| **Scoped pass cache**    | `.kimi/.last-good-scoped-gates`         | Skip `test:fast` when staged files are a subset of a previous pass            |
+| **Full discovery**       | Bun recursive `*.test.ts` patterns      | All test files in the repo (unit, integration, smoke, db, etc.)               |
 
-`TEST_GROUPS` is intentionally mutually exclusive: a file belongs to exactly one group, so running `test:group:bun` and `test:group:core` together never duplicates files.
+`TEST_GROUPS` is intentionally mutually exclusive: a file belongs to exactly one group, so running `bun run test:group -- bun core` together never duplicates files. `scripts/lint-test-names.ts` and `test/test-gates.unit.test.ts` enforce full coverage and no overlaps.
 
 Use `test:changed`, `test:changed:group`, `test:changed:path`, or `check:fast:changed` to avoid re-running tests whose imports are unchanged. The scoped pass cache adds an additional skip layer inside `check:fast:changed`.
 
@@ -171,7 +171,7 @@ Use with an explicit file path for fast TDD loops. Tier scripts (`test:fast`, `t
 | If you need…                                    | Use                                      |
 | ----------------------------------------------- | ---------------------------------------- |
 | Fastest unit gate with explicit file list       | `bun run test:fast`                      |
-| Focused domain run (no overlap between groups)  | `bun run test:group:<name>`              |
+| Focused domain run (no overlap between groups)  | `bun run test:group -- <name>`           |
 | Arbitrary test path glob                        | `bun run test:path -- '<glob>'`          |
 | Only tests affected by local edits              | `bun run test:changed`                   |
 | Only changed tests in a group                   | `bun run test:changed:group -- <name>`   |

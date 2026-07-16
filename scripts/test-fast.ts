@@ -5,7 +5,7 @@
  * Usage:
  *   bun run test:fast
  *   bun run test:fast -- --dots
- *   bun run test:group:bun
+ *   bun run test:group -- bun
  *   bun run test:group -- doctor herdr
  *   bun run test:path -- 'test/lib.unit.test.ts' 'test/tool-*.unit.test.ts' --dots
  *   bun run test:group -- bun --changed=HEAD --quiet

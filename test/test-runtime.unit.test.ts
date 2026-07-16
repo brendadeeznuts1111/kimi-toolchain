@@ -569,7 +569,7 @@ test(${JSON.stringify(ex.name)}, (done) => {
       expect(BUN_TEST_RUN_EXAMPLES.all).toEqual(["test"]);
       expect(BUN_TEST_RUN_EXAMPLES.pathFilters).toEqual(["test", "foo", "bar"]);
       expect(BUN_TEST_RUN_EXAMPLES.exactPath[1]).toBe("./test/specific-file.test.ts");
-      expect(BUN_TEST_RUN_STRATEGY.kimiFull).toBe("package-test-scripts-test-run-runAllTestTiers");
+      expect(BUN_TEST_RUN_STRATEGY.kimiFull).toBe("package-test-scripts-run-tests-runAllTestTiers");
       expect(BUN_TEST_RUN_STRATEGY.kimiFast).toBe(
         "package-test-fast-scripts-test-fast-runTestTier-unit"
       );
