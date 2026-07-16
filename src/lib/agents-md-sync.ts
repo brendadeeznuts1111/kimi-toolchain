@@ -168,46 +168,62 @@ const SYNC_BLOCKS: SyncBlockSpec[] = [
   },
 ];
 
+function formatTable(headers: string[], rows: string[][]): string[] {
+  const widths = headers.map((header, index) =>
+    Math.max(header.length, ...rows.map((row) => (row[index] ?? "").length))
+  );
+  const line = (cells: string[]) =>
+    `| ${cells.map((cell, index) => cell.padEnd(widths[index] ?? 0)).join(" | ")} |`;
+  const separator = widths.map((width) => "-".repeat(Math.max(width, 3)));
+
+  return [line(headers), line(separator), ...rows.map(line)];
+}
+
 function buildMarkerBlock(begin: string, end: string, tableLines: string[]): string {
   return [begin, "", ...tableLines, "", end].join("\n");
 }
 
 /** Build the auto-sync bin inventory block for AGENTS.md. */
 export function buildBinInventoryBlock(bins: Record<string, string>): string {
-  const rows = Object.entries(bins).sort(([a], [b]) => a.localeCompare(b));
-  return buildMarkerBlock(AGENTS_SYNC_BINS_BEGIN, AGENTS_SYNC_BINS_END, [
-    "| Bin | Entry |",
-    "| --- | ----- |",
-    ...rows.map(([name, entry]) => `| \`${name}\` | \`${entry}\` |`),
-  ]);
+  const rows = Object.entries(bins)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, entry]) => [`\`${name}\``, `\`${entry}\``]);
+  return buildMarkerBlock(
+    AGENTS_SYNC_BINS_BEGIN,
+    AGENTS_SYNC_BINS_END,
+    formatTable(["Bin", "Entry"], rows)
+  );
 }
 
 export function buildEndpointsBlock(
   endpoints: ReadonlyArray<{ name: string; url: string }>
 ): string {
-  return buildMarkerBlock(AGENTS_SYNC_ENDPOINTS_BEGIN, AGENTS_SYNC_ENDPOINTS_END, [
-    "| Name | URL |",
-    "| ---- | --- |",
-    ...endpoints.map((entry) => `| \`${entry.name}\` | ${entry.url} |`),
-  ]);
+  const rows = endpoints.map((entry) => [`\`${entry.name}\``, entry.url]);
+  return buildMarkerBlock(
+    AGENTS_SYNC_ENDPOINTS_BEGIN,
+    AGENTS_SYNC_ENDPOINTS_END,
+    formatTable(["Name", "URL"], rows)
+  );
 }
 
 export function buildLibDomainsBlock(
   rows: ReadonlyArray<{ domain: string; files: string }>
 ): string {
-  return buildMarkerBlock(AGENTS_SYNC_LIB_DOMAINS_BEGIN, AGENTS_SYNC_LIB_DOMAINS_END, [
-    "| Domain | Representative files |",
-    "| ------ | -------------------- |",
-    ...rows.map((row) => `| ${row.domain} | ${row.files} |`),
-  ]);
+  const cells = rows.map((row) => [row.domain, row.files]);
+  return buildMarkerBlock(
+    AGENTS_SYNC_LIB_DOMAINS_BEGIN,
+    AGENTS_SYNC_LIB_DOMAINS_END,
+    formatTable(["Domain", "Representative files"], cells)
+  );
 }
 
 export function buildFinishWorkGatesBlock(gates: readonly string[]): string {
-  return buildMarkerBlock(AGENTS_SYNC_FINISH_WORK_BEGIN, AGENTS_SYNC_FINISH_WORK_END, [
-    "| # | Gate command |",
-    "| - | ------------ |",
-    ...gates.map((gate, index) => `| ${index + 1} | \`${gate}\` |`),
-  ]);
+  const rows = gates.map((gate, index) => [`${index + 1}`, `\`${gate}\``]);
+  return buildMarkerBlock(
+    AGENTS_SYNC_FINISH_WORK_BEGIN,
+    AGENTS_SYNC_FINISH_WORK_END,
+    formatTable(["#", "Gate command"], rows)
+  );
 }
 
 /** Patch hard-coded bin counts elsewhere in AGENTS.md prose/tables. */

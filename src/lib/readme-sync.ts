@@ -46,19 +46,25 @@ export function describeScript(name: string, cmd: string): string {
   return "See package.json scripts";
 }
 
-const TABLE_ROW_TEMPLATE = (script: string, description: string) =>
-  `| \`bun run ${script}\` | ${description} |`;
-
 function buildScriptInventoryTable(scripts: Record<string, string>): string {
-  const rows = Object.keys(scripts)
-    .sort()
-    .map((name) => TABLE_ROW_TEMPLATE(name, describeScript(name, scripts[name] ?? "")));
+  const names = Object.keys(scripts).sort();
+  const rows = names.map((name) => ({
+    command: `\`bun run ${name}\``,
+    description: describeScript(name, scripts[name] ?? ""),
+  }));
+
+  const maxCmd = Math.max("Command".length, ...rows.map((r) => r.command.length));
+  const maxDesc = Math.max("Description".length, ...rows.map((r) => r.description.length));
+
+  const row = (command: string, description: string) =>
+    `| ${command.padEnd(maxCmd)} | ${description.padEnd(maxDesc)} |`;
+
   return [
     SYNC_BEGIN,
     "",
-    "| Command | Description |",
-    "| ------- | ----------- |",
-    ...rows,
+    row("Command", "Description"),
+    row("-".repeat(maxCmd), "-".repeat(maxDesc)),
+    ...rows.map((r) => row(r.command, r.description)),
     "",
     SYNC_END,
   ].join("\n");
@@ -172,7 +178,7 @@ export function buildPatchRows(
   scripts: Record<string, string> = {}
 ): string {
   return missingScripts
-    .map((name) => TABLE_ROW_TEMPLATE(name, describeScript(name, scripts[name] ?? "")))
+    .map((name) => `| \`bun run ${name}\` | ${describeScript(name, scripts[name] ?? "")} |`)
     .join("\n");
 }
 

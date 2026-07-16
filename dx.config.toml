@@ -92,10 +92,6 @@ name = "examples-artifact-lineage"
 url = "http://127.0.0.1:5678/api/artifacts/model-drift/lineage"
 
 [[endpoints]]
-name = "serve-probe-cards"
-url = "http://127.0.0.1:5678/api/cards"
-
-[[endpoints]]
 name = "herdr-meta"
 url = "http://127.0.0.1:18412/api/meta"
 

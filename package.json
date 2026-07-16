@@ -208,6 +208,7 @@
     "audit:phase5": "KIMI_AUDIT_PHASE=5 bun run scripts/preservation-protocol-audit.ts",
     "git:metrics": "bun run scripts/git-contribution-metrics.ts",
     "scan": "bun run scripts/scan.ts",
+    "find:duplicates": "bun run scripts/find-duplicates.ts",
     "deep-audit": "bun run src/bin/kimi-deep-audit.ts",
     "deep-audit:json": "bun run src/bin/kimi-deep-audit.ts --json > .kimi-artifacts/deep-audit-report.json",
     "deep-audit:report": "bun run src/bin/kimi-deep-audit.ts --json > .kimi-artifacts/deep-audit-report.json && bun run src/doctor/deep-audit/report.ts",

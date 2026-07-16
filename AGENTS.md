@@ -79,7 +79,7 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 | `package.json`               | Project metadata, `bin` map (32 registered CLI tools), npm scripts, dependencies (`effect`, `js-yaml`), `trustedDependencies` policy, devDependencies (`@types/bun`, `oxfmt`, `oxlint`, `ts-morph`, `typescript`) |
 | `bunfig.toml`                | Bun install policy (`[install]`), test defaults (`[test]`), and build-time define constants (`[define]`)                                                                                                          |
 | `tsconfig.json`              | TypeScript strict, ESNext, bundler resolution, `noEmit`, includes `src/`, `test/`, `scripts/`, `types/*.d.ts`                                                                                                     |
-| `dx.config.toml`             | Project DX policy: runtime (`containers = "none"`), quality gate script aliases, `[finishWork]` gates, `[herdr]` orchestration layout, `[cloudflare]` read-only mode, `[[endpoints]]` inventory (10 endpoints)    |
+| `dx.config.toml`             | Project DX policy: runtime (`containers = "none"`), quality gate script aliases, `[finishWork]` gates, `[herdr]` orchestration layout, `[cloudflare]` read-only mode, `[[endpoints]]` inventory (9 endpoints)     |
 | `.oxfmtrc.json`              | `oxfmt` formatter config (printWidth 100, 2-space tabs, trailing commas `es5`, ignore patterns)                                                                                                                   |
 | `.oxlintrc.json`             | `oxlint` linter config (plugins `typescript`, `unicorn`, `oxc`; category `correctness` = error)                                                                                                                   |
 | `error-taxonomy.yml`         | Failure classification schema used by `kimi-error`, `kimi-debug`, `kimi-heal`, and the failure ledger                                                                                                             |
@@ -203,7 +203,6 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 | `herdr-examples-health`     | http://127.0.0.1:18412/api/examples/health                                                   |
 | `herdr-meta`                | http://127.0.0.1:18412/api/meta                                                              |
 | `herdr-skill`               | https://github.com/ogulcancelik/herdr/blob/d998753efe506a04c80306795efc72bff60bb0ec/SKILL.md |
-| `serve-probe-cards`         | http://127.0.0.1:5678/api/cards                                                              |
 
 <!-- agents-sync:endpoints:end -->
 
@@ -249,13 +248,13 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 
 <!-- agents-sync:finish-work-gates:begin -->
 
-| #   | Gate command                       |
+| # | Gate command                       |
 | --- | ---------------------------------- |
-| 1   | `bun run check:fast`               |
-| 2   | `kimi-doctor --gate bunfig-policy` |
-| 3   | `kimi-doctor --effect-gates`       |
-| 4   | `kimi-doctor --automation`         |
-| 5   | `kimi-heal effect audit`           |
+| 1 | `bun run check:fast`               |
+| 2 | `kimi-doctor --gate bunfig-policy` |
+| 3 | `kimi-doctor --effect-gates`       |
+| 4 | `kimi-doctor --automation`         |
+| 5 | `kimi-heal effect audit`           |
 
 <!-- agents-sync:finish-work-gates:end -->
 

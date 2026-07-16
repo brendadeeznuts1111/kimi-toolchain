@@ -328,7 +328,6 @@ url_pathname = /
 | examples-artifact-diff    | `http://127.0.0.1:5678/api/artifacts/model-drift/diff`    | `http:`      | `127.0.0.1`  | `5678`   | `/api/artifacts/model-drift/diff`    | `a=` `b=`                     |
 | examples-runs             | `http://127.0.0.1:5678/api/runs`                          | `http:`      | `127.0.0.1`  | `5678`   | `/api/runs`                          | identity filters              |
 | examples-perf-registry    | `http://127.0.0.1:5678/api/perf-registry`                 | `http:`      | `127.0.0.1`  | `5678`   | `/api/perf-registry`                 | —                             |
-| serve-probe-cards         | `http://127.0.0.1:5678/api/cards`                         | `http:`      | `127.0.0.1`  | `5678`   | `/api/cards`                         | —                             |
 | herdr-meta                | `http://127.0.0.1:18412/api/meta`                         | `http:`      | `127.0.0.1`  | `18412`  | `/api/meta`                          | —                             |
 | herdr-examples-health     | `http://127.0.0.1:18412/api/examples/health`              | `http:`      | `127.0.0.1`  | `18412`  | `/api/examples/health`               | —                             |
 | herdr-session-runs        | `http://127.0.0.1:18412/api/sessions/:scope/runs`         | `http:`      | `127.0.0.1`  | `18412`  | `/api/sessions/:scope/runs`          | —                             |

@@ -174,6 +174,7 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run dx:table`                      | scripts/dx-table.ts                    |
 | `bun run dx:table:contract`             | scripts/dx-table-contract.ts           |
 | `bun run error`                         | Run kimi-error from repo               |
+| `bun run find:duplicates`               | scripts/find-duplicates.ts             |
 | `bun run finish-work`                   | scripts/finish-work.ts                 |
 | `bun run fix`                           | Run kimi-fix from repo                 |
 | `bun run fix:drift`                     | See package.json scripts               |
