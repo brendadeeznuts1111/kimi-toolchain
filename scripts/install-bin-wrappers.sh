@@ -90,7 +90,7 @@ fi
 # Legacy kimi-* aliases dispatch through meta bin
 BINS="$(bun -e "
   const pkg = await Bun.file('${REPO_ROOT}/package.json').json();
-  console.log(Object.keys(pkg.bin || {}).filter(k => k.startsWith('kimi-') && k !== '${META}').join(' '));
+  console.log(Object.keys(pkg.bin || {}).filter(k => (k.startsWith('kimi-') || k.startsWith('herdr-')) && k !== '${META}').join(' '));
 ")"
 
 COUNT=1

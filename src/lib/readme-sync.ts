@@ -37,6 +37,8 @@ export function describeScript(name: string, cmd: string): string {
   if (name.startsWith("sync")) return "Runtime sync script";
   if (name.startsWith("pm:")) return "Bun package manager helper";
   if (name.startsWith("cleanup")) return "Workspace / artifact cleanup";
+  const shScript = cmd.match(/scripts\/([\w-]+\.sh)/);
+  if (shScript) return `scripts/${shScript[1]}`;
   if (cmd.includes("scripts/")) {
     const script = cmd.match(/scripts\/([\w-]+)/);
     if (script) return `scripts/${script[1]}.ts`;
