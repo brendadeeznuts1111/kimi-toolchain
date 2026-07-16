@@ -509,18 +509,23 @@ export function useFastUnitCoverage(packageName: string | undefined): boolean {
 
 /** Domain-based test groups for path-specific runs without moving files.
  *
- * Each value is a glob pattern relative to the repo root. A file may match
- * multiple groups; runners deduplicate the resolved set.
+ * Each value is either a list of glob patterns or an object with `include` /
+ * `exclude` patterns relative to the repo root. Groups are designed to be
+ * mutually exclusive so running multiple groups does not duplicate files.
  */
-export const TEST_GROUPS: Record<string, string[]> = {
-  bun: ["test/bun-*.unit.test.ts", "test/bun-*/**/*.unit.test.ts"],
-  doctor: [
-    "test/doctor-*.unit.test.ts",
-    "test/doctor-*/**/*.unit.test.ts",
-    "test/*-gate*.unit.test.ts",
-    "test/kimi-doctor-*.unit.test.ts",
-  ],
-  herdr: ["test/herdr-*.unit.test.ts", "test/herdr/**/*.unit.test.ts"],
+export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude?: string[] }> = {
+  bun: {
+    include: ["test/bun-*.unit.test.ts", "test/bun-*/**/*.unit.test.ts"],
+    exclude: ["test/bun-docs-mcp*.unit.test.ts"],
+  },
+  doctor: {
+    include: ["test/doctor-*.unit.test.ts", "test/doctor-*/**/*.unit.test.ts", "test/*-gate.unit.test.ts", "test/kimi-doctor-*.unit.test.ts"],
+    exclude: ["test/secrets-gate.unit.test.ts", "test/herdr-dashboard-*-gate.unit.test.ts"],
+  },
+  herdr: {
+    include: ["test/herdr-*.unit.test.ts", "test/herdr/**/*.unit.test.ts"],
+    exclude: ["test/herdr-dashboard-*.unit.test.ts"],
+  },
   dashboard: ["test/herdr-dashboard-*.unit.test.ts", "test/dashboard-*.unit.test.ts"],
   mcp: ["test/mcp-*.unit.test.ts", "test/bun-docs-mcp*.unit.test.ts"],
   secrets: [
@@ -542,7 +547,6 @@ export const TEST_GROUPS: Record<string, string[]> = {
     "test/lib.unit.test.ts",
     "test/tool-*.unit.test.ts",
     "test/tool-*/**/*.unit.test.ts",
-    "test/*-utils*.unit.test.ts",
     "test/cache.unit.test.ts",
     "test/event-bus.unit.test.ts",
     "test/logger.unit.test.ts",
@@ -560,13 +564,32 @@ export function resolveTestGroupFiles(
   options: { existingOnly?: boolean } = {}
 ): string[] {
   const seen = new Set<string>();
+  const excluded = new Set<string>();
+
+  const maybeAdd = (file: string) => {
+    const normalized = file.replace(/\\/g, "/");
+    if (excluded.has(normalized)) return;
+    if (options.existingOnly !== false && !(UNIT_TEST_FILES as readonly string[]).includes(normalized)) return;
+    seen.add(normalized);
+  };
+
+  const scan = (pattern: string) =>
+    new Bun.Glob(pattern).scanSync({ cwd: repoRoot, absolute: false });
+
   for (const group of groups) {
-    const patterns = TEST_GROUPS[group] ?? [group];
-    for (const pattern of patterns) {
-      for (const file of new Bun.Glob(pattern).scanSync({ cwd: repoRoot, absolute: false })) {
-        const normalized = file.replace(/\\/g, "/");
-        if (options.existingOnly !== false && !(UNIT_TEST_FILES as readonly string[]).includes(normalized)) continue;
-        seen.add(normalized);
+    const entry = TEST_GROUPS[group];
+    const include = Array.isArray(entry) ? entry : entry?.include ?? [group];
+    const exclude = Array.isArray(entry) ? [] : entry?.exclude ?? [];
+
+    for (const pattern of exclude) {
+      for (const file of scan(pattern)) {
+        excluded.add(file.replace(/\\/g, "/"));
+      }
+    }
+
+    for (const pattern of include) {
+      for (const file of scan(pattern)) {
+        maybeAdd(file);
       }
     }
   }
