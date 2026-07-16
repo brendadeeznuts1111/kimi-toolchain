@@ -102,6 +102,11 @@ export async function listExpectedWrapperNames(repoRoot: string): Promise<string
   return fromRegistry(repoRoot);
 }
 
+export async function projectProvidesKimiBins(projectRoot: string): Promise<boolean> {
+  const names = await listExpectedWrapperNames(projectRoot);
+  return names.some((n) => n.startsWith("kimi-") && n !== "kimi-toolchain");
+}
+
 export async function listStaleWrappers(repoRoot: string, binDir: string): Promise<string[]> {
   const expected = new Set(await listExpectedWrapperNames(repoRoot));
   return listInstalledWrappers(binDir).filter((name) => !expected.has(name));
@@ -368,40 +373,60 @@ export async function auditWorkspaceHealth(
     });
   }
 
-  const staleWrappers = await listStaleWrappers(projectRoot, binDir);
-  const missingWrappers = await listMissingWrappers(projectRoot, binDir);
+  const providesKimiBins = await projectProvidesKimiBins(projectRoot);
+  let staleWrappers: string[] = [];
+  let missingWrappers: string[] = [];
+  if (providesKimiBins) {
+    staleWrappers = await listStaleWrappers(projectRoot, binDir);
+    missingWrappers = await listMissingWrappers(projectRoot, binDir);
+  }
 
-  checks.push(
-    staleWrappers.length === 0
-      ? {
-          name: "path-wrappers",
-          status: "ok",
-          message: "no stale ~/.local/bin/kimi-* wrappers",
-          fixable: false,
-        }
-      : {
-          name: "path-wrappers",
-          status: "warn",
-          message: `${staleWrappers.length} stale: ${staleWrappers.join(", ")}`,
-          fixable: true,
-        }
-  );
+  if (providesKimiBins) {
+    checks.push(
+      staleWrappers.length === 0
+        ? {
+            name: "path-wrappers",
+            status: "ok",
+            message: "no stale ~/.local/bin/kimi-* wrappers",
+            fixable: false,
+          }
+        : {
+            name: "path-wrappers",
+            status: "warn",
+            message: `${staleWrappers.length} stale: ${staleWrappers.join(", ")}`,
+            fixable: true,
+          }
+    );
 
-  checks.push(
-    missingWrappers.length === 0
-      ? {
-          name: "wrapper-coverage",
-          status: "ok",
-          message: "all package.json bin entries have wrappers",
-          fixable: false,
-        }
-      : {
-          name: "wrapper-coverage",
-          status: "error",
-          message: `${missingWrappers.length} missing: ${missingWrappers.join(", ")}`,
-          fixable: true,
-        }
-  );
+    checks.push(
+      missingWrappers.length === 0
+        ? {
+            name: "wrapper-coverage",
+            status: "ok",
+            message: "all package.json bin entries have wrappers",
+            fixable: false,
+          }
+        : {
+            name: "wrapper-coverage",
+            status: "error",
+            message: `${missingWrappers.length} missing: ${missingWrappers.join(", ")}`,
+            fixable: true,
+          }
+    );
+  } else {
+    checks.push({
+      name: "path-wrappers",
+      status: "ok",
+      message: "wrappers managed by kimi-toolchain repo",
+      fixable: false,
+    });
+    checks.push({
+      name: "wrapper-coverage",
+      status: "ok",
+      message: "wrappers managed by kimi-toolchain repo",
+      fixable: false,
+    });
+  }
 
   const toolsDir = join(home, ".kimi-code", "tools");
   const expectedBins = await getExpectedBinNames(projectRoot);

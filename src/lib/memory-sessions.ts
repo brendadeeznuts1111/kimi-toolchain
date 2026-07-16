@@ -81,7 +81,7 @@ interface DbDoctorRunRow {
 export function saveSession(
   session: Omit<SessionRecord, "status"> & { status?: SessionRecord["status"] }
 ) {
-  const db = getDb();
+  using db = getDb();
   db.run(
     `INSERT OR REPLACE INTO sessions
      (id, project, cwd, started_at, ended_at, last_cmd, cmd_history, env_snapshot, git_head, lockfile_hash, context_size, key_decisions, status)
@@ -102,11 +102,10 @@ export function saveSession(
       session.status || "active",
     ]
   );
-  db.close();
 }
 
 export function recallSessions(project?: string, limit = 10): SessionRecord[] {
-  const db = getDb();
+  using db = getDb();
   let rows: DbSessionRow[];
   if (project) {
     rows = db
@@ -117,18 +116,18 @@ export function recallSessions(project?: string, limit = 10): SessionRecord[] {
       .query("SELECT * FROM sessions ORDER BY started_at DESC LIMIT ?")
       .all(limit) as DbSessionRow[];
   }
-  db.close();
+
   return rows.map(parseSessionRow);
 }
 
 export function getActiveSession(project: string): SessionRecord | null {
-  const db = getDb();
+  using db = getDb();
   const row = db
     .query(
       "SELECT * FROM sessions WHERE project = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1"
     )
     .get(project) as DbSessionRow | null;
-  db.close();
+
   return row ? parseSessionRow(row) : null;
 }
 
@@ -156,12 +155,11 @@ export async function resumeSession(
   projectPath: string
 ): Promise<{ session: SessionRecord | null; stale: boolean; changes: string[] }> {
   const project = await getProjectName(projectPath);
-  const db = getDb();
+  using db = getDb();
 
   const row = db
     .query("SELECT * FROM sessions WHERE project = ? ORDER BY started_at DESC LIMIT 1")
     .get(project) as DbSessionRow | null;
-  db.close();
 
   if (!row) {
     return { session: null, stale: false, changes: [] };
@@ -212,28 +210,26 @@ export async function resumeSession(
 // ── Knowledge Graph ──────────────────────────────────────────────────
 
 export function addNode(node: KnowledgeNode) {
-  const db = getDb();
+  using db = getDb();
   db.run(
     "INSERT OR IGNORE INTO knowledge_nodes (id, label, type, project, created_at, metadata) VALUES (?, ?, ?, ?, ?, ?)",
     [node.id, node.label, node.type, node.project, node.createdAt, node.metadata || null]
   );
-  db.close();
 }
 
 export function addEdge(edge: KnowledgeEdge) {
-  const db = getDb();
+  using db = getDb();
   db.run(
     "INSERT OR REPLACE INTO knowledge_edges (from_id, to_id, relation, weight) VALUES (?, ?, ?, ?)",
     [edge.from, edge.to, edge.relation, edge.weight]
   );
-  db.close();
 }
 
 export function getGraph(
   project: string,
   _depth = 1
 ): { nodes: KnowledgeNode[]; edges: KnowledgeEdge[] } {
-  const db = getDb();
+  using db = getDb();
   const nodes = db
     .query("SELECT * FROM knowledge_nodes WHERE project = ?")
     .all(project) as DbKnowledgeNodeRow[];
@@ -249,7 +245,6 @@ export function getGraph(
     )
     .all(...Array.from(nodeIds)) as DbKnowledgeEdgeRow[];
 
-  db.close();
   return {
     nodes: nodes.map((n) => ({
       id: n.id,
@@ -271,7 +266,7 @@ export function getGraph(
 // ── Cross-Project Impact Analysis ────────────────────────────────────
 
 export function getImpactGraph(nodeId: string, depth = 2): ImpactResult {
-  const db = getDb();
+  using db = getDb();
 
   const visited = new Set<string>();
   const queue: Array<{ id: string; depth: number }> = [{ id: nodeId, depth: 0 }];
@@ -308,8 +303,6 @@ export function getImpactGraph(nodeId: string, depth = 2): ImpactResult {
     }
   }
 
-  db.close();
-
   const riskScore = Math.min(1, affectedNodes.length / 10);
 
   return {
@@ -320,8 +313,53 @@ export function getImpactGraph(nodeId: string, depth = 2): ImpactResult {
   };
 }
 
+export function getAllNodes(): KnowledgeNode[] {
+  using db = getDb();
+  const rows = db.query("SELECT * FROM knowledge_nodes").all() as DbKnowledgeNodeRow[];
+  return rows.map((n) => ({
+    id: n.id,
+    label: n.label,
+    type: n.type as KnowledgeNode["type"],
+    project: n.project,
+    createdAt: n.created_at,
+    metadata: n.metadata ?? undefined,
+  }));
+}
+
+export function getStatsByProject(): Record<
+  string,
+  { sessions: number; nodes: number; edges: number }
+> {
+  using db = getDb();
+  const stats: Record<string, { sessions: number; nodes: number; edges: number }> = {};
+
+  const sessionRows = db
+    .query("SELECT project, COUNT(*) as c FROM sessions GROUP BY project")
+    .all() as Array<{ project: string; c: number }>;
+  for (const row of sessionRows) {
+    stats[row.project] = { sessions: row.c, nodes: 0, edges: 0 };
+  }
+
+  const nodeRows = db
+    .query("SELECT project, COUNT(*) as c FROM knowledge_nodes GROUP BY project")
+    .all() as Array<{ project: string; c: number }>;
+  for (const row of nodeRows) {
+    const projectStats = stats[row.project] || { sessions: 0, nodes: 0, edges: 0 };
+    projectStats.nodes = row.c;
+    stats[row.project] = projectStats;
+  }
+
+  // Edges are cross-project; count them once globally and attribute to a synthetic "_cross_project" key.
+  const edgeCount = (db.query("SELECT COUNT(*) as c FROM knowledge_edges").get() as DbCountRow).c;
+  if (edgeCount > 0) {
+    stats["_cross_project"] = { sessions: 0, nodes: 0, edges: edgeCount };
+  }
+
+  return stats;
+}
+
 export function searchNodes(query: string, project?: string): KnowledgeNode[] {
-  const db = getDb();
+  using db = getDb();
   let rows;
   if (project) {
     rows = db
@@ -332,7 +370,7 @@ export function searchNodes(query: string, project?: string): KnowledgeNode[] {
       .query("SELECT * FROM knowledge_nodes WHERE label LIKE ?")
       .all(`%${query}%`) as DbKnowledgeNodeRow[];
   }
-  db.close();
+
   return rows.map((n) => ({
     id: n.id,
     label: n.label,
@@ -346,11 +384,11 @@ export function searchNodes(query: string, project?: string): KnowledgeNode[] {
 // ── Maintenance ──────────────────────────────────────────────────────
 
 export function pruneOldSessions(days: number): number {
-  const db = getDb();
+  using db = getDb();
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const result = db.run("DELETE FROM sessions WHERE started_at < ?", [cutoff]);
   const deleted = result.changes;
-  db.close();
+
   return deleted;
 }
 
@@ -361,7 +399,7 @@ export function getWarningHistory(checkName: string): Array<{
   r_score: number | null;
   git_head: string | null;
 }> {
-  const db = getDb();
+  using db = getDb();
   const rows = db
     .query(
       `SELECT timestamp, r_score, git_head FROM doctor_runs
@@ -369,7 +407,7 @@ export function getWarningHistory(checkName: string): Array<{
      ORDER BY timestamp DESC`
     )
     .all(`%"check":"${checkName}"%`) as DbDoctorRunRow[];
-  db.close();
+
   return rows.map((r) => ({
     timestamp: r.timestamp,
     r_score: r.r_score,
@@ -384,14 +422,13 @@ export function getStats(): {
   edges: number;
   dbSize: string;
 } {
-  const db = getDb();
+  using db = getDb();
   const sessions = (db.query("SELECT COUNT(*) as c FROM sessions").get() as DbCountRow).c;
   const active = (
     db.query("SELECT COUNT(*) as c FROM sessions WHERE status = 'active'").get() as DbCountRow
   ).c;
   const nodes = (db.query("SELECT COUNT(*) as c FROM knowledge_nodes").get() as DbCountRow).c;
   const edges = (db.query("SELECT COUNT(*) as c FROM knowledge_edges").get() as DbCountRow).c;
-  db.close();
 
   const file = Bun.file(DB_PATH);
   const size = file.size;

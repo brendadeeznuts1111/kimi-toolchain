@@ -24,6 +24,19 @@ META_SCRIPT="${TOOLS_DIR}/${META}.ts"
 cat > "${BIN_DIR}/${META}" <<EOF
 #!/usr/bin/env bash
 # ${META} — kimi-toolchain meta router (auto-generated)
+set -euo pipefail
+export KIMI_TOOLCHAIN_WRAPPER=1
+export KIMI_INVOCATION_CWD="\${PWD}"
+REPO=""
+for candidate in "\${HOME}/Projects/kimi-toolchain" "\${HOME}/kimi-toolchain" "${REPO_ROOT}"; do
+  if [[ -f "\${candidate}/src/bin/${META}.ts" ]]; then
+    REPO="\${candidate}"
+    break
+  fi
+done
+if [[ -n "\${REPO}" ]]; then
+  exec ${BUN} run "\${REPO}/src/bin/${META}.ts" "\$@"
+fi
 exec ${BUN} run "\${HOME}/.kimi-code/tools/${META}.ts" "\$@"
 EOF
 chmod +x "${BIN_DIR}/${META}"
@@ -55,6 +68,19 @@ echo "  ✓ ${BIN_DIR}/cleanup-hygiene"
 if [[ -f "${TOOLS_DIR}/unified-shell-bridge.ts" ]]; then
   cat > "${BIN_DIR}/unified-shell-bridge" <<EOF
 #!/usr/bin/env bash
+set -euo pipefail
+export KIMI_TOOLCHAIN_WRAPPER=1
+export KIMI_INVOCATION_CWD="\${PWD}"
+REPO=""
+for candidate in "\${HOME}/Projects/kimi-toolchain" "\${HOME}/kimi-toolchain" "${REPO_ROOT}"; do
+  if [[ -f "\${candidate}/src/bin/unified-shell-bridge.ts" ]]; then
+    REPO="\${candidate}"
+    break
+  fi
+done
+if [[ -n "\${REPO}" ]]; then
+  exec ${BUN} run "\${REPO}/src/bin/unified-shell-bridge.ts" "\$@"
+fi
 exec ${BUN} run "\${HOME}/.kimi-code/tools/unified-shell-bridge.ts" "\$@"
 EOF
   chmod +x "${BIN_DIR}/unified-shell-bridge"
@@ -74,6 +100,19 @@ for name in ${BINS}; do
   cat > "$dest" <<EOF
 #!/usr/bin/env bash
 # ${name} — dispatches to ${META} ${short} (auto-generated)
+set -euo pipefail
+export KIMI_TOOLCHAIN_WRAPPER=1
+export KIMI_INVOCATION_CWD="\${PWD}"
+REPO=""
+for candidate in "\${HOME}/Projects/kimi-toolchain" "\${HOME}/kimi-toolchain" "${REPO_ROOT}"; do
+  if [[ -f "\${candidate}/src/bin/${META}.ts" ]]; then
+    REPO="\${candidate}"
+    break
+  fi
+done
+if [[ -n "\${REPO}" ]]; then
+  exec ${BUN} run "\${REPO}/src/bin/${META}.ts" "${short}" "\$@"
+fi
 exec ${BUN} run "\${HOME}/.kimi-code/tools/${META}.ts" "${short}" "\$@"
 EOF
   chmod +x "$dest"

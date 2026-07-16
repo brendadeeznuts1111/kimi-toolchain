@@ -43,6 +43,18 @@ export interface ImpactResult {
   riskScore: number;
 }
 
+export interface ProjectRecord {
+  alias: string;
+  root: string;
+  packageName: string | null;
+  runtime: string | null;
+  addedAt: string;
+  lastSeenAt: string;
+  mcpProfile: string | null;
+  isToolchainRepo: boolean;
+  parentAlias: string | null;
+}
+
 // ── SQL schema ────────────────────────────────────────────────────────
 
 export const SESSIONS_SCHEMA_SQL = `
@@ -113,4 +125,18 @@ export const SESSIONS_SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_warning_trends_tool ON warning_trends(tool);
   CREATE INDEX IF NOT EXISTS idx_warning_trends_resolved ON warning_trends(resolved_at);
+
+  CREATE TABLE IF NOT EXISTS projects (
+    alias TEXT PRIMARY KEY,
+    root TEXT NOT NULL UNIQUE,
+    package_name TEXT,
+    runtime TEXT,
+    added_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    mcp_profile TEXT,
+    is_toolchain_repo INTEGER DEFAULT 0,
+    parent_alias TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_projects_root ON projects(root);
+  CREATE INDEX IF NOT EXISTS idx_projects_parent ON projects(parent_alias);
 `;

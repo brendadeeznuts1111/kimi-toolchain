@@ -146,6 +146,7 @@ import {
   listGates,
 } from "../gates/registry.ts";
 import { inspectAgent } from "../lib/inspect.ts";
+import { autoRegisterProject } from "../lib/project-registry.ts";
 
 const writer = createCli(Bun.argv, "kimi-doctor");
 const doctorTrace = ensureProcessTrace();
@@ -221,6 +222,7 @@ const AGENT_ID = argValue("--agent-id");
 const ADAPTER = argValue("--adapter");
 const PLUGIN = argValue("--plugin");
 const SUBCOMMAND = Bun.argv[2];
+const PORTFOLIO = Bun.argv.includes("--portfolio");
 
 function parseArtifactsLineageGate(): string | undefined {
   if (ARTIFACTS_LINEAGE) return ARTIFACTS_LINEAGE;
@@ -1540,6 +1542,30 @@ function emitGateDryRun(
 }
 
 async function main(): Promise<number> {
+  // Auto-register the current project for portfolio visibility.
+  try {
+    await autoRegisterProject(Bun.cwd);
+  } catch {
+    // Registry is advisory; never block the doctor run.
+  }
+
+  if (PORTFOLIO) {
+    const { runPortfolioDoctor, formatPortfolioReport } =
+      await import("../lib/doctor-portfolio.ts");
+    const report = await runPortfolioDoctor({ quick: QUICK, json: JSON_OUT });
+    if (JSON_OUT) {
+      emitJson({
+        schemaVersion: 1,
+        tool: "kimi-doctor",
+        mode: "portfolio",
+        ...report,
+      });
+    } else {
+      logger.line(formatPortfolioReport(report));
+    }
+    return report.summary.ok ? 0 : 1;
+  }
+
   if (SUBCOMMAND === "check") {
     const result = await spawnBun(["run", "scripts/check.ts", ...Bun.argv.slice(3)], {
       cwd: await resolveProjectRoot(Bun.cwd),

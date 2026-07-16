@@ -26,6 +26,7 @@ import { homeDir } from "./paths.ts";
 import { collectPathHygieneItems } from "./path-hygiene.ts";
 import { collectRootHygieneItems, collectRootHygieneMisconfig } from "./root-hygiene.ts";
 import { formatHygieneBytes } from "./hygiene-utils.ts";
+import { listProjects, registerProject } from "./project-registry.ts";
 
 export interface WorkspaceCommandFlags {
   json: boolean;
@@ -59,17 +60,26 @@ export function parseWorkspaceFlags(argv: string[]): WorkspaceCommandFlags {
 
 export function printWorkspaceHelp(logger?: Logger): void {
   const log = resolveLogger(logger);
-  log.line("Usage: kimi-doctor workspace <verify|audit|fix|cleanup> [options]");
-  log.line("       kimi-toolchain workspace <verify|audit|fix|cleanup> [options]");
+  log.line("Usage: kimi-doctor workspace <verify|audit|fix|cleanup|list|register> [options]");
+  log.line("       kimi-toolchain workspace <verify|audit|fix|cleanup|list|register> [options]");
+  log.line("");
+  log.line("Commands:");
+  log.line("  verify     Check workspace alignment");
+  log.line("  audit      Full workspace health report");
+  log.line("  fix        Apply workspace fixes");
+  log.line("  cleanup    Legacy path/hygiene cleanup");
+  log.line("  list       List registered projects in portfolio");
+  log.line("  register   Register current (or --root <path>) project in portfolio");
   log.line("");
   log.line("Options:");
-  log.line("  --json                 JSON output (audit)");
+  log.line("  --json                 JSON output (audit|list)");
   log.line("  --strict               Treat soft warnings as errors");
   log.line("  --list-cursor-slugs    List legacy Cursor project folders");
   log.line("  --remove-cursor-slugs      Delete legacy Cursor slugs (opt-in)");
   log.line("  --remove-legacy-path       Remove ~/kimicode-cli symlink if present");
   log.line("  --archive-legacy-sessions  Move wd_kimicode-cli_* to sessions/archive/");
   log.line("  --deep                     All fixes: cursor slugs + sessions + index prune");
+  log.line("  --root <path>              Project root for register command");
   log.line("");
   log.line("Hygiene: bun run cleanup:all:dry-run | kimi-toolchain cleanup all [--fix]");
   log.line("  workspace cleanup runs a home path scan for literal ~/ dirs");
@@ -321,6 +331,46 @@ async function runCleanup(
   return verifyCode;
 }
 
+async function runList(json: boolean, logger: Logger): Promise<number> {
+  const projects = listProjects();
+  if (json) {
+    await writeStdoutLine(JSON.stringify(projects, null, 2));
+    return 0;
+  }
+  logger.section("Registered projects");
+  if (projects.length === 0) {
+    logger.line("  No projects registered yet. Run: kimi-toolchain workspace register");
+    return 0;
+  }
+  for (const p of projects) {
+    const marker = p.isToolchainRepo ? " [toolchain]" : "";
+    const profile = p.mcpProfile ? ` profile=${p.mcpProfile}` : "";
+    logger.line(`  ${p.alias}${marker}: ${p.root}${profile}`);
+  }
+  return 0;
+}
+
+async function runRegister(argv: string[], logger: Logger): Promise<number> {
+  const rootIndex = argv.indexOf("--root");
+  const root =
+    rootIndex >= 0 && argv[rootIndex + 1] ? resolve(argv[rootIndex + 1]!) : defaultWorkspaceRoot();
+  const aliasIndex = argv.indexOf("--alias");
+  const alias = aliasIndex >= 0 && argv[aliasIndex + 1] ? argv[aliasIndex + 1] : undefined;
+  const profileIndex = argv.indexOf("--profile");
+  const profile = profileIndex >= 0 && argv[profileIndex + 1] ? argv[profileIndex + 1] : undefined;
+  try {
+    const record = await registerProject(root, {
+      alias: alias ? String(alias) : undefined,
+      mcpProfile: profile ? String(profile) : undefined,
+    });
+    logger.info(`Registered ${record.alias}: ${record.root}`);
+    return 0;
+  } catch (e) {
+    logger.error(e instanceof Error ? e.message : String(e));
+    return 1;
+  }
+}
+
 function defaultWorkspaceRoot(): string {
   if (Bun.env.KIMI_PROJECT_ROOT) return resolve(Bun.env.KIMI_PROJECT_ROOT);
   const { root, usedFallback, reason } = resolveEffectiveWorkspaceRoot(Bun.cwd);
@@ -337,9 +387,16 @@ export async function runWorkspaceCommand(
   logger?: Logger
 ): Promise<number> {
   const log = resolveLogger(logger);
-  const root = projectRoot ? resolve(projectRoot) : defaultWorkspaceRoot();
-
   const flags = parseWorkspaceFlags(argv);
+
+  switch (command) {
+    case "list":
+      return runList(flags.json, log);
+    case "register":
+      return runRegister(argv, log);
+  }
+
+  const root = projectRoot ? resolve(projectRoot) : defaultWorkspaceRoot();
 
   switch (command) {
     case "verify":

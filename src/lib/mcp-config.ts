@@ -109,9 +109,12 @@ export async function readMcpJson(path: string): Promise<ReadMcpJsonResult> {
   const raw = await Bun.file(path).json();
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { data: null };
   const servers = Reflect.get(raw, "mcpServers");
+  const profiles = Reflect.get(raw, "profiles");
   return {
     data: {
       mcpServers: servers && typeof servers === "object" && !Array.isArray(servers) ? servers : {},
+      profiles:
+        profiles && typeof profiles === "object" && !Array.isArray(profiles) ? profiles : undefined,
     },
   };
 }

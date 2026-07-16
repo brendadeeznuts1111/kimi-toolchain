@@ -7,6 +7,7 @@
  *   probe [server] [--json]
  *   add <name> --command <cmd> [--args ...] [--json]
  *   profile <name> [--json]
+ *   project-profile [name] [--json]
  *   scaffold <name> --kind <filesystem|http|sandbox|dashboard> [--json]
  *   doctor [--profile <name>] [--json]
  *   bun-docs [query] [--tool search_bun|query_docs_filesystem_bun] [--json] [--refresh] [--webview]
@@ -25,6 +26,7 @@ import {
   applyMcpProfile,
   buildMcpCatalogReport,
   callMcpTool,
+  projectMcpPath,
   readMcpJson,
   userMcpPath,
   validateMcpConfig,
@@ -52,6 +54,7 @@ import { ensureDir } from "../lib/utils.ts";
 import { join, resolve } from "path";
 import { buildMcpVersionPolicyReport } from "../lib/mcp-version-policy.ts";
 import { resolveProjectRoot } from "../lib/utils.ts";
+import { autoRegisterProject, registerProject } from "../lib/project-registry.ts";
 
 const writer = createCli(Bun.argv, "kimi-mcp");
 const logger = writer.logger;
@@ -331,6 +334,63 @@ async function profileCommand(): Promise<number> {
     for (const [server, entry] of Object.entries(applied.mcpServers)) {
       logger.line(`  ${server}: ${entry.enabled === false ? "disabled" : "enabled"}`);
     }
+  }
+  return 0;
+}
+
+async function projectProfileCommand(): Promise<number> {
+  const record = await autoRegisterProject(Bun.cwd);
+  const requested = Bun.argv[3];
+  const apply = requested && !requested.startsWith("-");
+
+  if (apply) {
+    const userPath = userMcpPath();
+    const projectPath = projectMcpPath(record.root);
+    const { data: userMcp } = await readMcpJson(userPath);
+    const { data: projectMcp } = await readMcpJson(projectPath);
+    if (!userMcp) {
+      writer.error(`No MCP config at ${userPath}`);
+      return 1;
+    }
+    const projectProfile = projectMcp?.profiles?.[requested];
+    const userProfile = userMcp.profiles?.[requested];
+    if (!projectProfile && !userProfile) {
+      writer.error(`Profile ${requested} not found in ${userPath} or ${projectPath}`);
+      return 1;
+    }
+    const mergedProfiles: NonNullable<McpJson["profiles"]> = {
+      ...userMcp.profiles,
+      ...projectMcp?.profiles,
+    };
+    const applied = applyMcpProfile({ ...userMcp, profiles: mergedProfiles }, requested);
+    await writeMcpJson(userPath, applied);
+    await registerProject(record.root, { mcpProfile: requested });
+    if (writer.flags.json) {
+      writer.writeJson({ project: record.alias, profile: requested, servers: applied.mcpServers });
+    } else {
+      logger.info(`Project ${record.alias} → profile ${requested}`);
+      for (const [server, entry] of Object.entries(applied.mcpServers)) {
+        logger.line(`  ${server}: ${entry.enabled === false ? "disabled" : "enabled"}`);
+      }
+    }
+    return 0;
+  }
+
+  const current = record.mcpProfile;
+  if (writer.flags.json) {
+    writer.writeJson({
+      project: record.alias,
+      profile: current,
+      hint: current ? undefined : "set with: kimi-mcp project-profile <name>",
+    });
+    return 0;
+  }
+  if (current) {
+    logger.info(`Project ${record.alias} active profile: ${current}`);
+  } else {
+    logger.info(
+      `Project ${record.alias} has no active profile. Set one with: kimi-mcp project-profile <name>`
+    );
   }
   return 0;
 }
@@ -635,6 +695,12 @@ const COMMANDS: Record<string, Subcommand> = {
     description: "Apply a server profile to the user MCP config.",
     usage: "profile <name> [--json]",
     run: profileCommand,
+  },
+  "project-profile": {
+    name: "project-profile",
+    description: "Show or apply the active MCP profile for the current project.",
+    usage: "project-profile [name] [--json]",
+    run: projectProfileCommand,
   },
   scaffold: {
     name: "scaffold",

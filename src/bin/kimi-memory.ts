@@ -30,11 +30,14 @@ import {
   getGraph,
   getImpactGraph,
   searchNodes,
+  getAllNodes,
+  getStatsByProject,
   pruneOldSessions,
   getStats,
   startAutoSave,
   stopAutoSave,
 } from "../lib/memory-sessions.ts";
+import { autoRegisterProject } from "../lib/project-registry.ts";
 
 const logger = createLogger(Bun.argv, "kimi-memory");
 
@@ -81,10 +84,11 @@ function doctor(): Array<{
     });
     return checks;
   }
+  using managedDb = db;
 
   // Orphaned edges
   try {
-    const orphanRows = db
+    const orphanRows = managedDb
       .query(`
       SELECT e.from_id, e.to_id FROM knowledge_edges e
       LEFT JOIN knowledge_nodes n1 ON e.from_id = n1.id
@@ -125,7 +129,7 @@ function doctor(): Array<{
 
   // Stuck active sessions
   try {
-    const stuck = db
+    const stuck = managedDb
       .query("SELECT COUNT(*) as c FROM sessions WHERE status = 'active' AND started_at < ?")
       .get(new Date(Date.now() - SESSION_TTL_MS).toISOString()) as { c: number };
     checks.push({
@@ -144,14 +148,13 @@ function doctor(): Array<{
     });
   }
 
-  db.close();
   return checks;
 }
 
 // ── Fix ──────────────────────────────────────────────────────────────
 
 function fixDb() {
-  const db = getDb();
+  using db = getDb();
 
   // Prune orphaned edges
   const orphanResult = db.run(`
@@ -173,7 +176,6 @@ function fixDb() {
 
   // Vacuum to reclaim space
   db.exec("VACUUM;");
-  db.close();
 
   return { orphansDeleted, stuckReset };
 }
@@ -181,6 +183,13 @@ function fixDb() {
 // ── Main CLI ─────────────────────────────────────────────────────────
 
 async function main(): Promise<number> {
+  // Auto-register the current project for portfolio visibility.
+  try {
+    await autoRegisterProject(Bun.cwd);
+  } catch {
+    // Registry is advisory.
+  }
+
   const args = Bun.argv.slice(2);
   const command = args[0] || "stats";
   const projectPath = await resolveProjectRoot(Bun.cwd);
@@ -362,6 +371,54 @@ async function main(): Promise<number> {
       logger.info("Run 'kimi-memory fix' to repair");
     }
     return exitCode;
+  } else if (command === "portfolio") {
+    const sub = args[1] || "stats";
+    if (sub === "stats") {
+      const stats = getStatsByProject();
+      logger.section("Portfolio Memory Stats");
+      for (const [proj, s] of Object.entries(stats).sort()) {
+        if (proj === "_cross_project") {
+          logger.info(`Cross-project edges: ${s.edges}`);
+        } else {
+          logger.info(`${proj}: ${s.sessions} session(s), ${s.nodes} node(s), ${s.edges} edge(s)`);
+        }
+      }
+    } else if (sub === "search") {
+      const query = args[2];
+      if (!query) {
+        logger.error("Usage: portfolio search <query>");
+        return 1;
+      }
+      const results = searchNodes(query);
+      logger.section(`Portfolio Search: '${query}'`);
+      for (const r of results) {
+        logger.line(`  [${r.type}] ${r.label} (${r.project})`);
+      }
+    } else if (sub === "impact") {
+      const nodeId = args[2];
+      if (!nodeId) {
+        logger.error("Usage: portfolio impact <node-id>");
+        return 1;
+      }
+      const impact = getImpactGraph(nodeId);
+      logger.section(`Portfolio Impact: ${nodeId}`);
+      logger.info(`Risk score: ${(impact.riskScore * 100).toFixed(0)}%`);
+      logger.info(`Affected nodes: ${impact.affectedNodes.length}`);
+      logger.info(`Affected projects: ${impact.affectedProjects.join(", ") || "none"}`);
+      for (const n of impact.affectedNodes.slice(0, 10)) {
+        logger.line(`    [${n.project}] ${n.label} (${n.type})`);
+      }
+    } else if (sub === "nodes") {
+      const nodes = getAllNodes();
+      logger.section(`Portfolio Nodes (${nodes.length})`);
+      for (const n of nodes) {
+        logger.line(`  [${n.project}] ${n.label} (${n.type})`);
+      }
+    } else {
+      logger.error("Unknown portfolio subcommand: " + sub);
+      logger.info("Usage: portfolio stats|search <query>|impact <node-id>|nodes");
+      return 1;
+    }
   } else if (command === "fix") {
     logger.section("Fixing Memory DB");
     const result = fixDb();
@@ -382,6 +439,7 @@ async function main(): Promise<number> {
     logger.line("  doctor                   Check DB health + record warning trends");
     logger.line("  fix                      Prune orphans, reset stuck sessions, vacuum");
     logger.line("  stats                    Show database stats");
+    logger.line("  portfolio <cmd>          Cross-project memory (stats|search|impact|nodes)");
     logger.line("  trends [tool]            Show persistent warnings across sessions");
   }
 
