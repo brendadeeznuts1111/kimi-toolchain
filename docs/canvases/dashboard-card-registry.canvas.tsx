@@ -296,6 +296,12 @@ const CANVAS_ROUTING = [
     detail: "Effect repair · KIMI_MODULES=doctor · perf gates",
   },
   {
+    id: "dashboard-card-registry",
+    page: "Dashboard card registry",
+    path: "docs/canvases/dashboard-card-registry.canvas.tsx",
+    detail: "manifest id v53-architecture (this canvas)",
+  },
+  {
     id: "artifact-lineage",
     page: "Artifacts & Runs",
     path: "docs/canvases/artifact-lineage.canvas.tsx",
@@ -328,6 +334,7 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "warning",
   "neutral",
+  "success",
   "neutral",
   "neutral",
   "neutral",

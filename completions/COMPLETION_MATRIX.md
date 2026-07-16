@@ -1,60 +1,60 @@
 # Bun CLI Completion Behavior Matrix
 
-Generated from `completions/bun-cli.json` (schema v1.2.0, Bun 1.4.0, revision 1.4.0-canary.1+452139e36, hash `1c65916088b9`).
+Generated from `completions/bun-cli.json` (schema v1.2.0, Bun 1.4.0, revision 1.4.0-canary.1+452139e36, hash `a12118377f7b`).
 
 ## Top-level commands
 
 | Command | Flags | Value flags | Positional args | Req pos | Opt pos | File I/O | PM | Runtime | Debug | Network | OS | Subcommands | Dynamic | Examples | Defaults (#) | Default values | Choices (#) | Choice values | Drift hash |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| add (a) | 40 | 14 | 1 | 0 | 1 | 4 | 31 | 1 | 6 | 6 | 0 | 0 | packages | 6 | 4 | --save=true, --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | 1c65916088b9 |
-| audit | 3 | 2 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 1c65916088b9 |
-| build | 57 | 27 | 0 | 0 | 0 | 15 | 1 | 7 | 3 | 0 | 7 | 0 | files | 5 | 12 | --compile-autoload-dotenv=true), --compile-autoload-bunfig=true), --compile-autoload-tsconfig=false), --compile-autoload-package-json=false), --outdir=dist, --format=esm, --allow-unresolved='*', --packages=bundle, --entry-naming=[dir]/[name], --chunk-naming=[name]-[hash], --asset-naming=[name]-[hash], --env='disable' | 0 | — | 1c65916088b9 |
-| create (c) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 1c65916088b9 |
-| exec | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 1c65916088b9 |
-| feedback | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 1c65916088b9 |
-| info | 35 | 14 | 2 | 0 | 2 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | — | 3 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | 1c65916088b9 |
-| init | 6 | 0 | 2 | 0 | 2 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | — | 4 | 0 | — | 0 | — | 1c65916088b9 |
-| install (i) | 41 | 15 | 1 | 0 | 1 | 4 | 31 | 2 | 6 | 6 | 0 | 0 | — | 2 | 4 | --save=true, --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | 1c65916088b9 |
-| link | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | — | 2 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | 1c65916088b9 |
-| outdated | 36 | 15 | 2 | 0 | 2 | 4 | 25 | 3 | 6 | 6 | 0 | 0 | — | 7 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | 1c65916088b9 |
-| patch | 36 | 15 | 1 | 0 | 1 | 5 | 26 | 1 | 6 | 6 | 0 | 0 | — | 3 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | 1c65916088b9 |
-| pm | 0 | 0 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 16 | — | 0 | 0 | — | 0 | — | 1c65916088b9 |
-| publish | 40 | 19 | 2 | 0 | 2 | 4 | 30 | 1 | 6 | 7 | 0 | 0 | — | 4 | 6 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48, --tag=latest, --auth-type='web'), --gzip-level=9 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | 1c65916088b9 |
-| remove (rm) | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | packages | 1 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | 1c65916088b9 |
-| repl | 82 | 42 | 2 | 1 | 1 | 5 | 4 | 35 | 8 | 8 | 1 | 0 | — | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto, fallback, force}, --dns-result-order={verbatim, ipv4first, ipv6first}, --unhandled-rejections={strict, throw, warn, none, warn-with-error-code} | 1c65916088b9 |
-| run | 82 | 42 | 2 | 1 | 1 | 5 | 4 | 35 | 8 | 8 | 1 | 0 | scripts, files, binaries | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto, fallback, force}, --dns-result-order={verbatim, ipv4first, ipv6first}, --unhandled-rejections={strict, throw, warn, none, warn-with-error-code} | 1c65916088b9 |
-| test | 28 | 16 | 2 | 0 | 2 | 0 | 0 | 2 | 4 | 1 | 1 | 0 | files | 3 | 7 | --timeout=5000, --coverage-reporter='text', --coverage-dir='coverage', --bail=1, --reporter=console, --max-concurrency=20, --parallel=CPU | 0 | — | 1c65916088b9 |
-| unlink | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | — | 1 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | 1c65916088b9 |
-| update | 38 | 15 | 1 | 0 | 1 | 4 | 26 | 4 | 6 | 6 | 0 | 0 | — | 4 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | 1c65916088b9 |
-| upgrade | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | 1c65916088b9 |
-| why | 0 | 0 | 3 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 1c65916088b9 |
-| x | 5 | 0 | 3 | 1 | 2 | 0 | 2 | 1 | 2 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | 1c65916088b9 |
+| add (a) | 40 | 14 | 1 | 0 | 1 | 4 | 31 | 1 | 6 | 6 | 0 | 0 | packages | 6 | 4 | --save=true, --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | a12118377f7b |
+| audit | 3 | 2 | 1 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | a12118377f7b |
+| build | 57 | 27 | 0 | 0 | 0 | 15 | 1 | 7 | 3 | 0 | 7 | 0 | files | 5 | 12 | --compile-autoload-dotenv=true), --compile-autoload-bunfig=true), --compile-autoload-tsconfig=false), --compile-autoload-package-json=false), --outdir=dist, --format=esm, --allow-unresolved='*', --packages=bundle, --entry-naming=[dir]/[name], --chunk-naming=[name]-[hash], --asset-naming=[name]-[hash], --env='disable' | 0 | — | a12118377f7b |
+| create (c) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | a12118377f7b |
+| exec | 0 | 0 | 1 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | a12118377f7b |
+| feedback | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | a12118377f7b |
+| info | 35 | 14 | 2 | 0 | 2 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | — | 3 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | a12118377f7b |
+| init | 6 | 0 | 2 | 0 | 2 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | — | 4 | 0 | — | 0 | — | a12118377f7b |
+| install (i) | 41 | 15 | 1 | 0 | 1 | 4 | 31 | 2 | 6 | 6 | 0 | 0 | — | 2 | 4 | --save=true, --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | a12118377f7b |
+| link | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | — | 2 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | a12118377f7b |
+| outdated | 36 | 15 | 2 | 0 | 2 | 4 | 25 | 3 | 6 | 6 | 0 | 0 | — | 7 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | a12118377f7b |
+| patch | 36 | 15 | 1 | 0 | 1 | 5 | 26 | 1 | 6 | 6 | 0 | 0 | — | 3 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | a12118377f7b |
+| pm | 0 | 0 | 2 | 0 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 16 | — | 0 | 0 | — | 0 | — | a12118377f7b |
+| publish | 40 | 19 | 2 | 0 | 2 | 4 | 30 | 1 | 6 | 7 | 0 | 0 | — | 4 | 6 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48, --tag=latest, --auth-type='web'), --gzip-level=9 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | a12118377f7b |
+| remove (rm) | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | packages | 1 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | a12118377f7b |
+| repl | 82 | 42 | 2 | 1 | 1 | 5 | 4 | 35 | 8 | 8 | 1 | 0 | — | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto, fallback, force}, --dns-result-order={verbatim, ipv4first, ipv6first}, --unhandled-rejections={strict, throw, warn, none, warn-with-error-code} | a12118377f7b |
+| run | 82 | 42 | 2 | 1 | 1 | 5 | 4 | 35 | 8 | 8 | 1 | 0 | scripts, files, binaries | 4 | 7 | --elide-lines=10), --cpu-prof-interval=1000), --max-http-header-size=16KiB, --console-depth=2), --main-fields=--target, --extension-order=:, --jsx-import-source=react | 3 | --install={auto, fallback, force}, --dns-result-order={verbatim, ipv4first, ipv6first}, --unhandled-rejections={strict, throw, warn, none, warn-with-error-code} | a12118377f7b |
+| test | 28 | 16 | 2 | 0 | 2 | 0 | 0 | 2 | 4 | 1 | 1 | 0 | files | 3 | 7 | --timeout=5000, --coverage-reporter='text', --coverage-dir='coverage', --bail=1, --reporter=console, --max-concurrency=20, --parallel=CPU | 0 | — | a12118377f7b |
+| unlink | 34 | 14 | 1 | 0 | 1 | 4 | 25 | 1 | 6 | 6 | 0 | 0 | — | 1 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | a12118377f7b |
+| update | 38 | 15 | 1 | 0 | 1 | 4 | 26 | 4 | 6 | 6 | 0 | 0 | — | 4 | 3 | --backend=clonefile, --concurrent-scripts=2x, --network-concurrency=48 | 5 | --backend={hardlink, clonefile, clonefile_each_dir, copyfile, symlink}, --omit={dev, optional, peer}, --linker={isolated, hoisted}, --cpu={arm64, x64, ia32, ppc64, s390x, *}, --os={linux, darwin, win32, freebsd, openbsd, sunos, aix, *} | a12118377f7b |
+| upgrade | 0 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 2 | 0 | — | 0 | — | a12118377f7b |
+| why | 0 | 0 | 3 | 1 | 2 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | a12118377f7b |
+| x | 5 | 0 | 3 | 1 | 2 | 0 | 2 | 1 | 2 | 0 | 0 | 0 | — | 0 | 0 | — | 0 | — | a12118377f7b |
 
 ## `bun pm` subcommands
 
 | Path | Flags | Value flags | Positional args | Req pos | Opt pos | File I/O | PM | Runtime | Debug | Network | OS | Subcommands | Examples | Defaults (#) | Default values | Choices (#) | Choice values | Isolated | Drift hash |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| pm scan | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm pack | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm bin | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm why | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm whoami | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm view | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm version | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm pkg | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm pkg get | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm pkg set | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm pkg delete | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm pkg fix | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm hash | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm hash-string | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm hash-print | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm cache | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm cache rm | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm migrate | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm untrusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm trust | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
-| pm default-trusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | 1c65916088b9 |
+| pm scan | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm pack | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm bin | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm why | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm whoami | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm view | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm version | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm pkg | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm pkg get | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm pkg set | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm pkg delete | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm pkg fix | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm hash | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm hash-string | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm hash-print | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm cache | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm cache rm | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm migrate | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm untrusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm trust | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
+| pm default-trusted | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — | 0 | — | Yes | a12118377f7b |
 
 ## Global flag inheritance by command
 

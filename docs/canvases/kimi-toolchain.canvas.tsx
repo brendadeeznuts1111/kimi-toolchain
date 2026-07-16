@@ -185,6 +185,12 @@ const CANVAS_ROUTING = [
     detail: "Effect repair · KIMI_MODULES=doctor · perf gates",
   },
   {
+    id: "dashboard-card-registry",
+    page: "Dashboard card registry",
+    path: "docs/canvases/dashboard-card-registry.canvas.tsx",
+    detail: "Canvas↔card wiring · influence coverage",
+  },
+  {
     id: "artifact-lineage",
     page: "Artifacts & Runs",
     path: "docs/canvases/artifact-lineage.canvas.tsx",
@@ -220,11 +226,12 @@ const CANVAS_ROUTING_ROW_TONE = [
   "neutral",
   "neutral",
   "neutral",
+  "neutral",
 ] as const;
 const DAG_NODES = [
   { id: "repo", label: "~/kimi-toolchain", sub: "source of truth" },
   { id: "edit", label: "src/bin · src/lib", sub: "edit here" },
-  { id: "test", label: "bun run check:fast", sub: "426 unit gates" },
+  { id: "test", label: "bun run check:fast", sub: "428 unit gates" },
   { id: "sync", label: "bun run sync", sub: "sync-to-desktop.ts" },
   { id: "runtime", label: "~/.kimi-code/", sub: "tools/ · lib/ · manifest" },
   { id: "path", label: "~/.local/bin/kimi-*", sub: "thin wrappers" },
@@ -251,11 +258,11 @@ const TOOL_CATEGORIES = [
 ] as const;
 
 const BIN_COUNT = 32;
-const LIB_COUNT = 414;
-const UNIT_COUNT = 426;
+const LIB_COUNT = 416;
+const UNIT_COUNT = 428;
 const INTEGRATION_COUNT = 20;
 const SMOKE_COUNT = 10;
-const CURSOR_CANVAS_COUNT = 12;
+const CURSOR_CANVAS_COUNT = 13;
 
 function SyncFlowDag() {
   const theme = useHostTheme();

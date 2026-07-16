@@ -319,6 +319,15 @@ const CANVAS_ROUTING = [
     repoPath: `${CANVAS_PREFIX}kimi-heal-doctor-scaffold.canvas.tsx`,
   },
   {
+    id: "dashboard-card-registry",
+    page: "Dashboard card registry",
+    version: "0.1.0",
+    layer: "Card registry",
+    openWhen: "Canvas↔card wiring · influence coverage",
+    path: `${CANVAS_PREFIX}dashboard-card-registry.canvas.tsx`,
+    repoPath: `${CANVAS_PREFIX}dashboard-card-registry.canvas.tsx`,
+  },
+  {
     id: "artifact-lineage",
     page: "Artifacts & Runs",
     version: "1.0.0",
@@ -359,6 +368,7 @@ const CANVAS_ROW_TONE = [
   "neutral",
   "neutral",
   "warning",
+  "neutral",
   "neutral",
   "neutral",
   "neutral",

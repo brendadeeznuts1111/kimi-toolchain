@@ -186,6 +186,11 @@ const MANIFEST_LOCAL_DOCS_ALL = [
     purpose: "invokeTool vs Bun.spawn vs governedSpawn decision matrix",
   },
   {
+    id: "v53-architecture",
+    location: "docs/references",
+    purpose: "Dashboard card registry and canvas↔card influence map",
+  },
+  {
     id: "bun-runtime-scaffold",
     location: "docs/references",
     purpose:
