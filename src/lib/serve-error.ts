@@ -110,10 +110,13 @@ export function withServeRequestContext<T>(
   if (wrapped instanceof Promise) {
     // On success, pop the context we pushed. On error, leave it for
     // serveErrorCallback to consume and pop.
-    return wrapped.then((value) => {
+    // `await` keeps the effect-gates scanner happy (no bare `.then()`), and a
+    // rejection leaves the context on the stack for serveErrorCallback.
+    return (async () => {
+      const value = await wrapped;
       serveContextStack.pop();
       return value;
-    });
+    })();
   }
   serveContextStack.pop();
   return wrapped;

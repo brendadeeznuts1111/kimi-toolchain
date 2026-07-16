@@ -58,11 +58,13 @@ export async function checkConstantParity(
     const repoRoot = expandRepoPath(repoConfig.path, projectRoot);
     const bunfigPath = join(repoRoot, repoConfig.bunfig);
     if (!pathExists(bunfigPath)) {
-      checks.push(
-        options.strict
-          ? error(`repo:${repoName}`, `missing ${bunfigPath}`)
-          : warn(`repo:${repoName}`, `skipped — ${bunfigPath} not found`)
-      );
+      if (!repoConfig.optional || options.strict) {
+        checks.push(
+          options.strict
+            ? error(`repo:${repoName}`, `missing ${bunfigPath}`)
+            : warn(`repo:${repoName}`, `skipped — ${bunfigPath} not found`)
+        );
+      }
       continue;
     }
     checks.push(ok(`repo:${repoName}`, repoRoot));

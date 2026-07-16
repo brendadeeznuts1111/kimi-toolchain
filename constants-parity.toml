@@ -13,6 +13,7 @@ types = "types/build-constants.d.ts"
 path = "~/accounting-telegram"
 bunfig = "bunfig.toml"
 types = "types/build-constants.d.ts"
+optional = true
 
 [[shared]]
 id = "velocity-window-days"

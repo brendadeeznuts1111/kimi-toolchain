@@ -70,6 +70,7 @@ export interface ParityRepoConfig {
   path: string;
   bunfig: string;
   types: string;
+  optional?: boolean;
 }
 
 export interface ParityConfig {
@@ -396,7 +397,8 @@ export async function loadParityConfig(projectRoot: string): Promise<ParityConfi
       const repoPath = typeof repo.path === "string" ? repo.path : ".";
       const bunfig = typeof repo.bunfig === "string" ? repo.bunfig : "bunfig.toml";
       const types = typeof repo.types === "string" ? repo.types : "types/build-constants.d.ts";
-      repos[name] = { path: repoPath, bunfig, types };
+      const optional = repo.optional === true;
+      repos[name] = { path: repoPath, bunfig, types, optional };
     }
 
     const sharedRaw = Array.isArray(parsed.shared) ? parsed.shared : [];
@@ -443,7 +445,9 @@ export async function evaluateParityShared(
   for (const [repoName, repoConfig] of Object.entries(config.repos)) {
     const repoRoot = expandRepoPath(repoConfig.path, projectRoot);
     if (!pathExists(repoRoot)) {
-      repoMaps.set(repoName, new Map());
+      if (!repoConfig.optional) {
+        repoMaps.set(repoName, new Map());
+      }
       continue;
     }
     repoMaps.set(repoName, await loadRepoDefineMap(repoRoot, repoConfig.bunfig));
@@ -456,7 +460,12 @@ export async function evaluateParityShared(
     let drift: string | undefined;
 
     for (const [repoName, mapping] of Object.entries(group.repos)) {
+      const repoConfig = config.repos[repoName];
       const defineMap = repoMaps.get(repoName) ?? new Map();
+      if (repoConfig?.optional && defineMap.size === 0) {
+        continue;
+      }
+
       const entry = defineMap.get(mapping.key);
       const present = entry !== undefined;
 
