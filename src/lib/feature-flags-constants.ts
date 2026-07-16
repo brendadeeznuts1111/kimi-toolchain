@@ -2,7 +2,7 @@
  * Feature flags SSOT — bundle compile-time flags and runtime env toggles.
  *
  * Registry: docs/identity/feature-flags-registry.md
- * Lint: scripts/lint-feature-flags.ts
+ * Lint: scripts/lint-registry.ts --feature
  */
 
 export type FeatureFlagKind = "bundle" | "env-escape" | "env-opt-in";

@@ -47,7 +47,7 @@ Set `KIMI_SECRETS_STRICT_STORAGE=1` to block `get()` on secure-tier secrets when
 ### Registry lint
 
 ```bash
-bun run scripts/lint-secrets-registry.ts
+bun run scripts/lint-registry.ts --secret
 ```
 
 Enforces `SecretKeys` ↔ `secrets-policy.json5` ↔ `docs/identity/secrets-registry.md` parity; CI service secrets must declare `storageTier: "env-fallback"` (CI runners typically lack OS keychain access).

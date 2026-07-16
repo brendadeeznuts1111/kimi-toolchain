@@ -4,7 +4,7 @@ Single source of truth: `src/lib/error-domains-constants.ts`.
 
 Colored formatting: `src/lib/error-format.ts` (`Bun.color` + severity tints).
 
-Lint: `bun run scripts/lint-error-registry.ts` (wired into `bun run lint`).
+Lint: `bun run scripts/lint-registry.ts --error` (wired into `bun run lint`).
 
 **Note:** `taxonomyId` (snake_case, `error-taxonomy.yml`) classifies failures for the ledger. `domain` (reverse-domain) labels human/structured CLI output. They complement each other — see `TAXONOMY_DOMAIN_HINTS` for optional mapping.
 

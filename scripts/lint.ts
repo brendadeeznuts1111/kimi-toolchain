@@ -175,9 +175,7 @@ async function runFullLint(namesOnly: boolean): Promise<void> {
     { cmd: ["bun", "run", "scripts/lint-testing-docs.ts"], label: "testing-docs" },
     { cmd: ["bun", "run", "scripts/lint-markdown-links.ts", "--full"], label: "markdown-links" },
     { cmd: ["bun", "run", "scripts/lint-constant-parity.ts"], label: "constant-parity" },
-    { cmd: ["bun", "run", "scripts/lint-feature-flags.ts"], label: "feature-flags" },
-    { cmd: ["bun", "run", "scripts/lint-error-registry.ts"], label: "error-registry" },
-    { cmd: ["bun", "run", "scripts/lint-secrets-registry.ts"], label: "secrets-registry" },
+    { cmd: ["bun", "run", "scripts/lint-registry.ts"], label: "registries" },
     { cmd: ["bun", "run", "scripts/check-templates.ts"], label: "templates" },
     ...(namesOnly
       ? []

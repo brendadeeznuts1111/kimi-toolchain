@@ -2,7 +2,7 @@
  * Error domain SSOT — reverse-domain namespaces for structured CLI logging.
  *
  * Registry: docs/identity/error-registry.md
- * Lint: scripts/lint-error-registry.ts
+ * Lint: scripts/lint-registry.ts --error
  *
  * Distinct from error-taxonomy.yml taxonomyId (snake_case failure classification).
  */

@@ -7,7 +7,7 @@
  *
  * @see docs/identity/secrets-registry.md for the human-readable registry
  * @see secrets-policy.json5 for rotation periods and allowed consumers
- * @see scripts/lint-secrets-registry.ts for CI enforcement
+ * @see scripts/lint-registry.ts --secret for CI enforcement
  */
 
 export const SECRETS_POLICY_FILE = "secrets-policy.json5";

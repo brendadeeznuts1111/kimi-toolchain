@@ -142,7 +142,7 @@ categories:
     severity: warn
     expected: false
     suggestion: 'Add storageTier: "env-fallback" to CI-only secrets in secrets-policy.json5, or install libsecret.'
-    autoFix: "bun run scripts/lint-secrets-registry.ts"
+    autoFix: "bun run scripts/lint-registry.ts --secret"
     patterns:
       - regex: "secrets-storage-gate failed"
       - regex: "storage_tier_mismatch"
