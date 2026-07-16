@@ -250,6 +250,27 @@ runtimePath = "~/.kimi-code/docs/references/shell-spawn-choice.md"
 purpose = "invokeTool vs Bun.spawn vs governedSpawn decision matrix"
 
 [[localDocs]]
+id = "v53-architecture"
+repoPath = "docs/references/v53-architecture.md"
+runtimePath = "~/.kimi-code/docs/references/v53-architecture.md"
+purpose = "Dashboard card registry and canvas↔card influence map"
+cursorCanvas = "docs/canvases/dashboard-card-registry.canvas.tsx"
+canvasId = "dashboard-card-registry"
+canvasPage = "Dashboard card registry"
+canvasVersion = "0.1.0"
+canvasLayer = "Card registry"
+canvasOpenWhen = "Canvas↔card wiring · influence coverage"
+canvasReadOrder = 10
+canvasInfluences = [
+  "card-gates",
+  "card-kimi-doctor",
+  "card-scaffold",
+  "card-perf-harness",
+  "card-symbols",
+  "card-perf-registry",
+]
+
+[[localDocs]]
 id = "bun-runtime-scaffold"
 repoPath = "docs/references/bun-runtime-scaffold.md"
 runtimePath = "~/.kimi-code/docs/references/bun-runtime-scaffold.md"

@@ -9,7 +9,7 @@ Machine-readable manifest: \`canonical-references.json\` (synced to \`~/.kimi-co
 
 | Stack | Status | Docs | Source repo | Usage in this repo |
 | :--- | :--- | :--- | :--- | :--- |
-| Bun | ✅ active | [docs](https://bun.sh/docs) | [Bun (oven-sh)](https://github.com/oven-sh/bun) | Runtime, test runner, package manager, and native I/O for kimi-toolchain |
+| Bun | ✅ active | [docs](https://bun.com/docs) | [Bun (oven-sh)](https://github.com/oven-sh/bun) | Runtime, test runner, package manager, and native I/O for kimi-toolchain |
 | Effect | ✅ active | [docs](https://effect.website/docs) | [Effect](https://github.com/Effect-TS/effect) | Typed errors, CLI/runtime adapters, and Herdr pane orchestration in src/lib/effect/ |
 | Kimi Code | ✅ active | [docs](https://moonshotai.github.io/kimi-code/en/reference/kimi-command.html) | [Kimi Code (Moonshot)](https://github.com/MoonshotAI/kimi-code) | Official agent CLI (\`kimi\`), config.toml, sessions, MCP — distinct from \`kimi-doctor\` |
 | Herdr | ✅ active | [docs](https://herdr.dev/docs/) | — | Terminal-native multiplexer; socket API for herdr-pane, herdr-latm, herdr-orchestrator |
@@ -36,6 +36,7 @@ Machine-readable manifest: \`canonical-references.json\` (synced to \`~/.kimi-co
 | \`docs/references/configuration-layers.md\` | \`~/.kimi-code/docs/references/configuration-layers.md\` | Four-layer model: discovery (canonical-references), define registry (constants-manifest), cross-repo parity (constants-parity.toml), app scaffold (templates/scaffold/bunfig.toml) |
 | \`docs/references/canonical-references-system.md\` | \`~/.kimi-code/docs/references/canonical-references-system.md\` | Manifest schema, generation pipeline, freshness/drift mechanics, lint layers, and consumer graph for canonical-references.json |
 | \`docs/references/shell-spawn-choice.md\` | \`~/.kimi-code/docs/references/shell-spawn-choice.md\` | invokeTool vs Bun.spawn vs governedSpawn decision matrix |
+| \`docs/references/v53-architecture.md\` | \`~/.kimi-code/docs/references/v53-architecture.md\` | Dashboard card registry and canvas↔card influence map |
 | \`docs/references/bun-runtime-scaffold.md\` | \`~/.kimi-code/docs/references/bun-runtime-scaffold.md\` | Bun install config (bunfig.toml merge order, defaults, env vars, backend, cache/lazy install) |
 | \`docs/references/bunfig-config.md\` | \`~/.kimi-code/docs/references/bunfig-config.md\` | Bunfig.toml runtime, test, serve, and bun run configuration reference |
 | \`docs/references/bun-install-config.md\` | \`~/.kimi-code/docs/references/bun-install-config.md\` | Bun install configuration reference: [install], scopes, cache, and platform selectors |
@@ -122,24 +123,25 @@ Local doc references:
 │ 10 │ configuration-layers             │ docs/references/configuration-layers.md             │ yes    │ 3         │
 │ 11 │ canonical-references-system      │ docs/references/canonical-references-system.md      │ —      │ 3         │
 │ 12 │ shell-spawn-choice               │ docs/references/shell-spawn-choice.md               │ —      │ —         │
-│ 13 │ bun-runtime-scaffold             │ docs/references/bun-runtime-scaffold.md             │ —      │ —         │
-│ 14 │ bunfig-config                    │ docs/references/bunfig-config.md                    │ —      │ —         │
-│ 15 │ bun-install-config               │ docs/references/bun-install-config.md               │ —      │ —         │
-│ 16 │ bun-types                        │ docs/references/bun-types.md                        │ —      │ —         │
-│ 17 │ bun-test-api                     │ docs/references/bun-test-api.md                     │ —      │ —         │
-│ 18 │ testing-execution                │ docs/references/testing-execution.md                │ —      │ —         │
-│ 19 │ bun-shell-companions             │ docs/references/bun-shell-companions.md             │ —      │ —         │
-│ 20 │ bun-file-streaming               │ docs/references/bun-file-streaming.md               │ —      │ —         │
-│ 21 │ template-matrix                  │ docs/references/template-matrix.md                  │ —      │ —         │
-│ 22 │ herdr-plugin-architecture        │ docs/references/herdr-plugin-architecture.md        │ yes    │ 8         │
-│ 23 │ artifact-lineage                 │ examples/artifact-dependency-graphs.md              │ yes    │ 11        │
-│ 24 │ gate-health                      │ docs/references/serve-probe.md                      │ yes    │ 12        │
-│ 25 │ benchmark                        │ docs/references/kimi-doctor.md                      │ yes    │ 13        │
-│ 26 │ agent-api                        │ docs/agent-api.md                                   │ —      │ —         │
-│ 27 │ finish-work-close-loop           │ docs/finish-work-close-loop.md                      │ —      │ —         │
-│ 28 │ handoff-rules                    │ docs/handoff-rules.md                               │ —      │ —         │
-│ 29 │ naming                           │ docs/naming.md                                      │ —      │ —         │
-│ 30 │ canonical-references             │ canonical-references.json                           │ —      │ —         │
+│ 13 │ v53-architecture                 │ docs/references/v53-architecture.md                 │ yes    │ 10        │
+│ 14 │ bun-runtime-scaffold             │ docs/references/bun-runtime-scaffold.md             │ —      │ —         │
+│ 15 │ bunfig-config                    │ docs/references/bunfig-config.md                    │ —      │ —         │
+│ 16 │ bun-install-config               │ docs/references/bun-install-config.md               │ —      │ —         │
+│ 17 │ bun-types                        │ docs/references/bun-types.md                        │ —      │ —         │
+│ 18 │ bun-test-api                     │ docs/references/bun-test-api.md                     │ —      │ —         │
+│ 19 │ testing-execution                │ docs/references/testing-execution.md                │ —      │ —         │
+│ 20 │ bun-shell-companions             │ docs/references/bun-shell-companions.md             │ —      │ —         │
+│ 21 │ bun-file-streaming               │ docs/references/bun-file-streaming.md               │ —      │ —         │
+│ 22 │ template-matrix                  │ docs/references/template-matrix.md                  │ —      │ —         │
+│ 23 │ herdr-plugin-architecture        │ docs/references/herdr-plugin-architecture.md        │ yes    │ 8         │
+│ 24 │ artifact-lineage                 │ examples/artifact-dependency-graphs.md              │ yes    │ 11        │
+│ 25 │ gate-health                      │ docs/references/serve-probe.md                      │ yes    │ 12        │
+│ 26 │ benchmark                        │ docs/references/kimi-doctor.md                      │ yes    │ 13        │
+│ 27 │ agent-api                        │ docs/agent-api.md                                   │ —      │ —         │
+│ 28 │ finish-work-close-loop           │ docs/finish-work-close-loop.md                      │ —      │ —         │
+│ 29 │ handoff-rules                    │ docs/handoff-rules.md                               │ —      │ —         │
+│ 30 │ naming                           │ docs/naming.md                                      │ —      │ —         │
+│ 31 │ canonical-references             │ canonical-references.json                           │ —      │ —         │
 └────┴──────────────────────────────────┴─────────────────────────────────────────────────────┴────────┴───────────┘
 "
 `;
@@ -257,7 +259,7 @@ export const ECOSYSTEM_REFERENCES: readonly EcosystemReference[] = [
     "name": "Bun",
     "kind": "runtime",
     "homepage": "https://bun.sh",
-    "docs": "https://bun.sh/docs",
+    "docs": "https://bun.com/docs",
     "package": "bun",
     "usage": "Runtime, test runner, package manager, and native I/O for kimi-toolchain",
     "minVersion": "1.4.0",
@@ -489,6 +491,20 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     "purpose": "invokeTool vs Bun.spawn vs governedSpawn decision matrix",
   },
 {
+    "id": "v53-architecture",
+    "repoPath": "docs/references/v53-architecture.md",
+    "runtimePath": "~/.kimi-code/docs/references/v53-architecture.md",
+    "purpose": "Dashboard card registry and canvas↔card influence map",
+    "cursorCanvas": "docs/canvases/dashboard-card-registry.canvas.tsx",
+    "canvasId": "dashboard-card-registry",
+    "canvasPage": "Dashboard card registry",
+    "canvasVersion": "0.1.0",
+    "canvasLayer": "Card registry",
+    "canvasOpenWhen": "Canvas↔card wiring · influence coverage",
+    "canvasReadOrder": 10,
+    "canvasInfluences": ["card-gates","card-kimi-doctor","card-scaffold","card-perf-harness","card-symbols","card-perf-registry"],
+  },
+{
     "id": "bun-runtime-scaffold",
     "repoPath": "docs/references/bun-runtime-scaffold.md",
     "runtimePath": "~/.kimi-code/docs/references/bun-runtime-scaffold.md",
@@ -698,7 +714,7 @@ export const REPO_REFERENCES: readonly RepoReference[] = [
 exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
 "{
   "schemaVersion": 1,
-  "generatedAt": "2026-06-26T07:52:45.697Z",
+  "generatedAt": "2026-06-26T17:31:58.906Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -706,7 +722,7 @@ exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
       "name": "Bun",
       "kind": "runtime",
       "homepage": "https://bun.sh",
-      "docs": "https://bun.sh/docs",
+      "docs": "https://bun.com/docs",
       "package": "bun",
       "usage": "Runtime, test runner, package manager, and native I/O for kimi-toolchain",
       "minVersion": "1.4.0",
@@ -975,6 +991,27 @@ exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
       "repoPath": "docs/references/shell-spawn-choice.md",
       "runtimePath": "~/.kimi-code/docs/references/shell-spawn-choice.md",
       "purpose": "invokeTool vs Bun.spawn vs governedSpawn decision matrix"
+    },
+    {
+      "id": "v53-architecture",
+      "repoPath": "docs/references/v53-architecture.md",
+      "runtimePath": "~/.kimi-code/docs/references/v53-architecture.md",
+      "purpose": "Dashboard card registry and canvas↔card influence map",
+      "cursorCanvas": "docs/canvases/dashboard-card-registry.canvas.tsx",
+      "canvasId": "dashboard-card-registry",
+      "canvasPage": "Dashboard card registry",
+      "canvasVersion": "0.1.0",
+      "canvasLayer": "Card registry",
+      "canvasOpenWhen": "Canvas↔card wiring · influence coverage",
+      "canvasReadOrder": 10,
+      "canvasInfluences": [
+        "card-gates",
+        "card-kimi-doctor",
+        "card-scaffold",
+        "card-perf-harness",
+        "card-symbols",
+        "card-perf-registry"
+      ]
     },
     {
       "id": "bun-runtime-scaffold",

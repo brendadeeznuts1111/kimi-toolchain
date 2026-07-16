@@ -178,3 +178,25 @@ from_agent = "kimi"
 condition = "probe:canonical-references:runtime-aligned"
 to_workspace = "wB"
 to_agent = "codex-primary"
+
+[defaults]
+toolTimeoutMs = 30000
+agentToolTimeoutMs = 15000
+toolGracePeriodMs = 5000
+toolMaxOutputBytes = 1048576
+processCacheTtlMs = 1000
+governorMaxMemoryMB = 512
+governorMaxCpuTimeMs = 30000
+governorMaxFileSizeMB = 100
+governorMaxOpenFiles = 256
+governorDiskQuotaMB = 1024
+governorCacheTTLSeconds = 300
+governorWallClockMs = 300000
+cloudflareTimeoutMs = 30000
+cloudflareRetries = 2
+cloudflareBaseDelayMs = 500
+cloudflareTokenWarnDays = 30
+agentsMaxLines = 900
+contextMaxLines = 120
+dashboardStaleMs = 15000
+discoveryCacheTtlMs = 5000
