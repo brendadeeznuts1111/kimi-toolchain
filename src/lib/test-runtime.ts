@@ -1841,6 +1841,10 @@ export async function runBunTest(
   const useRunnerConfig = options.useRunnerConfig ?? true;
   const runnerConfigPath = useRunnerConfig ? await writeRunnerBunfig(repoRoot) : null;
   const bunArgs = runnerConfigPath ? bunInvocationWithTestConfig(args, runnerConfigPath) : args;
+  if (quiet && !bunArgs.includes("--only-failures") && !bunArgs.includes("--dots")) {
+    const testIdx = bunArgs.indexOf("test");
+    bunArgs.splice(testIdx >= 0 ? testIdx + 1 : 1, 0, "--only-failures");
+  }
   scrubEphemeralBunNodeDirs();
   const proc = Bun.spawn([probeBunExecutable(), ...bunArgs], {
     cwd: repoRoot,

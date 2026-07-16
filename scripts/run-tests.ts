@@ -24,6 +24,7 @@ import {
   type RunTestTierOptions,
   type TestTier,
 } from "../src/lib/test-runtime.ts";
+import { resolveTestGroupFiles } from "../src/lib/test-gates.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -37,6 +38,8 @@ function splitList(value: string): string[] {
 function parseCli(): {
   tier?: TestTier;
   files: string[];
+  groups: string[];
+  paths: string[];
   fast: boolean;
   coverage: boolean;
   ci: boolean;
@@ -49,6 +52,8 @@ function parseCli(): {
 } {
   const argv = Bun.argv.slice(2);
   const files: string[] = [];
+  const groups: string[] = [];
+  const paths: string[] = [];
   let reporterOutfile: string | undefined;
   let timeoutMs: number | undefined;
   let parallel: number | boolean | undefined;
@@ -63,6 +68,22 @@ function parseCli(): {
     }
     if (arg.startsWith("--files=")) {
       files.push(...splitList(arg.slice("--files=".length)));
+      continue;
+    }
+    if (arg === "--group") {
+      groups.push(...splitList(argv[++i] ?? ""));
+      continue;
+    }
+    if (arg.startsWith("--group=")) {
+      groups.push(...splitList(arg.slice("--group=".length)));
+      continue;
+    }
+    if (arg === "--path") {
+      paths.push(...splitList(argv[++i] ?? ""));
+      continue;
+    }
+    if (arg.startsWith("--path=")) {
+      paths.push(...splitList(arg.slice("--path=".length)));
       continue;
     }
     if (arg === "--report-file") {
@@ -114,6 +135,8 @@ function parseCli(): {
   return {
     tier,
     files,
+    groups,
+    paths,
     coverage: argv.includes("--coverage"),
     ci: argv.includes("--ci"),
     fast: argv.includes("--fast"),
@@ -145,6 +168,8 @@ async function runFiles(options: ReturnType<typeof parseCli>): Promise<number> {
     shard: options.shard,
     reporterOutfile: options.reporterOutfile,
     rerunEach: options.rerunEach,
+    dots: forwarded.includes("--dots") || Bun.argv.includes("--dots"),
+    json: forwarded.includes("--json") || Bun.argv.includes("--json"),
   }).map((args) => (options.ci || options.coverage ? args : [...args, ...forwarded]));
 
   const quiet = Bun.argv.includes("--quiet");
@@ -164,8 +189,15 @@ async function main() {
   await ensureArtifactDirs();
   Bun.env.KIMI_TEST_HOME = artifactPath(REPO_ROOT, "test-home");
 
-  if (options.files.length > 0) {
-    process.exit(await runFiles(options));
+  const resolvedFiles: string[] = [];
+  if (options.groups.length > 0) {
+    resolvedFiles.push(...resolveTestGroupFiles(REPO_ROOT, options.groups));
+  }
+  if (options.paths.length > 0) {
+    resolvedFiles.push(...resolveTestGroupFiles(REPO_ROOT, options.paths, { existingOnly: false }));
+  }
+  if (resolvedFiles.length > 0 || options.files.length > 0) {
+    process.exit(await runFiles({ ...options, files: [...options.files, ...resolvedFiles] }));
   }
 
   const runOptions: RunTestTierOptions = {

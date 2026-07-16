@@ -506,3 +506,74 @@ export function isBunTestChangedEmptyOutput(output: string): boolean {
 export function useFastUnitCoverage(packageName: string | undefined): boolean {
   return packageName === "kimi-toolchain";
 }
+
+/** Domain-based test groups for path-specific runs without moving files.
+ *
+ * Each value is a glob pattern relative to the repo root. A file may match
+ * multiple groups; runners deduplicate the resolved set.
+ */
+export const TEST_GROUPS: Record<string, string[]> = {
+  bun: ["test/bun-*.unit.test.ts", "test/bun-*/**/*.unit.test.ts"],
+  doctor: [
+    "test/doctor-*.unit.test.ts",
+    "test/doctor-*/**/*.unit.test.ts",
+    "test/*-gate*.unit.test.ts",
+    "test/kimi-doctor-*.unit.test.ts",
+  ],
+  herdr: ["test/herdr-*.unit.test.ts", "test/herdr/**/*.unit.test.ts"],
+  dashboard: ["test/herdr-dashboard-*.unit.test.ts", "test/dashboard-*.unit.test.ts"],
+  mcp: ["test/mcp-*.unit.test.ts", "test/bun-docs-mcp*.unit.test.ts"],
+  secrets: [
+    "test/secrets-*.unit.test.ts",
+    "test/secret-*.unit.test.ts",
+    "test/token-auth.unit.test.ts",
+    "test/identity-*.unit.test.ts",
+  ],
+  examples: ["test/examples-*.unit.test.ts"],
+  infra: [
+    "test/ci-*.unit.test.ts",
+    "test/governance-*.unit.test.ts",
+    "test/guardian*.unit.test.ts",
+    "test/health-*.unit.test.ts",
+    "test/scope-preflight.unit.test.ts",
+    "test/finish-work-*.unit.test.ts",
+  ],
+  core: [
+    "test/lib.unit.test.ts",
+    "test/tool-*.unit.test.ts",
+    "test/tool-*/**/*.unit.test.ts",
+    "test/*-utils*.unit.test.ts",
+    "test/cache.unit.test.ts",
+    "test/event-bus.unit.test.ts",
+    "test/logger.unit.test.ts",
+    "test/ndjson.unit.test.ts",
+    "test/wrap-ansi.unit.test.ts",
+    "test/source-map-memory.unit.test.ts",
+  ],
+  effect: ["test/effect/**/*.unit.test.ts"],
+};
+
+/** Resolve one or more test group patterns to a sorted, deduplicated file list. */
+export function resolveTestGroupFiles(
+  repoRoot: string,
+  groups: string[],
+  options: { existingOnly?: boolean } = {}
+): string[] {
+  const seen = new Set<string>();
+  for (const group of groups) {
+    const patterns = TEST_GROUPS[group] ?? [group];
+    for (const pattern of patterns) {
+      for (const file of new Bun.Glob(pattern).scanSync({ cwd: repoRoot, absolute: false })) {
+        const normalized = file.replace(/\\/g, "/");
+        if (options.existingOnly !== false && !(UNIT_TEST_FILES as readonly string[]).includes(normalized)) continue;
+        seen.add(normalized);
+      }
+    }
+  }
+  return [...seen].sort();
+}
+
+/** All known group names. */
+export function listTestGroups(): string[] {
+  return Object.keys(TEST_GROUPS).sort();
+}
