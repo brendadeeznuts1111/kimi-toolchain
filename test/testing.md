@@ -30,6 +30,8 @@ Preload:               bunfig.toml [test].preload → test/setup.ts
 | ----------------------- | ---------------------- | ---------------------------------------------- | --------------------------------------- |
 | `bun run test:fast`     | Explicit unit files    | `scripts/test-fast.ts` → `runTestTier("unit")` | Default iteration; `check:fast`         |
 | `bun run test:changed`  | Git import graph       | `scripts/test-changed.ts`                      | Pre-commit; only impacted tests         |
+| `bun run test:changed:group` | Changed files in a group | `scripts/test-fast.ts --group --changed=HEAD --dots` | Avoid re-running unaffected group tests |
+| `bun run test:changed:path`  | Changed files under a path | `scripts/test-fast.ts --path --changed=HEAD --dots` | Avoid re-running unaffected path tests  |
 | `bun run test:group:*`  | Domain group           | `scripts/test-fast.ts --group=<name> --dots`   | Mutually exclusive groups; see below    |
 | `bun run test:path`     | Arbitrary glob         | `scripts/test-fast.ts --path '<glob>'`         | Any test file path(s)                   |
 | `bun run test:parallel` | Full discovery         | bare `bun test`                                | Full suite locally; breadth safety net  |
@@ -65,7 +67,25 @@ bun run test:group:core -- --quiet
 bun run test:path -- 'test/lib.unit.test.ts' 'test/tool-*.unit.test.ts' --dots
 ```
 
+Avoid re-running tests that are not affected by current edits by adding `--changed=HEAD`:
+
+```bash
+bun run test:changed:group -- bun
+bun run test:group -- core --changed=HEAD --quiet
+bun run test:changed:path -- 'test/lib*.unit.test.ts'
+```
+
 Pass `--dots` for compact output and `--quiet` for failures-only output.
+
+### Avoiding unnecessary test runs
+
+Three tools skip work that cannot possibly be relevant:
+
+1. **`bun run test:changed`** — uses Bun's `--changed` import-graph filter. Only test files that statically import a changed source file are executed. Default output is `--dots`.
+2. **`bun run check:fast:changed`** — runs the full fast check gate (`format:check`, `lint`, `typecheck`, `test:fast`) but only on changed files, and caches the pass in `.kimi/.last-good-scoped-gates`. If you stage no new changes since the cached pass, the gate is skipped.
+3. **`--changed=HEAD` on group/path runs** — intersects a group or glob with the changed-import graph. Example: `bun run test:group -- bun --changed=HEAD --quiet`.
+
+The scoped gate cache is keyed by the current `HEAD` commit and the set of changed files. It is **not** a substitute for `test:parallel` / `test` before merge — those run the full discovery safety net.
 
 Tier runners pass explicit file paths from `test-gates.ts`, set `--timeout` per tier, and use `--isolate` (+ `--parallel` for unit). They **do not** pass CLI `--preload`; `bunfig.toml` handles preload.
 

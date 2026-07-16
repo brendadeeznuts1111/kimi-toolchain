@@ -8,6 +8,7 @@
  *   bun run test:group:bun
  *   bun run test:group -- doctor herdr
  *   bun run test:path -- 'test/lib.unit.test.ts' 'test/tool-*.unit.test.ts' --dots
+ *   bun run test:group -- bun --changed=HEAD --quiet
  */
 import { runBunTest, runTestTier } from "../src/lib/test-runtime.ts";
 import { listTestGroups, resolveTestGroupFiles } from "../src/lib/test-gates.ts";

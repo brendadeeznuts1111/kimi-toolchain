@@ -267,8 +267,11 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run sync:verify:baseline` | Runtime sync script |
 | `bun run test` | scripts/test-run.ts |
 | `bun run test:changed` | Test tier script |
+| `bun run test:changed:group` | Test tier script |
+| `bun run test:changed:path` | Test tier script |
 | `bun run test:changed:push` | Test tier script |
 | `bun run test:changed:shard` | Test tier script |
+| `bun run test:changed:verbose` | Test tier script |
 | `bun run test:ci` | Test tier script |
 | `bun run test:coverage` | Test tier script |
 | `bun run test:coverage:ci` | Test tier script |
@@ -332,14 +335,17 @@ Curated entry points in **Core** and **Project Scripts** below. Full inventory i
 | `bun run governance`                   | Run kimi-governance from repo                                      |
 | `bun run test`                         | Full suite: unit → integration → smoke (`test-run.ts`)             |
 | `bun run test:fast`                    | Unit gate only (`UNIT_TEST_FILES`, 30s, `--parallel=4 --isolate`)  |
-| `bun run test:group:<name>`            | Domain group run (mutually exclusive groups)                       |
+| `bun run test:group` `<name>`          | Domain group run (mutually exclusive groups)                       |
 | `bun run test:path -- '<glob>'`        | Arbitrary test path glob                                           |
+| `bun run test:changed`                 | Only tests affected by uncommitted changes                         |
+| `bun run test:changed:group -- <name>` | Only changed tests inside a domain group                           |
+| `bun run test:changed:path -- '<glob>'`| Only changed tests under a path glob                               |
+| `bun run check:fast:changed`           | Fast check gate scoped to changed files + pass cache               |
 | `bun test <file>`                      | Single-file debug (bare Bun discovery)                             |
 | `bun test --coverage`                  | Coverage probe without tier wrapper                                |
 | `bun test --parallel`                  | Full suite across all cores                                        |
 | `bun test --parallel=4`                | Full suite across 4 workers                                        |
 | `bun test --shard=1/3`                 | CI sharding (`--parallel --shard <M/N>`)                           |
-| `bun run test:changed`                 | Only tests impacted by uncommitted changes                         |
 | `bun run test:coverage`                | Full suite with Bun coverage report                                |
 | `bun run test:coverage:fast`           | Unit coverage at the fast timeout (R-Score gate)                   |
 | `bun run test:coverage:ci`             | Full suite + coverage (60s timeout, lcov, `--bail`)                |

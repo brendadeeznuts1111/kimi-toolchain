@@ -32,18 +32,23 @@ Bun's test runner has two independent axes:
 | `test:ci`            | CI shard using `${CI_NODE_INDEX}/${CI_NODE_TOTAL}`                                              |
 | `test:changed:push`  | `test-changed.ts --push` — compares against `@{upstream}` for pre-push                          |
 | `test:changed:shard` | `--changed=main` + parallel + shard — PR jobs with branch filter                                |
+| `test:changed:group` | Group + `--changed=HEAD` — only changed tests inside a domain group                             |
+| `test:changed:path`  | Path glob + `--changed=HEAD` — only changed tests under a path                                  |
+| `check:fast:changed` | Full fast gate scoped to changed files, with pass cache                                         |
 
 ### Implementation map
 
 ```
 package.json scripts
-  test:fast     → scripts/test-fast.ts        → runTestTier("unit")
-  test:group:*  → scripts/test-fast.ts        → resolveTestGroupFiles(<name>) → runBunTest
-  test:path     → scripts/test-fast.ts        → resolveTestGroupFiles(<glob>, existingOnly=false) → runBunTest
-  test:changed  → scripts/test-changed.ts      → bunTestArgsForChanged(HEAD | upstream)
-  test:parallel → bare bun test               → full discovery
-  test:shard    → bare bun test + --shard     → full discovery, one shard
-  test          → scripts/test-run.ts         → runAllTestTiers
+  test:fast          → scripts/test-fast.ts        → runTestTier("unit")
+  test:group:*       → scripts/test-fast.ts        → resolveTestGroupFiles(<name>) → runBunTest
+  test:path          → scripts/test-fast.ts        → resolveTestGroupFiles(<glob>, existingOnly=false) → runBunTest
+  test:changed       → scripts/test-changed.ts     → bunTestArgsForChanged(HEAD | upstream)
+  test:changed:group → scripts/test-fast.ts        → resolveTestGroupFiles(<name>) + --changed=HEAD
+  test:changed:path  → scripts/test-fast.ts        → resolveTestGroupFiles(<glob>) + --changed=HEAD
+  test:parallel      → bare bun test               → full discovery
+  test:shard         → bare bun test + --shard     → full discovery, one shard
+  test               → scripts/test-run.ts         → runAllTestTiers
 ```
 
 ---
@@ -56,9 +61,13 @@ package.json scripts
 | **Domain group**       | `TEST_GROUPS` → `resolveTestGroupFiles` | Mutually exclusive groups (`bun`, `core`, `doctor`, `herdr`, …)          |
 | **Arbitrary path**     | `--path <glob>`                    | Any test file matching the provided glob(s)                                   |
 | **Git import graph**   | Bun `--changed`                    | Any discovered test file whose static import graph reaches a git-changed file |
+| **Group/path + changed** | `--group <name> --changed=HEAD`  | Intersection of a group/path with the changed-import graph                    |
+| **Scoped pass cache**  | `.kimi/.last-good-scoped-gates`    | Skip `test:fast` when staged files are a subset of a previous pass            |
 | **Full discovery**     | Bun recursive `*.test.ts` patterns | All test files in the repo (unit, integration, smoke, db, etc.)               |
 
 `TEST_GROUPS` is intentionally mutually exclusive: a file belongs to exactly one group, so running `test:group:bun` and `test:group:core` together never duplicates files.
+
+Use `test:changed`, `test:changed:group`, `test:changed:path`, or `check:fast:changed` to avoid re-running tests whose imports are unchanged. The scoped pass cache adds an additional skip layer inside `check:fast:changed`.
 
 ### `test:changed` — the selective runner
 
@@ -165,7 +174,10 @@ Use with an explicit file path for fast TDD loops. Tier scripts (`test:fast`, `t
 | Focused domain run (no overlap between groups)  | `bun run test:group:<name>`              |
 | Arbitrary test path glob                        | `bun run test:path -- '<glob>'`          |
 | Only tests affected by local edits              | `bun run test:changed`                   |
+| Only changed tests in a group                   | `bun run test:changed:group -- <name>`   |
+| Only changed tests under a path                 | `bun run test:changed:path -- '<glob>'`  |
 | Tests affected since upstream branch (pre-push) | `bun run test:changed:push`              |
+| Full fast gate scoped to changed files + cache  | `bun run check:fast:changed`             |
 | Full suite, one machine, fast                   | `bun run test:parallel`                  |
 | Simulate or run one CI shard                    | `BUN_TEST_SHARD=2/4 bun run test:shard`  |
 | Full tier chain (unit → integration → smoke)    | `bun run test`                           |

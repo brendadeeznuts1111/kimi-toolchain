@@ -2,12 +2,15 @@
 /**
  * Changed-test runner — pre-commit (HEAD) vs pre-push (upstream) refs.
  *
+ * Only runs test files whose static import graph reaches a changed source file.
+ *
  * Usage:
  *   bun run scripts/test-changed.ts
  *   bun run scripts/test-changed.ts --push
  *   bun run scripts/test-changed.ts -- --smol
+ *
+ * Preset npm scripts add `--dots` for compact output; pass `--quiet` for failures-only.
  */
-import { join } from "path";
 import { $ } from "bun";
 import {
   bunTestArgsForChanged,
@@ -15,7 +18,7 @@ import {
   runBunTest,
 } from "../src/lib/test-runtime.ts";
 
-const REPO_ROOT = join(import.meta.dir, "..");
+const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 
 async function resolvePushRef(): Promise<string> {
   const upstream = await $`git rev-parse --abbrev-ref @{upstream}`.cwd(REPO_ROOT).nothrow().quiet();
