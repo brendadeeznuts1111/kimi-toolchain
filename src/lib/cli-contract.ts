@@ -153,6 +153,8 @@ export interface CliFlags {
   bail: boolean;
   /** Enable step-budget warnings. */
   stepBudget: boolean;
+  /** Elevate warnings to failures. */
+  strict?: boolean;
   /** Tool-specific positional arguments (everything after flags). */
   positional: string[];
 }
@@ -172,6 +174,7 @@ const COMMON_FLAGS = new Set([
   "--timeout",
   "--bail",
   "--step-budget",
+  "--strict",
 ]);
 
 /** Compute a fuzzy flag suggestion using Levenshtein distance. */
@@ -252,6 +255,7 @@ export function parseCliFlags(
   let debug = argv.includes("--debug") || envBool("KIMI_DEBUG");
   let bail = argv.includes("--bail") || envBool("KIMI_BAIL");
   let stepBudget = argv.includes("--step-budget") || envBool("KIMI_STEP_BUDGET");
+  let strict = argv.includes("--strict");
 
   let timeout: number | undefined;
   let timeoutProvided = false;
@@ -319,7 +323,7 @@ export function parseCliFlags(
     }
   }
 
-  return { json, quiet, debug, timeout, bail, stepBudget, positional };
+  return { json, quiet, debug, timeout, bail, stepBudget, strict, positional };
 }
 
 /** Writer that separates machine output (stdout) from human output (stderr). */

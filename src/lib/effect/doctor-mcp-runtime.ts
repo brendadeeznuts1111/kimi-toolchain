@@ -7,7 +7,7 @@ import { invokeCommandEffect } from "./tool-runner-effect.ts";
 import type { ToolInvocation } from "../tool-runner.ts";
 import type { ExitNonZero, ToolNotFound, ToolTimeout } from "./errors.ts";
 
-const SCRIPT_PATH = new URL("../bin/kimi-doctor.ts", import.meta.url).pathname;
+const SCRIPT_PATH = Bun.fileURLToPath(import.meta.resolve("../bin/kimi-doctor.ts"));
 
 type DoctorMcpError = ToolNotFound | ToolTimeout | ExitNonZero;
 

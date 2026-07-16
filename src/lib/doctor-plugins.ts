@@ -148,7 +148,7 @@ interface RawManifest {
   error?: string;
 }
 
-function readRawManifest(path: string, raw: unknown): RawManifest | null {
+function readRawManifest(_path: string, raw: unknown): RawManifest | null {
   if (typeof raw !== "object" || raw === null) return null;
   const obj = raw as Record<string, unknown>;
   if (obj.schemaVersion !== DOCTOR_PLUGIN_SCHEMA_VERSION) return null;

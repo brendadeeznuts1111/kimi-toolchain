@@ -183,7 +183,7 @@ function handoffRuleLineNumbers(text: string): number[] {
   return lines;
 }
 
-function classifyEndpoint(url: string, port?: string): DiscoveredEndpoint["stack"] {
+function classifyEndpoint(_url: string, port?: string): DiscoveredEndpoint["stack"] {
   if (port === "5678") return "examples";
   if (port === "18412") return "herdr";
   return "external";

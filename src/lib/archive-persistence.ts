@@ -81,7 +81,6 @@ const DEFAULT_SNAPSHOT_OPTS = {
   level: 9,
 } as const satisfies ArchiveCompressOptions;
 const DEFAULT_DIST_OPTS = { compress: "gzip", level: 6 } as const satisfies ArchiveCompressOptions;
-const _SNAPSHOT_META_FILES = new Set<string>(SYNC_SNAPSHOT_META_FILES);
 
 /** Probe whether Bun.Archive is available on the current runtime. */
 export function archiveSupported(): boolean {

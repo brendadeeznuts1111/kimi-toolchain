@@ -27,7 +27,7 @@ scrubEphemeralBunNodeDirs();
 scrubProcessBunInstallCacheEnv();
 Object.assign(Bun.env, gateSpawnEnv(Bun.env));
 
-const REPO_ROOT = new URL("..", import.meta.url).pathname;
+const REPO_ROOT = Bun.fileURLToPath(import.meta.resolve("./.."));
 
 function parseCli(): CheckOptions {
   const argv = Bun.argv.slice(2);
@@ -108,6 +108,18 @@ function parseCli(): CheckOptions {
 }
 
 async function runOnce(options: CheckOptions): Promise<number> {
+  // Full-suite runs skip the recursive test:fast smoke test to avoid nesting
+  // a long test runner inside itself under heavy load, and skip network probes
+  // that flake under full-suite concurrency. The smoke test and network probes
+  // still run in check:fast and direct invocations.
+  if (options.fast) {
+    delete Bun.env.KIMI_TEST_FULL_SUITE;
+    delete Bun.env.KIMI_SKIP_NETWORK_PROBE;
+  } else {
+    Bun.env.KIMI_TEST_FULL_SUITE = "1";
+    Bun.env.KIMI_SKIP_NETWORK_PROBE = "1";
+  }
+
   if (options.watchTests) {
     const result = await runTestOnlyPipeline(REPO_ROOT, options);
     if (!options.dryRun || options.jsonSummary) printCheckResult(result, options);

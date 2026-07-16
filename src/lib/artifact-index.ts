@@ -433,7 +433,7 @@ export class ArtifactIndex {
   /** Distinct identity values across indexed artifacts. */
   distinct(): ArtifactIndexDistinct {
     const db = this.open();
-    const column = (name: keyof ArtifactIndexDistinct, dbColumn: string): string[] => {
+    const column = (_name: keyof ArtifactIndexDistinct, dbColumn: string): string[] => {
       const rows = db
         .query(
           `SELECT DISTINCT ${dbColumn} AS value FROM artifacts WHERE ${dbColumn} IS NOT NULL ORDER BY ${dbColumn}`

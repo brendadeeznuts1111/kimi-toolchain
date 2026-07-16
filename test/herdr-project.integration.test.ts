@@ -8,6 +8,20 @@ import { invokeTool } from "../src/lib/tool-runner.ts";
 import { testTempDir } from "./helpers.ts";
 const REPO_HERDR_PROJECT = join(import.meta.dir, "..", "src", "bin", "herdr-project.ts");
 
+function herdrProjectProbe(): boolean {
+  try {
+    const out = Bun.spawnSync([herdrProjectWrapper(), "--version"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    return out.exitCode === 0;
+  } catch {
+    return false;
+  }
+}
+
+const HERDR_PROJECT_INSTALLED = herdrProjectProbe();
+
 function herdrProjectTool(): string {
   const desktop = join(homedir(), ".kimi-code", "tools", "herdr-project.ts");
   return pathExists(desktop) ? desktop : REPO_HERDR_PROJECT;
@@ -33,7 +47,7 @@ function herdrServerRunning(): boolean {
   }
 }
 
-describe("herdr-project integration", () => {
+describe.skipIf(!HERDR_PROJECT_INSTALLED)("herdr-project integration", () => {
   let projectRoot: string;
 
   beforeEach(() => {

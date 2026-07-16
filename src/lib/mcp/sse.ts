@@ -564,7 +564,7 @@ export class McpError extends Error {
 export class McpClient {
   private readonly client: HttpMcpClient;
 
-  constructor(private readonly config: MCPServerConfig) {
+  constructor(config: MCPServerConfig) {
     this.client = createHttpMcpClient({
       url: config.url,
       headers: config.headers,

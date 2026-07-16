@@ -147,7 +147,7 @@ export function planGrokRoleTabAgent(
 }
 
 export function buildRoleTabAgentStartArgs(
-  config: HerdrProjectConfig,
+  _config: HerdrProjectConfig,
   workspaceId: string,
   plan: RoleTabAgentPlan,
   target: { tabId?: string | null; paneId?: string | null } = {}
@@ -178,7 +178,7 @@ export function buildGrokRoleRenameArgs(
 }
 
 export function buildGrokRoleReportAgentArgs(
-  session: string | undefined,
+  _session: string | undefined,
   paneId: string,
   report: NonNullable<RoleTabAgentPlan["reportAgent"]>
 ): string[] {
@@ -219,7 +219,7 @@ export function buildGrokRolePaneRunPayload(command: string): string {
 }
 
 export function buildGrokRolePaneRunArgs(
-  session: string | undefined,
+  _session: string | undefined,
   paneId: string,
   command: string
 ): string[] {

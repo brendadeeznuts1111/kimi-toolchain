@@ -146,7 +146,7 @@ const CATEGORIES: Category[] = [
       {
         description: "Spawn with timeout and capture output",
         command:
-          'const p=Bun.spawn(["git","status"],{timeout:30000,stdout:"pipe"}); const out=await new Response(p.stdout).text()',
+          'const p=Bun.spawn(["git","status"],{timeout:30000,stdout:"pipe"}); const out=await Bun.readableStreamToText(p.stdout)',
       },
       {
         description: "Table inspect secrets status",

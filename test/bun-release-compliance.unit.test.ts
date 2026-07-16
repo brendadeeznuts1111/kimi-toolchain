@@ -18,6 +18,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
+import { readText } from "./helpers.ts";
 import { DASHBOARD_CRON_MIN_MS } from "../src/lib/herdr-dashboard/cron.ts";
 import {
   autoCompress,
@@ -37,7 +38,7 @@ import {
 const repoRoot = import.meta.dir + "/..";
 
 function readSrc(rel: string): string {
-  return require("fs").readFileSync(join(repoRoot, rel), "utf-8");
+  return readText(join(repoRoot, rel));
 }
 
 // ── Bun.file async read error paths ─────────────────────────────────

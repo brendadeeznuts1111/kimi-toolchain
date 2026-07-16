@@ -19,17 +19,17 @@ export async function apiExec(): Promise<Response> {
       }
     };
 
-    exec("echo hello from exec", (err, stdout, stderr) => {
+    exec("echo hello from exec", (_err, stdout, stderr) => {
       results.basic = { stdout: stdout.trim(), stderr: stderr.trim() };
       done();
     });
 
-    exec('echo "path with spaces intact"', (err, stdout, stderr) => {
+    exec('echo "path with spaces intact"', (_err, stdout, stderr) => {
       results.quoted = { stdout: stdout.trim(), stderr: stderr.trim() };
       done();
     });
 
-    exec("echo HOME is $HOME", (err, stdout, stderr) => {
+    exec("echo HOME is $HOME", (_err, stdout, stderr) => {
       results.variableExpansion = { stdout: stdout.trim(), stderr: stderr.trim() };
       done();
     });

@@ -261,6 +261,7 @@ export function ensureDesktopLayout(): void {
     guardianDir(),
     governorDir(),
     skillsDir(),
+    agentsSkillsRoot(),
   ]) {
     makeDir(dir, { recursive: true });
   }
@@ -392,7 +393,7 @@ async function syncDesktopImpl(
   }
 
   const skillSrc = repoSourceDir(repoRoot, SKILL_ROUTE.repoSegments);
-  if (await Bun.file(skillSrc).exists()) {
+  if (pathExists(skillSrc)) {
     const skillGlob = new Bun.Glob("**/*");
     for await (const rel of skillGlob.scan({ cwd: skillSrc, onlyFiles: true })) {
       for (const [dstDir, prefix] of [

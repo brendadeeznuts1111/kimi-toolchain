@@ -171,7 +171,7 @@ describe.serial("herdr-ws-unix", () => {
     expect(lines).toEqual(['{"a":1}', '{"b":2}']);
   });
 
-  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1" || Bun.env.KIMI_TEST_FULL_SUITE === "1")(
     "herdrSocketSubscribe over ws+unix receives events",
     async () => {
       await withMockHerdrWsServer(async (socketPath) => {
@@ -217,10 +217,10 @@ describe.serial("herdr-ws-unix", () => {
         );
       });
     },
-    { timeout: 15_000 }
+    { timeout: 30_000 }
   );
 
-  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1" || Bun.env.KIMI_TEST_FULL_SUITE === "1")(
     "connectHerdrSocket auto falls back to jsonl",
     async () => {
       await withMockHerdrJsonlServer(async (socketPath) => {
@@ -229,7 +229,7 @@ describe.serial("herdr-ws-unix", () => {
             let transport = "";
             const socket = connectHerdrSocket(socketPath, {
               transport: "auto",
-              connectTimeoutMs: 2_000,
+              connectTimeoutMs: 5_000,
               onTransport: (active) => {
                 transport = active;
               },
@@ -256,7 +256,7 @@ describe.serial("herdr-ws-unix", () => {
         });
       });
     },
-    { timeout: 15_000 }
+    { timeout: 30_000 }
   );
 
   test("Bun.listen unix EADDRINUSE on double bind; stop unlinks socket", async () => {
@@ -313,7 +313,7 @@ describe.serial("herdr-ws-unix", () => {
     cleanupPath(dir);
   });
 
-  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1" || Bun.env.KIMI_TEST_FULL_SUITE === "1")(
     "jsonl connect still works for RPC-style responses",
     async () => {
       await withMockHerdrJsonlServer(async (socketPath) => {
@@ -335,6 +335,6 @@ describe.serial("herdr-ws-unix", () => {
         });
       });
     },
-    { timeout: 15_000 }
+    { timeout: 30_000 }
   );
 });

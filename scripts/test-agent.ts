@@ -14,7 +14,7 @@ import {
   type HerdrAgentState,
 } from "../src/lib/herdr-test-agent.ts";
 
-const REPO_ROOT = new URL("..", import.meta.url).pathname;
+const REPO_ROOT = Bun.fileURLToPath(import.meta.resolve("./.."));
 const paneId = Bun.env.HERDR_PANE_ID;
 
 function report(status: HerdrAgentState, customStatus: string) {

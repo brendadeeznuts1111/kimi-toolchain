@@ -1446,8 +1446,6 @@ if (isDirectRun(import.meta.path)) {
         if (json) await writeJson({ ok: false, error: "no [herdr] profile" });
         process.exit(1);
       }
-      const full = { ...config, projectPath };
-      const _ids = workspace ? [workspace] : findAllWorkspacesForProject(full).workspaceIds;
       const session = config.session ?? "";
 
       // Build agent session map

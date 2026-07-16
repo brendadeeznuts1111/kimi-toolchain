@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { join } from "path";
 import { createSyncSnapshotArchive, hashArchive } from "../src/lib/archive-persistence.ts";
-import { makeDir } from "../src/lib/bun-io.ts";
 import {
   detectSyncDrift,
   finalizeSyncArchive,
@@ -16,7 +15,15 @@ import {
   syncBaselineHistoryPath,
   syncBaselineMetricsPath,
 } from "../src/lib/paths.ts";
-import { cleanupPath, REPO_ROOT, testTempDir, withEnv, withIsolatedHome } from "./helpers.ts";
+import {
+  cleanupPath,
+  REPO_ROOT,
+  testTempDir,
+  withEnv,
+  withIsolatedHome,
+  makeDir,
+  writeText,
+} from "./helpers.ts";
 
 describe.serial("sync-archive", () => {
   let previousHome: string | undefined;
@@ -35,11 +42,10 @@ describe.serial("sync-archive", () => {
   });
 
   test("detectSyncDrift reports drift when desktop file differs", async () => {
-    const { mkdirSync, writeFileSync } = await import("fs");
     const { join } = await import("path");
     const { desktopRoot } = await import("../src/lib/paths.ts");
-    mkdirSync(join(desktopRoot(), "lib"), { recursive: true });
-    writeFileSync(join(desktopRoot(), "lib", "r-score.ts"), "// stale\n");
+    makeDir(join(desktopRoot(), "lib"), { recursive: true });
+    writeText(join(desktopRoot(), "lib", "r-score.ts"), "// stale\n");
     const report = await detectSyncDrift(REPO_ROOT);
     expect(report.drifted).toContain("lib/r-score.ts");
   });

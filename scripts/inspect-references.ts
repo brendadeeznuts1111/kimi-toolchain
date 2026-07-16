@@ -27,7 +27,7 @@ import {
 } from "../src/lib/canonical-references.ts";
 import { canonicalReferencesPath, homeDir } from "../src/lib/paths.ts";
 
-const REPO_ROOT = new URL("..", import.meta.url).pathname;
+const REPO_ROOT = Bun.fileURLToPath(import.meta.resolve("./.."));
 
 const args = new Set(Bun.argv.slice(2));
 

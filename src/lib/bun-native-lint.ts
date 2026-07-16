@@ -591,7 +591,7 @@ export function evaluateViolations(
 
 export function shouldFailCheck(
   result: LintResult,
-  config: BunNativeLintConfig,
+  _config: BunNativeLintConfig,
   gateMode: "check" | "report"
 ): boolean {
   if (gateMode === "report") return false;

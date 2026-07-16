@@ -38,26 +38,9 @@ const VALID_LOADED_BY = new Set(["System / On-demand", "HERDR_ENV gate"]);
 
 const VALID_RUN_AS = new Set(["inline", "subagent"]);
 
-const _OPTIONAL_KEYS = new Set([
-  "metadata",
-  "allowed_tools",
-  "model",
-  "effort",
-  "dependencies", // allowed to be empty
-]);
-
 interface SkillFrontmatterError {
   skill: string;
   message: string;
-}
-
-interface _SkillFrontmatter {
-  name?: string;
-  layer?: string;
-  loaded_by?: string;
-  run_as?: string;
-  dependencies?: unknown[];
-  token_estimate?: number;
 }
 
 /** Get all skill names from skills/ directories. */
@@ -226,7 +209,6 @@ function checkFrontmatter(
 function checkDependencies(
   skillName: string,
   allSkillNames: Set<string>,
-  frontmatter: Map<string, string | null>,
   skillText: string
 ): SkillFrontmatterError[] {
   const errors: SkillFrontmatterError[] = [];
@@ -335,7 +317,7 @@ async function main(): Promise<number> {
     const errors = [
       ...checkFrontmatter(dir, fm),
       ...checkFrontmatterKeyOrder(dir, fm),
-      ...checkDependencies(dir, allSkillNames, fm, text),
+      ...checkDependencies(dir, allSkillNames, text),
     ];
 
     if (errors.length > 0) {

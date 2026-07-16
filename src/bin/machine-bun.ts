@@ -10,7 +10,7 @@
  */
 
 import { isDirectRun } from "../lib/bun-utils.ts";
-import { writeStdoutLine } from "../lib/cli-contract.ts";
+import { parseCliFlags, writeStdoutLine } from "../lib/cli-contract.ts";
 import { createLogger } from "../lib/logger.ts";
 import {
   auditMachineBunPolicy,
@@ -20,9 +20,10 @@ import {
 import { readUserBunfigInstall } from "../lib/bunfig-redundancy.ts";
 import { MACHINE_BUNFIG_LABEL } from "../lib/machine-bun-ssot.ts";
 
+const flags = parseCliFlags(Bun.argv, "machine-bun");
 const logger = createLogger(Bun.argv, "machine-bun");
-const strict = Bun.argv.includes("--strict");
-const json = Bun.argv.includes("--json");
+const strict = flags.strict;
+const json = flags.json;
 
 async function main(): Promise<void> {
   const audit = await auditMachineBunPolicy();

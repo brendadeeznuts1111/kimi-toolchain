@@ -10,8 +10,11 @@ export async function clearStaleLocks(): Promise<string[]> {
   const cleared: string[] = [];
   const locks = [`${guardDir()}/test-runner.pid`, `${guardDir()}/kimi-test.lock`];
   for (const lock of locks) {
-    await Bun.file(lock).delete();
-    cleared.push(lock);
+    const file = Bun.file(lock);
+    if (await file.exists()) {
+      await file.delete();
+      cleared.push(lock);
+    }
   }
   return cleared;
 }

@@ -23,7 +23,7 @@ const JSON_MODE = process.argv.includes("--json");
 
 // ─── Load policy ──────────────────────────────────────────────────────────────
 
-const policyPath = new URL("../secrets-policy.json5", import.meta.url).pathname;
+const policyPath = Bun.fileURLToPath(import.meta.resolve("../secrets-policy.json5"));
 const policyFile = Bun.file(policyPath);
 if (!(await policyFile.exists())) {
   console.error(`✗ secrets-policy.json5 not found at ${policyPath}`);
@@ -179,7 +179,7 @@ for (const [svc, secrets] of Object.entries(policy)) {
 
 // ─── Check 7: Init template sync ──────────────────────────────────────────────
 
-const kimiSecretsPath = new URL("../src/bin/kimi-secrets.ts", import.meta.url).pathname;
+const kimiSecretsPath = Bun.fileURLToPath(import.meta.resolve("../src/bin/kimi-secrets.ts"));
 const kimiSecretsSrc = await Bun.file(kimiSecretsPath).text();
 
 // Extract the template block between the first `const template = \`{` and the closing `\`;`

@@ -3,7 +3,6 @@
  */
 
 import { resolve } from "path";
-import { TOML } from "bun";
 import { pathExists } from "./bun-io.ts";
 import { emptyToEmDash } from "./markdown-table.ts";
 
@@ -93,10 +92,9 @@ export async function loadTableSchema(
   if (!pathExists(absolute)) {
     throw new Error(`Schema file not found: ${schemaPath}`);
   }
-  const text = await Bun.file(absolute).text();
   const raw = absolute.endsWith(".json")
-    ? (JSON.parse(text) as Record<string, unknown>)
-    : (TOML.parse(text) as Record<string, unknown>);
+    ? ((await Bun.file(absolute).json()) as Record<string, unknown>)
+    : (Bun.TOML.parse(await Bun.file(absolute).text()) as Record<string, unknown>);
   return parseSchemaObject(raw);
 }
 

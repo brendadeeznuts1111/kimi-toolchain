@@ -255,10 +255,18 @@ async function readExisting(path: string): Promise<string | null> {
   }
 }
 
+async function readExistingJson(path: string): Promise<Record<string, unknown> | null> {
+  try {
+    return (await Bun.file(path).json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 async function checkArtifacts(): Promise<{ ok: boolean; messages: string[] }> {
-  const existingDynamic = await readExisting(DYNAMIC_SOURCES_PATH);
+  const existingDynamic = await readExistingJson(DYNAMIC_SOURCES_PATH);
   const generatedAt = existingDynamic
-    ? ((JSON.parse(existingDynamic).generatedAt as string) ?? new Date().toISOString())
+    ? ((existingDynamic.generatedAt as string) ?? new Date().toISOString())
     : new Date().toISOString();
   const { dynamicSources, htmlContent, taxonomyContent } = buildArtifacts(generatedAt);
   const dynamicContent = JSON.stringify(dynamicSources, null, 2);
@@ -343,7 +351,7 @@ if (dryRun) {
 }
 
 // ── Validation: round-trip sanity check ─────────────────────────
-const roundTrip = dryRun ? dynamicSources : JSON.parse(await Bun.file(DYNAMIC_SOURCES_PATH).text());
+const roundTrip = dryRun ? dynamicSources : await Bun.file(DYNAMIC_SOURCES_PATH).json();
 const expectedKeys = ["schema", "bunVersion", "jsonHash", "generatedAt", "sources"];
 const actualSorted = Object.keys(roundTrip).sort();
 const expectedSorted = expectedKeys.slice().sort();

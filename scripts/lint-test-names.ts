@@ -21,7 +21,7 @@ import { basename, join } from "path";
 import { pathExists } from "../src/lib/bun-io.ts";
 import { UNIT_TEST_FILES } from "../src/lib/test-gates.ts";
 
-const REPO_ROOT = new URL("..", import.meta.url).pathname;
+const REPO_ROOT = Bun.fileURLToPath(import.meta.resolve("./.."));
 
 /** Unit test stems that intentionally target a non-default source path. */
 const UNIT_STEM_SOURCE: Record<string, string> = {

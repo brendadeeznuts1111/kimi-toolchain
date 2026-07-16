@@ -727,7 +727,10 @@ export const markdown = {
   /** Render markdown to React elements (requires Bun.markdown.react). */
   react(text: string, options?: Record<string, unknown>): unknown | null {
     if (!markdownReactSupported()) return null;
-    return (Bun.markdown as any).react(text, options);
+    const markdownReact = Bun.markdown as {
+      react: (text: string, options?: Record<string, unknown>) => unknown;
+    };
+    return markdownReact.react(text, options);
   },
   structured: renderMarkdownStructured,
   extractTables: extractMarkdownTables,

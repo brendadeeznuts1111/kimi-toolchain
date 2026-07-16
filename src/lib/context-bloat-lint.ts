@@ -304,7 +304,7 @@ export function findOrphanAgentDocs(activeDocs: string[], indexText: string): Co
 }
 
 function collectPlaceholderHits(
-  rel: string,
+  _rel: string,
   text: string
 ): Array<{ placeholder: string; line: number }> {
   const hits: Array<{ placeholder: string; line: number }> = [];

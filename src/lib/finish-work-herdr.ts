@@ -955,7 +955,7 @@ function finishWorkGateLogPath(projectRoot: string, gateName: string): string {
 function resolveFinishWorkGateRunnerScript(projectRoot: string): string {
   const local = join(projectRoot, "scripts", "finish-work-gate-run.ts");
   if (pathExists(local)) return local;
-  return Bun.fileURLToPath(new URL("../../scripts/finish-work-gate-run.ts", import.meta.url).href);
+  return Bun.fileURLToPath(import.meta.resolve("../../scripts/finish-work-gate-run.ts"));
 }
 
 /**

@@ -22,7 +22,9 @@ async function runGenerator(): Promise<{
   return { exit, stdout, stderr };
 }
 
-describe("generate-cli-completions integration", () => {
+const SKIP_NETWORK = Bun.env.KIMI_SKIP_NETWORK_PROBE === "1";
+
+describe.skipIf(SKIP_NETWORK)("generate-cli-completions integration", () => {
   test("generates a valid completions/bun-cli.json", async () => {
     const { exit, stdout } = await runGenerator();
     expect(exit).toBe(0);

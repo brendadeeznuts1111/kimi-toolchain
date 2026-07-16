@@ -166,7 +166,11 @@ export async function writeSecretsPolicy(
   doc: SecretsPolicyDocument
 ): Promise<void> {
   const text = json5Supported()
-    ? (Bun as any).JSON5.stringify(doc, null, 2)
+    ? (
+        Bun.JSON5 as {
+          stringify: (value: unknown, replacer?: unknown, space?: string | number) => string;
+        }
+      ).stringify(doc, null, 2)
     : JSON.stringify(doc, null, 2);
   await Bun.write(policyPath, text + "\n");
 }

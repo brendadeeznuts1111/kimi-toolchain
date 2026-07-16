@@ -53,7 +53,7 @@ function oxfmtPath(): string {
 
 /** Format a batch of TSX source strings with the repo's oxfmt config. */
 async function formatCanvasSources(
-  repoRoot: string,
+  _repoRoot: string,
   entries: Array<{ relPath: string; source: string }>
 ): Promise<Map<string, string>> {
   const dir = join(tmpdir(), `kimi-canvas-${Bun.randomUUIDv7()}`);

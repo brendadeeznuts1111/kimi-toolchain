@@ -108,13 +108,12 @@ export function withServeRequestContext<T>(
   serveContextStack.push(ctx);
   const wrapped = serveRequestContext.run(ctx, run);
   if (wrapped instanceof Promise) {
-    return (async () => {
-      try {
-        return await wrapped;
-      } finally {
-        serveContextStack.pop();
-      }
-    })();
+    // On success, pop the context we pushed. On error, leave it for
+    // serveErrorCallback to consume and pop.
+    return wrapped.then((value) => {
+      serveContextStack.pop();
+      return value;
+    });
   }
   serveContextStack.pop();
   return wrapped;

@@ -14,10 +14,7 @@ describe("bun-cron", () => {
   });
 
   test("Bun.cron creates a stoppable job", () => {
-    let _fired = false;
-    const job = Bun.cron("* * * * *", () => {
-      _fired = true;
-    });
+    const job = Bun.cron("* * * * *", () => {});
     expect(typeof job.stop).toBe("function");
     job.stop();
   });

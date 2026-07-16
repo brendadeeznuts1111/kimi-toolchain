@@ -31,26 +31,26 @@ const MAPPINGS: DefaultFieldMapping[] = [
   {
     tomlKey: "toolTimeoutMs",
     file: "src/lib/tool-runner.ts",
-    valuePattern: /HARDCODED_TOOL_TIMEOUT_MS = (\d[\d_]*)/,
-    constName: "HARDCODED_TOOL_TIMEOUT_MS",
+    valuePattern: /const DEFAULT_TOOL_TIMEOUT_MS = (\d[\d_]*)/,
+    constName: "DEFAULT_TOOL_TIMEOUT_MS",
   },
   {
     tomlKey: "agentToolTimeoutMs",
     file: "src/lib/tool-runner.ts",
-    valuePattern: /HARDCODED_AGENT_TOOL_TIMEOUT_MS = (\d[\d_]*)/,
-    constName: "HARDCODED_AGENT_TOOL_TIMEOUT_MS",
+    valuePattern: /const AGENT_TOOL_TIMEOUT_MS = (\d[\d_]*)/,
+    constName: "AGENT_TOOL_TIMEOUT_MS",
   },
   {
     tomlKey: "toolGracePeriodMs",
     file: "src/lib/tool-runner.ts",
-    valuePattern: /HARDCODED_GRACE_PERIOD_MS = (\d[\d_]*)/,
-    constName: "HARDCODED_GRACE_PERIOD_MS",
+    valuePattern: /const DEFAULT_GRACE_PERIOD_MS = (\d[\d_]*)/,
+    constName: "DEFAULT_GRACE_PERIOD_MS",
   },
   {
     tomlKey: "toolMaxOutputBytes",
     file: "src/lib/tool-runner.ts",
-    valuePattern: /HARDCODED_MAX_OUTPUT_BYTES = (\d[\d_]*)/,
-    constName: "HARDCODED_MAX_OUTPUT_BYTES",
+    valuePattern: /const DEFAULT_MAX_OUTPUT_BYTES = (\d[\d_]*)/,
+    constName: "DEFAULT_MAX_OUTPUT_BYTES",
   },
 
   // proc-cache.ts
@@ -111,28 +111,28 @@ const MAPPINGS: DefaultFieldMapping[] = [
   {
     tomlKey: "cloudflareTimeoutMs",
     file: "src/lib/cloudflare-access-policy.ts",
-    valuePattern: /HARDCODED_TIMEOUT_MS = (\d[\d_]*)/,
-    constName: "HARDCODED_TIMEOUT_MS (cloudflare)",
+    valuePattern: /const DEFAULT_TIMEOUT_MS = (\d[\d_]*)/,
+    constName: "DEFAULT_TIMEOUT_MS (cloudflare)",
   },
   {
     tomlKey: "cloudflareRetries",
     file: "src/lib/cloudflare-access-policy.ts",
-    valuePattern: /HARDCODED_RETRIES = (\d+)/,
-    constName: "HARDCODED_RETRIES",
+    valuePattern: /const DEFAULT_RETRIES = (\d+)/,
+    constName: "DEFAULT_RETRIES",
   },
   {
     tomlKey: "cloudflareBaseDelayMs",
     file: "src/lib/cloudflare-access-policy.ts",
-    valuePattern: /HARDCODED_BASE_DELAY_MS = (\d[\d_]*)/,
-    constName: "HARDCODED_BASE_DELAY_MS",
+    valuePattern: /const DEFAULT_BASE_DELAY_MS = (\d[\d_]*)/,
+    constName: "DEFAULT_BASE_DELAY_MS",
   },
 
   // cloudflare-access.ts
   {
     tomlKey: "cloudflareTokenWarnDays",
     file: "src/lib/cloudflare-access.ts",
-    valuePattern: /HARDCODED_WARN_DAYS = (\d+)/,
-    constName: "HARDCODED_WARN_DAYS",
+    valuePattern: /const DEFAULT_WARN_DAYS = (\d+)/,
+    constName: "DEFAULT_WARN_DAYS",
   },
 
   // context-bloat-lint.ts

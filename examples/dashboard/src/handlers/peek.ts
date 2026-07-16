@@ -4,7 +4,6 @@ import { jsonResponse } from "./shared.ts";
 export async function apiPeek(): Promise<Response> {
   const pending = new Promise<string>((resolve) => setTimeout(() => resolve("done"), 5000));
   const fulfilled = Promise.resolve(42);
-  const _rejected = Promise.reject(new Error("boom")).catch(() => {});
 
   // Peek at the pending promise (status only — value not available)
   const pendingStatus = Bun.peek.status(pending);

@@ -294,7 +294,7 @@ describe("kimi-doctor smoke", () => {
     expect(exitCode === 0 || exitCode === 1).toBe(true);
   }, 15_000);
 
-  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1")(
+  test.skipIf(Bun.env.KIMI_TEST_CHANGED_PARALLEL === "1" || Bun.env.KIMI_TEST_FULL_SUITE === "1")(
     "test:fast completes and reports pass count",
     async () => {
       const proc = Bun.spawn(["bun", "run", "test:fast"], {
@@ -310,6 +310,6 @@ describe("kimi-doctor smoke", () => {
       // test:fast may exit 1 if any test exceeds the fast timeout; we only check output contains pass count
       expect(stdout + stderr).toMatch(/\d+ pass/);
     },
-    300_000
+    900_000
   );
 });

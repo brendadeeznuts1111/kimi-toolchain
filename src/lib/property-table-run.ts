@@ -75,7 +75,7 @@ interface PreparedTable {
 function renderPayloadFromTable(
   title: string,
   sourceLabel: string,
-  filePath: string,
+  _filePath: string,
   columns: readonly string[],
   rows: Record<string, string>[],
   markdown: string
