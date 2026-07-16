@@ -17,7 +17,7 @@ import { webViewConsoleMirror, webViewSupported } from "./webview-console.ts";
 
 export const BUN_DOCS_ROOT_URL = "https://bun.com/docs";
 
-export type BunDocsWebViewTool = "search_bun" | "query_docs_filesystem_bun";
+export type BunDocsWebViewTool = "search_bun" | "query_docs_filesystem_bun" | "submit_feedback";
 
 export interface BunDocsWebViewOptions {
   /** Query or filesystem command to send to the Bun docs MCP. */

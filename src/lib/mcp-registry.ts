@@ -44,7 +44,11 @@ export const CLOUDFLARE_MCP_URL = "https://mcp.cloudflare.com/mcp";
 export const DASHBOARD_MCP_SERVER = "kimi-dashboard";
 export const BUN_DOCS_SERVER = "bun-docs";
 export const BUN_DOCS_MCP_URL = "https://bun.com/docs/mcp";
-export const BUN_DOCS_MCP_TOOLS = ["search_bun", "query_docs_filesystem_bun"] as const;
+export const BUN_DOCS_MCP_TOOLS = [
+  "search_bun",
+  "query_docs_filesystem_bun",
+  "submit_feedback",
+] as const;
 export const UNIFIED_SHELL_BRIDGE = "unified-shell-bridge.ts";
 
 function resolveBunPath(): string {
@@ -74,7 +78,7 @@ function builtinCloudflareApi(): McpServerDefinition {
     name: CLOUDFLARE_API_SERVER,
     url: CLOUDFLARE_MCP_URL,
     description: "Cloudflare API: search and execute against the full Cloudflare API via Code Mode",
-    default: true,
+    default: false,
     startupTimeoutMs: 30000,
     toolTimeoutMs: 60000,
     profiles: ["full"],
@@ -87,7 +91,7 @@ function builtinBunDocs(): McpServerDefinition {
     name: BUN_DOCS_SERVER,
     url: BUN_DOCS_MCP_URL,
     description: "Bun docs MCP: search_bun + query_docs_filesystem_bun",
-    default: true,
+    default: false,
     startupTimeoutMs: 30000,
     toolTimeoutMs: 60000,
     profiles: ["full", "safe"],
