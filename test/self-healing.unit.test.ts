@@ -1,6 +1,5 @@
 import { Effect } from "effect";
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -14,11 +13,11 @@ import {
   type HealPlan,
 } from "../src/lib/self-healing.ts";
 import { clusterFailureLedgerEffect } from "../src/lib/error-clustering.ts";
-import { writeFileSync } from "fs";
+import { makeDir, removePath, writeText } from "./helpers.ts";
 
 function tempDir(): string {
   const dir = join(tmpdir(), `kimi-heal-${Bun.randomUUIDv7()}`);
-  mkdirSync(dir, { recursive: true });
+  makeDir(dir, { recursive: true });
   return dir;
 }
 
@@ -27,7 +26,7 @@ describe("self-healing", () => {
     const dir = tempDir();
     try {
       const failurePath = join(dir, "tool-failures.jsonl");
-      writeFileSync(
+      writeText(
         failurePath,
         [
           JSON.stringify({
@@ -68,14 +67,14 @@ describe("self-healing", () => {
       expect(clusterAction).toBeTruthy();
       expect(clusterAction?.metadata?.clusterId).toBeTruthy();
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
   test("buildHealPlan does not record capability decisions while planning", async () => {
     const dir = tempDir();
     const oldHome = Bun.env.HOME;
-    mkdirSync(join(dir, ".kimi-code", "var"), { recursive: true });
+    makeDir(join(dir, ".kimi-code", "var"), { recursive: true });
     try {
       Bun.env.HOME = dir;
       await Effect.runPromise(buildHealPlanEffect(dir));
@@ -85,7 +84,7 @@ describe("self-healing", () => {
     } finally {
       if (oldHome === undefined) delete Bun.env.HOME;
       else Bun.env.HOME = oldHome;
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -93,7 +92,7 @@ describe("self-healing", () => {
     const dir = tempDir();
     try {
       const failurePath = join(dir, "tool-failures.jsonl");
-      writeFileSync(
+      writeText(
         failurePath,
         [
           JSON.stringify({
@@ -136,14 +135,14 @@ describe("self-healing", () => {
       expect(formatAction?.safeToAutoApply).toBe(false);
       expect(formatAction?.status).toBe("manual");
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
   test("applyHealPlan records preview decision before execute and appends outcome follow-up", async () => {
     const dir = tempDir();
     const oldHome = Bun.env.HOME;
-    mkdirSync(join(dir, ".kimi-code", "var"), { recursive: true });
+    makeDir(join(dir, ".kimi-code", "var"), { recursive: true });
     try {
       Bun.env.HOME = dir;
       const actionId = "cluster:format_check_failure:bun---version";
@@ -198,14 +197,14 @@ describe("self-healing", () => {
     } finally {
       if (oldHome === undefined) delete Bun.env.HOME;
       else Bun.env.HOME = oldHome;
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
   test("applyHealPlan skips actions that previously failed with same key and action", async () => {
     const dir = tempDir();
     const oldHome = Bun.env.HOME;
-    mkdirSync(join(dir, ".kimi-code", "var"), { recursive: true });
+    makeDir(join(dir, ".kimi-code", "var"), { recursive: true });
     try {
       Bun.env.HOME = dir;
       const actionId = "cluster:format_check_failure:bun---version";
@@ -251,7 +250,7 @@ describe("self-healing", () => {
     } finally {
       if (oldHome === undefined) delete Bun.env.HOME;
       else Bun.env.HOME = oldHome;
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -273,7 +272,7 @@ describe("self-healing", () => {
       expect(report.applied[0]?.status).toBe("failed");
       expect(report.applied[0]?.reason).toContain("not found");
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 });

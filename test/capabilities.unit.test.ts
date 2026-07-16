@@ -1,21 +1,21 @@
 import { Effect } from "effect";
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { runCapabilityAggregator, readCapabilityTrend } from "../src/lib/capabilities.ts";
 import { readDecisionLedger } from "../src/lib/decision-ledger.ts";
+import { makeDir, removePath, writeText } from "./helpers.ts";
 
 describe("capabilities", () => {
   test("aggregates checks and stores a snapshot", async () => {
     const dir = join(tmpdir(), `kimi-capabilities-${Bun.randomUUIDv7()}`);
     const oldHome = Bun.env.HOME;
-    mkdirSync(join(dir, ".kimi-code"), { recursive: true });
-    writeFileSync(
+    makeDir(join(dir, ".kimi-code"), { recursive: true });
+    writeText(
       join(dir, ".kimi-code", "mcp.json"),
       JSON.stringify({ mcpServers: { "unified-shell": { command: "bun" } } })
     );
-    writeFileSync(
+    writeText(
       join(dir, ".kimi-code", "config.toml"),
       '[[hooks]]\nevent = "PostToolUseFailure"\ncommand = "log-tool-failure"\n'
     );
@@ -44,7 +44,7 @@ describe("capabilities", () => {
     } finally {
       if (oldHome === undefined) delete Bun.env.HOME;
       else Bun.env.HOME = oldHome;
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 });

@@ -1,10 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { invokeTool } from "../src/lib/tool-runner.ts";
 import { buildTraceGraph } from "../src/lib/trace-ledger.ts";
-import { REPO_ROOT } from "./helpers.ts";
+import { REPO_ROOT, makeDir, removePath, writeText } from "./helpers.ts";
 const HOOK = join(REPO_ROOT, "src/kimi-hooks/log-tool-failure.ts");
 const TRACE = join(REPO_ROOT, "src/bin/kimi-trace.ts");
 
@@ -13,13 +12,13 @@ describe("trace ledger", () => {
     const dir = join(tmpdir(), `kimi-trace-${Bun.randomUUIDv7()}`);
     const oldHome = Bun.env.HOME;
     const rootTraceId = crypto.randomUUID();
-    mkdirSync(join(dir, ".kimi-code", "var"), { recursive: true });
+    makeDir(join(dir, ".kimi-code", "var"), { recursive: true });
     await Bun.write(
       join(dir, ".kimi-code", "error-taxonomy.yml"),
       await Bun.file(join(REPO_ROOT, "error-taxonomy.yml")).text()
     );
     const nested = join(dir, "nested-hook.ts");
-    writeFileSync(
+    writeText(
       nested,
       `
 const hook = Bun.argv[2];
@@ -76,7 +75,7 @@ process.exit(await proc.exited);
     } finally {
       if (oldHome === undefined) delete Bun.env.HOME;
       else Bun.env.HOME = oldHome;
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   }, 15_000);
 });

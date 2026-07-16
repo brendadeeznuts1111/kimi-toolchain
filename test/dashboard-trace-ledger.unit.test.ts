@@ -1,10 +1,10 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { apiTraceLedger, apiTraceGraph } from "../examples/dashboard/src/handlers/trace-ledger.ts";
 import { buildTraceEvent, recordTraceEvent } from "../src/lib/trace-ledger.ts";
 import { ensureProcessTrace } from "../src/lib/effect/trace-context.ts";
+import { makeDir, removePath } from "./helpers.ts";
 
 // Serial: tests mutate Bun.env.HOME and share trace-events.jsonl via paths.ts
 describe.serial("dashboard-trace-ledger", () => {
@@ -13,7 +13,7 @@ describe.serial("dashboard-trace-ledger", () => {
 
   beforeEach(() => {
     tempHome = join(tmpdir(), `dash-trace-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tempHome, ".kimi-code", "var"), { recursive: true });
+    makeDir(join(tempHome, ".kimi-code", "var"), { recursive: true });
     oldHome = Bun.env.HOME;
     Bun.env.HOME = tempHome;
   });
@@ -21,7 +21,7 @@ describe.serial("dashboard-trace-ledger", () => {
   afterEach(() => {
     if (oldHome === undefined) delete Bun.env.HOME;
     else Bun.env.HOME = oldHome;
-    rmSync(tempHome, { recursive: true, force: true });
+    removePath(tempHome, { recursive: true, force: true });
   });
 
   test("apiTraceLedger returns empty stats when no events exist", async () => {

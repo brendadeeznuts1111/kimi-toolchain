@@ -1,10 +1,8 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join, dirname } from "path";
-import { mkdirSync, mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import { lintSecretsRegistry } from "../src/lib/secrets-registry-lint.ts";
 import { SECRETS_POLICY_FILE, SECRETS_REGISTRY_DOC } from "../src/lib/secrets-constants.ts";
-import { writeText } from "./helpers.ts";
+import { writeText, makeDir, removePath, testTempDir } from "./helpers.ts";
 
 const MINIMAL_REGISTRY = `# Secrets registry
 
@@ -21,14 +19,14 @@ describe("secrets-registry-lint", () => {
   let tempRoot: string;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(join(tmpdir(), "secrets-lint-"));
+    tempRoot = testTempDir("secrets-lint-");
     const registryPath = join(tempRoot, SECRETS_REGISTRY_DOC);
-    mkdirSync(dirname(registryPath), { recursive: true });
+    makeDir(dirname(registryPath), { recursive: true });
     writeText(registryPath, MINIMAL_REGISTRY);
   });
 
   afterEach(() => {
-    rmSync(tempRoot, { recursive: true, force: true });
+    removePath(tempRoot, { recursive: true, force: true });
   });
 
   test("passes when repo policy and docs align", async () => {

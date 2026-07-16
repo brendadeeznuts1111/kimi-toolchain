@@ -1,5 +1,4 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import {
@@ -7,17 +6,18 @@ import {
   generateBridgeScript,
   writeBridgeScript,
 } from "../src/lib/mcp-bridge-scaffold.ts";
+import { makeDir, removePath } from "./helpers.ts";
 
 describe("mcp-bridge-scaffold", () => {
   let tmpDir: string;
 
   beforeEach(() => {
     tmpDir = join(tmpdir(), `kimi-mcp-bridge-${Bun.randomUUIDv7()}`);
-    mkdirSync(tmpDir, { recursive: true });
+    makeDir(tmpDir, { recursive: true });
   });
 
   afterEach(() => {
-    if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
+    if (tmpDir) removePath(tmpDir, { recursive: true, force: true });
   });
 
   test("generates filesystem bridge script", () => {

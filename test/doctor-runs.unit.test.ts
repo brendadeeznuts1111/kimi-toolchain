@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, rmSync } from "fs";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import { getPersistentWarnings, recordDoctorRun } from "../src/lib/doctor-runs.ts";
+import { makeDir, pathExists, removePath } from "./helpers.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
@@ -12,13 +12,13 @@ describe("doctor-runs", () => {
   beforeEach(() => {
     prevHome = Bun.env.HOME;
     testHome = artifactPath(REPO_ROOT, "tmp", `doctor-${Date.now()}`);
-    mkdirSync(testHome, { recursive: true });
+    makeDir(testHome, { recursive: true });
     Bun.env.HOME = testHome;
   });
 
   afterEach(() => {
     if (prevHome) Bun.env.HOME = prevHome;
-    if (testHome && existsSync(testHome)) rmSync(testHome, { recursive: true, force: true });
+    if (testHome && pathExists(testHome)) removePath(testHome, { recursive: true, force: true });
   });
 
   test("recordDoctorRun inserts new warning trend", () => {

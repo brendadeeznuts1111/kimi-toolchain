@@ -1,13 +1,11 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { Effect, Either, Layer } from "effect";
 import { join } from "path";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import { Secrets, SecretsTest } from "../src/lib/effect/secrets-service.ts";
 import { SecretNotFound, SecretPolicyViolation } from "../src/lib/effect/errors.ts";
 import { SecretKeys, Consumers } from "../src/lib/secrets-constants.ts";
 import type { SecretsBackend } from "../src/lib/secrets-types.ts";
-import { writeText } from "./helpers.ts";
+import { writeText, removePath, testTempDir } from "./helpers.ts";
 
 function makeBackend(store: Map<string, string>): SecretsBackend {
   return {
@@ -43,7 +41,7 @@ describe("secrets-service", () => {
   let layer: Layer.Layer<Secrets>;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(join(tmpdir(), "secrets-svc-"));
+    tempRoot = testTempDir("secrets-svc-");
     policyPath = join(tempRoot, "policy.json");
     auditPath = join(tempRoot, "audit.jsonl");
     writePolicy(policyPath);
@@ -52,7 +50,7 @@ describe("secrets-service", () => {
   });
 
   afterEach(() => {
-    rmSync(tempRoot, { recursive: true, force: true });
+    removePath(tempRoot, { recursive: true, force: true });
   });
 
   test("SecretsTest layer resolves registered secret", async () => {

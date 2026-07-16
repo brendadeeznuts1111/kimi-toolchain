@@ -1,23 +1,21 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join, dirname } from "path";
-import { mkdirSync, mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import {
   runSecretsStorageGate,
   SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY,
 } from "../src/lib/secrets-gate.ts";
 import { SECRETS_POLICY_FILE } from "../src/lib/secrets-constants.ts";
-import { writeText } from "./helpers.ts";
+import { writeText, makeDir, removePath, testTempDir } from "./helpers.ts";
 
 describe("secrets-gate", () => {
   let tempRoot: string;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(join(tmpdir(), "secrets-gate-"));
+    tempRoot = testTempDir("secrets-gate-");
   });
 
   afterEach(() => {
-    rmSync(tempRoot, { recursive: true, force: true });
+    removePath(tempRoot, { recursive: true, force: true });
   });
 
   test("passes on secure backend", async () => {
@@ -44,7 +42,7 @@ describe("secrets-gate", () => {
 
   test("fails when env-fallback backend has secure-tier secrets", async () => {
     const policyPath = join(tempRoot, SECRETS_POLICY_FILE);
-    mkdirSync(dirname(policyPath), { recursive: true });
+    makeDir(dirname(policyPath), { recursive: true });
     writeText(
       policyPath,
       JSON.stringify({

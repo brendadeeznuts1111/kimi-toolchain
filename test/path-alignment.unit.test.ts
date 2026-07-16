@@ -1,5 +1,4 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { basename, join } from "path";
 import {
@@ -10,7 +9,7 @@ import {
   removeOrphanedSnapshots,
   removeStaleWrappers,
 } from "../src/lib/workspace-health.ts";
-import { REPO_ROOT } from "./helpers.ts";
+import { REPO_ROOT, makeDir, removePath, writeText } from "./helpers.ts";
 
 describe("path-alignment", () => {
   let tmpHome: string;
@@ -21,14 +20,14 @@ describe("path-alignment", () => {
     originalHome = Bun.env.HOME;
     tmpHome = join(tmpdir(), `kimi-path-align-${Bun.randomUUIDv7()}`);
     tmpBin = join(tmpHome, ".local", "bin");
-    mkdirSync(tmpBin, { recursive: true });
+    makeDir(tmpBin, { recursive: true });
     Bun.env.HOME = tmpHome;
   });
 
   afterEach(() => {
     if (originalHome === undefined) delete Bun.env.HOME;
     else Bun.env.HOME = originalHome;
-    if (tmpHome) rmSync(tmpHome, { recursive: true, force: true });
+    if (tmpHome) removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("getExpectedBinNames reads package.json bin keys", async () => {
@@ -38,8 +37,8 @@ describe("path-alignment", () => {
   });
 
   test("listStaleWrappers finds wrappers not in package.json", async () => {
-    writeFileSync(join(tmpBin, "kimi-doctor"), "#!/bin/bash\n");
-    writeFileSync(join(tmpBin, "kimi-legacy-tool"), "#!/bin/bash\n");
+    writeText(join(tmpBin, "kimi-doctor"), "#!/bin/bash\n");
+    writeText(join(tmpBin, "kimi-legacy-tool"), "#!/bin/bash\n");
 
     const stale = await listStaleWrappers(REPO_ROOT, tmpBin);
     expect(stale).toContain("kimi-legacy-tool");
@@ -47,7 +46,7 @@ describe("path-alignment", () => {
   });
 
   test("listMissingWrappers finds absent wrappers", async () => {
-    writeFileSync(join(tmpBin, "kimi-doctor"), "#!/bin/bash\n");
+    writeText(join(tmpBin, "kimi-doctor"), "#!/bin/bash\n");
     const missing = await listMissingWrappers(REPO_ROOT, tmpBin);
     expect(missing).not.toContain("kimi-doctor");
     expect(missing.length).toBeGreaterThan(0);
@@ -62,8 +61,8 @@ describe("path-alignment", () => {
   });
 
   test("removeStaleWrappers deletes only stale entries", () => {
-    writeFileSync(join(tmpBin, "kimi-stale"), "#!/bin/bash\n");
-    writeFileSync(join(tmpBin, "kimi-doctor"), "#!/bin/bash\n");
+    writeText(join(tmpBin, "kimi-stale"), "#!/bin/bash\n");
+    writeText(join(tmpBin, "kimi-doctor"), "#!/bin/bash\n");
     const removed = removeStaleWrappers(["kimi-stale"], tmpBin);
     expect(removed).toBe(1);
     expect(Bun.file(join(tmpBin, "kimi-doctor")).size).toBeGreaterThan(0);
@@ -71,8 +70,8 @@ describe("path-alignment", () => {
 
   test("removeOrphanedSnapshots deletes broken snapshot paths", async () => {
     const snapDir = join(tmpHome, ".kimi-code", "snapshots");
-    mkdirSync(snapDir, { recursive: true });
-    writeFileSync(
+    makeDir(snapDir, { recursive: true });
+    writeText(
       join(snapDir, "snap-bad.json"),
       JSON.stringify({
         id: "snap-bad",

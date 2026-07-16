@@ -1,5 +1,4 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { desktopRoot } from "../src/lib/paths.ts";
@@ -21,15 +20,15 @@ import {
   writeMcpJson,
 } from "../src/lib/mcp-config.ts";
 import { BUN_DOCS_MCP_URL, BUN_DOCS_SERVER } from "../src/lib/mcp-registry.ts";
-import { withEnv } from "./helpers.ts";
+import { withEnv, makeDir, pathExists, removePath } from "./helpers.ts";
 
 let tmpHome: string;
 
 describe("mcp-config", () => {
   beforeEach(async () => {
     tmpHome = join(tmpdir(), `kimi-mcp-${Bun.randomUUIDv7()}`);
-    mkdirSync(tmpHome, { recursive: true });
-    mkdirSync(join(tmpHome, ".kimi-code", "tools"), { recursive: true });
+    makeDir(tmpHome, { recursive: true });
+    makeDir(join(tmpHome, ".kimi-code", "tools"), { recursive: true });
     await Bun.write(
       join(tmpHome, ".kimi-code", "tools", "unified-shell-bridge.ts"),
       "// bridge stub\n"
@@ -37,7 +36,7 @@ describe("mcp-config", () => {
   });
 
   afterEach(() => {
-    if (tmpHome) rmSync(tmpHome, { recursive: true, force: true });
+    if (tmpHome) removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("buildUnifiedShellEntry uses absolute bun and bridge path", () => {
@@ -107,11 +106,11 @@ describe("mcp-config", () => {
     await withEnv({ HOME: tmpHome }, async () => {
       const path = userMcpPath();
       // Clean up any pre-existing file from other test runs
-      if (existsSync(path)) rmSync(path, { force: true });
-      expect(existsSync(path)).toBe(false);
+      if (pathExists(path)) removePath(path, { force: true });
+      expect(pathExists(path)).toBe(false);
       const result = await provisionUserMcp(tmpHome);
       expect(result.changed).toBe(true);
-      expect(existsSync(path)).toBe(true);
+      expect(pathExists(path)).toBe(true);
       const parsed = await readMcpJson(path);
       expect(parsed?.data?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
       expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
@@ -131,7 +130,7 @@ describe("mcp-config", () => {
   test("validateMcpConfig reports cloudflare-api and project stub/override issues", async () => {
     await withEnv({ HOME: tmpHome, CLOUDFLARE_API_TOKEN: "test-token" }, async () => {
       const path = userMcpPath();
-      if (existsSync(path)) rmSync(path, { force: true });
+      if (pathExists(path)) removePath(path, { force: true });
       await provisionUserMcp(tmpHome);
       const report = await validateMcpConfig(tmpHome);
       const cfCheck = report.checks.find((c) => c.name === "cloudflare-api-mcp");
@@ -144,7 +143,7 @@ describe("mcp-config", () => {
 
       const projectRoot = join(tmpHome, "proj");
       const projectMcp = join(projectRoot, ".kimi-code", "mcp.json");
-      mkdirSync(join(projectRoot, ".kimi-code"), { recursive: true });
+      makeDir(join(projectRoot, ".kimi-code"), { recursive: true });
       await writeMcpJson(projectMcp, { mcpServers: {} });
 
       const stubReport = await validateMcpConfig(tmpHome, projectRoot);
@@ -223,7 +222,7 @@ describe("mcp-config", () => {
 
     test("honors home parameter for mcp.json without matching HOME", async () => {
       const altHome = join(tmpdir(), `kimi-alt-${Bun.randomUUIDv7()}`);
-      mkdirSync(join(altHome, ".kimi-code"), { recursive: true });
+      makeDir(join(altHome, ".kimi-code"), { recursive: true });
       try {
         await writeMcpJson(join(altHome, ".kimi-code", "mcp.json"), {
           mcpServers: {
@@ -236,13 +235,13 @@ describe("mcp-config", () => {
           expect(result.error).toBe(`MCP server '${BUN_DOCS_SERVER}' is disabled`);
         });
       } finally {
-        rmSync(altHome, { recursive: true, force: true });
+        removePath(altHome, { recursive: true, force: true });
       }
     });
 
     test("resolves user-only stdio server from home mcp.json", async () => {
       const altHome = join(tmpdir(), `kimi-custom-${Bun.randomUUIDv7()}`);
-      mkdirSync(join(altHome, ".kimi-code"), { recursive: true });
+      makeDir(join(altHome, ".kimi-code"), { recursive: true });
       try {
         await writeMcpJson(join(altHome, ".kimi-code", "mcp.json"), {
           mcpServers: {
@@ -257,13 +256,13 @@ describe("mcp-config", () => {
           );
         });
       } finally {
-        rmSync(altHome, { recursive: true, force: true });
+        removePath(altHome, { recursive: true, force: true });
       }
     });
 
     test("validates merged requiredEnv from user mcp.json", async () => {
       const altHome = join(tmpdir(), `kimi-env-${Bun.randomUUIDv7()}`);
-      mkdirSync(join(altHome, ".kimi-code"), { recursive: true });
+      makeDir(join(altHome, ".kimi-code"), { recursive: true });
       try {
         await writeMcpJson(join(altHome, ".kimi-code", "mcp.json"), {
           mcpServers: {
@@ -279,7 +278,7 @@ describe("mcp-config", () => {
           expect(result.error).toBe("missing env: CUSTOM_MCP_TOKEN");
         });
       } finally {
-        rmSync(altHome, { recursive: true, force: true });
+        removePath(altHome, { recursive: true, force: true });
       }
     });
 

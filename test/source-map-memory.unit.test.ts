@@ -16,8 +16,8 @@
  * @see https://bun.com/blog/bun-v1.3.13
  */
 import { describe, expect, test } from "bun:test";
-import { existsSync } from "fs";
 import { join } from "path";
+import { pathExists } from "./helpers.ts";
 
 const TSC_PATH = join(import.meta.dir, "..", "node_modules", "typescript", "lib", "typescript.js");
 const SOURCE_MAP_REPRESENTATION_BASELINES = {
@@ -72,12 +72,12 @@ function rssMB(): number {
 }
 
 function hasFixture(): boolean {
-  return existsSync(TSC_PATH);
+  return pathExists(TSC_PATH);
 }
 
 describe("source-map-memory", () => {
   test("typescript.js fixture is available", () => {
-    expect(existsSync(TSC_PATH)).toBe(true);
+    expect(pathExists(TSC_PATH)).toBe(true);
   });
 
   test("documents Bun source map representation density targets", () => {
@@ -134,7 +134,7 @@ describe("source-map-memory", () => {
       // Pre-1.3.13: full Mapping.List decoded into memory (~11 MB)
       // 1.3.13: bit-packed windows read in-place (~0.06 MB)
       const err = new Error("source-map-memory-test-probe");
-      const _stack = err.stack;
+      void err.stack;
 
       const rssAfterStack = rssMB();
       const stackDelta = Math.round((rssAfterStack - rssAfterRequire) * 100) / 100;
@@ -166,7 +166,7 @@ describe("source-map-memory", () => {
 
     const rssStart = rssMB();
     for (let i = 0; i < 10; i++) {
-      const _s = new Error("probe-" + i).stack;
+      void new Error("probe-" + i).stack;
     }
     const rssEnd = rssMB();
     const delta = rssEnd - rssStart;

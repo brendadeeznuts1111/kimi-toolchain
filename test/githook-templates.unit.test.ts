@@ -1,6 +1,5 @@
 import { $ } from "bun";
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import {
@@ -10,7 +9,7 @@ import {
   renderPreCommitHook,
   renderPrePushHook,
 } from "../src/lib/githook-templates.ts";
-import { REPO_ROOT } from "./helpers.ts";
+import { REPO_ROOT, makeDir, removePath } from "./helpers.ts";
 
 describe("githook templates", () => {
   test("pre-commit template delegates to run-gates pre-commit", () => {
@@ -90,7 +89,7 @@ bun run check
 
   test("rendered hook scripts are valid POSIX shell syntax", async () => {
     const tmpDir = artifactPath(REPO_ROOT, "tmp", `githooks-${Bun.randomUUIDv7()}`);
-    mkdirSync(tmpDir, { recursive: true });
+    makeDir(tmpDir, { recursive: true });
     try {
       const preCommit = join(tmpDir, "pre-commit");
       const prePush = join(tmpDir, "pre-push");
@@ -103,7 +102,7 @@ bun run check
       expect(preCommitSyntax.exitCode).toBe(0);
       expect(prePushSyntax.exitCode).toBe(0);
     } finally {
-      rmSync(tmpDir, { recursive: true, force: true });
+      removePath(tmpDir, { recursive: true, force: true });
     }
   });
 });

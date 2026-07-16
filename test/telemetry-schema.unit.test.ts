@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -9,6 +8,7 @@ import {
   type Taxonomy,
 } from "../src/lib/error-taxonomy.ts";
 import { createLogger } from "../src/lib/logger.ts";
+import { makeDir, readText, removePath } from "./helpers.ts";
 
 const sampleTaxonomy: Taxonomy = {
   version: 2,
@@ -60,7 +60,7 @@ describe("telemetry schema", () => {
 
   test("flushToFile appends JSONL without overwriting prior content", async () => {
     const dir = join(tmpdir(), `kimi-telemetry-${Bun.randomUUIDv7()}`);
-    mkdirSync(dir, { recursive: true });
+    makeDir(dir, { recursive: true });
     const path = join(dir, "cli-telemetry.jsonl");
 
     const logger1 = createLogger([], "test-tool");
@@ -71,12 +71,12 @@ describe("telemetry schema", () => {
     logger2.info("second run");
     await logger2.flushToFile(path);
 
-    const content = readFileSync(path, "utf8");
+    const content = readText(path);
     const lines = content.trim().split("\n");
     expect(lines.length).toBe(2);
     expect(JSON.parse(lines[0] ?? "{}").message).toBe("first run");
     expect(JSON.parse(lines[1] ?? "{}").message).toBe("second run");
 
-    rmSync(dir, { recursive: true, force: true });
+    removePath(dir, { recursive: true, force: true });
   });
 });

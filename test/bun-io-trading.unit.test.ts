@@ -1,18 +1,17 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import { listDir, pathExists } from "../templates/modules/trading/src/trading/lib/bun-io.ts";
+import { removePath, testTempDir } from "./helpers.ts";
 
 describe("bun-io-trading", () => {
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), "bun-io-trading-"));
+    tempDir = testTempDir("bun-io-trading-");
   });
 
   afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    removePath(tempDir, { recursive: true, force: true });
   });
 
   test("pathExists returns false for missing paths", () => {

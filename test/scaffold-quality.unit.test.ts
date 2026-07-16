@@ -1,8 +1,8 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
 import { artifactPath } from "../src/lib/artifacts.ts";
 import { ensureQualityTooling } from "../src/lib/scaffold-quality.ts";
+import { makeDir, pathExists, removePath, writeText } from "./helpers.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 
@@ -13,18 +13,18 @@ describe("scaffold-quality", () => {
 
   beforeEach(() => {
     tmpDir = artifactPath(REPO_ROOT, "tmp", `scaffold-quality-${Date.now()}`);
-    mkdirSync(tmpDir, { recursive: true });
+    makeDir(tmpDir, { recursive: true });
     logs.length = 0;
   });
 
   afterEach(() => {
-    if (existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
+    if (pathExists(tmpDir)) removePath(tmpDir, { recursive: true, force: true });
   });
 
   test(
     "adds missing scripts to package.json",
     async () => {
-      writeFileSync(
+      writeText(
         join(tmpDir, "package.json"),
         JSON.stringify({ name: "test-project", scripts: {}, devDependencies: {} }, null, 2)
       );
@@ -55,7 +55,7 @@ describe("scaffold-quality", () => {
         typecheck: "tsc --noEmit",
         format: "prettier --write .",
       };
-      writeFileSync(
+      writeText(
         join(tmpDir, "package.json"),
         JSON.stringify(
           { name: "test-project", scripts: existingScripts, devDependencies: {} },
@@ -95,7 +95,7 @@ describe("scaffold-quality", () => {
         "lint:terms": "bun run lint:terms",
         fix: "kimi-fix .",
       };
-      writeFileSync(
+      writeText(
         join(tmpDir, "package.json"),
         JSON.stringify({ name: "test-project", scripts: allScripts, devDependencies: {} }, null, 2)
       );
@@ -111,7 +111,7 @@ describe("scaffold-quality", () => {
   );
 
   test("dryRun does not write changes", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ name: "test-project", scripts: {}, devDependencies: {} }, null, 2)
     );
@@ -128,7 +128,7 @@ describe("scaffold-quality", () => {
   });
 
   test("toolchain profile adds finish-work script", async () => {
-    writeFileSync(
+    writeText(
       join(tmpDir, "package.json"),
       JSON.stringify({ name: "test-project", scripts: {}, devDependencies: {} }, null, 2)
     );

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -13,7 +12,7 @@ import {
 } from "../src/lib/success-metrics.ts";
 import { loadTaxonomy } from "../src/lib/error-taxonomy.ts";
 import { isTwoArtifactProviderIntegration } from "../src/lib/provider-contract.ts";
-import { REPO_ROOT } from "./helpers.ts";
+import { REPO_ROOT, makeDir, removePath, writeText } from "./helpers.ts";
 
 describe("success-metrics", () => {
   test("managed failure fixtures meet taxonomy coverage target", async () => {
@@ -35,9 +34,9 @@ describe("success-metrics", () => {
 
   test("failure ledger summary only returns counts", async () => {
     const dir = join(tmpdir(), `kimi-ledger-${Bun.randomUUIDv7()}`);
-    mkdirSync(dir, { recursive: true });
+    makeDir(dir, { recursive: true });
     const path = join(dir, "tool-failures.jsonl");
-    writeFileSync(
+    writeText(
       path,
       [
         JSON.stringify({ taxonomyId: "lockfile_issue", output: "secret-ish detail" }),
@@ -51,7 +50,7 @@ describe("success-metrics", () => {
     expect(summary.taxonomyCounts.lockfile_issue).toBe(1);
     expect(summary.unclassified).toBe(1);
     expect(JSON.stringify(summary)).not.toContain("secret-ish detail");
-    rmSync(dir, { recursive: true, force: true });
+    removePath(dir, { recursive: true, force: true });
   });
 
   test("provider agility fixture uses exactly two artifacts", () => {

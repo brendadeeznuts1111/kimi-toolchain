@@ -1,8 +1,6 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { Effect, Either } from "effect";
 import { join } from "path";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import { SecretsManager } from "../src/lib/secrets-manager.ts";
 import {
   SecretNotFound,
@@ -11,7 +9,7 @@ import {
 } from "../src/lib/effect/errors.ts";
 import { SecretKeys, Consumers } from "../src/lib/secrets-constants.ts";
 import type { SecretsBackend } from "../src/lib/secrets-types.ts";
-import { writeText, withEnv } from "./helpers.ts";
+import { writeText, withEnv, removePath, testTempDir } from "./helpers.ts";
 
 function makeBackend(store: Map<string, string>): SecretsBackend {
   return {
@@ -52,14 +50,14 @@ describe("secrets-manager", () => {
   let auditPath: string;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(join(tmpdir(), "secrets-mgr-"));
+    tempRoot = testTempDir("secrets-mgr-");
     policyPath = join(tempRoot, "policy.json");
     auditPath = join(tempRoot, "audit.jsonl");
     writePolicy(policyPath);
   });
 
   afterEach(() => {
-    rmSync(tempRoot, { recursive: true, force: true });
+    removePath(tempRoot, { recursive: true, force: true });
   });
 
   test("get returns secret for allowed consumer", async () => {

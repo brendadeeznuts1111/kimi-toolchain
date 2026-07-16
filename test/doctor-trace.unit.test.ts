@@ -1,11 +1,11 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { createLogger } from "../src/lib/logger.ts";
 import { ensureProcessTrace, TRACE_ID_ENV } from "../src/lib/effect/trace-context.ts";
 import { buildTraceEvent, recordTraceEvent, readTraceEvents } from "../src/lib/trace-ledger.ts";
 import { traceEventsPath } from "../src/lib/paths.ts";
+import { makeDir, removePath } from "./helpers.ts";
 
 describe("doctor-trace", () => {
   let tempHome: string;
@@ -13,7 +13,7 @@ describe("doctor-trace", () => {
 
   beforeEach(() => {
     tempHome = join(tmpdir(), `kimi-doctor-trace-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(tempHome, ".kimi-code", "var"), { recursive: true });
+    makeDir(join(tempHome, ".kimi-code", "var"), { recursive: true });
     oldHome = Bun.env.HOME;
     Bun.env.HOME = tempHome;
   });
@@ -21,7 +21,7 @@ describe("doctor-trace", () => {
   afterEach(() => {
     if (oldHome === undefined) delete Bun.env.HOME;
     else Bun.env.HOME = oldHome;
-    rmSync(tempHome, { recursive: true, force: true });
+    removePath(tempHome, { recursive: true, force: true });
   });
 
   test("ensureProcessTrace and createLogger share the same traceId", () => {

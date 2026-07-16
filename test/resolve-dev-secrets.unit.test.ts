@@ -1,15 +1,12 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { Effect } from "effect";
-import { join } from "path";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import {
   resolveDevSecrets,
   ensureDevSecretsResolved,
   resetDevSecretsResolveCache,
 } from "../src/lib/resolve-dev-secrets.ts";
 import { secretsPolicyPath } from "../src/lib/paths.ts";
-import { writeText, withEnv } from "./helpers.ts";
+import { writeText, withEnv, removePath, testTempDir } from "./helpers.ts";
 
 /**
  * Minimal env-fallback policy so resolveDevSecrets() has something to read.
@@ -41,8 +38,8 @@ describe("resolve-dev-secrets", () => {
   let rootB: string;
 
   beforeEach(() => {
-    rootA = mkdtempSync(join(tmpdir(), "resolve-secrets-a-"));
-    rootB = mkdtempSync(join(tmpdir(), "resolve-secrets-b-"));
+    rootA = testTempDir("resolve-secrets-a-");
+    rootB = testTempDir("resolve-secrets-b-");
     writeEnvFallbackPolicy(secretsPolicyPath(rootA));
     writeEnvFallbackPolicy(secretsPolicyPath(rootB));
     resetDevSecretsResolveCache();
@@ -51,8 +48,8 @@ describe("resolve-dev-secrets", () => {
   afterEach(() => {
     resetDevSecretsResolveCache();
     delete Bun.env[DEMO_TOKEN_ENV_KEY];
-    rmSync(rootA, { recursive: true, force: true });
-    rmSync(rootB, { recursive: true, force: true });
+    removePath(rootA, { recursive: true, force: true });
+    removePath(rootB, { recursive: true, force: true });
   });
 
   test("resolveDevSecrets populates Bun.env from env-fallback policy", async () => {
@@ -126,7 +123,7 @@ describe("resolve-dev-secrets", () => {
   });
 
   test("resolveDevSecrets tolerates a missing policy (probe-only path)", async () => {
-    rmSync(secretsPolicyPath(rootA), { force: true });
+    removePath(secretsPolicyPath(rootA), { force: true });
     // Should not throw — the catch block swallows the missing-policy error.
     const status = await Effect.runPromise(resolveDevSecrets(rootA));
     expect(status).toEqual({});

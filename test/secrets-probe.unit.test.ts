@@ -1,19 +1,17 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import { auditSecretsStorage } from "../src/lib/secrets-probe.ts";
-import { writeText } from "./helpers.ts";
+import { writeText, removePath, testTempDir } from "./helpers.ts";
 
 describe("secrets-probe", () => {
   let tempRoot: string;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(join(tmpdir(), "secrets-probe-"));
+    tempRoot = testTempDir("secrets-probe-");
   });
 
   afterEach(() => {
-    rmSync(tempRoot, { recursive: true, force: true });
+    removePath(tempRoot, { recursive: true, force: true });
   });
 
   test("auditSecretsStorage warns on env-fallback with secure-tier secrets", async () => {

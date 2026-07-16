@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { REPO_ROOT } from "./helpers.ts";
+import { REPO_ROOT, makeDir, removePath, writeText } from "./helpers.ts";
 import {
   classifyFailure,
   formatFailureOutput,
@@ -39,16 +38,16 @@ describe("error-taxonomy", () => {
 
   test("loadTaxonomy parses yaml categories", async () => {
     const dir = join(tmpdir(), `kimi-taxonomy-${Bun.randomUUIDv7()}`);
-    mkdirSync(dir, { recursive: true });
+    makeDir(dir, { recursive: true });
     const path = join(dir, "taxonomy.yml");
-    writeFileSync(
+    writeText(
       path,
       `version: 2\ncategories:\n  - id: test_cat\n    name: Test Category\n    description: A test category\n    severity: warn\n    expected: false\n    patterns:\n      - regex: "test error"\n`
     );
     const taxonomy = await loadTaxonomy(path);
     expect(taxonomy.version).toBe(2);
     expect(taxonomy.categories[0]?.id).toBe("test_cat");
-    rmSync(dir, { recursive: true, force: true });
+    removePath(dir, { recursive: true, force: true });
   });
 
   test("classifyFailure matches known pattern", async () => {

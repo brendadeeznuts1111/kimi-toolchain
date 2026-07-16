@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { recordDecision } from "../src/lib/decision-ledger.ts";
 import { buildTraceEvent, recordTraceEvent } from "../src/lib/trace-ledger.ts";
+import { makeDir, removePath } from "./helpers.ts";
 
 const REPO_ROOT = new URL("..", import.meta.url).pathname;
 const DECISION = join(REPO_ROOT, "src/bin/kimi-decision.ts");
@@ -11,7 +11,7 @@ const DECISION = join(REPO_ROOT, "src/bin/kimi-decision.ts");
 describe("kimi-decision CLI", () => {
   test("help exits successfully for decision and why aliases", async () => {
     const home = join(tmpdir(), `kimi-decision-help-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(home, ".kimi-code", "var"), { recursive: true });
+    makeDir(join(home, ".kimi-code", "var"), { recursive: true });
     try {
       const decisionHelp = await spawnDecision(["--help"], home);
       const whyHelp = await spawnWhy(["--help"], home);
@@ -21,13 +21,13 @@ describe("kimi-decision CLI", () => {
       expect(decisionHelp.stdout).toContain("Usage: kimi-decision");
       expect(whyHelp.stdout).toContain("Usage: kimi-decision");
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      removePath(home, { recursive: true, force: true });
     }
   });
 
   test("why returns a seeded decision with its trace root-cause chain", async () => {
     const home = join(tmpdir(), `kimi-decision-cli-${Bun.randomUUIDv7()}`);
-    mkdirSync(join(home, ".kimi-code", "var"), { recursive: true });
+    makeDir(join(home, ".kimi-code", "var"), { recursive: true });
     try {
       const tracePath = join(home, ".kimi-code", "var", "trace-events.jsonl");
       const decisionPath = join(home, ".kimi-code", "var", "decision-ledger.jsonl");
@@ -91,7 +91,7 @@ describe("kimi-decision CLI", () => {
       expect(explanation.rootCauseChain).toEqual(["trace-root", "trace-child"]);
       expect(log.decisions[0]?.decisionId).toBe("decision-format-fix");
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      removePath(home, { recursive: true, force: true });
     }
   });
 });

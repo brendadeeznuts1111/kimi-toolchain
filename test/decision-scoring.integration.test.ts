@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -9,11 +8,12 @@ import {
 } from "../src/lib/decision-ledger.ts";
 import { appendFailureRecord } from "../src/lib/failure-ledger.ts";
 import { scoreDecisions } from "../src/lib/decision-scoring.ts";
+import { makeDir, readText, removePath } from "./helpers.ts";
 
 describe("decision-scoring integration", () => {
   test("recurring cluster after heal produces low persisted quality score", async () => {
     const home = join(tmpdir(), `kimi-decision-score-${Bun.randomUUIDv7()}`);
-    mkdirSync(home, { recursive: true });
+    makeDir(home, { recursive: true });
     const decisionPath = join(home, "decision-ledger.jsonl");
     const failurePath = join(home, "tool-failures.jsonl");
     try {
@@ -53,7 +53,7 @@ describe("decision-scoring integration", () => {
       const persisted = await persistDecisionQualityScores(updates, decisionPath);
       const refreshed = await readDecisionLedger(decisionPath);
       const scored = refreshed.find((record) => record.decisionId === healDecision.decisionId);
-      const rawLines = readFileSync(decisionPath, "utf8").trim().split("\n");
+      const rawLines = readText(decisionPath).trim().split("\n");
       const original = JSON.parse(rawLines[0] ?? "{}") as { qualityScore?: number };
       const scoreUpdate = JSON.parse(rawLines[1] ?? "{}") as {
         metadata?: { scoreUpdateFor?: string; qualityScore?: number };
@@ -67,7 +67,7 @@ describe("decision-scoring integration", () => {
       expect(scoreUpdate.metadata?.qualityScore).toBe(0.2);
       expect(persisted.updated).toBeGreaterThanOrEqual(1);
     } finally {
-      rmSync(home, { recursive: true, force: true });
+      removePath(home, { recursive: true, force: true });
     }
   });
 });

@@ -1,15 +1,13 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { Effect } from "effect";
 import { join } from "path";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import {
   cmdSecretsStorage,
   cmdSecretsGate,
   cmdSecretsDoctor,
   secretsListProgram,
 } from "../src/lib/secrets-cli.ts";
-import { writeText } from "./helpers.ts";
+import { writeText, removePath, testTempDir } from "./helpers.ts";
 import { repoRoot } from "../src/lib/globs.ts";
 
 const SECRETS_BIN = join(repoRoot(), "src/bin/kimi-secrets.ts");
@@ -36,7 +34,7 @@ describe("secrets-cli", () => {
   let tempRoot: string;
 
   beforeEach(() => {
-    tempRoot = mkdtempSync(join(tmpdir(), "secrets-cli-"));
+    tempRoot = testTempDir("secrets-cli-");
     writeText(
       join(tempRoot, "secrets-policy.json5"),
       JSON.stringify({
@@ -55,7 +53,7 @@ describe("secrets-cli", () => {
   });
 
   afterEach(() => {
-    rmSync(tempRoot, { recursive: true, force: true });
+    removePath(tempRoot, { recursive: true, force: true });
   });
 
   test("secretsListProgram exits 0 and reports policy entries", async () => {

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, readFileSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -9,12 +8,13 @@ import {
   readDecisionLedger,
   recordDecision,
 } from "../src/lib/decision-ledger.ts";
+import { makeDir, readText, removePath } from "./helpers.ts";
 
 describe("decision-ledger", () => {
   test("records and explains a decision by topic", async () => {
     const dir = join(tmpdir(), `kimi-why-${Bun.randomUUIDv7()}`);
     const path = join(dir, "decision-ledger.jsonl");
-    mkdirSync(dir, { recursive: true });
+    makeDir(dir, { recursive: true });
     try {
       const record = await recordDecision(
         {
@@ -37,7 +37,7 @@ describe("decision-ledger", () => {
       expect(explanation.latest?.reasoning).toContain("shared-contract");
       expect(explanation.latest?.alternativesConsidered).toContain("run only oxlint");
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -67,7 +67,7 @@ describe("decision-ledger", () => {
   test("records structured v2 rationale from template context", async () => {
     const dir = join(tmpdir(), `kimi-decision-${Bun.randomUUIDv7()}`);
     const path = join(dir, "decision-ledger.jsonl");
-    mkdirSync(dir, { recursive: true });
+    makeDir(dir, { recursive: true });
     try {
       const record = await recordDecision(
         {
@@ -100,7 +100,7 @@ describe("decision-ledger", () => {
       expect(record.rationale.fullReasoning).toContain("regenerate-bun-lockfile");
       expect(record.alternatives[0]?.feasibility).toBe("low");
 
-      const raw = readFileSync(path, "utf8").trim();
+      const raw = readText(path).trim();
       const parsed = JSON.parse(raw) as {
         schemaVersion: number;
         rationale: { evidence: unknown[] };
@@ -112,7 +112,7 @@ describe("decision-ledger", () => {
       expect(loaded?.decisionId).toBe(record.decisionId);
       expect(loaded?.trigger.traceId).toBe("trace-heal-1");
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 

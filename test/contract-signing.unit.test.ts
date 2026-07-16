@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { generateKeyPairSync } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -9,10 +8,11 @@ import {
   trustedKeysPath,
   type TrustedKeys,
 } from "../src/lib/contract-signing.ts";
+import { makeDir, removePath, writeText } from "./helpers.ts";
 
 function tempDir(name: string): string {
   const dir = join(tmpdir(), `${name}-${Bun.randomUUIDv7()}`);
-  mkdirSync(dir, { recursive: true });
+  makeDir(dir, { recursive: true });
   return dir;
 }
 
@@ -25,7 +25,7 @@ function keyPair() {
 }
 
 function writeTrustedKeys(projectRoot: string, keys: TrustedKeys): void {
-  writeFileSync(trustedKeysPath(projectRoot), `${JSON.stringify(keys, null, 2)}\n`);
+  writeText(trustedKeysPath(projectRoot), `${JSON.stringify(keys, null, 2)}\n`);
 }
 
 describe("contract-signing", () => {
@@ -34,7 +34,7 @@ describe("contract-signing", () => {
     try {
       const keys = keyPair();
       const contract = join(dir, "provider.contract.json");
-      writeFileSync(
+      writeText(
         contract,
         JSON.stringify({ provider: "cloudflare", service: "access", permissions: ["read"] })
       );
@@ -47,7 +47,7 @@ describe("contract-signing", () => {
       expect(result.trusted).toBe(true);
       expect(result.recognizedSigner).toBe("schema-team");
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -56,15 +56,15 @@ describe("contract-signing", () => {
     try {
       const keys = keyPair();
       const contract = join(dir, "provider.contract.json");
-      writeFileSync(contract, JSON.stringify({ provider: "cloudflare", version: 1 }));
+      writeText(contract, JSON.stringify({ provider: "cloudflare", version: 1 }));
       writeTrustedKeys(dir, { "schema-team": { publicKey: keys.publicKeyPem } });
 
       await signContract(contract, "schema-team", keys.privateKeyPem);
-      writeFileSync(contract, JSON.stringify({ provider: "cloudflare", version: 2 }));
+      writeText(contract, JSON.stringify({ provider: "cloudflare", version: 2 }));
 
       await expect(validateContract(contract, dir)).rejects.toThrow("payload hash");
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -73,7 +73,7 @@ describe("contract-signing", () => {
     try {
       const keys = keyPair();
       const contract = join(dir, "provider.contract.json");
-      writeFileSync(contract, JSON.stringify({ provider: "cloudflare", version: 1 }));
+      writeText(contract, JSON.stringify({ provider: "cloudflare", version: 1 }));
       writeTrustedKeys(dir, {});
 
       await signContract(contract, "outside-team", keys.privateKeyPem);
@@ -85,7 +85,7 @@ describe("contract-signing", () => {
         "outside-team"
       );
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 });

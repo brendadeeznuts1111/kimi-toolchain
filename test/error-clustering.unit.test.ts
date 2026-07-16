@@ -1,6 +1,5 @@
 import { Effect } from "effect";
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { cosineSimilarity, embedText, EMBEDDING_DIM } from "../src/lib/error-embedding.ts";
@@ -10,10 +9,11 @@ import {
   suggestForErrorEffect,
 } from "../src/lib/error-clustering.ts";
 import { readFailureRecords } from "../src/lib/failure-ledger.ts";
+import { makeDir, removePath, writeText } from "./helpers.ts";
 
 function tempDir(): string {
   const dir = join(tmpdir(), `kimi-cluster-${Bun.randomUUIDv7()}`);
-  mkdirSync(dir, { recursive: true });
+  makeDir(dir, { recursive: true });
   return dir;
 }
 
@@ -60,7 +60,7 @@ describe("error-clustering", () => {
           taxonomyId: "lockfile_issue",
         },
       ];
-      writeFileSync(failurePath, records.map((r) => JSON.stringify(r)).join("\n"));
+      writeText(failurePath, records.map((r) => JSON.stringify(r)).join("\n"));
 
       const report = await Effect.runPromise(
         clusterFailureLedgerEffect({
@@ -85,7 +85,7 @@ describe("error-clustering", () => {
       expect(updated.every((row) => row.clusterId)).toBe(true);
       expect(updated.some((row) => row.embedding)).toBe(true);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -93,7 +93,7 @@ describe("error-clustering", () => {
     const dir = tempDir();
     try {
       const failurePath = join(dir, "tool-failures.jsonl");
-      writeFileSync(
+      writeText(
         failurePath,
         JSON.stringify({
           errorId: "error-suggest-1",
@@ -122,7 +122,7 @@ describe("error-clustering", () => {
       expect(suggestion?.clusterId).toBeTruthy();
       expect(suggestion?.recommendation.length).toBeGreaterThan(0);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -130,7 +130,7 @@ describe("error-clustering", () => {
     const dir = tempDir();
     try {
       const failurePath = join(dir, "tool-failures.jsonl");
-      writeFileSync(
+      writeText(
         failurePath,
         [
           '{"toolName":"legacy","output":"old format error","taxonomyId":"unknown","categoryId":"unknown"}',
@@ -150,7 +150,7 @@ describe("error-clustering", () => {
       expect(updated[0]?.errorId).toBeTruthy();
       expect(updated[0]?.clusterId).toBeTruthy();
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 });

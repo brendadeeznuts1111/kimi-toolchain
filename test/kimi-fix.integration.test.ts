@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { existsSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { makeDir, pathExists, removePath, writeText } from "./helpers.ts";
 
 const REPO_ROOT = import.meta.dir + "/..";
 const FIX = join(REPO_ROOT, "src/bin/kimi-fix.ts");
@@ -13,15 +13,15 @@ let projectDir: string;
 beforeEach(() => {
   tmpHome = join(tmpdir(), `kimi-fix-int-${Bun.randomUUIDv7()}`);
   projectDir = join(tmpHome, "demo-app");
-  mkdirSync(projectDir, { recursive: true });
-  writeFileSync(
+  makeDir(projectDir, { recursive: true });
+  writeText(
     join(projectDir, "package.json"),
     JSON.stringify({ name: "demo-app", version: "0.0.0" }, null, 2) + "\n"
   );
 });
 
 afterEach(() => {
-  if (existsSync(tmpHome)) rmSync(tmpHome, { recursive: true, force: true });
+  if (pathExists(tmpHome)) removePath(tmpHome, { recursive: true, force: true });
 });
 
 async function runFix(): Promise<{ stdout: string; exitCode: number }> {
@@ -51,18 +51,18 @@ describe("kimi-fix integration", () => {
     const { exitCode } = await runFix();
     expect(exitCode).toBe(0);
 
-    expect(existsSync(join(projectDir, "AGENTS.md"))).toBe(true);
+    expect(pathExists(join(projectDir, "AGENTS.md"))).toBe(true);
     const agents = await Bun.file(join(projectDir, "AGENTS.md")).text();
     expect(agents).toContain("demo-app");
-    expect(existsSync(join(projectDir, "CODE_REFERENCES.md"))).toBe(true);
+    expect(pathExists(join(projectDir, "CODE_REFERENCES.md"))).toBe(true);
     const codeReferences = await Bun.file(join(projectDir, "CODE_REFERENCES.md")).text();
     expect(codeReferences).toContain("Local Exemplars");
 
-    expect(existsSync(join(projectDir, "tsconfig.json"))).toBe(true);
-    expect(existsSync(join(projectDir, ".kimi-code", "mcp.json"))).toBe(true);
-    expect(existsSync(join(projectDir, "scripts", "check.ts"))).toBe(true);
-    expect(existsSync(join(projectDir, "README.md"))).toBe(true);
-    expect(existsSync(join(REPO_ROOT, "README.md"))).toBe(true);
-    expect(existsSync(join(projectDir, "CONTEXT.md"))).toBe(true);
+    expect(pathExists(join(projectDir, "tsconfig.json"))).toBe(true);
+    expect(pathExists(join(projectDir, ".kimi-code", "mcp.json"))).toBe(true);
+    expect(pathExists(join(projectDir, "scripts", "check.ts"))).toBe(true);
+    expect(pathExists(join(projectDir, "README.md"))).toBe(true);
+    expect(pathExists(join(REPO_ROOT, "README.md"))).toBe(true);
+    expect(pathExists(join(projectDir, "CONTEXT.md"))).toBe(true);
   }, 120_000);
 });

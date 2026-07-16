@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Exit } from "effect";
-import { mkdirSync } from "fs";
 import { join } from "path";
 import { ARTIFACTS_REPORTS_DIR, artifactPath } from "../src/lib/artifacts.ts";
 import type { ImpactResult } from "../src/lib/ci-impact.ts";
@@ -10,6 +9,7 @@ import {
   runFailFast,
   type PipelineStep,
 } from "../src/lib/effect/ci-pipeline.ts";
+import { makeDir } from "./helpers.ts";
 
 describe("Effect CI pipeline planning", () => {
   test("docs-only changes skip typecheck and executable gates", () => {
@@ -78,7 +78,7 @@ describe("Effect CI pipeline planning", () => {
   test("fail-fast executor interrupts sibling subprocesses", async () => {
     const repoRoot = join(import.meta.dir, "..");
     const marker = artifactPath(repoRoot, "tmp", ".tmp-fail-fast-marker");
-    mkdirSync(artifactPath(repoRoot, "tmp"), { recursive: true });
+    makeDir(artifactPath(repoRoot, "tmp"), { recursive: true });
     await Bun.file(marker)
       .delete()
       .catch(() => undefined);

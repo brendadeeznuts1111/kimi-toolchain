@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { appendSecretAudit, readSecretAudit, filterSecretAudit } from "../src/lib/secrets-audit.ts";
 import type { SecretAuditRecord } from "../src/lib/secrets-types.ts";
 import { join } from "path";
-import { rmSync, existsSync } from "fs";
+import { pathExists, removePath } from "./helpers.ts";
 
 function tmpAuditPath(): string {
   return join(import.meta.dir, ".tmp-secrets-audit-test.ndjson");
 }
 
 function cleanup(path: string): void {
-  if (existsSync(path)) rmSync(path, { force: true });
+  if (pathExists(path)) removePath(path, { force: true });
 }
 
 function record(overrides: Partial<SecretAuditRecord> = {}): SecretAuditRecord {

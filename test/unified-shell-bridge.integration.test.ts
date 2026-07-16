@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
+import { makeDir, removePath } from "./helpers.ts";
 
 const BRIDGE = join(import.meta.dir, "..", "src", "bin", "unified-shell-bridge.ts");
 
@@ -125,7 +125,7 @@ describe("unified-shell-bridge", () => {
 
   test("execute runs in provided workingDir", async () => {
     const cwd = join(tmpdir(), `kimi-bridge-cwd-${Bun.randomUUIDv7()}`);
-    mkdirSync(cwd, { recursive: true });
+    makeDir(cwd, { recursive: true });
     try {
       const [res] = await sendRequests([
         {
@@ -139,7 +139,7 @@ describe("unified-shell-bridge", () => {
       expect(text).toContain(cwd);
       expect(res.result?.isError).toBe(false);
     } finally {
-      rmSync(cwd, { recursive: true, force: true });
+      removePath(cwd, { recursive: true, force: true });
     }
   });
 });

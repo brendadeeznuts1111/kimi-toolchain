@@ -1,5 +1,4 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import {
@@ -12,17 +11,18 @@ import {
   BUN_DOCS_MCP_URL,
   BUN_DOCS_SERVER,
 } from "../src/lib/mcp-registry.ts";
+import { makeDir, removePath, writeText } from "./helpers.ts";
 
 let tmpHome: string;
 
 describe("mcp-registry", () => {
   beforeEach(() => {
     tmpHome = join(tmpdir(), `kimi-mcp-registry-${Bun.randomUUIDv7()}`);
-    mkdirSync(tmpHome, { recursive: true });
+    makeDir(tmpHome, { recursive: true });
   });
 
   afterEach(() => {
-    if (tmpHome) rmSync(tmpHome, { recursive: true, force: true });
+    if (tmpHome) removePath(tmpHome, { recursive: true, force: true });
   });
 
   test("loads built-in unified-shell, cloudflare-api, bun-docs, and dashboard servers", async () => {
@@ -39,8 +39,8 @@ describe("mcp-registry", () => {
 
   test("loads user-defined servers from ~/.kimi-code/mcp-servers/*.toml", async () => {
     const dir = mcpServersDirPath(tmpHome);
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(
+    makeDir(dir, { recursive: true });
+    writeText(
       join(dir, "github.toml"),
       `command = "bun"
 args = ["run", "github-mcp.ts"]

@@ -1,11 +1,10 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
-import { mkdtempSync, rmSync } from "fs";
-import { tmpdir } from "os";
 import { isPlainObject, isStringArray, isStringRecord, recordField } from "../src/lib/boundary.ts";
 import { parseJsonValue, readJsonFileOr, tryReadJsonValidated } from "../src/lib/bun-io.ts";
 import { isSnapshot } from "../src/lib/snapshot-core.ts";
 import { parseTomlValue } from "../src/lib/toml-config.ts";
+import { removePath, testTempDir } from "./helpers.ts";
 
 describe("boundary", () => {
   test("recordField and isPlainObject", () => {
@@ -26,11 +25,11 @@ describe("boundary", () => {
     let tempDir: string;
 
     beforeEach(() => {
-      tempDir = mkdtempSync(join(tmpdir(), "boundary-io-"));
+      tempDir = testTempDir("boundary-io-");
     });
 
     afterEach(() => {
-      rmSync(tempDir, { recursive: true, force: true });
+      removePath(tempDir, { recursive: true, force: true });
     });
 
     test("parseJsonValue throws on invalid shape", () => {

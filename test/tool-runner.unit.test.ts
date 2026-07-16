@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -13,12 +12,13 @@ import {
   withBunNoOrphans,
 } from "../src/lib/tool-runner.ts";
 import { probeBunExecutable } from "../src/lib/root-hygiene.ts";
+import { makeDir, removePath, writeText } from "./helpers.ts";
 
 function tmpScript(content: string): string {
   const dir = join(tmpdir(), `kimi-tool-runner-${Bun.randomUUIDv7()}`);
-  mkdirSync(dir, { recursive: true });
+  makeDir(dir, { recursive: true });
   const path = join(dir, "script.ts");
-  writeFileSync(path, content);
+  writeText(path, content);
   return path;
 }
 
@@ -71,17 +71,17 @@ describe("tool-runner", () => {
     expect(result.exitCode).toBe(2);
     expect(result.isError).toBe(true);
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
-    rmSync(join(script, ".."), { recursive: true, force: true });
+    removePath(join(script, ".."), { recursive: true, force: true });
   });
 
   test("invokeTool respects cwd", async () => {
     const cwd = join(tmpdir(), `kimi-tool-runner-cwd-${Bun.randomUUIDv7()}`);
-    mkdirSync(cwd, { recursive: true });
+    makeDir(cwd, { recursive: true });
     const script = tmpScript(`console.log(process.cwd());`);
     const result = await invokeTool(script, [], { cwd });
     expect(result.stdout).toContain(cwd);
-    rmSync(cwd, { recursive: true, force: true });
-    rmSync(join(script, ".."), { recursive: true, force: true });
+    removePath(cwd, { recursive: true, force: true });
+    removePath(join(script, ".."), { recursive: true, force: true });
   });
 
   test("invokeTool applies env overlay", async () => {
@@ -90,7 +90,7 @@ describe("tool-runner", () => {
       env: { KIMI_TOOL_RUNNER_TEST_VALUE: "from-env-overlay" },
     });
     expect(result.stdout).toContain("from-env-overlay");
-    rmSync(join(script, ".."), { recursive: true, force: true });
+    removePath(join(script, ".."), { recursive: true, force: true });
   });
 
   test("invokeTool scrubs Git hook-local env by default", async () => {
@@ -103,7 +103,7 @@ describe("tool-runner", () => {
     } finally {
       if (previousGitDir === undefined) delete Bun.env.GIT_DIR;
       else Bun.env.GIT_DIR = previousGitDir;
-      rmSync(join(script, ".."), { recursive: true, force: true });
+      removePath(join(script, ".."), { recursive: true, force: true });
     }
   });
 
@@ -113,7 +113,7 @@ describe("tool-runner", () => {
       env: { GIT_DIR: "/tmp/explicit-git-dir" },
     });
     expect(result.stdout.trim()).toBe("/tmp/explicit-git-dir");
-    rmSync(join(script, ".."), { recursive: true, force: true });
+    removePath(join(script, ".."), { recursive: true, force: true });
   });
 
   test(
@@ -153,7 +153,7 @@ describe("tool-runner", () => {
     expect(result.stderr.length).toBeLessThanOrEqual(24);
     expect(result.stdoutTruncated).toBe(true);
     expect(result.stderrTruncated).toBe(true);
-    rmSync(join(script, ".."), { recursive: true, force: true });
+    removePath(join(script, ".."), { recursive: true, force: true });
   });
 
   test("invokeTool drains large output without blocking child exit", async () => {
@@ -168,7 +168,7 @@ describe("tool-runner", () => {
     expect(result.stderr.length).toBe(64);
     expect(result.stdoutTruncated).toBe(true);
     expect(result.stderrTruncated).toBe(true);
-    rmSync(join(script, ".."), { recursive: true, force: true });
+    removePath(join(script, ".."), { recursive: true, force: true });
   });
 
   test("resolveToolSpawnTimeoutMs disables timeout for watch and MCP server", () => {
@@ -186,7 +186,7 @@ describe("tool-runner", () => {
       expect(result.timedOut).toBeUndefined();
       expect(result.isError).toBe(false);
       expect(result.exitCode).toBe(0);
-      rmSync(join(script, ".."), { recursive: true, force: true });
+      removePath(join(script, ".."), { recursive: true, force: true });
     },
     { timeout: 5000 }
   );
@@ -199,17 +199,17 @@ describe("tool-runner", () => {
       expect(result.isError).toBe(true);
       expect(result.timedOut).toBe(true);
       expect(result.error).toContain("timed out");
-      rmSync(join(script, ".."), { recursive: true, force: true });
+      removePath(join(script, ".."), { recursive: true, force: true });
     },
     { timeout: 5000 }
   );
 
   test("runTool resolves tool from ~/.kimi-code/tools", async () => {
     const tmpHome = join(tmpdir(), `kimi-tool-runner-home-${Bun.randomUUIDv7()}`);
-    mkdirSync(tmpHome, { recursive: true });
+    makeDir(tmpHome, { recursive: true });
     const toolsDirPath = join(tmpHome, ".kimi-code", "tools");
-    mkdirSync(toolsDirPath, { recursive: true });
-    writeFileSync(
+    makeDir(toolsDirPath, { recursive: true });
+    writeText(
       join(toolsDirPath, "kimi-doctor.ts"),
       "#!/usr/bin/env bun\nconsole.log('mock-doctor-ok');\n"
     );
@@ -223,7 +223,7 @@ describe("tool-runner", () => {
       expect(result.isError).toBe(false);
     } finally {
       Bun.env.HOME = prevHome;
-      rmSync(tmpHome, { recursive: true, force: true });
+      removePath(tmpHome, { recursive: true, force: true });
     }
   });
 });

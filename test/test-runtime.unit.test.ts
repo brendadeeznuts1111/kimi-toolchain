@@ -113,7 +113,14 @@ import {
   resetTestRuntimeWarningsForTests,
 } from "../src/lib/test-runtime.ts";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
-import { REPO_ROOT, captureStderrWrite, testTempDir, withClearedEnv, withEnv } from "./helpers.ts";
+import {
+  REPO_ROOT,
+  captureStderrWrite,
+  testTempDir,
+  withClearedEnv,
+  withEnv,
+  pathExists,
+} from "./helpers.ts";
 import { makeDir, writeText } from "../src/lib/bun-io.ts";
 import {
   INTEGRATION_TEST_FILES,
@@ -122,8 +129,6 @@ import {
   UNIT_TEST_FILES,
 } from "../src/lib/test-gates.ts";
 import { basename, join } from "path";
-import { existsSync } from "fs";
-
 describe("test-runtime", () => {
   describe("Bun NODE_ENV contract", () => {
     // https://bun.com/docs/test/runtime-behavior#node_env
@@ -672,8 +677,8 @@ test("subtraction works", () => {
         }
       ).exited;
       expect(code).toBe(BUN_TEST_EXIT.ok);
-      expect(existsSync(additionMarker)).toBe(true);
-      expect(existsSync(subtractionMarker)).toBe(false);
+      expect(pathExists(additionMarker)).toBe(true);
+      expect(pathExists(subtractionMarker)).toBe(false);
     }, 15_000);
   });
 
@@ -919,8 +924,8 @@ test("plain probe", () => {
         stderr: "pipe",
       }).exited;
       expect(code).toBe(BUN_TEST_EXIT.ok);
-      expect(existsSync(utilsMarker)).toBe(true);
-      expect(existsSync(plainMarker)).toBe(false);
+      expect(pathExists(utilsMarker)).toBe(true);
+      expect(pathExists(plainMarker)).toBe(false);
     }, 15_000);
 
     test("native bun test: ./ prefix runs an exact file path", async () => {
@@ -951,8 +956,8 @@ test("other probe", () => {
         stderr: "pipe",
       }).exited;
       expect(code).toBe(BUN_TEST_EXIT.ok);
-      expect(existsSync(specificMarker)).toBe(true);
-      expect(existsSync(otherMarker)).toBe(false);
+      expect(pathExists(specificMarker)).toBe(true);
+      expect(pathExists(otherMarker)).toBe(false);
     }, 15_000);
 
     test("native bun test: skips hidden directories during default discovery", async () => {
@@ -985,8 +990,8 @@ test("visible probe", () => {
         stderr: "pipe",
       }).exited;
       expect(code).toBe(BUN_TEST_EXIT.ok);
-      expect(existsSync(visibleMarker)).toBe(true);
-      expect(existsSync(hiddenMarker)).toBe(false);
+      expect(pathExists(visibleMarker)).toBe(true);
+      expect(pathExists(hiddenMarker)).toBe(false);
     }, 15_000);
   });
 
@@ -1063,7 +1068,7 @@ test("preload probe", () => {
         stderr: "pipe",
       }).exited;
       expect(code).toBe(BUN_TEST_EXIT.ok);
-      expect(existsSync(marker)).toBe(true);
+      expect(pathExists(marker)).toBe(true);
     }, 15_000);
 
     test("native bun test: CLI --timeout overrides bunfig timeout default", async () => {

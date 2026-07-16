@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import {
@@ -11,11 +10,11 @@ import {
   writeNdjsonFile,
   writeStdoutNdjsonLineSync,
 } from "../src/lib/ndjson.ts";
-import { captureStdout } from "./helpers.ts";
+import { captureStdout, makeDir, removePath } from "./helpers.ts";
 
 function tempDir(): string {
   const dir = join(tmpdir(), `kimi-ndjson-${Bun.randomUUIDv7()}`);
-  mkdirSync(dir, { recursive: true });
+  makeDir(dir, { recursive: true });
   return dir;
 }
 
@@ -28,7 +27,7 @@ describe("ndjson", () => {
       const records = await readNdjsonFile<{ a?: number; b?: number }>(path);
       expect(records).toEqual([{ a: 1 }, { b: 2 }]);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -41,7 +40,7 @@ describe("ndjson", () => {
       const records = await readNdjsonFile(path);
       expect(records).toEqual([{ a: 1 }, { b: 2 }]);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -57,7 +56,7 @@ describe("ndjson", () => {
       }
       expect(ids).toEqual([1, 2, 3]);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -75,7 +74,7 @@ describe("ndjson", () => {
       }
       expect(ids).toEqual([1, 2]);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -102,7 +101,7 @@ describe("ndjson", () => {
       const text = await Bun.file(path).text();
       expect(text).toBe('{"a":1}\n{"b":2}\n');
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 
@@ -117,7 +116,7 @@ describe("ndjson", () => {
       const records = await readNdjsonFile<{ id: number }>(path);
       expect(records.map((record) => record.id)).toEqual([1, 2]);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      removePath(dir, { recursive: true, force: true });
     }
   });
 });
