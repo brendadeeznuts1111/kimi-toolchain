@@ -67,7 +67,7 @@ describe("scaffold-templates", () => {
       if (pathExists(tmpDir)) removePath(tmpDir, { recursive: true, force: true });
     });
 
-    test("returns correct content with project name", async () => {
+    test("generateReadme returns correct content with project name", async () => {
       const mockGetProjectName = async (_dir: string) => "my-awesome-project";
       const filepath = await generateReadme(tmpDir, mockGetProjectName);
 
@@ -102,7 +102,7 @@ describe("scaffold-templates", () => {
       if (pathExists(tmpDir)) removePath(tmpDir, { recursive: true, force: true });
     });
 
-    test("returns correct content with project name", async () => {
+    test("generateContext returns correct content with project name", async () => {
       const mockGetProjectName = async (_dir: string) => "my-awesome-project";
       const filepath = await generateContext(tmpDir, mockGetProjectName);
 

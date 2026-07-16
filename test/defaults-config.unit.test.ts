@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 describe("defaults-config sync", () => {
-  test("returns null when dx.config.toml is missing", () => {
+  test("sync: returns null when dx.config.toml is missing", () => {
     const result = loadDxDefaultsSync(makeDir());
     expect(result).toBeNull();
   });
@@ -125,7 +125,7 @@ describe("defaults-config sync", () => {
 });
 
 describe("defaults-config async", () => {
-  test("returns null when dx.config.toml is missing", async () => {
+  test("async: returns null when dx.config.toml is missing", async () => {
     const result = await loadDxDefaults(makeDir());
     expect(result).toBeNull();
   });

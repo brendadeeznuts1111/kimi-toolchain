@@ -217,7 +217,7 @@ describe("herdr-workspace-service", () => {
       }
     });
 
-    test("returns error on CLI failure", () => {
+    test("listWorkspacesSync returns error on CLI failure", () => {
       mockCliSyncThrow = new Error("herdr workspace: exit 1");
       const result = workspaceService.listWorkspacesSync();
       expect(result.ok).toBe(false);
@@ -266,7 +266,7 @@ describe("herdr-workspace-service", () => {
       expect(result.ok).toBe(false);
     });
 
-    test("returns error on CLI failure", () => {
+    test("getWorkspaceSync returns error on CLI failure", () => {
       mockCliSyncThrow = new Error("not found");
       const result = workspaceService.getWorkspaceSync("ws_404");
       expect(result.ok).toBe(false);
@@ -292,7 +292,7 @@ describe("herdr-workspace-service", () => {
       }
     });
 
-    test("returns error on CLI failure", () => {
+    test("createWorkspaceSync returns error on CLI failure", () => {
       mockCliSyncThrow = new Error("disk full");
       const result = workspaceService.createWorkspaceSync();
       expect(result.ok).toBe(false);

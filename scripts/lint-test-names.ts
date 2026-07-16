@@ -477,6 +477,88 @@ export async function lintTestConventions(
   return violations;
 }
 
+// ── Duplicate test titles across files ───────────────────────────────
+
+const TEST_TITLE_RE = /\b(?:test|it)\s*\(\s*(?:"([^"]*)"|'([^']*)'|`([^`]*)`)/g;
+
+function stripTemplateLiterals(text: string): string {
+  // Replace template literals (including nested ${...}) with a placeholder.
+  let result = "";
+  let depth = 0;
+  let inTemplate = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    const next = text[i + 1];
+    if (ch === "`") {
+      inTemplate = !inTemplate;
+      result += "`";
+      continue;
+    }
+    if (inTemplate && ch === "$" && next === "{") {
+      depth++;
+      result += "${";
+      i++;
+      continue;
+    }
+    if (inTemplate && ch === "}" && depth > 0) {
+      depth--;
+      result += "}";
+      continue;
+    }
+    result += ch;
+  }
+  return result.replace(/`[^`]*`/g, '""');
+}
+
+function extractTestTitles(text: string): string[] {
+  const cleaned = stripTemplateLiterals(text);
+  const titles: string[] = [];
+  for (const match of cleaned.matchAll(TEST_TITLE_RE)) {
+    const title = match[1] ?? match[2] ?? match[3];
+    if (title !== undefined) titles.push(title);
+  }
+  return titles;
+}
+
+export async function lintDuplicateTestTitles(
+  root: string = REPO_ROOT,
+  onlyFiles?: string[]
+): Promise<string[]> {
+  const violations: string[] = [];
+  const glob = new Bun.Glob("test/**/*.test.ts");
+
+  const scanRel = async (rel: string): Promise<void> => {
+    const text = await Bun.file(join(root, rel)).text();
+    const counts = new Map<string, number>();
+    for (const title of extractTestTitles(text)) {
+      const normalized = title.trim().toLowerCase();
+      if (!normalized) continue;
+      counts.set(normalized, (counts.get(normalized) ?? 0) + 1);
+    }
+    for (const [normalized, count] of counts) {
+      if (count < 2) continue;
+      // Recover a readable title from the original casing.
+      const original = extractTestTitles(text).find((t) => t.trim().toLowerCase() === normalized);
+      violations.push(
+        `duplicate test title "${original ?? normalized}" appears ${count} times in ${rel}`
+      );
+    }
+  };
+
+  if (onlyFiles !== undefined) {
+    for (const rel of onlyFiles) {
+      if (!rel.startsWith("test/") || !rel.endsWith(".test.ts")) continue;
+      await scanRel(rel);
+    }
+  } else {
+    for await (const rel of glob.scan({ cwd: root, onlyFiles: true })) {
+      await scanRel(rel);
+    }
+  }
+
+  return violations;
+}
+
 // ── Test naming rules ────────────────────────────────────────────────
 
 export async function lintTestNames(
@@ -621,14 +703,18 @@ async function main(): Promise<void> {
     scoped.targetDir !== null ? scoped.conventionFiles : namesOnly ? [] : undefined;
   const onlyNames = scoped.targetDir !== null ? scoped.nameFiles : undefined;
 
-  const [nameViolations, conventionViolations] = await Promise.all([
+  const [nameViolations, conventionViolations, duplicateViolations] = await Promise.all([
     lintTestNames(REPO_ROOT, onlyNames),
     namesOnly && scoped.targetDir === null
       ? Promise.resolve([])
       : lintTestConventions(REPO_ROOT, onlyConvention),
+    lintDuplicateTestTitles(REPO_ROOT, onlyNames),
   ]);
 
-  const ok = nameViolations.length === 0 && conventionViolations.length === 0;
+  const ok =
+    nameViolations.length === 0 &&
+    conventionViolations.length === 0 &&
+    duplicateViolations.length === 0;
 
   if (json) {
     console.log(
@@ -640,6 +726,7 @@ async function main(): Promise<void> {
           targetDir: scoped.targetDir,
           filesScanned: scoped.targetDir !== null ? scoped.conventionFiles.length : null,
           naming: { ok: nameViolations.length === 0, violations: nameViolations },
+          duplicates: { ok: duplicateViolations.length === 0, violations: duplicateViolations },
           conventions: { ok: conventionViolations.length === 0, violations: conventionViolations },
         },
         null,
@@ -665,6 +752,14 @@ async function main(): Promise<void> {
     exit = 1;
   } else {
     console.log("lint:test-names OK");
+  }
+
+  if (duplicateViolations.length > 0) {
+    console.error(`\n✗ Duplicate test titles: ${duplicateViolations.length}\n`);
+    for (const line of duplicateViolations) console.error(`  ${line}`);
+    exit = 1;
+  } else {
+    console.log("lint:duplicate-test-titles OK");
   }
 
   if (namesOnly && scoped.targetDir === null) {

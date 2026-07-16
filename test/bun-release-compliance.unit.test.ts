@@ -673,16 +673,6 @@ describe("bun-release-compliance Effect doc URLs and scaffold patterns", () => {
     expect(text).toContain("Bun.env");
     expect(text).toContain("Bun.serve");
   });
-
-  test("scaffold code-references.md documents Effect patterns", () => {
-    const text = readSrc("templates/scaffold/code-references.md");
-    expect(text).toContain("Effect patterns");
-    expect(text).toContain("Data.TaggedError");
-    expect(text).toContain("Effect.gen");
-    expect(text).toContain("Effect.ensuring");
-    expect(text).toContain("Effect.runPromiseExit");
-    expect(text).toContain("effect.website");
-  });
 });
 
 // ── Bun v1.4.0 feature compliance ───────────────────────────────────

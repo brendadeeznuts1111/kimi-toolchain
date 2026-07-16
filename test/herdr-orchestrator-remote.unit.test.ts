@@ -117,7 +117,7 @@ describe("invokeRemoteAction", () => {
 });
 
 describe("remoteAgentStart", () => {
-  test("builds correct call", async () => {
+  test("remoteAgentStart builds correct call", async () => {
     const result = await remoteAgentStart(
       { ...testHost, host: "nonexistent.invalid" },
       "reviewer",
@@ -131,7 +131,7 @@ describe("remoteAgentStart", () => {
 });
 
 describe("remoteAgentStop", () => {
-  test("builds correct call", async () => {
+  test("remoteAgentStop builds correct call", async () => {
     const result = await remoteAgentStop(
       { ...testHost, host: "nonexistent.invalid" },
       "reviewer",
@@ -142,7 +142,7 @@ describe("remoteAgentStop", () => {
 });
 
 describe("remoteAgentAttach", () => {
-  test("builds correct call", async () => {
+  test("remoteAgentAttach builds correct call", async () => {
     const result = await remoteAgentAttach(
       { ...testHost, host: "nonexistent.invalid" },
       "reviewer",
