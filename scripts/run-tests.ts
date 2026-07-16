@@ -6,6 +6,8 @@
  *   bun run scripts/run-tests.ts
  *   bun run scripts/run-tests.ts --fast
  *   bun run scripts/run-tests.ts --files test/lib.unit.test.ts,test/r-score.unit.test.ts
+ *   bun run scripts/run-tests.ts --group core --dots
+ *   bun run scripts/run-tests.ts --path 'test/*-utils*.unit.test.ts'
  *   bun run scripts/run-tests.ts --coverage
  *   bun run scripts/run-tests.ts --ci --coverage
  *   bun run scripts/run-tests.ts --integration
@@ -24,7 +26,7 @@ import {
   type RunTestTierOptions,
   type TestTier,
 } from "../src/lib/test-runtime.ts";
-import { resolveTestGroupFiles } from "../src/lib/test-gates.ts";
+import { listTestGroups, resolveTestGroupFiles } from "../src/lib/test-gates.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
 
@@ -62,8 +64,17 @@ function parseCli(): {
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
+
+    const takeValue = (label: string): string => {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith("--")) {
+        throw new Error(`${label} requires a value`);
+      }
+      return value;
+    };
+
     if (arg === "--files") {
-      files.push(...splitList(argv[++i] ?? ""));
+      files.push(...splitList(takeValue("--files")));
       continue;
     }
     if (arg.startsWith("--files=")) {
@@ -71,7 +82,7 @@ function parseCli(): {
       continue;
     }
     if (arg === "--group") {
-      groups.push(...splitList(argv[++i] ?? ""));
+      groups.push(...splitList(takeValue("--group")));
       continue;
     }
     if (arg.startsWith("--group=")) {
@@ -79,7 +90,7 @@ function parseCli(): {
       continue;
     }
     if (arg === "--path") {
-      paths.push(...splitList(argv[++i] ?? ""));
+      paths.push(...splitList(takeValue("--path")));
       continue;
     }
     if (arg.startsWith("--path=")) {
@@ -87,7 +98,7 @@ function parseCli(): {
       continue;
     }
     if (arg === "--report-file") {
-      reporterOutfile = argv[++i];
+      reporterOutfile = takeValue("--report-file");
       continue;
     }
     if (arg.startsWith("--report-file=")) {
@@ -95,7 +106,7 @@ function parseCli(): {
       continue;
     }
     if (arg === "--timeout") {
-      timeoutMs = parseInt(argv[++i] ?? "", 10);
+      timeoutMs = parseInt(takeValue("--timeout"), 10);
       continue;
     }
     if (arg.startsWith("--timeout=")) {
@@ -112,7 +123,7 @@ function parseCli(): {
       continue;
     }
     if (arg === "--shard") {
-      shard = argv[++i];
+      shard = takeValue("--shard");
       continue;
     }
     if (arg.startsWith("--shard=")) {
@@ -120,12 +131,17 @@ function parseCli(): {
       continue;
     }
     if (arg === "--rerun-each") {
-      rerunEach = parseInt(argv[++i] ?? "", 10);
+      rerunEach = parseInt(takeValue("--rerun-each"), 10);
       continue;
     }
     if (arg.startsWith("--rerun-each=")) {
       rerunEach = parseInt(arg.slice("--rerun-each=".length), 10);
     }
+  }
+
+  const unknownGroups = groups.filter((g) => !listTestGroups().includes(g));
+  if (unknownGroups.length > 0) {
+    throw new Error(`unknown test group(s): ${unknownGroups.join(", ")}`);
   }
 
   let tier: TestTier | undefined;

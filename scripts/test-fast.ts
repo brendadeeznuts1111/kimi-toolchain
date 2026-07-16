@@ -1,8 +1,16 @@
 #!/usr/bin/env bun
-/** Unit tier — see src/lib/test-runtime.ts */
-import { join } from "path";
+/**
+ * Unit tier — see src/lib/test-runtime.ts
+ *
+ * Usage:
+ *   bun run test:fast
+ *   bun run test:fast -- --dots
+ *   bun run test:group:bun
+ *   bun run test:group -- doctor herdr
+ *   bun run test:path -- 'test/lib.unit.test.ts' 'test/tool-*.unit.test.ts' --dots
+ */
 import { runBunTest, runTestTier } from "../src/lib/test-runtime.ts";
-import { resolveTestGroupFiles } from "../src/lib/test-gates.ts";
+import { listTestGroups, resolveTestGroupFiles } from "../src/lib/test-gates.ts";
 import {
   gateSpawnEnv,
   scrubEphemeralBunNodeDirs,
@@ -13,8 +21,26 @@ scrubEphemeralBunNodeDirs();
 scrubProcessBunInstallCacheEnv();
 Object.assign(Bun.env, gateSpawnEnv(Bun.env));
 
-const REPO_ROOT = join(import.meta.dir, "..");
+const REPO_ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const argv = Bun.argv.slice(2);
+
+if (argv.includes("--help") || argv.includes("-h")) {
+  console.log(`test-fast.ts — unit-tier runner with domain groups
+
+Usage:
+  bun run test:fast [-- <bun-test-flags>]
+  bun run test:group -- <group> [<group>...] [-- <bun-test-flags>]
+  bun run test:path  -- <glob> [<glob>...]  [-- <bun-test-flags>]
+
+Domain groups (mutually exclusive):
+  ${listTestGroups().join("  ")}
+
+Examples:
+  bun run test:group -- bun core --dots
+  bun run test:path  -- 'test/lib.unit.test.ts' --quiet
+`);
+  process.exit(0);
+}
 
 function splitList(value: string): string[] {
   return value
@@ -26,11 +52,21 @@ function splitList(value: string): string[] {
 const groups: string[] = [];
 const paths: string[] = [];
 const forwarded: string[] = [];
-let captureGroup: "group" | "path" | null = null;
+let expectValueFor: "group" | "path" | null = null;
 
 for (const arg of argv) {
+  if (expectValueFor) {
+    if (arg.startsWith("--")) {
+      console.error(`Error: --${expectValueFor} requires a value`);
+      process.exit(2);
+    }
+    if (expectValueFor === "group") groups.push(...splitList(arg));
+    else paths.push(...splitList(arg));
+    expectValueFor = null;
+    continue;
+  }
   if (arg === "--group") {
-    captureGroup = "group";
+    expectValueFor = "group";
     continue;
   }
   if (arg.startsWith("--group=")) {
@@ -38,24 +74,26 @@ for (const arg of argv) {
     continue;
   }
   if (arg === "--path") {
-    captureGroup = "path";
+    expectValueFor = "path";
     continue;
   }
   if (arg.startsWith("--path=")) {
     paths.push(...splitList(arg.slice("--path=".length)));
     continue;
   }
-  if (captureGroup === "group") {
-    groups.push(...splitList(arg));
-    captureGroup = null;
-    continue;
-  }
-  if (captureGroup === "path") {
-    paths.push(...splitList(arg));
-    captureGroup = null;
-    continue;
-  }
   forwarded.push(arg);
+}
+
+if (expectValueFor) {
+  console.error(`Error: --${expectValueFor} requires a value`);
+  process.exit(2);
+}
+
+const unknownGroups = groups.filter((g) => !listTestGroups().includes(g));
+if (unknownGroups.length > 0) {
+  console.error(`Error: unknown test group(s): ${unknownGroups.join(", ")}`);
+  console.error(`Known groups: ${listTestGroups().join(", ")}`);
+  process.exit(2);
 }
 
 const resolvedFiles: string[] = [];

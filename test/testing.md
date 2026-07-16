@@ -30,6 +30,8 @@ Preload:               bunfig.toml [test].preload → test/setup.ts
 | ----------------------- | ---------------------- | ---------------------------------------------- | --------------------------------------- |
 | `bun run test:fast`     | Explicit unit files    | `scripts/test-fast.ts` → `runTestTier("unit")` | Default iteration; `check:fast`         |
 | `bun run test:changed`  | Git import graph       | `scripts/test-changed.ts`                      | Pre-commit; only impacted tests         |
+| `bun run test:group:*`  | Domain group           | `scripts/test-fast.ts --group=<name> --dots`   | Mutually exclusive groups; see below    |
+| `bun run test:path`     | Arbitrary glob         | `scripts/test-fast.ts --path '<glob>'`         | Any test file path(s)                   |
 | `bun run test:parallel` | Full discovery         | bare `bun test`                                | Full suite locally; breadth safety net  |
 | `bun run test:shard`    | Full discovery + shard | bare `bun test` + `--shard`                    | CI matrix; `BUN_TEST_SHARD=M/N` locally |
 | `bun run test`          | Explicit per tier      | `scripts/test-run.ts` → `runAllTestTiers`      | Full suite: unit → integration → smoke  |
@@ -37,6 +39,33 @@ Preload:               bunfig.toml [test].preload → test/setup.ts
 | `bun test`              | Full discovery         | Bare Bun discovery                             | Avoid in CI; use tier scripts           |
 
 See [testing-execution.md](../docs/references/testing-execution.md) for the four-script model, `--changed` limitations, and why `describe` is presentation-only for sharding/parallelism.
+
+### Domain groups (`test:group:*`)
+
+Groups are defined in `src/lib/test-gates.ts` (`TEST_GROUPS`). They are **mutually exclusive** — a file belongs to exactly one group — so combining groups never duplicates work.
+
+| Group       | Covers |
+| ----------- | ------ |
+| `bun`       | Bun API / runtime compliance tests (`test/bun-*.unit.test.ts`) |
+| `core`      | Shared library core: `lib`, `tool-*`, `cache`, `event-bus`, `logger`, `ndjson`, `wrap-ansi`, `source-map-memory` |
+| `dashboard` | Herdr dashboard modules (`test/herdr-dashboard-*.unit.test.ts`) |
+| `doctor`    | `kimi-doctor` and gate tests (`test/doctor-*`, `test/*-gate.unit.test.ts`, `test/kimi-doctor-*`) |
+| `effect`    | Effect-TS pipeline tests (`test/effect/**/*.unit.test.ts`) |
+| `examples`  | Example workspace tests (`test/examples-*.unit.test.ts`) |
+| `herdr`     | Herdr runtime tests excluding dashboard files |
+| `infra`     | CI, governance, guardian, health, finish-work, scope-preflight |
+| `mcp`       | MCP tests including `test/bun-docs-mcp*.unit.test.ts` |
+| `secrets`   | Secrets, auth, identity tests |
+
+Run a group:
+
+```bash
+bun run test:group:bun
+bun run test:group:core -- --quiet
+bun run test:path -- 'test/lib.unit.test.ts' 'test/tool-*.unit.test.ts' --dots
+```
+
+Pass `--dots` for compact output and `--quiet` for failures-only output.
 
 Tier runners pass explicit file paths from `test-gates.ts`, set `--timeout` per tier, and use `--isolate` (+ `--parallel` for unit). They **do not** pass CLI `--preload`; `bunfig.toml` handles preload.
 
@@ -279,6 +308,9 @@ Per-release Bun API bugfix verification lives in `test/bun-release-compliance.un
 | Parallel execution   | `bun test --parallel`                                                    | `--parallel`                        | Workers = CPU count; implies `--isolate`    | Good default for most runs                                 |
 | CI shard (job 2/3)   | `bun test --shard=2/3 --parallel --bail`                                 | `--shard`, `--parallel`, `--bail`   | `--bail` defaults to 1                      | Deterministic round-robin; combine with `--changed` on PRs |
 | Full tier, stop fast | `bun run test:fast -- --bail=1`                                          | `--bail`                            | Tier runner adds `--isolate --parallel=4`   | Bail after 1 failure                                       |
+| Domain group, compact| `bun run test:group:bun`                                                 | `--group`, `--dots`                 | Preset in package.json                      | No overlap between groups                                  |
+| Domain group, quiet  | `bun run test:group:core -- --quiet`                                     | `--group`, `--quiet`                | Only failures + summary                     | Pass extra flags after `--`                                |
+| Arbitrary path glob  | `bun run test:path -- 'test/lib*.unit.test.ts' --dots`                   | `--path`, `--dots`                  | Any glob relative to repo root              | Multiple globs allowed                                     |
 | Reproducible random  | `bun test --seed 12345`                                                  | `--seed`                            | `--seed` implies `--randomize`              | Same seed = same order                                     |
 | Debug flaky tests    | `bun test --isolate --retry=3 --bail=1 ./test/flaky.test.ts`             | `--isolate`, `--retry`, `--bail`    | `--retry` defaults to 1; `--bail` to 1      | Avoid `--parallel` when debugging                          |
 | Coverage for CI      | `bun test --coverage --coverage-reporter lcov --parallel`                | `--coverage`, `--coverage-reporter` | Default reporter `text`; dir `coverage/`    | Aggregates across parallel workers                         |
