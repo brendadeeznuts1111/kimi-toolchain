@@ -517,11 +517,6 @@ export function useFastUnitCoverage(packageName: string | undefined): boolean {
  * every file in `UNIT_TEST_FILES` belongs to exactly one group.
  */
 export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude?: string[] }> = {
-  agent: [
-    "test/agent-diagnosis.unit.test.ts",
-    "test/agents-md-sync.unit.test.ts",
-    "test/capabilities.unit.test.ts",
-  ],
   artifact: [
     "test/artifact-*.unit.test.ts",
     "test/archive-*.unit.test.ts",
@@ -625,6 +620,9 @@ export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude
       "test/test-gates.unit.test.ts",
       "test/test-runtime.unit.test.ts",
       "test/test-run-guard.unit.test.ts",
+      "test/agent-diagnosis.unit.test.ts",
+      "test/agents-md-sync.unit.test.ts",
+      "test/capabilities.unit.test.ts",
       "test/harness/**/*.unit.test.ts",
       "test/parallel-console*.unit.test.ts",
       "test/html-reporter.unit.test.ts",
@@ -694,18 +692,7 @@ export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude
       "test/guardian/perf-gate.unit.test.ts",
     ],
   },
-  git: [
-    "test/git-helpers.unit.test.ts",
-    "test/conventional-commits.unit.test.ts",
-    "test/changelog.unit.test.ts",
-  ],
-  governance: [
-    "test/governance-*.unit.test.ts",
-    "test/governance-check.unit.test.ts",
-    "test/success-metrics.unit.test.ts",
-  ],
   governor: ["test/governor-*.unit.test.ts", "test/memory-governor.unit.test.ts"],
-  handoff: ["test/handoff-*.unit.test.ts"],
   health: [
     "test/health-*.unit.test.ts",
     "test/workspace-health.unit.test.ts",
@@ -715,7 +702,11 @@ export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude
     "test/root-hygiene.unit.test.ts",
   ],
   herdr: {
-    include: ["test/herdr-*.unit.test.ts", "test/herdr/**/*.unit.test.ts"],
+    include: [
+      "test/herdr-*.unit.test.ts",
+      "test/herdr/**/*.unit.test.ts",
+      "test/handoff-*.unit.test.ts",
+    ],
     exclude: ["test/herdr-dashboard-*.unit.test.ts"],
   },
   infra: [
@@ -725,6 +716,12 @@ export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude
     "test/scope-preflight.unit.test.ts",
     "test/finish-work-*.unit.test.ts",
     "test/guardian/perf-gate.unit.test.ts",
+    "test/git-helpers.unit.test.ts",
+    "test/conventional-commits.unit.test.ts",
+    "test/changelog.unit.test.ts",
+    "test/governance-*.unit.test.ts",
+    "test/governance-check.unit.test.ts",
+    "test/success-metrics.unit.test.ts",
   ],
   kimi: {
     include: [
@@ -796,7 +793,6 @@ export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude
     "test/skill-contract.unit.test.ts",
     "test/skill-table.unit.test.ts",
   ],
-  sync: ["test/desktop-sync.unit.test.ts", "test/scan-tree-sync.unit.test.ts"],
   taxonomy: ["test/taxonomy-*.unit.test.ts", "test/taxonomy-coverage.unit.test.ts"],
   tool: [
     "test/tool-*.unit.test.ts",
@@ -817,6 +813,8 @@ export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude
       "test/path-alignment.unit.test.ts",
       "test/workspace-known-blockers.unit.test.ts",
       "test/workspace-runtime.unit.test.ts",
+      "test/desktop-sync.unit.test.ts",
+      "test/scan-tree-sync.unit.test.ts",
     ],
     exclude: ["test/workspace-health.unit.test.ts"],
   },

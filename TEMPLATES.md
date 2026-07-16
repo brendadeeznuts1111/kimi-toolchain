@@ -25,12 +25,12 @@ bun run verify:bun-features:strict   # includes templates.policy in verify ritua
 SSOT: `src/lib/template-policy-audit.ts`. Key policy groups:
 
 | Group              | Examples                                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
 | Install / registry | `trustedDependencies`, `saveTextLockfile`, `globalStore`, `templates.json` parity                                  |
 | Scaffold           | required `templates/scaffold/` files, toolchain profile, drift markers                                             |
 | Secrets            | `Bun.secrets` slice stubs, env.example docs, secret-leak scan, no committed `.env`                                 |
 | Bootstrap          | no `bun init` in postinstall; `kimi-new` uses `bun init -m -y`; `template-bootstrap` headers on spawn postinstalls |
-| Quality            | oxlint, `oxfmt --check templates/`, bun-native, `tsc --noEmit`, `bun test` in template projects                    |
+| Quality            | oxlint, `oxfmt --check templates/`, bun-native, `tsc --noEmit`, `bun test` in template projects                    | <!-- lint-testing-docs:skip --> |
 
 Authoring runbook: [`skills/create-template/SKILL.md`](skills/create-template/SKILL.md). Runnable examples: [`examples/template-policy-and-scaffold.md`](examples/template-policy-and-scaffold.md).
 

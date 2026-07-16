@@ -124,15 +124,15 @@ export async function runScopePreflight(repoRoot: string): Promise<ScopePrefligh
     checks.push(check);
   };
 
-  // sync:verify
+  // verify:desktop-runtime
   {
-    const cmd = "bun run sync:verify";
-    const { exitCode, stdout } = await runBunScript(repoRoot, "scripts/sync-verify.ts");
+    const cmd = "bun run verify:desktop-runtime";
+    const { exitCode, stdout } = await runBunScript(repoRoot, "scripts/verify-desktop-runtime.ts");
     add({
-      id: "sync-verify",
+      id: "verify-desktop-runtime",
       section: "Preflight",
       command: cmd,
-      scopeItem: "bun run sync && bun run sync:verify",
+      scopeItem: "bun run sync && bun run verify:desktop-runtime",
       ok: exitCode === 0,
       message: exitCode === 0 ? "desktop runtime in sync" : stdout.trim().slice(0, 200),
     });

@@ -10,7 +10,7 @@
 | **other**           | 4     | Manual / Herdr dashboard             | `docs/herdr/` + `docs/mcp/`                                                                                                                                              | Manual                                                | None                                         |
 | **domain-effects**  | 5     | `kimi-fix` (when `KIMI_MODULES` set) | `src/{module}/processor.ts` (per project)                                                                                                                                | Non-destructive (`!pathExists`)                       | Low — opt-in per module                      |
 
-**Consumed by:** `kimi-fix`, Herdr orchestrator, `LOCAL_DOC_REFERENCES`, `sync-verify.ts`, `bun create kimi-toolchain`
+**Consumed by:** `kimi-fix`, Herdr orchestrator, `LOCAL_DOC_REFERENCES`, `verify-desktop-runtime.ts`, `bun create kimi-toolchain`
 
 ---
 

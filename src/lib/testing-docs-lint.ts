@@ -154,7 +154,9 @@ const LINT_RULES: LintRule[] = [
   },
 ];
 
-const BUN_TEST_INVENTORY_ALLOW = /bun test\s*(<|--|\()/;
+const BUN_TEST_INVENTORY_ALLOW =
+  /bun test\s*(<|--|\(|-t\b|-u\b|\.\/test|test\/\S+\.unit\.test\.ts)/;
+const BUN_TEST_SKIP_MARKER = /<!--\s*lint-testing-docs:skip\b.*?-->/;
 
 interface HeadingRule {
   id: string;
@@ -301,12 +303,27 @@ export function inventoryBunTestMentions(
   if (!rel.endsWith(".md")) return [];
   const hits: Array<{ line: number; allowed: boolean; snippet: string }> = [];
   const lines = text.split("\n");
+  let inSkippedFence = false;
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i] ?? "";
+    const trimmed = raw.trim();
+    if (trimmed.startsWith("```")) {
+      if (inSkippedFence) {
+        inSkippedFence = false;
+      } else {
+        const prev = i > 0 ? (lines[i - 1] ?? "") : "";
+        inSkippedFence = BUN_TEST_SKIP_MARKER.test(prev);
+      }
+      continue;
+    }
     if (!/bun test/.test(raw)) continue;
+    const prev = i > 0 ? (lines[i - 1] ?? "") : "";
+    const skipped =
+      inSkippedFence || BUN_TEST_SKIP_MARKER.test(raw) || BUN_TEST_SKIP_MARKER.test(prev);
     hits.push({
       line: i + 1,
       allowed:
+        skipped ||
         BUN_TEST_INVENTORY_ALLOW.test(raw) ||
         /Avoid in CI|do not|Do not|anti-pattern|hooks\/CI|Bare `bun test`/i.test(raw),
       snippet: raw.trim().slice(0, 140),

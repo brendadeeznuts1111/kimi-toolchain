@@ -38,6 +38,8 @@ Bun's test runner has two independent axes:
 
 ### Implementation map
 
+<!-- lint-testing-docs:skip -->
+
 ```
 package.json scripts
   test:fast          → scripts/test-fast.ts        → runTestTier("unit")

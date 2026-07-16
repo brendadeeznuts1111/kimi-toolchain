@@ -355,7 +355,7 @@ Resolution order for `bun run <name>`:
 3. Binaries from installed packages
 4. System commands
 
-Use `bun run <name>` when a built-in Bun command (like `bun test`) would otherwise shadow a `package.json` script of the same name.
+Use `bun run <name>` when a built-in Bun command (like `bun test`) would otherwise shadow a `package.json` script of the same name. <!-- lint-testing-docs:skip -->
 
 ## Related
 

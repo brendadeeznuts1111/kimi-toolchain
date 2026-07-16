@@ -5,6 +5,8 @@
 
 ## Architecture
 
+<!-- lint-testing-docs:skip -->
+
 ```
 package.json scripts
   → scripts/test-fast.ts | test-changed.ts | run-tests.ts
@@ -47,46 +49,41 @@ See [testing-execution.md](../docs/references/testing-execution.md) for the four
 
 Groups are defined in `src/lib/test-gates.ts` (`TEST_GROUPS`). They are **mutually exclusive** — every unit test file belongs to exactly one group — so combining groups never duplicates work. The group set is validated by `scripts/lint-test-names.ts` and `test/test-gates.unit.test.ts`.
 
-| Group         | Covers                                                                                           |
-| ------------- | ------------------------------------------------------------------------------------------------ |
-| `agent`       | Agent meta tests (`agent-diagnosis`, `agents-md-sync`, `capabilities`)                           |
-| `artifact`    | Artifact, archive, and portal tests                                                              |
-| `build`       | Build, bundle, compile-target tests                                                              |
-| `bun`         | Bun API / runtime compliance tests (`test/bun-*.unit.test.ts`)                                   |
-| `check`       | Check pipeline and GitHub alignment tests                                                        |
-| `cloudflare`  | Cloudflare Access and DX config tests                                                            |
-| `config`      | Config, defaults, and `bunfig` tests                                                             |
-| `core`        | Shared library and toolchain-meta catch-all (`lib`, `cache`, `logger`, test infra, etc.)         |
-| `dashboard`   | Herdr dashboard modules (`test/herdr-dashboard-*.unit.test.ts`, `test/dashboard-*.unit.test.ts`) |
-| `data`        | Tables, property-tables, completions, markdown parsing                                           |
-| `decision`    | Decision, r-score, and rationale tests                                                           |
-| `discover`    | Repo discovery and inventory tests                                                               |
-| `doctor`      | `kimi-doctor` and doctor-specific gate tests                                                     |
-| `effect`      | Effect-TS pipeline tests (`test/effect/**/*.unit.test.ts`)                                       |
-| `error`       | Error handling and formatting tests                                                              |
-| `examples`    | Example workspace tests (`test/examples-*.unit.test.ts`)                                         |
-| `gate`        | Generic gate tests (`test/*-gate.unit.test.ts`, card-probe, autophagy, audit-effects)            |
-| `git`         | Git helpers, conventional commits, changelog                                                     |
-| `governance`  | Governance and success-metrics tests                                                             |
-| `governor`    | Resource governor and memory-governor tests                                                      |
-| `handoff`     | Handoff and finish-work tests                                                                    |
-| `health`      | Health, workspace-health, and hygiene tests                                                      |
-| `herdr`       | Herdr runtime tests excluding dashboard files                                                    |
-| `infra`       | CI, guardian, scope-preflight, finish-work                                                       |
-| `kimi`        | Kimi CLI and config tests excluding doctor                                                       |
-| `lint`        | Lint, testing-docs, and doc-link tests                                                           |
-| `mcp`         | MCP tests including `test/bun-docs-mcp*.unit.test.ts`                                            |
-| `performance` | Performance, benchmark, and effect-benchmark tests                                               |
-| `runtime`     | Runtime introspection, version, verify-bun-features                                              |
-| `scaffold`    | Scaffold, template-policy, and scaffold-quality tests                                            |
-| `secrets`     | Secrets, auth, and identity tests                                                                |
-| `serve`       | Serve, HTTP, WebSocket, and fetch tests                                                          |
-| `skill`       | Skill, frontmatter, and skill-contract tests                                                     |
-| `sync`        | Desktop sync and scan-tree-sync tests                                                            |
-| `taxonomy`    | Taxonomy and taxonomy-coverage tests                                                             |
-| `tool`        | Tool runner, registry, and unified shell bridge tests                                            |
-| `webview`     | Webview and bun-docs-webview tests                                                               |
-| `workspace`   | Workspace, path-hygiene, and workspace-runtime tests                                             |
+| Group         | Covers                                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| `artifact`    | Artifact, archive, and portal tests                                                                   |
+| `build`       | Build, bundle, compile-target tests                                                                   |
+| `bun`         | Bun API / runtime compliance tests (`test/bun-*.unit.test.ts`)                                        |
+| `check`       | Check pipeline and GitHub alignment tests                                                             |
+| `cloudflare`  | Cloudflare Access and DX config tests                                                                 |
+| `config`      | Config, defaults, and `bunfig` tests                                                                  |
+| `core`        | Shared library, agent meta, and toolchain-meta catch-all (`lib`, `cache`, `logger`, test infra, etc.) |
+| `dashboard`   | Herdr dashboard modules (`test/herdr-dashboard-*.unit.test.ts`, `test/dashboard-*.unit.test.ts`)      |
+| `data`        | Tables, property-tables, completions, markdown parsing                                                |
+| `decision`    | Decision, r-score, and rationale tests                                                                |
+| `discover`    | Repo discovery and inventory tests                                                                    |
+| `doctor`      | `kimi-doctor` and doctor-specific gate tests                                                          |
+| `effect`      | Effect-TS pipeline tests (`test/effect/**/*.unit.test.ts`)                                            |
+| `error`       | Error handling and formatting tests                                                                   |
+| `examples`    | Example workspace tests (`test/examples-*.unit.test.ts`)                                              |
+| `gate`        | Generic gate tests (`test/*-gate.unit.test.ts`, card-probe, autophagy, audit-effects)                 |
+| `governor`    | Resource governor and memory-governor tests                                                           |
+| `health`      | Health, workspace-health, and hygiene tests                                                           |
+| `herdr`       | Herdr runtime and handoff tests excluding dashboard files                                             |
+| `infra`       | CI, guardian, scope-preflight, finish-work, git helpers, governance, and changelog                    |
+| `kimi`        | Kimi CLI and config tests excluding doctor                                                            |
+| `lint`        | Lint, testing-docs, and doc-link tests                                                                |
+| `mcp`         | MCP tests including `test/bun-docs-mcp*.unit.test.ts`                                                 |
+| `performance` | Performance, benchmark, and effect-benchmark tests                                                    |
+| `runtime`     | Runtime introspection, version, verify-bun-features                                                   |
+| `scaffold`    | Scaffold, template-policy, and scaffold-quality tests                                                 |
+| `secrets`     | Secrets, auth, and identity tests                                                                     |
+| `serve`       | Serve, HTTP, WebSocket, and fetch tests                                                               |
+| `skill`       | Skill, frontmatter, and skill-contract tests                                                          |
+| `taxonomy`    | Taxonomy and taxonomy-coverage tests                                                                  |
+| `tool`        | Tool runner, registry, and unified shell bridge tests                                                 |
+| `webview`     | Webview and bun-docs-webview tests                                                                    |
+| `workspace`   | Workspace, path-hygiene, desktop sync, scan-tree-sync, and workspace-runtime tests                    |
 
 Run a group:
 
@@ -248,12 +245,16 @@ Effect tests: `runWithLayer` from `test/effect-helpers.ts`.
 
 Before editing testing docs, run the gate or the equivalent `rg` recipes (SSOT: `src/lib/testing-docs-lint.ts`).
 
+<!-- lint-testing-docs:skip -->
+
 ```bash
 bun run scripts/lint-testing-docs.ts          # stale-pattern gate
 bun run scripts/lint-testing-docs.ts --report # print rg recipes + bun test inventory
 ```
 
 Manual inventory (same patterns encoded in `TESTING_DOCS_AUDIT_COMMANDS`):
+
+<!-- lint-testing-docs:skip -->
 
 ```bash
 rg -n --glob '*.{md,ts}' 'bun test' .

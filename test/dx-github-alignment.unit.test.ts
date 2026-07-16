@@ -35,7 +35,7 @@ function packageJson(extraScripts: Record<string, string> = {}): string {
         "test:coverage:ci": "bun test --ci --coverage",
         "test:smoke": "bun test test/smoke",
         sync: "bun run scripts/sync-to-desktop.ts",
-        "sync:verify": "bun run scripts/sync-verify.ts",
+        "sync:verify": "bun run scripts/verify-desktop-runtime.ts",
         ...extraScripts,
       },
     },

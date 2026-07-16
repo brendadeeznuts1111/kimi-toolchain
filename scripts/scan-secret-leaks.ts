@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 /**
- * scan-secret-leaks.ts — Legacy JSON reporter; gate runner is `bun run check:secret-leaks`.
+ * scan-secret-leaks.ts — Legacy JSON reporter; gate runner is `bun run audit:secrets`.
  *
  * Usage:
  *   bun run scripts/scan-secret-leaks.ts
  *   bun run scripts/scan-secret-leaks.ts --json
- *   bun run check:secret-leaks   # parallel per-file bun test gate
+ *   bun run audit:secrets        # parallel per-file bun test gate
  */
 
 import { auditSecretLeaks } from "../src/doctor/secret-audit.ts";

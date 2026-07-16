@@ -100,16 +100,6 @@ export const AUDIT_CLI_ENDPOINTS: readonly AuditEndpointMeta[] = [
     description: "Parallel secret + isolation + image + kimi-config audit bundle",
   },
   {
-    id: "audit-perf",
-    kind: "cli",
-    path: "audit:perf",
-    entry: "scripts/audit-all.ts",
-    layer: "bundle",
-    dryRun: true,
-    strictBlocks: true,
-    description: "Alias to audit-all (cpu-prof friendly)",
-  },
-  {
     id: "audit-bundle",
     kind: "cli",
     path: "audit",
@@ -176,16 +166,6 @@ export const AUDIT_CLI_ENDPOINTS: readonly AuditEndpointMeta[] = [
     description: "bun-create registry alignment, zero-deps, postinstall, trustedDependencies",
   },
   {
-    id: "check-secret-leaks",
-    kind: "cli",
-    path: "check:secret-leaks",
-    entry: "scripts/scan-secret-leaks.ts",
-    layer: "secrets",
-    dryRun: false,
-    strictBlocks: true,
-    description: "CI gate alias for scan-secret-leaks",
-  },
-  {
     id: "check-secret-resolution",
     kind: "cli",
     path: "check:secret-resolution",
@@ -214,16 +194,6 @@ export const AUDIT_CLI_ENDPOINTS: readonly AuditEndpointMeta[] = [
     dryRun: false,
     strictBlocks: true,
     description: "verify:bun-features with audit:config alignment",
-  },
-  {
-    id: "doctor-audit",
-    kind: "cli",
-    path: "doctor:audit",
-    entry: "src/doctor/**/*.test.ts",
-    layer: "doctor",
-    dryRun: false,
-    strictBlocks: true,
-    description: "bun test src/doctor --parallel --isolate",
   },
   {
     id: "autophagy-scan",
@@ -264,16 +234,6 @@ export const AUDIT_CLI_ENDPOINTS: readonly AuditEndpointMeta[] = [
     dryRun: false,
     strictBlocks: true,
     description: "Secrets registry lint gate",
-  },
-  {
-    id: "check-secrets-storage-gate",
-    kind: "cli",
-    path: "check:secrets-storage-gate",
-    entry: "scripts/secrets-storage-gate.ts",
-    layer: "secrets",
-    dryRun: false,
-    strictBlocks: true,
-    description: "Secrets storage policy gate",
   },
 ] as const;
 
