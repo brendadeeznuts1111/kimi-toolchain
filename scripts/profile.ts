@@ -6,7 +6,7 @@
  *   bun run profile --cpu --md --target script.js
  *   bun run profile --heap --md --target script.js -- --arg1 --arg2
  *   bun run profile --heap --target script.js
- *   bun run profile --cpu --md --dir ./profiles --name run1 --target script.js
+ *   bun run profile --cpu --md --dir .kimi-artifacts/profiles --name run1 --target script.js
  */
 
 import { isAbsolute, join, resolve } from "path";
