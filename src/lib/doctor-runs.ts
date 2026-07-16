@@ -59,7 +59,7 @@ export function recordDoctorRun(
   sessionId?: string,
   runId?: string
 ): void {
-  const db = openSessionsDb();
+  using db = openSessionsDb();
   const now = Date.now();
   for (const column of ["session_id TEXT", "run_id TEXT"]) {
     try {
@@ -111,8 +111,6 @@ export function recordDoctorRun(
   } else {
     db.run("UPDATE warning_trends SET resolved_at = ? WHERE resolved_at IS NULL", [now]);
   }
-
-  db.close();
 }
 
 export function getPersistentWarnings(tool?: string): Array<{
@@ -126,7 +124,7 @@ export function getPersistentWarnings(tool?: string): Array<{
 }> {
   if (!pathExists(dbPath())) return [];
 
-  const db = openSessionsDb();
+  using db = openSessionsDb();
   let rows: Array<{
     check_name: string;
     tool: string;
@@ -153,8 +151,6 @@ export function getPersistentWarnings(tool?: string): Array<{
       )
       .all() as typeof rows;
   }
-
-  db.close();
 
   const now = Date.now();
   return rows.map((r) => ({
@@ -194,7 +190,7 @@ function rowToDoctorRunRecord(row: {
 export function getDoctorRunsByRunId(runId: string): DoctorRunRecord[] {
   if (!runId) return [];
   if (!pathExists(dbPath())) return [];
-  const db = openSessionsDb();
+  using db = openSessionsDb();
   const rows = db
     .query(
       `SELECT timestamp, tool, warnings_json, r_score, git_head, project, session_id, run_id
@@ -210,7 +206,6 @@ export function getDoctorRunsByRunId(runId: string): DoctorRunRecord[] {
     session_id: string | null;
     run_id: string | null;
   }>;
-  db.close();
   return rows.map(rowToDoctorRunRecord);
 }
 
@@ -218,7 +213,7 @@ export function getDoctorRunsByRunId(runId: string): DoctorRunRecord[] {
 export function getDoctorRunsBySession(sessionId: string): DoctorRunRecord[] {
   if (!sessionId) return [];
   if (!pathExists(dbPath())) return [];
-  const db = openSessionsDb();
+  using db = openSessionsDb();
   const rows = db
     .query(
       `SELECT timestamp, tool, warnings_json, r_score, git_head, project, session_id, run_id
@@ -234,7 +229,6 @@ export function getDoctorRunsBySession(sessionId: string): DoctorRunRecord[] {
     session_id: string | null;
     run_id: string | null;
   }>;
-  db.close();
   return rows.map(rowToDoctorRunRecord);
 }
 
@@ -242,7 +236,7 @@ export function getDoctorRunsBySession(sessionId: string): DoctorRunRecord[] {
 export function getDoctorRunsByProject(project: string): DoctorRunRecord[] {
   if (!project) return [];
   if (!pathExists(dbPath())) return [];
-  const db = openSessionsDb();
+  using db = openSessionsDb();
   const rows = db
     .query(
       `SELECT timestamp, tool, warnings_json, r_score, git_head, project, session_id, run_id
@@ -258,6 +252,5 @@ export function getDoctorRunsByProject(project: string): DoctorRunRecord[] {
     session_id: string | null;
     run_id: string | null;
   }>;
-  db.close();
   return rows.map(rowToDoctorRunRecord);
 }

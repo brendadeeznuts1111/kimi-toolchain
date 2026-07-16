@@ -40,10 +40,9 @@ async function main() {
   const dbPath = `${VAR_DIR}/sessions.db`;
   if (!(await Bun.file(dbPath).exists())) {
     console.log("  🗄 Initializing sessions.db...");
-    const db = new Database(dbPath, { create: true });
+    using db = new Database(dbPath, { create: true });
     db.exec("PRAGMA journal_mode = WAL;");
     db.exec(SESSIONS_SCHEMA_SQL);
-    db.close();
   }
 
   const wrapperScript = `${REPO_ROOT}/scripts/install-bin-wrappers.sh`;

@@ -141,18 +141,22 @@ async function analyzeError(
 
 // ── Session History (from memory DB if available) ────────────────────
 
+interface MemorySessionRow {
+  started_at: string;
+  key_decisions: string | null;
+}
+
 async function getRecentSessions(project: string, limit = 5): Promise<SessionEvent[]> {
   if (!pathExists(MEMORY_DB)) return [];
 
   try {
     const { Database } = await import("bun:sqlite");
-    const db = new Database(MEMORY_DB);
+    using db = new Database(MEMORY_DB);
     const rows = db
       .query(
         "SELECT started_at, key_decisions FROM sessions WHERE project = ? ORDER BY started_at DESC LIMIT ?"
       )
-      .all(project, limit) as any[];
-    db.close();
+      .all(project, limit) as MemorySessionRow[];
 
     return rows.map((r) => ({
       time: r.started_at,
@@ -172,7 +176,7 @@ async function recordFailure(project: string, errorText: string, suggestions: st
     if (!pathExists(WIZARD_DIR)) {
       makeDir(WIZARD_DIR, { recursive: true });
     }
-    const db = new Database(join(WIZARD_DIR, "failures.sqlite"), { create: true });
+    using db = new Database(join(WIZARD_DIR, "failures.sqlite"), { create: true });
     db.exec(`
       CREATE TABLE IF NOT EXISTS failures (
         id TEXT PRIMARY KEY,
@@ -193,7 +197,6 @@ async function recordFailure(project: string, errorText: string, suggestions: st
         JSON.stringify(suggestions),
       ]
     );
-    db.close();
   } catch {
     // Silent fail — recording is best-effort
   }

@@ -97,11 +97,14 @@ function doctor(): Array<{
     });
     return checks;
   }
+  using managedDb = db;
 
   // Cache health
-  const cacheCount = (db.query("SELECT COUNT(*) as c FROM diagnostic_cache").get() as CountRow).c;
+  const cacheCount = (
+    managedDb.query("SELECT COUNT(*) as c FROM diagnostic_cache").get() as CountRow
+  ).c;
   const expiredCount = (
-    db
+    managedDb
       .query("SELECT COUNT(*) as c FROM diagnostic_cache WHERE expires_at < ?")
       .get(Date.now()) as CountRow
   ).c;
@@ -113,7 +116,7 @@ function doctor(): Array<{
   });
 
   // Stuck sessions
-  const stuck = db
+  const stuck = managedDb
     .query("SELECT COUNT(*) as c FROM resource_sessions WHERE ended_at IS NULL AND started_at < ?")
     .get(Date.now() - DEFAULTS.wallClockMs * 2) as CountRow;
   checks.push({
@@ -137,14 +140,13 @@ function doctor(): Array<{
     checks.push({ name: "wal-size", status: "ok", message: "No WAL", fixable: false });
   }
 
-  db.close();
   return checks;
 }
 
 // ── Fix ──────────────────────────────────────────────────────────────
 
 function fixGovernor() {
-  const db = getDb();
+  using db = getDb();
 
   // Clean expired cache
   const cacheResult = db.run("DELETE FROM diagnostic_cache WHERE expires_at < ?", [Date.now()]);
@@ -158,7 +160,6 @@ function fixGovernor() {
   const stuckFixed = stuckResult.changes;
 
   db.exec("VACUUM;");
-  db.close();
 
   return { cacheDeleted, stuckFixed };
 }
@@ -313,12 +314,11 @@ async function main(): Promise<number> {
     const id = getSessionId();
     logger.line(`  Session ID: ${id}`);
 
-    const db = getDb();
+    using db = getDb();
     const active = db
       .query("SELECT COUNT(*) as c FROM resource_sessions WHERE ended_at IS NULL")
       .get() as CountRow;
     const total = db.query("SELECT COUNT(*) as c FROM resource_sessions").get() as CountRow;
-    db.close();
 
     logger.line(`  Active sessions: ${active.c}`);
     logger.line(`  Total sessions:  ${total.c}`);

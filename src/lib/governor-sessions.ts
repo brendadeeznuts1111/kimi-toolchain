@@ -44,7 +44,7 @@ export function startSession(project: string): SessionRecord {
     cpuTimeMs: 0,
     diskUsedMb: 0,
   };
-  const db = getDb();
+  using db = getDb();
   db.run(
     `INSERT INTO resource_sessions (id, project, started_at, memory_peak_mb, cpu_time_ms, disk_used_mb)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -57,23 +57,20 @@ export function startSession(project: string): SessionRecord {
       record.diskUsedMb,
     ]
   );
-  db.close();
   return record;
 }
 
 export function endSession(id: string) {
-  const db = getDb();
+  using db = getDb();
   db.run(`UPDATE resource_sessions SET ended_at = ? WHERE id = ?`, [Date.now(), id]);
-  db.close();
 }
 
 export function updateSessionPeak(id: string, memoryMb: number, cpuMs: number) {
-  const db = getDb();
+  using db = getDb();
   db.run(
     `UPDATE resource_sessions SET memory_peak_mb = MAX(memory_peak_mb, ?), cpu_time_ms = cpu_time_ms + ? WHERE id = ?`,
     [memoryMb, cpuMs, id]
   );
-  db.close();
 }
 
 export interface CacheEntry {
@@ -84,7 +81,15 @@ export interface CacheEntry {
   expiresAt: number;
 }
 
-export function normalizeCacheEntry(row: any): CacheEntry {
+interface CacheEntryRow {
+  key: string;
+  command: string;
+  output: string;
+  created_at: number | string;
+  expires_at: number | string;
+}
+
+export function normalizeCacheEntry(row: CacheEntryRow): CacheEntry {
   return {
     key: row.key,
     command: row.command,
@@ -131,11 +136,10 @@ export function hashCommand(command: string, args: string[], cwd: string): strin
 }
 
 export function getCached(key: string): CacheEntry | null {
-  const db = getDb();
+  using db = getDb();
   const row = db
     .query("SELECT * FROM diagnostic_cache WHERE key = ? AND expires_at > ?")
-    .get(key, Date.now()) as any;
-  db.close();
+    .get(key, Date.now()) as CacheEntryRow | null;
   return row ? normalizeCacheEntry(row) : null;
 }
 
@@ -145,20 +149,17 @@ export function setCached(
   output: string,
   ttlSeconds = DEFAULTS.cacheTTLSeconds
 ) {
-  const db = getDb();
+  using db = getDb();
   const now = Date.now();
   const expires = now + ttlSeconds * 1000;
   db.run(
     "INSERT OR REPLACE INTO diagnostic_cache (key, command, output, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
     [key, command, output, now, expires]
   );
-  db.close();
 }
 
 export function cleanupCache(): number {
-  const db = getDb();
+  using db = getDb();
   const result = db.run("DELETE FROM diagnostic_cache WHERE expires_at < ?", [Date.now()]);
-  const deleted = result.changes;
-  db.close();
-  return deleted;
+  return result.changes;
 }

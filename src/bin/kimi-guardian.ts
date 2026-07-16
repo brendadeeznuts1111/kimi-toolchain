@@ -110,7 +110,7 @@ async function signManifest(projectDir: string, hash: string): Promise<LockfileM
     key = await createSigningKey();
   }
 
-  const db = getDb();
+  using db = getDb();
 
   const timestamp = Date.now();
   const ttl = 30 * 24 * 60 * 60 * 1000;
@@ -142,7 +142,6 @@ async function signManifest(projectDir: string, hash: string): Promise<LockfileM
       manifest.ttl,
     ]
   );
-  db.close();
 
   return manifest;
 }
@@ -151,11 +150,10 @@ async function verifyManifest(
   projectDir: string,
   currentHash: string
 ): Promise<{ valid: boolean; reason?: string; manifest?: LockfileManifest }> {
-  const db = getDb();
+  using db = getDb();
   const row = db
     .query("SELECT * FROM manifests WHERE project_path = ?")
     .get(projectDir) as DbManifestRow | null;
-  db.close();
 
   if (!row) {
     return { valid: false, reason: "No manifest found — run 'kimi-guardian sign' to create" };
@@ -466,7 +464,7 @@ async function doctor(
   }> = [];
 
   // Manifest DB
-  let db: Database | null = null;
+  let db: Database;
   try {
     db = getDb();
     checks.push({ name: "manifest-db", status: "ok", message: "Accessible", fixable: false });
@@ -480,6 +478,7 @@ async function doctor(
     });
     return checks;
   }
+  using managedDb = db;
 
   // Signing key
   const key = await getSigningKey();
@@ -508,7 +507,8 @@ async function doctor(
   });
 
   // Manifest count
-  const manifestCount = (db.query("SELECT COUNT(*) as c FROM manifests").get() as DbCountRow).c;
+  const manifestCount = (managedDb.query("SELECT COUNT(*) as c FROM manifests").get() as DbCountRow)
+    .c;
   checks.push({
     name: "manifests",
     status: "ok",
@@ -516,7 +516,6 @@ async function doctor(
     fixable: false,
   });
 
-  db.close();
   return checks;
 }
 
