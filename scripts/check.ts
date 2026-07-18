@@ -17,6 +17,7 @@ import {
   runTestOnlyPipeline,
 } from "../src/lib/check-pipeline.ts";
 import type { CheckOptions } from "../src/lib/check-changed.ts";
+import { acquireTestGateLock } from "../src/lib/test-run-guard.ts";
 import {
   gateSpawnEnv,
   scrubEphemeralBunNodeDirs,
@@ -36,7 +37,6 @@ function parseCli(): CheckOptions {
     fast: false,
     staged: false,
     verbose: false,
-    timeoutMs: 0,
     changedOnly: false,
     base: "",
     baseExplicit: false,
@@ -138,10 +138,26 @@ async function main() {
     process.exit(1);
   }
 
-  process.exit(await runOnce(options));
+  // Hold the project test gate for the whole run: concurrent gates racing on
+  // shared state (ephemeral bun-node-* dirs, test-home artifacts) previously
+  // spun each other into infinite loops instead of failing fast.
+  const gateLock = options.dryRun
+    ? null
+    : acquireTestGateLock(REPO_ROOT, options.fast ? "check:fast" : "check");
+  if (gateLock && !gateLock.ok) {
+    console.error(gateLock.conflict.message);
+    process.exit(1);
+  }
+  try {
+    return await runOnce(options);
+  } finally {
+    gateLock?.lock.release();
+  }
 }
 
-main().catch((err) => {
-  console.error("check failed:", err instanceof Error ? err.message : String(err));
-  process.exit(1);
-});
+main()
+  .then((code) => process.exit(code))
+  .catch((err) => {
+    console.error("check failed:", err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  });

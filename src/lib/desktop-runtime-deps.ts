@@ -1,4 +1,4 @@
-import { copyTree, pathExists } from "./bun-io.ts";
+import { copyTree, pathExists, readText, removePath } from "./bun-io.ts";
 
 import { join } from "path";
 import { BUN_INSTALL_CLI } from "./bun-install-config.ts";
@@ -23,6 +23,26 @@ export interface ProvisionDesktopRuntimeDepsResult {
   reason: string;
 }
 
+/** Dependency names declared by the desktop-runtime template (SSOT for the health check). */
+function runtimeDependencyNames(): string[] {
+  try {
+    const parsed = JSON.parse(readText(RUNTIME_PACKAGE_TEMPLATE)) as {
+      dependencies?: Record<string, string>;
+    };
+    const names = Object.keys(parsed.dependencies ?? {});
+    return names.length > 0 ? names : ["typescript"];
+  } catch {
+    return ["typescript"];
+  }
+}
+
+/** Template deps whose package.json is missing (or dangling) under `root/node_modules`. */
+function missingRuntimeDeps(root: string): string[] {
+  return runtimeDependencyNames().filter(
+    (dep) => !pathExists(join(root, "node_modules", dep, "package.json"))
+  );
+}
+
 /** Ensure ~/.kimi-code has node_modules for runtime imports (typescript, effect, …). */
 export async function provisionDesktopRuntimeDeps(
   options: { dryRun?: boolean; force?: boolean } = {}
@@ -30,7 +50,6 @@ export async function provisionDesktopRuntimeDeps(
   const root = desktopRoot();
   const destPackage = join(root, "package.json");
   const templateText = await Bun.file(RUNTIME_PACKAGE_TEMPLATE).text();
-  const typescriptModule = join(root, "node_modules", "typescript", "package.json");
 
   ensureDir(root);
 
@@ -38,7 +57,8 @@ export async function provisionDesktopRuntimeDeps(
   const destHash = destExists ? await sha256File(destPackage) : "";
   const templateHash = await sha256File(RUNTIME_PACKAGE_TEMPLATE);
   const packageChanged = !destExists || destHash !== templateHash;
-  const needsInstall = packageChanged || !pathExists(typescriptModule);
+  const missing = missingRuntimeDeps(root);
+  const needsInstall = packageChanged || missing.length > 0;
 
   if (!needsInstall) {
     return { installed: false, reason: "runtime dependencies already satisfied" };
@@ -49,7 +69,7 @@ export async function provisionDesktopRuntimeDeps(
       installed: false,
       reason: packageChanged
         ? `would update package.json and run ${BUN_INSTALL_CLI.install}`
-        : `would run ${BUN_INSTALL_CLI.install} (typescript missing)`,
+        : `would run ${BUN_INSTALL_CLI.install} (missing: ${missing.join(", ")})`,
     };
   }
 
@@ -57,8 +77,18 @@ export async function provisionDesktopRuntimeDeps(
     await Bun.write(destPackage, templateText);
   }
 
-  if (!pathExists(typescriptModule) && seedRuntimeNodeModulesFromHost(root)) {
-    return { installed: true, reason: "seeded node_modules from host runtime" };
+  // The runtime lockfile is disposable and stale whenever an install is needed.
+  // Machine policy runs frozenLockfile, which hard-fails on an outdated lockfile.
+  for (const lockfile of ["bun.lock", "bun.lockb"]) {
+    const lockPath = join(root, lockfile);
+    if (pathExists(lockPath)) removePath(lockPath, { force: true });
+  }
+
+  if (missing.length > 0 && seedRuntimeNodeModulesFromHost(root)) {
+    const stillMissing = missingRuntimeDeps(root);
+    if (stillMissing.length === 0) {
+      return { installed: true, reason: "seeded node_modules from host runtime" };
+    }
   }
 
   const install = await spawnBun(["install", "--cwd", root]);
@@ -79,7 +109,7 @@ export async function provisionDesktopRuntimeDeps(
 /** Quick health check used by doctor/sync verify. */
 export function desktopRuntimeDepsOk(home?: string): boolean {
   const root = desktopRoot(home);
-  return pathExists(join(root, "node_modules", "typescript", "package.json"));
+  return missingRuntimeDeps(root).length === 0;
 }
 
 function seedRuntimeNodeModulesFromHost(targetRoot: string): boolean {

@@ -124,12 +124,33 @@ export async function runGate(
     stdout: "pipe",
     stderr: "pipe",
   });
+  // Hard wall-clock watchdog: a stuck step (e.g. a spinning test runner) must
+  // fail the gate, not hang it forever. KIMI_CHECK_FAST_TIMEOUT_MS overrides
+  // the default budget.
+  const wallClockMs = fastGateTimeoutBudgetMs() || DEFAULT_GATE_WALL_CLOCK_MS;
+  let timedOut = false;
+  const watchdog = setTimeout(() => {
+    timedOut = true;
+    proc.kill();
+  }, wallClockMs);
   const [stdout, stderr, exitCode] = await Promise.all([
     readableStreamToText(proc.stdout),
     readableStreamToText(proc.stderr),
     proc.exited,
   ]);
+  clearTimeout(watchdog);
   const ms = Math.round((Bun.nanoseconds() - start) / 1_000_000);
+
+  if (timedOut) {
+    const timeoutMsg = `TIMEOUT: ${name} exceeded wall-clock budget ${wallClockMs}ms — process killed (adjust via KIMI_CHECK_FAST_TIMEOUT_MS)`;
+    return {
+      name,
+      exitCode: 1,
+      ms,
+      stdout,
+      stderr: [stderr, timeoutMsg].filter(Boolean).join("\n"),
+    };
+  }
 
   const budget = fastGateTimeoutBudgetMs();
   if (budget > 0 && ms > budget && exitCode === 0) {
@@ -146,7 +167,10 @@ export async function runGate(
   return { name, exitCode, ms, stdout, stderr };
 }
 
-/** Read KIMI_CHECK_FAST_TIMEOUT_MS budget. Returns 0 (no limit) when unset. */
+/** Default wall-clock budget for a single gate step (kills stuck steps). */
+export const DEFAULT_GATE_WALL_CLOCK_MS = 10 * 60 * 1000;
+
+/** Read KIMI_CHECK_FAST_TIMEOUT_MS budget. Returns 0 (default wall clock) when unset. */
 export function fastGateTimeoutBudgetMs(): number {
   const raw = Bun.env.KIMI_CHECK_FAST_TIMEOUT_MS;
   if (!raw) return 0;

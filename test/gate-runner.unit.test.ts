@@ -1,13 +1,14 @@
 import { describe, expect, it, beforeEach, afterEach } from "bun:test";
 import { join } from "path";
 import { $ } from "bun";
-import { cleanupPath, ensureTestDir, REPO_ROOT, testTempDir } from "./helpers.ts";
+import { cleanupPath, ensureTestDir, REPO_ROOT, testTempDir, withEnv } from "./helpers.ts";
 import {
   failMark,
   formatHookSummary,
   formatTestSummaryLine,
   okMark,
   readGateCache,
+  runGate,
   shouldSkipGate,
   appendGateCache,
   writeGateCache,
@@ -146,4 +147,16 @@ describe("gate-runner", () => {
     expect(failMark()).toBe("FAIL");
     expect(okMark()).toBe("OK");
   });
+
+  it("runGate kills steps that exceed the wall-clock budget", async () => {
+    await withEnv({ KIMI_CHECK_FAST_TIMEOUT_MS: "500" }, async () => {
+      const started = Date.now();
+      const result = await runGate("slow-step", ["bun", "-e", "await Bun.sleep(60_000)"], {
+        cwd: projectDir,
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain("TIMEOUT");
+      expect(Date.now() - started).toBeLessThan(15_000);
+    });
+  }, 20_000);
 });

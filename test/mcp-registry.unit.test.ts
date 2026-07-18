@@ -55,12 +55,13 @@ requiredEnv = ["GITHUB_TOKEN"]
     expect(registry.servers["github"]?.requiredEnv).toEqual(["GITHUB_TOKEN"]);
   });
 
-  test("getDefaultServerNames includes built-in defaults", async () => {
+  test("getDefaultServerNames includes only default-active built-ins", async () => {
     const registry = await loadMcpRegistry(tmpHome);
     const names = getDefaultServerNames(registry);
     expect(names).toContain("unified-shell");
-    expect(names).toContain("cloudflare-api");
-    expect(names).toContain(BUN_DOCS_SERVER);
+    // Anti-bloat: cloudflare-api, bun-docs, and dashboard are opt-in, not default.
+    expect(names).not.toContain("cloudflare-api");
+    expect(names).not.toContain(BUN_DOCS_SERVER);
     expect(names).not.toContain(DASHBOARD_MCP_SERVER);
   });
 
@@ -76,7 +77,7 @@ requiredEnv = ["GITHUB_TOKEN"]
     const registry = await loadMcpRegistry(tmpHome);
     const bunDocs = registry.servers[BUN_DOCS_SERVER]!;
     expect(bunDocs.url).toBe(BUN_DOCS_MCP_URL);
-    expect(bunDocs.default).toBe(true);
+    expect(bunDocs.default).toBe(false);
     expect(bunDocs.enabledTools).toEqual([...BUN_DOCS_MCP_TOOLS]);
     expect(serverEnvAvailable(bunDocs)).toBe(true);
   });

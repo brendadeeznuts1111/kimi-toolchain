@@ -19,6 +19,24 @@ describe("desktop-runtime-deps", () => {
         expect(
           pathExists(join(fakeHome, ".kimi-code", "node_modules", "typescript", "package.json"))
         ).toBe(true);
+        expect(
+          pathExists(join(fakeHome, ".kimi-code", "node_modules", "ts-morph", "package.json"))
+        ).toBe(true);
+      });
+    } finally {
+      cleanupPath(fakeHome);
+    }
+  });
+
+  test("desktopRuntimeDepsOk reports false when any template dep is missing", async () => {
+    const fakeHome = testTempDir("desktop-runtime-");
+    try {
+      await withEnv({ HOME: fakeHome }, async () => {
+        await provisionDesktopRuntimeDeps();
+        expect(desktopRuntimeDepsOk(fakeHome)).toBe(true);
+        const tsMorphPkg = join(fakeHome, ".kimi-code", "node_modules", "ts-morph", "package.json");
+        cleanupPath(tsMorphPkg);
+        expect(desktopRuntimeDepsOk(fakeHome)).toBe(false);
       });
     } finally {
       cleanupPath(fakeHome);

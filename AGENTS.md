@@ -248,13 +248,13 @@ Applies on machines with `~/.bunfig.toml` machine SSOT. Monorepo details: `~/pro
 
 <!-- agents-sync:finish-work-gates:begin -->
 
-| # | Gate command                       |
+| #   | Gate command                       |
 | --- | ---------------------------------- |
-| 1 | `bun run check:fast`               |
-| 2 | `kimi-doctor --gate bunfig-policy` |
-| 3 | `kimi-doctor --effect-gates`       |
-| 4 | `kimi-doctor --automation`         |
-| 5 | `kimi-heal effect audit`           |
+| 1   | `bun run check:fast`               |
+| 2   | `kimi-doctor --gate bunfig-policy` |
+| 3   | `kimi-doctor --effect-gates`       |
+| 4   | `kimi-doctor --automation`         |
+| 5   | `kimi-heal effect audit`           |
 
 <!-- agents-sync:finish-work-gates:end -->
 

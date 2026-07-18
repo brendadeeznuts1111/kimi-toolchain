@@ -102,7 +102,7 @@ describe("mcp-config", () => {
     expect(config.mcpServers[BUN_DOCS_SERVER]?.url).toBe(BUN_DOCS_MCP_URL);
   });
 
-  test("provisionUserMcp creates mcp.json with unified-shell, cloudflare-api, and bun-docs", async () => {
+  test("provisionUserMcp creates mcp.json with default servers only", async () => {
     await withEnv({ HOME: tmpHome }, async () => {
       const path = userMcpPath();
       // Clean up any pre-existing file from other test runs
@@ -113,9 +113,9 @@ describe("mcp-config", () => {
       expect(pathExists(path)).toBe(true);
       const parsed = await readMcpJson(path);
       expect(parsed?.data?.mcpServers[UNIFIED_SHELL_SERVER]).toBeDefined();
-      expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeDefined();
-      expect(parsed?.data?.mcpServers["bun-docs"]).toBeDefined();
-      expect(parsed?.data?.mcpServers["bun-docs"]?.url).toBe(BUN_DOCS_MCP_URL);
+      // Anti-bloat: opt-in servers are not provisioned by default.
+      expect(parsed?.data?.mcpServers[CLOUDFLARE_API_SERVER]).toBeUndefined();
+      expect(parsed?.data?.mcpServers[BUN_DOCS_SERVER]).toBeUndefined();
     });
   });
 
@@ -132,6 +132,10 @@ describe("mcp-config", () => {
       const path = userMcpPath();
       if (pathExists(path)) removePath(path, { force: true });
       await provisionUserMcp(tmpHome);
+      // Opt in to non-default servers (anti-bloat: not provisioned by default).
+      const { data: provisioned } = await readMcpJson(path);
+      const { config: optedIn } = mergeToolchainMcpServers(provisioned, tmpHome);
+      await writeMcpJson(path, optedIn);
       const report = await validateMcpConfig(tmpHome);
       const cfCheck = report.checks.find((c) => c.name === "cloudflare-api-mcp");
       expect(cfCheck?.status).toBe("ok");

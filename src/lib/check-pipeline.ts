@@ -674,7 +674,9 @@ export function printCheckDryRun(
   if (options.scanStrict) flags.push("scan-strict");
   const quiet = !options.verbose && shouldSilentOnSuccess() ? "(quiet) " : "";
   checkOut(`check (${flags.join(" ")}) ${quiet}— dry run`);
-  checkOut(`  test timeout: ${options.timeoutMs}ms`);
+  checkOut(
+    `  test timeout: ${options.timeoutMs !== undefined ? `${options.timeoutMs}ms` : "tier default"}`
+  );
   if (changedFiles) {
     checkOut(`  changed files: ${changedFiles.length}`);
   }

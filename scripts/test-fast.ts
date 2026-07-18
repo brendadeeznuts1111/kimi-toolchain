@@ -12,6 +12,7 @@
  */
 import { runBunTest, runTestTier } from "../src/lib/test-runtime.ts";
 import { listTestGroups, resolveTestGroupFiles } from "../src/lib/test-gates.ts";
+import { acquireTestGateLock } from "../src/lib/test-run-guard.ts";
 import {
   gateSpawnEnv,
   scrubEphemeralBunNodeDirs,
@@ -112,4 +113,17 @@ if (resolvedFiles.length > 0) {
   process.exit(await runBunTest(REPO_ROOT, args, { quiet, source: "test-fast" }));
 }
 
-process.exit(await runTestTier(REPO_ROOT, "unit", { retry: 2, forwarded }));
+// Full unit-tier runs hold the project test gate so concurrent gates fail fast
+// with a clear conflict instead of corrupting shared state (see test-run-guard.ts).
+const tierLock = acquireTestGateLock(REPO_ROOT, "test:fast");
+if (!tierLock.ok) {
+  console.error(tierLock.conflict.message);
+  process.exit(1);
+}
+let tierCode = 1;
+try {
+  tierCode = await runTestTier(REPO_ROOT, "unit", { retry: 2, forwarded });
+} finally {
+  tierLock.lock.release();
+}
+process.exit(tierCode);

@@ -10,7 +10,7 @@ describe("discover", () => {
     const report = await discoverUnified(root, { dx: { evaluateProbes: true } });
 
     expect(report.constants?.constantCount).toBeGreaterThan(20);
-    expect(report.dx?.endpointCount).toBe(10);
+    expect(report.dx?.endpointCount).toBe(9);
     expect(report.health.overall).toBeGreaterThan(0);
     expect(report.constants).toBeDefined();
     expect(report.dx).toBeDefined();

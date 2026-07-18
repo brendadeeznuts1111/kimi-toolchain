@@ -249,13 +249,15 @@ export async function mergeRegistryMcpServers(
 
   const registry = await loadMcpRegistry(home);
   for (const [name, def] of Object.entries(registry.servers)) {
-    if (def.default === false) continue;
     const existing = config.mcpServers[name];
     if (!existing) {
+      // Anti-bloat: only provision servers that are active by default.
+      if (def.default === false) continue;
       config.mcpServers[name] = def;
       changed = true;
       continue;
     }
+    // Always heal stale URLs for servers already present, even non-default ones.
     if (def.url && remoteRegistryEntryNeedsRefresh(existing, def)) {
       config.mcpServers[name] = { ...existing, ...def };
       changed = true;

@@ -170,11 +170,11 @@ const SYNC_BLOCKS: SyncBlockSpec[] = [
 
 function formatTable(headers: string[], rows: string[][]): string[] {
   const widths = headers.map((header, index) =>
-    Math.max(header.length, ...rows.map((row) => (row[index] ?? "").length))
+    Math.max(header.length, ...rows.map((row) => (row[index] ?? "").length), 3)
   );
   const line = (cells: string[]) =>
     `| ${cells.map((cell, index) => cell.padEnd(widths[index] ?? 0)).join(" | ")} |`;
-  const separator = widths.map((width) => "-".repeat(Math.max(width, 3)));
+  const separator = widths.map((width) => "-".repeat(width));
 
   return [line(headers), line(separator), ...rows.map(line)];
 }

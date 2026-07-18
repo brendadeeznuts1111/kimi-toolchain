@@ -14,7 +14,8 @@ export interface CheckOptions {
   fast: boolean;
   staged: boolean;
   verbose: boolean;
-  timeoutMs: number;
+  /** Per-test `bun test --timeout` override. Undefined = tier default (30s unit / 60s smoke). */
+  timeoutMs?: number;
   changedOnly: boolean;
   base: string;
   /** User passed --base (disables auto fallback to origin/main). */

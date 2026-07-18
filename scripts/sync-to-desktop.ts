@@ -9,6 +9,7 @@ import {
   syncDesktop,
   type SyncRunResult,
 } from "../src/lib/desktop-sync.ts";
+import { provisionDesktopRuntimeDeps } from "../src/lib/desktop-runtime-deps.ts";
 import { provisionUserMcp } from "../src/lib/mcp-config.ts";
 import { hasUncommittedChanges } from "../src/lib/version.ts";
 import { scriptRepoRoot } from "../src/lib/paths.ts";
@@ -50,6 +51,11 @@ async function runSyncCycle(mode: SyncCycleMode): Promise<void> {
   const quiet = mode === "daemon";
   const result = await syncDesktop(REPO_ROOT);
   await syncBunCreateMirror(REPO_ROOT, result);
+  const runtimeDeps = await provisionDesktopRuntimeDeps();
+  if (runtimeDeps.installed) {
+    if (!quiet) console.log(`   ✓ runtime deps: ${runtimeDeps.reason}`);
+    result.updated.push("package.json (runtime deps)");
+  }
   const mcp = await provisionUserMcp();
   if (mcp.changed) {
     if (!quiet) console.log("   ✓ mcp.json: unified-shell updated");

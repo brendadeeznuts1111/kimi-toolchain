@@ -4,7 +4,7 @@
  * @see https://bun.com/docs/runtime/color
  */
 
-/** Lowercase hex, uppercase HEX, and hsl (fractional). `HSL` is not a valid Bun format. */
+/** Lowercase hex, uppercase HEX, and hsl. `HSL` is not a valid Bun format. */
 export const BUN_COLOR_STRING_FORMATS = ["hex", "HEX", "hsl"] as const;
 
 export type BunColorStringFormat = (typeof BUN_COLOR_STRING_FORMATS)[number];
@@ -38,11 +38,14 @@ export const COLOR_FORMAT_PROPERTIES: Record<BunColorStringFormat, ColorFormatPr
     example: "#FF0000",
   },
   hsl: {
-    label: "HSL fractional",
+    label: "HSL percentages",
     valueType: "string",
-    pattern: "^hsl\\(\\d+,\\s*[\\d.]+,\\s*[\\d.]+\\)$",
-    match: (value) => /^hsl\(\d+,\s*[\d.]+,\s*[\d.]+\)$/.test(value),
-    example: "hsl(0, 1, 0.5)",
+    pattern: "^hsl\\(\\d+,\\s*[\\d.]+%,\\s*[\\d.]+%\\)$",
+    // Newer Bun builds emit CSS percentages (hsl(0, 100%, 50%)); older canaries
+    // emitted fractional form (hsl(0, 1, 0.5)). Accept both so the gate is
+    // stable across the 1.4.0 canary line.
+    match: (value) => /^hsl\(\d+,\s*[\d.]+%?,\s*[\d.]+%?\)$/.test(value),
+    example: "hsl(0, 100%, 50%)",
   },
 };
 
