@@ -7,7 +7,11 @@ import { invokeCommandEffect } from "./tool-runner-effect.ts";
 import type { ToolInvocation } from "../tool-runner.ts";
 import type { ExitNonZero, ToolNotFound, ToolTimeout } from "./errors.ts";
 
-const SCRIPT_PATH = Bun.fileURLToPath(import.meta.resolve("../bin/kimi-doctor.ts"));
+// Repo layout: src/lib/effect/../bin/kimi-doctor.ts = src/bin/kimi-doctor.ts.
+// Deployed layout (~/.kimi-code): lib/effect/../../tools/kimi-doctor.ts = tools/kimi-doctor.ts.
+const REPO_SCRIPT = Bun.fileURLToPath(import.meta.resolve("../bin/kimi-doctor.ts"));
+const DEPLOYED_SCRIPT = Bun.fileURLToPath(import.meta.resolve("../../tools/kimi-doctor.ts"));
+const SCRIPT_PATH = (await Bun.file(REPO_SCRIPT).exists()) ? REPO_SCRIPT : DEPLOYED_SCRIPT;
 
 type DoctorMcpError = ToolNotFound | ToolTimeout | ExitNonZero;
 
