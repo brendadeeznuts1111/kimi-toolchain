@@ -5,6 +5,7 @@
 import { Effect, Either } from "effect";
 import { SecretsManager } from "./secrets-manager.ts";
 import { auditSecretsStorage } from "./secrets-probe.ts";
+import { discoverSecrets } from "./secrets-discover.ts";
 import { runSecretsStorageGate, SECRETS_STORAGE_TIER_MISMATCH_TAXONOMY } from "./secrets-gate.ts";
 import { SecretRotationRequired, SecretPolicyViolation, SecretNotFound } from "./effect/errors.ts";
 import type { AnySecretKey, SecretCheckResult } from "./secrets-types.ts";
@@ -155,6 +156,43 @@ export async function cmdSecretsDoctor(opts: SecretsCliOptions): Promise<number>
   return logger.runDoctor("kimi-secrets", checks);
 }
 
+/** Read-only keychain inventory vs policy — metadata only, never secret values. */
+export async function cmdSecretsDiscover(opts: SecretsCliOptions): Promise<number> {
+  const logger = resolveSecretsLogger(opts);
+  const report = await discoverSecrets(opts.projectRoot);
+  if (opts.json) {
+    emitJson(report);
+    return 0;
+  }
+  logger.line(`backend:      ${report.backend}`);
+  logger.line(`items:        ${report.totalItems} across ${report.totalServices} services`);
+  logger.line(
+    `registered:   ${report.registeredPresent} set · ${report.registeredMissing} missing`
+  );
+  logger.line("");
+  logger.line("registered policy services:");
+  for (const svc of report.registered) {
+    const mark = svc.missing === 0 ? "✓" : "✗";
+    logger.line(`  ${mark} ${svc.service} (${svc.present} set, ${svc.missing} missing)`);
+    for (const name of svc.names) {
+      if (name.present && name.rotation && name.rotation !== "ok") {
+        logger.line(`    ↳ ${name.name}: rotation ${name.rotation}`);
+      }
+    }
+  }
+  if (report.unregistered.length > 0) {
+    logger.line("");
+    logger.line("unregistered namespaces (top 10):");
+    for (const ns of report.unregistered.slice(0, 10)) {
+      logger.line(
+        `  ${String(ns.items).padStart(5)}  ${ns.namespace} (${ns.services.length} services)`
+      );
+    }
+  }
+  for (const warning of report.warnings) logger.warn(warning);
+  return 0;
+}
+
 export async function cmdSecretsGate(opts: SecretsCliOptions): Promise<number> {
   const logger = resolveSecretsLogger(opts);
   const result = await runSecretsStorageGate(opts.projectRoot);
@@ -181,6 +219,7 @@ export function printSecretsHelp(logger?: Logger): void {
 Commands:
   check              Policy + storage tier check (exits 1 on mismatch/stale)
   list               List registered secrets and presence (no values)
+  discover           Read-only keychain inventory vs policy (metadata only)
   storage            Show storage backend diagnostics
   gate               CI storage tier gate (Linux env-fallback)
   rotate <svc> <name> [--value <secret>]  Rotate a registered secret

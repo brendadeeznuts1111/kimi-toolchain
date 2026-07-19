@@ -3,7 +3,7 @@
  * kimi-secrets — Bun.secrets policy CLI
  *
  * Usage:
- *   kimi-secrets check|list|storage|gate|doctor|rotate <service> <name> [--value <secret>] [--json]
+ *   kimi-secrets check|list|discover|storage|gate|doctor|rotate <service> <name> [--value <secret>] [--json]
  */
 
 import { Effect } from "effect";
@@ -15,6 +15,7 @@ import { runCliExit } from "../lib/effect/cli-runtime.ts";
 import { CliError } from "../lib/effect/errors.ts";
 import {
   cmdSecretsDoctor,
+  cmdSecretsDiscover,
   cmdSecretsGate,
   cmdSecretsStorage,
   printSecretsHelp,
@@ -82,6 +83,14 @@ function secretsCliProgram(): Effect.Effect<number, CliError> {
       case "doctor":
         return yield* Effect.tryPromise({
           try: () => cmdSecretsDoctor(opts),
+          catch: (cause) =>
+            new CliError({
+              message: cause instanceof Error ? cause.message : String(cause),
+            }),
+        });
+      case "discover":
+        return yield* Effect.tryPromise({
+          try: () => cmdSecretsDiscover(opts),
           catch: (cause) =>
             new CliError({
               message: cause instanceof Error ? cause.message : String(cause),

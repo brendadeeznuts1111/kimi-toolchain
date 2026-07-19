@@ -36,9 +36,7 @@ export type TestGateAcquireResult =
   | { ok: false; conflict: TestGateConflict };
 
 export function resolveTestGateLockPath(projectRoot: string): string {
-  const absolute = projectRoot.startsWith("/")
-    ? projectRoot
-    : `${process.cwd()}/${projectRoot}`;
+  const absolute = projectRoot.startsWith("/") ? projectRoot : `${process.cwd()}/${projectRoot}`;
   // Strip trailing slashes so every entry point to the same repo shares one lock.
   const normalized = absolute.replace(/\/+$/, "") || "/";
   const hash = new Bun.CryptoHasher("sha256").update(normalized).digest("hex").slice(0, 16);

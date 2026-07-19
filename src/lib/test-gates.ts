@@ -432,6 +432,7 @@ export const UNIT_TEST_FILES = [
   "test/secrets-api.unit.test.ts",
   "test/secrets-audit.unit.test.ts",
   "test/secrets-cli.unit.test.ts",
+  "test/secrets-discover.unit.test.ts",
   "test/secrets-env.unit.test.ts",
   "test/secrets-gate.unit.test.ts",
   "test/secrets-manager.unit.test.ts",
