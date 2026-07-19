@@ -16,6 +16,7 @@ import {
   getPolicyEntry,
   getAllPolicyEntries,
   isStale,
+  patchSecretsPolicyEntry,
   writeSecretsPolicy,
   todayDateString,
 } from "./secrets-policy.ts";
@@ -485,7 +486,14 @@ export class SecretsManager {
 
       try {
         yield* Effect.tryPromise({
-          try: () => writeSecretsPolicy(self.policyPath, policy),
+          try: async () => {
+            // Preserve the curated policy file (comments/formatting) when possible.
+            const patched = await patchSecretsPolicyEntry(self.policyPath, key.service, key.name, {
+              version: newVersion,
+              lastRotated: today,
+            });
+            if (!patched) await writeSecretsPolicy(self.policyPath, policy);
+          },
           catch: () => undefined as never,
         });
       } catch {

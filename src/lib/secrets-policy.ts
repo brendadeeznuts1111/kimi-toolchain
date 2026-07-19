@@ -175,6 +175,59 @@ export async function writeSecretsPolicy(
   await Bun.write(policyPath, text + "\n");
 }
 
+/**
+ * Surgically update one entry's version/lastRotated in place, preserving the
+ * curated file's comments, quoting, and formatting. Returns false when the
+ * entry can't be located (caller should fall back to writeSecretsPolicy).
+ */
+export async function patchSecretsPolicyEntry(
+  policyPath: string,
+  service: string,
+  name: string,
+  updates: { version: number; lastRotated: string }
+): Promise<boolean> {
+  const text = await Bun.file(policyPath).text();
+  const lines = text.split("\n");
+  const keyRe = /^(\s*)["']([^"']+)["']:\s*\{/;
+  const rotatedRe = /^(\s*["']?lastRotated["']?\s*:\s*).*$/;
+  const versionRe = /^(\s*["']?version["']?\s*:\s*).*$/;
+
+  let currentService: string | null = null;
+  let inEntry = false;
+  let entryDepth = 0;
+  let found = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const original = lines[i]!;
+    const key = keyRe.exec(original);
+    if (key) {
+      const depth = key[1]!.length;
+      if (inEntry && depth <= entryDepth) inEntry = false;
+      if (depth === 2) currentService = key[2]!;
+      else if (currentService === service && key[2] === name && !inEntry) {
+        inEntry = true;
+        entryDepth = depth;
+        found = true;
+      }
+      continue;
+    }
+    if (!inEntry) continue;
+    const rotated = rotatedRe.exec(original);
+    if (rotated) {
+      lines[i] = `${rotated[1]}${JSON.stringify(updates.lastRotated)},`;
+      continue;
+    }
+    const version = versionRe.exec(original);
+    if (version) {
+      lines[i] = `${version[1]}${updates.version},`;
+    }
+  }
+
+  if (!found) return false;
+  await Bun.write(policyPath, lines.join("\n"));
+  return true;
+}
+
 export function daysSince(dateStr: string | null, now: Date): number | null {
   if (!dateStr) return null;
   const date = new Date(dateStr);

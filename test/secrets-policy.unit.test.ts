@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { join } from "path";
+import { cleanupPath, testTempDir } from "./helpers.ts";
 import {
   validateSecretsPolicy,
   resolvePolicyEntry,
@@ -6,6 +8,7 @@ import {
   getAllPolicyEntries,
   daysSince,
   isStale,
+  patchSecretsPolicyEntry,
   todayDateString,
 } from "../src/lib/secrets-policy.ts";
 import type { SecretsPolicyDocument, SecretPolicyEntry } from "../src/lib/secrets-types.ts";
@@ -229,6 +232,114 @@ describe("secrets-policy", () => {
     test("returns YYYY-MM-DD format", () => {
       const today = todayDateString();
       expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+  });
+
+  describe("patchSecretsPolicyEntry", () => {
+    test("updates only the target entry and preserves comments and formatting", async () => {
+      const dir = testTempDir("secrets-policy-patch-");
+      try {
+        const path = join(dir, "secrets-policy.json5");
+        const original = `{
+  $schema: "v1",
+
+  // Cloudflare pair — curated comment must survive rotation
+  "kimi-toolchain": {
+    "cloudflare-account-id": {
+      allowedConsumers: ["kimi-doctor"],
+      rotationDays: 365,
+      lastRotated: null,
+      version: 1,
+    },
+    "cloudflare-api-token": {
+      allowedConsumers: ["kimi-doctor"],
+      rotationDays: 90,
+      lastRotated: "2026-01-01",
+      version: 3,
+    },
+  },
+}
+`;
+        await Bun.write(path, original);
+        const patched = await patchSecretsPolicyEntry(
+          path,
+          "kimi-toolchain",
+          "cloudflare-api-token",
+          {
+            version: 4,
+            lastRotated: "2026-07-19",
+          }
+        );
+        expect(patched).toBe(true);
+        const result = await Bun.file(path).text();
+        expect(result).toContain("// Cloudflare pair — curated comment must survive rotation");
+        expect(result).toContain('lastRotated: "2026-07-19",');
+        expect(result).toContain("version: 4,");
+        // untouched entry keeps its values
+        expect(result).toContain("lastRotated: null,");
+        // everything else byte-identical
+        const expected = original
+          .replace('lastRotated: "2026-01-01",', 'lastRotated: "2026-07-19",')
+          .replace("version: 3,", "version: 4,");
+        expect(result).toBe(expected);
+      } finally {
+        cleanupPath(dir);
+      }
+    });
+
+    test("handles single-quoted machine-formatted files", async () => {
+      const dir = testTempDir("secrets-policy-patch-");
+      try {
+        const path = join(dir, "secrets-policy.json5");
+        await Bun.write(
+          path,
+          `{
+  $schema: 'v1',
+  'kimi-toolchain': {
+    'cloudflare-api-token': {
+      allowedConsumers: ['kimi-doctor'],
+      rotationDays: 90,
+      lastRotated: null,
+      version: 1,
+    },
+  },
+}
+`
+        );
+        const patched = await patchSecretsPolicyEntry(
+          path,
+          "kimi-toolchain",
+          "cloudflare-api-token",
+          {
+            version: 2,
+            lastRotated: "2026-07-19",
+          }
+        );
+        expect(patched).toBe(true);
+        const result = await Bun.file(path).text();
+        expect(result).toContain('lastRotated: "2026-07-19",');
+        expect(result).toContain("version: 2,");
+        expect(result).toContain("'cloudflare-api-token'");
+      } finally {
+        cleanupPath(dir);
+      }
+    });
+
+    test("returns false when the entry is missing", async () => {
+      const dir = testTempDir("secrets-policy-patch-");
+      try {
+        const path = join(dir, "secrets-policy.json5");
+        const original = `{\n  $schema: "v1",\n  "kimi-toolchain": {},\n}\n`;
+        await Bun.write(path, original);
+        const patched = await patchSecretsPolicyEntry(path, "kimi-toolchain", "nope", {
+          version: 2,
+          lastRotated: "2026-07-19",
+        });
+        expect(patched).toBe(false);
+        expect(await Bun.file(path).text()).toBe(original);
+      } finally {
+        cleanupPath(dir);
+      }
     });
   });
 });
