@@ -479,3 +479,9 @@ provides = ["oxc"]
 role = "upstream"
 language = "rust"
 frameworks = ["oxc"]
+
+[[localDocs]]
+id = "bun-webview"
+repoPath = "docs/references/bun-webview.md"
+runtimePath = "~/.kimi-code/docs/references/bun-webview.md"
+purpose = "Bun.WebView grounded reference — v1.3.12 release, backends, actionability contract, repo usage policy, known issues"

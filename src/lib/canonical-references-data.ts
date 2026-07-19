@@ -552,6 +552,13 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     runtimePath: "~/.kimi-code/canonical-references.json",
     purpose: "Cached canonical ecosystem links (this manifest)",
   },
+  {
+    id: "bun-webview",
+    repoPath: "docs/references/bun-webview.md",
+    runtimePath: "~/.kimi-code/docs/references/bun-webview.md",
+    purpose:
+      "Bun.WebView grounded reference — v1.3.12 release, backends, actionability contract, repo usage policy, known issues",
+  },
 ];
 
 export const REPO_REFERENCES: readonly RepoReference[] = [

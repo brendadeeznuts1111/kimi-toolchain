@@ -7,10 +7,16 @@
  * @see https://bun.com/blog/bun-v1.3.12#bun-webview-headless-browser-automation
  * @see https://bun.com/docs/runtime/webview
  */
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 
 const BUN_WEBVIEW_AUTOMATION_BLOG =
   "https://bun.com/blog/bun-v1.3.12#bun-webview-headless-browser-automation";
+
+// Force-kill the shared WebKit host subprocess — do not rely on exit-time
+// cleanup inside the test runner (see docs/references/bun-webview.md).
+afterAll(() => {
+  if (typeof Bun.WebView === "function") Bun.WebView.closeAll();
+});
 
 function dataUrlHtml(body: string): string {
   return `data:text/html,${encodeURIComponent(body)}`;

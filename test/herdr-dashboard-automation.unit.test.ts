@@ -1,6 +1,12 @@
-import { afterEach, describe, expect, mock, setSystemTime, test } from "bun:test";
+import { afterAll, afterEach, describe, expect, mock, setSystemTime, test } from "bun:test";
 import { join } from "path";
 import { bunImageSupported } from "../src/lib/bun-image.ts";
+
+// Force-kill the shared WebKit host subprocess — do not rely on exit-time
+// cleanup inside the test runner (see docs/references/bun-webview.md).
+afterAll(() => {
+  if (typeof Bun.WebView === "function") Bun.WebView.closeAll();
+});
 import { probeDashboardThumbnail } from "../src/lib/herdr-dashboard/automation/automation-gate.ts";
 import {
   AGENT_ATTACH_SELECTOR,

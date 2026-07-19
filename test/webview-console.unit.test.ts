@@ -1,10 +1,16 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { join } from "path";
 import {
   frontmatterPreviewDataUrl,
   frontmatterPreviewHtml,
   parseFrontmatterText,
 } from "../src/lib/frontmatter.ts";
+
+// Force-kill the shared WebKit host subprocess — do not rely on exit-time
+// cleanup inside the test runner (see docs/references/bun-webview.md).
+afterAll(() => {
+  if (typeof Bun.WebView === "function") Bun.WebView.closeAll();
+});
 import {
   BUN_WEBVIEW_AUTOMATION_CONTRACT,
   BUN_WEBVIEW_DOCS_URL,

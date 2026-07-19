@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import type { DashboardCardsPayload } from "../src/lib/dashboard-card-registry.ts";
 import {
   EXAMPLES_DASHBOARD_READY_EVAL,
@@ -7,6 +7,12 @@ import {
   type ExamplesDashboardDomMetadata,
 } from "../src/lib/examples-dashboard-webview-probe.ts";
 import { webViewSupported } from "../src/lib/webview-console.ts";
+
+// Force-kill the shared WebKit host subprocess — do not rely on exit-time
+// cleanup inside the test runner (see docs/references/bun-webview.md).
+afterAll(() => {
+  if (typeof Bun.WebView === "function") Bun.WebView.closeAll();
+});
 
 describe("examples-dashboard-webview-probe", () => {
   test("ready eval references window flag", () => {

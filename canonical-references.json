@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-26T17:31:58.906Z",
+  "generatedAt": "2026-07-19T01:54:30.844Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -459,6 +459,12 @@
       "repoPath": "canonical-references.json",
       "runtimePath": "~/.kimi-code/canonical-references.json",
       "purpose": "Cached canonical ecosystem links (this manifest)"
+    },
+    {
+      "id": "bun-webview",
+      "repoPath": "docs/references/bun-webview.md",
+      "runtimePath": "~/.kimi-code/docs/references/bun-webview.md",
+      "purpose": "Bun.WebView grounded reference — v1.3.12 release, backends, actionability contract, repo usage policy, known issues"
     }
   ],
   "repos": [

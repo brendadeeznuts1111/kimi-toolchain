@@ -7,8 +7,14 @@
  *
  * @see https://bun.com/blog/bun-v1.3.14
  */
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { auditBunImageHealth, bunImageSupported } from "../src/lib/bun-image.ts";
+
+// WebView thumbnail pipeline shares the WebKit host subprocess — force-kill it
+// rather than relying on exit-time cleanup in the runner (docs/references/bun-webview.md).
+afterAll(() => {
+  if (typeof Bun.WebView === "function") Bun.WebView.closeAll();
+});
 
 /** 1×1 red PNG — minimal valid PNG for smoke testing. */
 const RED_PNG = Uint8Array.from([
