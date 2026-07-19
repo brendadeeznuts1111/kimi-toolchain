@@ -13,6 +13,7 @@ export const UNIT_TEST_FILES = [
   "test/r-score.unit.test.ts",
   "test/deletion-metric.unit.test.ts",
   "test/paths.unit.test.ts",
+  "test/proc-cache.unit.test.ts",
   "test/desktop-sync.unit.test.ts",
   "test/test-gates.unit.test.ts",
   "test/test-runtime.unit.test.ts",
@@ -701,6 +702,7 @@ export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude
     "test/cleanup-hygiene.unit.test.ts",
     "test/deep-hygiene.unit.test.ts",
     "test/root-hygiene.unit.test.ts",
+    "test/proc-cache.unit.test.ts",
   ],
   herdr: {
     include: [

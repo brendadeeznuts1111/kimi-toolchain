@@ -1825,11 +1825,35 @@ export function bunTestArgsForChanged(
   return args;
 }
 
-export async function runBunTest(
+export interface BunTestRunResult {
+  exitCode: number;
+  timedOut: boolean;
+}
+
+/** Attach a wall-clock watchdog to a spawned process; kills and flags on expiry. */
+export function withProcWatchdog(
+  proc: { kill: () => void },
+  wallClockMs: number,
+  onTimeout: () => void
+): () => void {
+  if (!Number.isFinite(wallClockMs) || wallClockMs <= 0) return () => {};
+  const watchdog = setTimeout(() => {
+    onTimeout();
+    proc.kill();
+  }, wallClockMs);
+  return () => clearTimeout(watchdog);
+}
+
+export async function runBunTestDetailed(
   repoRoot: string,
   args: string[],
-  options: { quiet?: boolean; source?: string; useRunnerConfig?: boolean } = {}
-): Promise<number> {
+  options: {
+    quiet?: boolean;
+    source?: string;
+    useRunnerConfig?: boolean;
+    wallClockMs?: number;
+  } = {}
+): Promise<BunTestRunResult> {
   const quiet = options.quiet ?? false;
   const useRunnerConfig = options.useRunnerConfig ?? true;
   const runnerConfigPath = useRunnerConfig ? await writeRunnerBunfig(repoRoot) : null;
@@ -1850,17 +1874,34 @@ export async function runBunTest(
       options.source ?? "runBunTest"
     ),
   });
-  if (quiet) {
-    const [stdout, stderr, exitCode] = await Promise.all([
-      proc.stdout ? readableStreamToText(proc.stdout) : Promise.resolve(""),
-      proc.stderr ? readableStreamToText(proc.stderr) : Promise.resolve(""),
-      proc.exited,
-    ]);
-    if (stdout) process.stdout.write(stdout);
-    if (stderr) process.stderr.write(stderr);
-    return exitCode;
+  let timedOut = false;
+  const disarm = withProcWatchdog(proc, options.wallClockMs ?? 0, () => {
+    timedOut = true;
+  });
+  try {
+    if (quiet) {
+      const [stdout, stderr, exitCode] = await Promise.all([
+        proc.stdout ? readableStreamToText(proc.stdout) : Promise.resolve(""),
+        proc.stderr ? readableStreamToText(proc.stderr) : Promise.resolve(""),
+        proc.exited,
+      ]);
+      if (stdout) process.stdout.write(stdout);
+      if (stderr) process.stderr.write(stderr);
+      return { exitCode, timedOut };
+    }
+    return { exitCode: await proc.exited, timedOut };
+  } finally {
+    disarm();
   }
-  return await proc.exited;
+}
+
+export async function runBunTest(
+  repoRoot: string,
+  args: string[],
+  options: { quiet?: boolean; source?: string; useRunnerConfig?: boolean } = {}
+): Promise<number> {
+  const result = await runBunTestDetailed(repoRoot, args, options);
+  return result.exitCode;
 }
 
 /** Bun 1.4+: `--config` is a Bun CLI flag, not a `bun test` subcommand flag. */
@@ -1895,6 +1936,22 @@ export interface RunTestTierOptions {
   reporterOutfile?: string;
 }
 
+/** Default per-batch wall-clock budget for test tier runs. */
+export const TEST_BATCH_WALL_CLOCK_MS = 5 * 60 * 1000;
+const TEST_BATCH_MAX_ATTEMPTS = 2;
+
+/**
+ * Per-batch wall-clock budget. A test runner that spins after its tests pass
+ * (canary teardown race — see docs/flake-register.md) is killed and the batch
+ * retried once instead of hanging the tier forever.
+ * Override via KIMI_TEST_BATCH_WALL_CLOCK_MS.
+ */
+export function testBatchWallClockMs(): number {
+  const raw = Bun.env.KIMI_TEST_BATCH_WALL_CLOCK_MS;
+  const value = raw ? Number(raw) : NaN;
+  return Number.isFinite(value) && value > 0 ? value : TEST_BATCH_WALL_CLOCK_MS;
+}
+
 export async function runTestTier(
   repoRoot: string,
   tier: TestTier,
@@ -1921,15 +1978,26 @@ export async function runTestTier(
     reporterOutfile: options.reporterOutfile,
   }).map((args) => mergeBunTestInvocationArgs(args, repoRoot, forwarded));
 
+  const wallClockMs = testBatchWallClockMs();
   for (let i = 0; i < batches.length; i++) {
     if (batches.length > 1 && !quiet) {
       process.stderr.write(`[test] batch ${i + 1}/${batches.length}\n`);
     }
-    const code = await runBunTest(repoRoot, batches[i]!, {
-      quiet,
-      source: `test:${spec.label}`,
-      useRunnerConfig: spec.tier !== "unit",
-    });
+    let code = -1;
+    for (let attempt = 1; attempt <= TEST_BATCH_MAX_ATTEMPTS; attempt++) {
+      const result = await runBunTestDetailed(repoRoot, batches[i]!, {
+        quiet,
+        source: `test:${spec.label}`,
+        useRunnerConfig: spec.tier !== "unit",
+        wallClockMs,
+      });
+      code = result.exitCode;
+      if (!result.timedOut) break;
+      const action = attempt < TEST_BATCH_MAX_ATTEMPTS ? "retrying once" : "failing";
+      process.stderr.write(
+        `[test] batch ${i + 1}/${batches.length} exceeded wall clock (${wallClockMs}ms) — runner killed, ${action}\n`
+      );
+    }
     if (isTestRunFailure(code)) return code;
   }
   return 0;

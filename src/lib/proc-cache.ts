@@ -19,8 +19,7 @@ interface CacheEntry<T> {
 
 const _procCache = new Map<string, CacheEntry<string>>();
 const CACHE_TTL_MS = 1000;
-const ORPHAN_MIN_AGE_SECONDS = 120;
-/** Shorter threshold for install/typecheck storms and launchd-reparented tool processes. */
+/** Shorter threshold for install/typecheck storms. */
 const ORPHAN_FAST_MIN_AGE_SECONDS = 45;
 const ORPHAN_REPARENTED_MIN_AGE_SECONDS = 30;
 
@@ -89,6 +88,12 @@ export interface OrphanProcessInfo {
   elapsedSeconds: number;
 }
 
+/** Matches bun test invocations: bare, flag-wrapped, absolute, ephemeral bun-node paths. */
+const BUN_TEST_CMD_RE = /(^|[\s/])bun( --[\w-]+)* test\b/;
+/** Matches gate entry points: bun run test|test:fast|check[:fast], scripts/(check|test-fast).ts. */
+const BUN_GATE_CMD_RE =
+  /(^|[\s/])bun( --[\w-]+)* run (test|test:fast|check(:fast)?)\b|scripts\/(check|test-fast)\.ts\b/;
+
 export function isOrphanCandidateCommand(cmd: string): boolean {
   if (
     cmd.includes("kimi-orphan-kill") ||
@@ -99,7 +104,8 @@ export function isOrphanCandidateCommand(cmd: string): boolean {
   }
 
   return (
-    cmd.includes("/.bun/bin/bun test") ||
+    BUN_TEST_CMD_RE.test(cmd) ||
+    BUN_GATE_CMD_RE.test(cmd) ||
     /\bbun install\b/.test(cmd) ||
     /\btsc --noEmit\b/.test(cmd) ||
     /\bnode\b.*\btsc\b/.test(cmd) ||
@@ -115,17 +121,29 @@ function isFastOrphanCommand(cmd: string): boolean {
   );
 }
 
-function orphanMinAgeSeconds(cmd: string, ppid: number): number {
-  if (ppid === 1 && isOrphanCandidateCommand(cmd)) return ORPHAN_REPARENTED_MIN_AGE_SECONDS;
-  if (isFastOrphanCommand(cmd)) return ORPHAN_FAST_MIN_AGE_SECONDS;
-  return ORPHAN_MIN_AGE_SECONDS;
+function defaultPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-export function getOrphanCandidates(): OrphanProcessInfo[] {
-  const output = getCachedPs(["-axo", "pid=,ppid=,pcpu=,etimes=,command="]);
+/**
+ * An orphan is a candidate command whose PARENT IS DEAD (reparented to
+ * launchd, or ppid no longer alive). Processes with a live parent are never
+ * orphans — a long-running suite is owned by its live parent gate, and the
+ * gate's own watchdog is responsible for it.
+ */
+export function collectOrphanCandidates(
+  psOutput: string,
+  options: { pidAlive?: (pid: number) => boolean } = {}
+): OrphanProcessInfo[] {
+  const pidAlive = options.pidAlive ?? defaultPidAlive;
   const orphans: OrphanProcessInfo[] = [];
 
-  for (const line of output.split("\n")) {
+  for (const line of psOutput.split("\n")) {
     const match = line.trim().match(/^(\d+)\s+(\d+)\s+([\d.]+)\s+(\d+)\s+(.+)$/);
     if (!match) continue;
 
@@ -142,16 +160,28 @@ export function getOrphanCandidates(): OrphanProcessInfo[] {
       isNaN(elapsedSeconds) ||
       pid === process.pid ||
       pid === process.ppid ||
-      elapsedSeconds < orphanMinAgeSeconds(cmd, ppid) ||
       !isOrphanCandidateCommand(cmd)
     ) {
       continue;
     }
 
+    const parentDead = ppid === 1 || !pidAlive(ppid);
+    if (!parentDead) continue;
+
+    const minAge = isFastOrphanCommand(cmd)
+      ? ORPHAN_FAST_MIN_AGE_SECONDS
+      : ORPHAN_REPARENTED_MIN_AGE_SECONDS;
+    if (elapsedSeconds < minAge) continue;
+
     orphans.push({ pid, cmd, cpu, elapsedSeconds });
   }
 
   return orphans;
+}
+
+export function getOrphanCandidates(): OrphanProcessInfo[] {
+  const output = getCachedPs(["-axo", "pid=,ppid=,pcpu=,etimes=,command="]);
+  return collectOrphanCandidates(output);
 }
 
 /**

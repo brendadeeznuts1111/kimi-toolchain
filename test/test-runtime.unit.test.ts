@@ -111,6 +111,9 @@ import {
   parseForwardedBunTestArgs,
   warnIfNodeEnvNotTest,
   resetTestRuntimeWarningsForTests,
+  testBatchWallClockMs,
+  TEST_BATCH_WALL_CLOCK_MS,
+  withProcWatchdog,
 } from "../src/lib/test-runtime.ts";
 import { readableStreamToText } from "../src/lib/bun-utils.ts";
 import {
@@ -1639,6 +1642,58 @@ test("global cleaned", () => {
       expect(batches.length).toBe(1);
       expect(batches[0]).toContain("--changed=HEAD");
       expect(batches[0]).toContain("--parallel=4");
+    });
+  });
+});
+
+describe("test-runtime-watchdog", () => {
+  test("withProcWatchdog kills the process and flags timeout", async () => {
+    const proc = Bun.spawn(["bun", "-e", "await Bun.sleep(60_000)"], {
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+    let timedOut = false;
+    const disarm = withProcWatchdog(proc, 300, () => {
+      timedOut = true;
+    });
+    const started = Date.now();
+    await proc.exited;
+    disarm();
+    expect(timedOut).toBe(true);
+    expect(Date.now() - started).toBeLessThan(15_000);
+  }, 20_000);
+
+  test("withProcWatchdog disarms cleanly when the process exits first", async () => {
+    const proc = Bun.spawn(["bun", "-e", "console.log('done')"], {
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+    let timedOut = false;
+    const disarm = withProcWatchdog(proc, 5_000, () => {
+      timedOut = true;
+    });
+    await proc.exited;
+    disarm();
+    await Bun.sleep(50);
+    expect(timedOut).toBe(false);
+  }, 20_000);
+
+  test("withProcWatchdog ignores non-positive budgets", () => {
+    let timedOut = false;
+    const disarm = withProcWatchdog({ kill: () => {} }, 0, () => {
+      timedOut = true;
+    });
+    disarm();
+    expect(timedOut).toBe(false);
+  });
+
+  test("testBatchWallClockMs defaults and honors env override", async () => {
+    expect(testBatchWallClockMs()).toBe(TEST_BATCH_WALL_CLOCK_MS);
+    await withEnv({ KIMI_TEST_BATCH_WALL_CLOCK_MS: "12345" }, async () => {
+      expect(testBatchWallClockMs()).toBe(12345);
+    });
+    await withEnv({ KIMI_TEST_BATCH_WALL_CLOCK_MS: "bogus" }, async () => {
+      expect(testBatchWallClockMs()).toBe(TEST_BATCH_WALL_CLOCK_MS);
     });
   });
 });

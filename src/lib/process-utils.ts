@@ -5,6 +5,7 @@
 
 import { guardDir } from "./paths.ts";
 import { getOrphanCandidates, type OrphanProcessInfo } from "./proc-cache.ts";
+import { clearStaleTestGateLocks } from "./test-run-guard.ts";
 
 export async function clearStaleLocks(): Promise<string[]> {
   const cleared: string[] = [];
@@ -16,6 +17,8 @@ export async function clearStaleLocks(): Promise<string[]> {
       cleared.push(lock);
     }
   }
+  // Project test-gate locks with dead owners (see test-run-guard.ts).
+  cleared.push(...clearStaleTestGateLocks(Bun.cwd));
   return cleared;
 }
 

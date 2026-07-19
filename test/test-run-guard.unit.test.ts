@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { makeDir, pathExists, removePath, writeText } from "../src/lib/bun-io.ts";
-import { acquireTestGateLock, resolveTestGateLockPath } from "../src/lib/test-run-guard.ts";
-import { testTempDir } from "./helpers.ts";
+import {
+  acquireTestGateLock,
+  clearStaleTestGateLocks,
+  resolveTestGateLockPath,
+} from "../src/lib/test-run-guard.ts";
+import { cleanupPath, testTempDir } from "./helpers.ts";
 
 function lockDir(root: string): string {
   return resolveTestGateLockPath(root);
@@ -104,5 +108,45 @@ describe("test-run-guard", () => {
       else Bun.env.KIMI_ALLOW_CONCURRENT_TESTS = previous;
       cleanupRoot(root);
     }
+  });
+
+  test("clearStaleTestGateLocks removes dead-owner locks and keeps live ones", () => {
+    const root = testTempDir("kimi-test-guard-clear-");
+    const dir = lockDir(root);
+    makeDir(dir, { recursive: true });
+
+    // Dead owner (pid far outside valid range) → removed.
+    writeText(
+      join(dir, "owner.json"),
+      JSON.stringify({
+        pid: 99999999,
+        ppid: 1,
+        projectRoot: root,
+        command: "bun run check:fast",
+        startedAt: "2026-07-18T00:00:00.000Z",
+        reason: "check:fast",
+      })
+    );
+    // Live owner (this process) in a second lock dir → kept.
+    const base = dir.slice(0, dir.lastIndexOf("/"));
+    const liveDir = `${base}/aaaabbbbccccdddd-test-gate.lock`;
+    makeDir(liveDir, { recursive: true });
+    writeText(
+      join(liveDir, "owner.json"),
+      JSON.stringify({
+        pid: process.pid,
+        ppid: process.ppid,
+        projectRoot: root,
+        command: "bun run test:fast",
+        startedAt: "2026-07-18T00:00:00.000Z",
+        reason: "test:fast",
+      })
+    );
+
+    const removed = clearStaleTestGateLocks(root);
+    expect(removed).toEqual([dir]);
+    expect(pathExists(dir)).toBe(false);
+    expect(pathExists(liveDir)).toBe(true);
+    cleanupPath(root);
   });
 });

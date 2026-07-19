@@ -5,7 +5,7 @@
  * survives quiet/verbose runner variants and is released when the wrapper ends.
  */
 
-import { makeDir, pathExists, readText, removePath, writeText } from "./bun-io.ts";
+import { makeDir, pathExists, readText, removePath, writeText, listDir } from "./bun-io.ts";
 
 const LOCK_DIR_NAME = "test-gate.lock";
 const OWNER_FILE = "owner.json";
@@ -92,6 +92,31 @@ function formatConflict(projectRoot: string, path: string, owner: TestGateOwner)
 
 function removeStaleLock(path: string): void {
   removePath(path, { recursive: true, force: true });
+}
+
+/**
+ * Housekeeping: remove every `.kimi-test-locks/*-test-gate.lock` under
+ * `projectRoot` whose owner pid is dead. Returns the removed lock paths.
+ * Locks with live owners are left untouched.
+ */
+export function clearStaleTestGateLocks(projectRoot: string): string[] {
+  const normalized = projectRoot.startsWith("/")
+    ? projectRoot.replace(/\/+$/, "")
+    : `${process.cwd()}/${projectRoot}`.replace(/\/+$/, "");
+  const base = Bun.env.KIMI_TEST_LOCK_DIR ?? `${normalized}/.kimi-test-locks`;
+  if (!pathExists(base)) return [];
+
+  const removed: string[] = [];
+  for (const entry of listDir(base)) {
+    if (!entry.endsWith(`-${LOCK_DIR_NAME}`)) continue;
+    const lockPath = `${base}/${entry}`;
+    const owner = parseOwner(lockPath);
+    if (!owner || !isPidAlive(owner.pid)) {
+      removeStaleLock(lockPath);
+      removed.push(lockPath);
+    }
+  }
+  return removed;
 }
 
 export function acquireTestGateLock(

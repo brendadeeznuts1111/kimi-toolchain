@@ -6,7 +6,6 @@
  */
 
 import { $ } from "bun";
-import { join } from "path";
 import { homeDir, secretsPolicyPath } from "./paths.ts";
 import { getAllPolicyEntries, isStale, loadSecretsPolicy } from "./secrets-policy.ts";
 import type { SecretPolicyEntry } from "./secrets-types.ts";
@@ -129,7 +128,7 @@ export function buildDiscoverReport(
 /** Dump login-keychain metadata (no secret values). macOS only. */
 export async function dumpKeychainMetadata(home: string = homeDir()): Promise<string> {
   if (process.platform !== "darwin") return "";
-  const keychain = join(home, "Library", "Keychains", "login.keychain-db");
+  const keychain = `${home}/Library/Keychains/login.keychain-db`;
   const result = await $`security dump-keychain ${keychain}`.nothrow().quiet();
   if (result.exitCode !== 0) return "";
   return result.stdout.toString();

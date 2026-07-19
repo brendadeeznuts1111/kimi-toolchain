@@ -380,7 +380,8 @@ function runLive<A, E>(
   backend: SecretsBackend,
   policyPath: string = POLICY_PATH
 ): Promise<A> {
-  const secretsLayer = SecretsTest(backend, { policyPath });
+  // envVars: {} — hermetic: real-machine env (JWT_SECRET & friends) must not leak in.
+  const secretsLayer = SecretsTest(backend, { policyPath, envVars: {} });
   const identityLayer = Layer.provide(IdentityLive, secretsLayer);
   return Effect.runPromise(Effect.provide(identityLayer)(effect));
 }
@@ -390,7 +391,7 @@ function runLiveEither<A, E>(
   backend: SecretsBackend,
   policyPath: string = POLICY_PATH
 ): Promise<Either.Either<A, E>> {
-  const secretsLayer = SecretsTest(backend, { policyPath });
+  const secretsLayer = SecretsTest(backend, { policyPath, envVars: {} });
   const identityLayer = Layer.provide(IdentityLive, secretsLayer);
   return Effect.runPromise(Effect.provide(identityLayer)(Effect.either(effect)));
 }

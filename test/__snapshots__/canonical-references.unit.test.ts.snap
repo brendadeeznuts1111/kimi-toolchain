@@ -55,6 +55,7 @@ Machine-readable manifest: \`canonical-references.json\` (synced to \`~/.kimi-co
 | \`docs/handoff-rules.md\` | \`~/.kimi-code/docs/handoff-rules.md\` | Herdr orchestrator handoff rules: TOML format, condition syntax (done/blocked/idle/probe:*), report-native when-clauses, and cross-workspace agent routing |
 | \`docs/naming.md\` | \`~/.kimi-code/docs/naming.md\` | CLI naming notes and deprecation register: --session-report → --effect-floor; kimi-doctor vs herdr-doctor vs kimi doctor disambiguation shortcuts |
 | \`canonical-references.json\` | \`~/.kimi-code/canonical-references.json\` | Cached canonical ecosystem links (this manifest) |
+| \`docs/references/bun-webview.md\` | \`~/.kimi-code/docs/references/bun-webview.md\` | Bun.WebView grounded reference — v1.3.12 release, backends, actionability contract, repo usage policy, known issues |
 
 ### Repositories
 
@@ -142,6 +143,7 @@ Local doc references:
 │ 29 │ handoff-rules                    │ docs/handoff-rules.md                               │ —      │ —         │
 │ 30 │ naming                           │ docs/naming.md                                      │ —      │ —         │
 │ 31 │ canonical-references             │ canonical-references.json                           │ —      │ —         │
+│ 32 │ bun-webview                      │ docs/references/bun-webview.md                      │ —      │ —         │
 └────┴──────────────────────────────────┴─────────────────────────────────────────────────────┴────────┴───────────┘
 "
 `;
@@ -644,6 +646,12 @@ export const LOCAL_DOC_REFERENCES: readonly LocalDocReference[] = [
     "runtimePath": "~/.kimi-code/canonical-references.json",
     "purpose": "Cached canonical ecosystem links (this manifest)",
   },
+{
+    "id": "bun-webview",
+    "repoPath": "docs/references/bun-webview.md",
+    "runtimePath": "~/.kimi-code/docs/references/bun-webview.md",
+    "purpose": "Bun.WebView grounded reference — v1.3.12 release, backends, actionability contract, repo usage policy, known issues",
+  },
 ];
 
 export const REPO_REFERENCES: readonly RepoReference[] = [
@@ -714,7 +722,7 @@ export const REPO_REFERENCES: readonly RepoReference[] = [
 exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
 "{
   "schemaVersion": 1,
-  "generatedAt": "2026-06-26T17:31:58.906Z",
+  "generatedAt": "2026-07-19T01:54:30.844Z",
   "toolchainVersion": "1.0.0",
   "ecosystem": [
     {
@@ -1173,6 +1181,12 @@ exports[`canonical-references generated JSON manifest matches snapshot 1`] = `
       "repoPath": "canonical-references.json",
       "runtimePath": "~/.kimi-code/canonical-references.json",
       "purpose": "Cached canonical ecosystem links (this manifest)"
+    },
+    {
+      "id": "bun-webview",
+      "repoPath": "docs/references/bun-webview.md",
+      "runtimePath": "~/.kimi-code/docs/references/bun-webview.md",
+      "purpose": "Bun.WebView grounded reference — v1.3.12 release, backends, actionability contract, repo usage policy, known issues"
     }
   ],
   "repos": [

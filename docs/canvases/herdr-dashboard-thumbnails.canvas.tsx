@@ -295,6 +295,12 @@ const MANIFEST_LOCAL_DOCS_ALL = [
     location: "repo root",
     purpose: "Cached canonical ecosystem links (this manifest)",
   },
+  {
+    id: "bun-webview",
+    location: "docs/references",
+    purpose:
+      "Bun.WebView grounded reference — v1.3.12 release, backends, actionability contract, repo usage policy, known issues",
+  },
 ] as const;
 
 const MANIFEST_DOCS_REFERENCES = MANIFEST_LOCAL_DOCS_ALL.filter(
