@@ -30,6 +30,8 @@ import {
 
 import type { Gate, GateResult, GateRunOptions } from "./types.ts";
 
+import { pathExists, readText } from "../lib/bun-io.ts";
+
 export type BunfigPolicyGateStatus = "pass" | "warn" | "fail";
 
 export interface BunfigPolicyGateSummary {
@@ -139,6 +141,25 @@ export async function bunfigPolicyGate(
     failures.push(
       `runtime Bun ${audit.versions.runtimeBun} does not satisfy engines.bun ${audit.versions.enginesBun ?? ">=policy"}`
     );
+  }
+
+  // Canary / pin drift tripwire (warn-only): unreleased installer/linker code on
+  // the machine SSOT layer has no other gate — a corrupt links-cache entry once
+  // passed every check silently for days.
+  const runtimeBun = audit.versions.runtimeBun;
+  if (runtimeBun.includes("canary")) {
+    warnings.push(
+      `runtime Bun ${runtimeBun} is a canary build — unreleased install/linker code on the machine layer; prefer the pinned stable`
+    );
+  }
+  const bunVersionPinPath = `${projectRoot}/.bun-version`;
+  if (pathExists(bunVersionPinPath)) {
+    const pinned = readText(bunVersionPinPath).trim();
+    if (pinned && runtimeBun !== pinned && !runtimeBun.startsWith(`${pinned}-`)) {
+      warnings.push(
+        `runtime Bun ${runtimeBun} differs from .bun-version pin ${pinned} — installs may behave differently than CI`
+      );
+    }
   }
 
   for (const name of riskyEnvOverrides) {

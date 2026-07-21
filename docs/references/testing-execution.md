@@ -142,15 +142,33 @@ test:shard    ──► full discovery, one CI slice
 | Pre-push              | `test:changed:push` or `check:fast`                         | Hook gates              |
 | CI / merge confidence | `test:parallel`, `test:shard`, `test:ci`, or `bun run test` | Breadth over speed      |
 
+### Runner guardrails (2026-07)
+
+Two guardrails keep gates from hanging the machine (see `docs/flake-register.md`):
+
+- **Project test gate** — `scripts/check.ts` and `scripts/test-fast.ts` hold a
+  lock at `.kimi-test-locks/` (owner pid in `owner.json`). A second concurrent
+  gate fails fast with the owner's pid/command instead of two gates corrupting
+  shared state. Stale locks (dead owner) are cleaned automatically, and
+  `kimi-orphan-kill` sweeps them too. Escape hatch: `KIMI_ALLOW_CONCURRENT_TESTS=1`.
+- **Wall-clock watchdogs** — `runGate` kills any gate step that exceeds
+  `KIMI_CHECK_FAST_TIMEOUT_MS` (default 10 min); `runTestTier` kills a test
+  batch that exceeds `KIMI_TEST_BATCH_WALL_CLOCK_MS` (default 5 min) and
+  retries it once. A spinning canary runner becomes a bounded, retried run
+  instead of an infinite hang.
+
 ---
 
 ## Environment variables
 
-| Variable                          | Used by                            | Default          |
-| --------------------------------- | ---------------------------------- | ---------------- |
-| `BUN_TEST_SHARD`                  | `test:shard`, `test:changed:shard` | `1/1` (no split) |
-| `CI_NODE_INDEX` / `CI_NODE_TOTAL` | `test:ci`                          | `1` / `1`        |
-| `KIMI_TEST_PARALLEL`              | `buildBunTestArgs` fast path       | `4`              |
+| Variable                          | Used by                            | Default            |
+| --------------------------------- | ---------------------------------- | ------------------ |
+| `BUN_TEST_SHARD`                  | `test:shard`, `test:changed:shard` | `1/1` (no split)   |
+| `CI_NODE_INDEX` / `CI_NODE_TOTAL` | `test:ci`                          | `1` / `1`          |
+| `KIMI_TEST_PARALLEL`              | `buildBunTestArgs` fast path       | `4`                |
+| `KIMI_TEST_BATCH_WALL_CLOCK_MS`   | `runTestTier` batch watchdog       | `300000` (5 min)   |
+| `KIMI_CHECK_FAST_TIMEOUT_MS`      | `runGate` step watchdog            | `600000` (10 min)  |
+| `KIMI_ALLOW_CONCURRENT_TESTS`     | test gate lock                     | unset (serialized) |
 
 ---
 

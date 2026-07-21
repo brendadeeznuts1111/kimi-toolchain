@@ -9,7 +9,10 @@ import {
   syncDesktop,
   type SyncRunResult,
 } from "../src/lib/desktop-sync.ts";
-import { provisionDesktopRuntimeDeps } from "../src/lib/desktop-runtime-deps.ts";
+import {
+  provisionDesktopRuntimeDeps,
+  probeDesktopRuntimeEntrypoints,
+} from "../src/lib/desktop-runtime-deps.ts";
 import { provisionUserMcp } from "../src/lib/mcp-config.ts";
 import { hasUncommittedChanges } from "../src/lib/version.ts";
 import { scriptRepoRoot } from "../src/lib/paths.ts";
@@ -60,6 +63,21 @@ async function runSyncCycle(mode: SyncCycleMode): Promise<void> {
   if (mcp.changed) {
     if (!quiet) console.log("   ✓ mcp.json: unified-shell updated");
     result.updated.push("mcp.json");
+  }
+  const probe = await probeDesktopRuntimeEntrypoints();
+  if (!probe.ok) {
+    for (const failure of probe.failures) {
+      console.error(`   ✗ entrypoint probe ${failure.entrypoint}: ${failure.error}`);
+    }
+    if (mode !== "daemon") {
+      throw new Error(
+        `desktop entrypoint probe failed after sync: ${probe.failures
+          .map((failure) => failure.entrypoint)
+          .join(", ")}`
+      );
+    }
+  } else if (!quiet) {
+    console.log("   ✓ entrypoint probe: tools/kimi-doctor.ts loads");
   }
   await finalizeSyncArchive(REPO_ROOT, {
     files: [...result.updated, ...result.removed],

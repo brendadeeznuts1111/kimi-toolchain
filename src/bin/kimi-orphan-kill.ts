@@ -1,7 +1,13 @@
 #!/usr/bin/env bun
 /**
  * kimi-orphan-kill — Emergency orphan process cleanup
- * Kills runaway bun test / kimi-tool processes without touching system services.
+ * Kills parentless bun test / kimi-tool processes without touching system services.
+ *
+ * Orphan definition: a candidate command (bun test / gate entry point / install
+ * or typecheck storm) whose PARENT IS DEAD. Processes with a live parent are
+ * never killed — a long suite is owned by its live gate, and the gate's
+ * wall-clock watchdog handles stuck children. Also sweeps stale
+ * `.kimi-test-locks/` entries (dead owners).
  *
  * Usage:
  *   kimi-orphan-kill [--dry-run]

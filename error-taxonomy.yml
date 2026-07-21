@@ -333,6 +333,17 @@ categories:
       - regex: "Drifted desktop runtime files"
       - regex: 'error: script "sync:verify" exited with code 1'
 
+  - id: runtime_dep_corrupt
+    name: Runtime dependency corrupt
+    description: Desktop runtime dep present on disk but package.json missing after bun install (corrupt isolated-linker links-cache entry).
+    severity: error
+    expected: false
+    suggestion: "Provision auto-purges the corrupt links-cache entry and retries once; manual repair: remove the dep's entry under ~/.bun/install/cache/links and run bun install."
+    autoFix: "bun run sync"
+    patterns:
+      - regex: "runtime_dep_corrupt"
+      - regex: "missing package.json after links-cache purge"
+
   - id: network_timeout
     name: Network timeout
     description: Network operation timed out.
