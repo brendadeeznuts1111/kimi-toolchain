@@ -19,9 +19,6 @@
   "dependencies": {
     "kimi-toolchain": "file:../.."
   },
-  "devDependencies": {
-    "bun-types": "file:../../../bun/packages/bun-types"
-  },
   "kimi": {
     "showcase": {
       "id": "dashboard",

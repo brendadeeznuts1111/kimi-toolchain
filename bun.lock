@@ -23,9 +23,6 @@
       "dependencies": {
         "kimi-toolchain": "file:../..",
       },
-      "devDependencies": {
-        "bun-types": "file:../../../bun/packages/bun-types",
-      },
     },
     "examples/gates": {
       "name": "kimi-gates-example",
@@ -214,6 +211,8 @@
 
     "undici-types": ["undici-types@8.3.0", "", {}, "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="],
 
-    "kimi-toolchain-dashboard/bun-types": ["bun-types@file:../bun/packages/bun-types", { "dependencies": { "@types/node": "*" } }],
+    "kimi-toolchain-dashboard/kimi-toolchain": ["kimi-toolchain@root:", {}],
+
+    "kimi-toolchain-dashboard/kimi-toolchain/bun-types": ["bun-types@file:../bun/packages/bun-types", { "dependencies": { "@types/node": "*" } }],
   }
 }
