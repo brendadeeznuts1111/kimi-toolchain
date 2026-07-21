@@ -48,6 +48,26 @@ registry = "https://npm.myorg.com"
 | `lockfile`         | `{ print = "yarn" }`         | Lockfile output format options.                                  |
 | `timeout`          | `0` (no timeout)             | Network request timeout in milliseconds.                         |
 
+## `frozenLockfile` and intentional dep changes
+
+`frozenLockfile = true` (machine + repo policy) refuses any lockfile update,
+which also blocks `bun remove` and plain `bun install` after a manual
+`package.json` edit ("lockfile had changes, but lockfile is frozen").
+
+There is **no runtime override**: the `BUN_CONFIG_*` env table does not include
+`frozenLockfile`, `--frozen-lockfile` takes no value, and `--no-frozen-lockfile`
+is not honored (verified against bun.com/docs/pm/cli/install on Bun 1.4.0).
+The only working path for an intentional dep change:
+
+1. Edit `package.json` (or use `bun add` / `bun remove` / `bun update`).
+2. Temporarily set `frozenLockfile = false` in repo `bunfig.toml`.
+3. Run `bun install` (updates `bun.lock`).
+4. **Immediately restore `frozenLockfile = true`** and verify `git diff bunfig.toml` is empty.
+
+The desktop-runtime provisioner sidesteps this differently: it deletes the
+disposable runtime lockfile before install — frozen only hard-fails on an
+_outdated_ lockfile, not a missing one.
+
 ## `[install.cache]`
 
 | Field     | Default          | Purpose                               |
