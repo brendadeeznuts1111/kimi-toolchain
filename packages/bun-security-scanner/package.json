@@ -1,0 +1,19 @@
+{
+  "name": "kimi-bun-security-scanner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OSV-backed Bun install security scanner for kimi-toolchain",
+  "keywords": [
+    "bun",
+    "osv",
+    "scanner",
+    "security",
+    "supply-chain"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  }
+}

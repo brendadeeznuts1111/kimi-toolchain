@@ -84,6 +84,17 @@ logLevel = "error"
 disable = false
 disableManifest = false
 
+# ── Install security scanner ─────────────────────────────────────────────
+# OSV-backed scanner (packages/bun-security-scanner); Bun scans all packages
+# before install. Relative path — Bun rejects scanners that are workspace deps.
+# Outage policy: OSV/network failure degrades to `warn` (never throws — a throw
+# cancels the install). Env overrides:
+#   KIMI_SECURITY_SCANNER_TIMEOUT_MS      (default 5000)
+#   KIMI_SECURITY_SCANNER_OUTAGE_POLICY   "warn" (default) | "ignore" (CI/non-TTY)
+# @see https://bun.com/docs/pm/security-scanner-api
+[install.security]
+scanner = "./packages/bun-security-scanner/src/index.ts"
+
 # ── Serve ────────────────────────────────────────────────────────────────
 [serve]
 port = 3000
