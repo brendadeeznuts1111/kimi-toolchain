@@ -53,16 +53,16 @@ function printClusterTable(summaries: ClusterSummary[]): void {
     logger.warn("No failure ledger records found.");
     return;
   }
-  const header = "CLUSTER".padEnd(22) + "COUNT".padEnd(7) + "TAXONOMY".padEnd(16) + "PLAYBOOK";
-  logger.line(header);
-  logger.line("-".repeat(header.length));
+  // @see https://bun.com/docs/runtime/utils#bun-inspect-table-tabulardata-properties-options
+  const rows = summaries.map((row) => ({
+    cluster: row.clusterId.slice(0, 20),
+    count: row.count,
+    taxonomy: row.topTaxonomy ?? "—",
+    playbook: row.hasPlaybook ? "yes" : "no",
+  }));
+  logger.line(Bun.inspect.table(rows, ["cluster", "count", "taxonomy", "playbook"]));
   for (const row of summaries) {
-    const playbook = row.hasPlaybook ? "yes" : "no";
-    const taxonomy = row.topTaxonomy ?? "—";
-    logger.line(
-      `${row.clusterId.slice(0, 20).padEnd(22)}${String(row.count).padEnd(7)}${taxonomy.padEnd(16)}${playbook}`
-    );
-    logger.line(`  ${row.representativeError.summary.slice(0, 72)}`);
+    logger.line(`  ${row.clusterId.slice(0, 20)}: ${row.representativeError.summary.slice(0, 72)}`);
     if (row.representativeError.traceId) {
       logger.line(`  trace: ${row.representativeError.traceId}`);
     }

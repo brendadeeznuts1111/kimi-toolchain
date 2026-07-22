@@ -7,26 +7,11 @@ import {
   formatGapList,
   formatHealthScore,
   formatKvPairs,
-  formatTextTable,
   formatUnifiedSummary,
 } from "../src/lib/discover-format.ts";
 import type { DiscoveredConstant } from "../src/lib/discover-constants.ts";
 
 describe("discover-format", () => {
-  it("should format aligned text tables", () => {
-    const lines = formatTextTable({
-      headers: ["KEY", "VALUE"],
-      rows: [
-        ["short", "1"],
-        ["much-longer-key", "two"],
-      ],
-    });
-    expect(lines[0]).toContain("KEY");
-    expect(lines[0]).toContain("VALUE");
-    expect(lines[1]).toMatch(/-+/);
-    expect(lines[2]?.startsWith("short")).toBe(true);
-  });
-
   it("should format health and status helpers", () => {
     expect(formatHealthScore(88)).toBe("88/100");
     expect(formatBoolStatus(true)).toBe("yes");

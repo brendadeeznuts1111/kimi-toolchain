@@ -15,26 +15,25 @@ import { emptyToEmDash } from "./markdown-table.ts";
 
 export const EM_DASH = "—";
 
-export interface TextTableOptions {
-  headers: readonly string[];
-  rows: readonly (readonly string[])[];
-  indent?: number;
-  maxCellWidth?: number;
-}
-
 export interface GapListOptions {
   limit?: number;
   prefix?: string;
   showOverflow?: boolean;
 }
 
-function indentLine(line: string, indent = 0): string {
-  return indent > 0 ? `${" ".repeat(indent)}${line}` : line;
-}
-
 function truncateCell(value: string, max?: number): string {
   if (!max || value.length <= max) return value;
   return `${value.slice(0, Math.max(1, max - 1))}…`;
+}
+
+/**
+ * Bun-native table renderer — keeps the legacy string[] contract for
+ * line-spread callers.
+ * @see https://bun.com/docs/runtime/utils#bun-inspect-table-tabulardata-properties-options
+ */
+function inspectTableLines(rows: Record<string, unknown>[], columns: string[]): string[] {
+  if (rows.length === 0) return ["(empty)"];
+  return Bun.inspect.table(rows, columns).split("\n");
 }
 
 export function formatHealthScore(score: number): string {
@@ -66,27 +65,6 @@ export function formatKvBlock(
   return Object.entries(entries)
     .filter(([, value]) => value !== undefined && value !== "")
     .map(([key, value]) => `  ${key.padEnd(labelWidth)}${value}`);
-}
-
-export function formatTextTable(options: TextTableOptions): string[] {
-  const { headers, rows, indent = 0, maxCellWidth } = options;
-  if (rows.length === 0) return [indentLine("(empty)", indent)];
-
-  const cells = rows.map((row) =>
-    row.map((cell) => truncateCell(String(cell ?? EM_DASH), maxCellWidth ?? undefined))
-  );
-  const widths = headers.map((header, index) =>
-    Math.max(header.length, ...cells.map((row) => row[index]?.length ?? 0))
-  );
-
-  const formatRow = (row: readonly string[]) =>
-    row.map((cell, index) => cell.padEnd(widths[index]!)).join("  ");
-
-  return [
-    indentLine(formatRow(headers), indent),
-    indentLine(widths.map((width) => "-".repeat(width)).join("  "), indent),
-    ...cells.map((row) => indentLine(formatRow(row), indent)),
-  ];
 }
 
 export function formatGapList(
@@ -139,32 +117,31 @@ export function formatConstantsSummary(report: DiscoverConstantsReport): string[
 }
 
 export function formatConstantsDomainTable(report: DiscoverConstantsReport): string[] {
-  return formatTextTable({
-    headers: ["DOMAIN", "COUNT", "VALID", "ORPHANS", "TAX"],
-    rows: report.domains.map((domain) => [
-      domain.domain,
-      String(domain.constantCount),
-      String(domain.validCount),
-      String(domain.orphanCount),
-      String(domain.taxonomyBoundCount),
-    ]),
-  });
+  return inspectTableLines(
+    report.domains.map((domain) => ({
+      DOMAIN: domain.domain,
+      COUNT: domain.constantCount,
+      VALID: domain.validCount,
+      ORPHANS: domain.orphanCount,
+      TAX: domain.taxonomyBoundCount,
+    })),
+    ["DOMAIN", "COUNT", "VALID", "ORPHANS", "TAX"]
+  );
 }
 
 export function formatConstantsTable(constants: readonly DiscoveredConstant[]): string[] {
-  return formatTextTable({
-    headers: ["DOMAIN", "KEY", "VALUE", "RANGE", "VALID", "SRC", "TAX"],
-    rows: constants.map((entry) => [
-      entry.domain,
-      entry.key,
-      String(entry.value),
-      formatConstantRange(entry.range),
-      formatBoolStatus(entry.valid),
-      String(entry.usageBreakdown.src.length),
-      String(entry.taxonomy.length),
-    ]),
-    maxCellWidth: 40,
-  });
+  return inspectTableLines(
+    constants.map((entry) => ({
+      DOMAIN: entry.domain,
+      KEY: entry.key,
+      VALUE: truncateCell(String(entry.value), 40),
+      RANGE: formatConstantRange(entry.range),
+      VALID: formatBoolStatus(entry.valid),
+      SRC: entry.usageBreakdown.src.length,
+      TAX: entry.taxonomy.length,
+    })),
+    ["DOMAIN", "KEY", "VALUE", "RANGE", "VALID", "SRC", "TAX"]
+  );
 }
 
 export function formatConstantDeep(entry: DiscoveredConstant): string[] {
@@ -266,32 +243,30 @@ export function formatDxSummary(report: DiscoverDxInventoryReport): string[] {
 }
 
 export function formatDxEndpointsTable(endpoints: readonly DiscoveredEndpoint[]): string[] {
-  return formatTextTable({
-    headers: ["NAME", "STACK", "PORT", "PATH", "DUP"],
-    rows: endpoints.map((entry) => [
-      entry.name,
-      entry.stack,
-      emptyToEmDash(entry.port),
-      emptyToEmDash(entry.pathname),
-      entry.duplicateNames.length > 0 ? entry.duplicateNames.join(",") : EM_DASH,
-    ]),
-    maxCellWidth: 36,
-  });
+  return inspectTableLines(
+    endpoints.map((entry) => ({
+      NAME: entry.name,
+      STACK: entry.stack,
+      PORT: emptyToEmDash(entry.port),
+      PATH: truncateCell(emptyToEmDash(entry.pathname), 36),
+      DUP: entry.duplicateNames.length > 0 ? entry.duplicateNames.join(",") : EM_DASH,
+    })),
+    ["NAME", "STACK", "PORT", "PATH", "DUP"]
+  );
 }
 
 export function formatDxRulesTable(rules: readonly DiscoveredHandoffRule[]): string[] {
-  return formatTextTable({
-    headers: ["#", "FROM", "CONDITION", "WHEN", "TO", "REQS"],
-    rows: rules.map((rule) => [
-      String(rule.index),
-      `${rule.fromAgent}@${rule.fromWorkspace}`,
-      truncateCell(rule.condition, 36),
-      rule.when.length > 0 ? String(rule.when.length) : EM_DASH,
-      `${rule.toAgent}@${rule.toWorkspace}`,
-      String(rule.requirements.length),
-    ]),
-    maxCellWidth: 36,
-  });
+  return inspectTableLines(
+    rules.map((rule) => ({
+      "#": rule.index,
+      FROM: `${rule.fromAgent}@${rule.fromWorkspace}`,
+      CONDITION: truncateCell(rule.condition, 36),
+      WHEN: rule.when.length > 0 ? rule.when.length : EM_DASH,
+      TO: `${rule.toAgent}@${rule.toWorkspace}`,
+      REQS: rule.requirements.length,
+    })),
+    ["#", "FROM", "CONDITION", "WHEN", "TO", "REQS"]
+  );
 }
 
 export function formatDxDeep(report: DiscoverDxInventoryReport): string[] {
