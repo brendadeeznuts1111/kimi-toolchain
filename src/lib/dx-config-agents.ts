@@ -4,6 +4,14 @@
 
 import type { DxConfigDocument } from "./dx-config-merge.ts";
 
+export interface SubagentEntry {
+  readonly toolPath: string;
+  readonly args?: string[];
+  readonly timeoutMs?: number;
+  readonly env?: Record<string, string | undefined>;
+  readonly label?: string;
+}
+
 export interface AgentContext {
   readonly firstRead: string[];
   readonly bootstrap: string[];
@@ -13,6 +21,7 @@ export interface AgentContext {
   readonly handoff: string[];
   readonly avoid: string[];
   readonly skills?: Record<string, unknown>;
+  readonly subagents?: Record<string, SubagentEntry>;
 }
 
 function readString(value: unknown): string | undefined {
@@ -29,6 +38,38 @@ function readAgents(document: DxConfigDocument): Record<string, unknown> | null 
   return document.agents && typeof document.agents === "object"
     ? (document.agents as Record<string, unknown>)
     : null;
+}
+
+function readSubagentEntry(value: unknown): SubagentEntry | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const obj = value as Record<string, unknown>;
+  const toolPath = readString(obj.toolPath);
+  if (!toolPath) return undefined;
+
+  const args = readStringArray(obj.args);
+  const timeoutMs = typeof obj.timeoutMs === "number" ? obj.timeoutMs : undefined;
+  const label = readString(obj.label);
+
+  let env: Record<string, string | undefined> | undefined;
+  if (obj.env && typeof obj.env === "object" && !Array.isArray(obj.env)) {
+    env = {};
+    for (const [k, v] of Object.entries(obj.env)) {
+      env[k] = typeof v === "string" ? v : undefined;
+    }
+  }
+
+  return { toolPath, args: args.length > 0 ? args : undefined, timeoutMs, env, label };
+}
+
+function readSubagents(value: unknown): Record<string, SubagentEntry> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const obj = value as Record<string, unknown>;
+  const out: Record<string, SubagentEntry> = {};
+  for (const [key, val] of Object.entries(obj)) {
+    const entry = readSubagentEntry(val);
+    if (entry) out[key] = entry;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /** Extract the full agent context from `[agents]`. */
@@ -48,6 +89,7 @@ export function getAgentContext(document: DxConfigDocument): AgentContext {
     handoff: readStringArray(agents.handoff),
     avoid: readStringArray(agents.avoid),
     skills,
+    subagents: readSubagents(agents.subagents),
   };
 }
 

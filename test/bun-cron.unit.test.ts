@@ -7,6 +7,7 @@
  * requires an integration test with timeouts.
  */
 import { describe, expect, test } from "bun:test";
+import { startCronLoop, startIntervalLoop } from "../src/lib/bun-utils.ts";
 
 describe("bun-cron", () => {
   test("Bun.cron is available", () => {
@@ -74,5 +75,49 @@ describe("bun-cron", () => {
 
   test("Bun.cron.remove for unknown job name does not throw", async () => {
     await expect(Bun.cron.remove("nonexistent-job-12345")).resolves.toBeUndefined();
+  });
+
+  test("startIntervalLoop fires ticks immediately then repeats", async () => {
+    let ticks = 0;
+    const controller = startIntervalLoop(50, () => {
+      ticks++;
+      if (ticks >= 3) controller.abort();
+    });
+    await Bun.sleep(300);
+    expect(ticks).toBeGreaterThanOrEqual(3);
+  });
+
+  test("startCronLoop falls back to interval and fires ticks", async () => {
+    const originalCron = (Bun as Record<string, unknown>).cron;
+    try {
+      (Bun as Record<string, unknown>).cron = undefined;
+      let ticks = 0;
+      const controller = startCronLoop("* * * * *", 50, () => {
+        ticks++;
+        if (ticks >= 3) controller.abort();
+      });
+      await Bun.sleep(300);
+      expect(ticks).toBeGreaterThanOrEqual(3);
+    } finally {
+      (Bun as Record<string, unknown>).cron = originalCron;
+    }
+  });
+
+  test("startCronLoop returns an AbortController when Bun.cron is available", () => {
+    const controller = startCronLoop("* * * * *", 50, () => {});
+    expect(controller).toBeInstanceOf(AbortController);
+    controller.abort();
+  });
+
+  test("abort stops an interval loop", async () => {
+    let ticks = 0;
+    const controller = startIntervalLoop(10, () => {
+      ticks++;
+    });
+    await Bun.sleep(50);
+    controller.abort();
+    const frozen = ticks;
+    await Bun.sleep(100);
+    expect(ticks).toBe(frozen);
   });
 });

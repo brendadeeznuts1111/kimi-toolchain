@@ -120,6 +120,10 @@ const RAW_BUN_SPAWN = /Bun\.spawn\s*\(\s*(?!\s*withBunNoOrphans\s*\()\s*\[\s*["'
 const RAW_BUN_EXECPATH_SPAWN =
   /Bun\.spawn(?:Sync)?\s*\(\s*(?!\s*withBunNoOrphans\s*\()[^)]*process\.execPath/;
 
+const BUN_CRON_NO_DISPOSE = /Bun\.cron\s*\(/;
+const UTIL_INSPECT = /\butil\.inspect\s*\(/;
+const PROCESS_HRTIME = /\bprocess\.hrtime(?:\.bigint)?\s*\(/;
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -488,6 +492,67 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
         SHELL_TEMPLATE_TARGET,
         undefined,
         false
+      );
+    },
+  },
+  {
+    id: "bun-cron-dispose",
+    message: "Bun.cron job should be assigned to a variable or use `using` for disposal",
+    replacement: "using job = Bun.cron(...) or const job = Bun.cron(...); job.stop()",
+    defaultMode: "off",
+    detect(ctx) {
+      const out: Violation[] = [];
+      for (let i = 0; i < ctx.lines.length; i++) {
+        const line = ctx.lines[i] ?? "";
+        const codeLine = ctx.codeLines[i] ?? "";
+        const lineNo = i + 1;
+        if (codeLine.trim() === "" || ctx.lineHasExemption(line, "bun-cron-dispose")) continue;
+        const code = stripStringLiterals(codeLine);
+        if (!BUN_CRON_NO_DISPOSE.test(code)) continue;
+        BUN_CRON_NO_DISPOSE.lastIndex = 0;
+        const beforeCron = code.slice(0, code.indexOf("Bun.cron")).trim();
+        if (beforeCron.endsWith("=") || beforeCron.endsWith("using")) continue;
+        out.push(
+          ...lineViolations(
+            ctx,
+            "bun-cron-dispose",
+            "unassigned Bun.cron",
+            "using job = Bun.cron(...)",
+            lineNo,
+            line
+          )
+        );
+      }
+      return out;
+    },
+  },
+  {
+    id: "util-inspect-opportunity",
+    message: "Prefer Bun.inspect over util.inspect",
+    replacement: "Bun.inspect",
+    defaultMode: "off",
+    detect(ctx) {
+      return scanLineMatches(
+        ctx,
+        "util-inspect-opportunity",
+        "util.inspect",
+        "Bun.inspect",
+        UTIL_INSPECT
+      );
+    },
+  },
+  {
+    id: "process-hrtime-opportunity",
+    message: "Prefer Bun.nanoseconds() over process.hrtime for high-resolution timing",
+    replacement: "Bun.nanoseconds()",
+    defaultMode: "off",
+    detect(ctx) {
+      return scanLineMatches(
+        ctx,
+        "process-hrtime-opportunity",
+        "process.hrtime",
+        "Bun.nanoseconds()",
+        PROCESS_HRTIME
       );
     },
   },
