@@ -329,4 +329,58 @@ describe("bun-native-lint", () => {
 
     expect(violations.filter((v) => v.ruleId === "buffer-from")).toHaveLength(2);
   });
+
+  test("bun-cron-dispose detects unassigned Bun.cron", async () => {
+    const dir = `${REPO_ROOT}/test/fixtures/bun-native-lint-cron-dispose`;
+    await Bun.write(
+      join(dir, "test.ts"),
+      [
+        'Bun.cron("* * * * * *", () => {});',
+        'const job = Bun.cron("* * * * * *", () => {});',
+        'using job2 = Bun.cron("* * * * * *", () => {});',
+      ].join("\n")
+    );
+    const config = mergeConfig({
+      rules: {
+        "bun-cron-dispose": "enforce",
+      },
+    });
+    const violations = await scanFile(dir, "test.ts", config);
+    await Bun.write(join(dir, "test.ts"), "void 0;\n");
+
+    const cronV = violations.filter((v) => v.ruleId === "bun-cron-dispose");
+    expect(cronV).toHaveLength(1);
+    expect(cronV[0]!.line).toBe(1);
+  });
+
+  test("util-inspect-opportunity detects util.inspect", async () => {
+    const dir = `${REPO_ROOT}/test/fixtures/bun-native-lint-util-inspect`;
+    await Bun.write(join(dir, "test.ts"), ["const s = util.inspect({ a: 1 });"].join("\n"));
+    const config = mergeConfig({
+      rules: {
+        "util-inspect-opportunity": "enforce",
+      },
+    });
+    const violations = await scanFile(dir, "test.ts", config);
+    await Bun.write(join(dir, "test.ts"), "void 0;\n");
+
+    expect(violations.filter((v) => v.ruleId === "util-inspect-opportunity")).toHaveLength(1);
+  });
+
+  test("process-hrtime-opportunity detects process.hrtime", async () => {
+    const dir = `${REPO_ROOT}/test/fixtures/bun-native-lint-hrtime`;
+    await Bun.write(
+      join(dir, "test.ts"),
+      ["const start = process.hrtime();", "const big = process.hrtime.bigint();"].join("\n")
+    );
+    const config = mergeConfig({
+      rules: {
+        "process-hrtime-opportunity": "enforce",
+      },
+    });
+    const violations = await scanFile(dir, "test.ts", config);
+    await Bun.write(join(dir, "test.ts"), "void 0;\n");
+
+    expect(violations.filter((v) => v.ruleId === "process-hrtime-opportunity")).toHaveLength(2);
+  });
 });

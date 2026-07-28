@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Self-maintaining canonical references health monitor using `Bun.cron`.
+ * Self-maintaining canonical references health monitor using `startCronLoop`.
  *
  * Runs a periodic audit of the canonical-references.json manifest and logs
  * drift warnings without modifying any files. Intended for long-running
@@ -17,7 +17,7 @@ import {
   auditCanonicalReferencesHealth,
   repoCanonicalReferencesPath,
 } from "../src/lib/canonical-references.ts";
-import { runIfNotInflight } from "../src/lib/bun-utils.ts";
+import { startCronLoop, runIfNotInflight } from "../src/lib/bun-utils.ts";
 import { homeDir } from "../src/lib/paths.ts";
 
 const REPO_ROOT = join(import.meta.dir, "..");
@@ -62,42 +62,25 @@ if (onceMode) {
   process.exit(0);
 }
 
-interface BunCronHandle {
-  ref(): void;
-  unref(): void;
-  [Symbol.dispose](): void;
-}
-
-const bunAny = Bun as unknown as {
-  cron: (expression: string, handler: () => void | Promise<void>) => BunCronHandle;
-};
-
-if (typeof bunAny.cron !== "function") {
-  process.stderr.write("cron:health — Bun.cron unavailable; falling back to --once mode\n");
-  await runAudit();
-  process.exit(0);
-}
-
 process.stdout.write(`cron:health — starting (expression: "${cronExpression}")\n`);
 process.stdout.write(`  Press Ctrl-C to stop.\n`);
 
-// Log cron handler errors without killing the process (matches Bun.cron error semantics)
+// Log cron handler errors without killing the process
 process.on("unhandledRejection", (err) => {
   process.stderr.write(`[cron:health] handler error: ${String(err)}\n`);
 });
 
-// Initial immediate audit on startup
+// Immediate audit on startup
 await runAudit();
 
-{
-  using _job = bunAny.cron(cronExpression, () => runIfNotInflight(runAudit));
+// Periodic loop via startCronLoop (Bun.cron when available, interval fallback otherwise)
+const controller = startCronLoop(cronExpression, 30_000, () => runIfNotInflight(runAudit));
 
-  await new Promise<void>((resolve) => {
-    const stop = () => resolve();
-    process.once("SIGINT", stop);
-    process.once("SIGTERM", stop);
-  });
-  // _job disposed here via using — stops the cron before process exits
-}
+await new Promise<void>((resolve) => {
+  const stop = () => resolve();
+  process.once("SIGINT", stop);
+  process.once("SIGTERM", stop);
+});
 
+controller.abort();
 process.stdout.write("\ncron:health — stopped\n");

@@ -498,8 +498,6 @@ export function stopDelayedIntervalLoop(controller: AbortController | null): voi
 // Bun.cron compatibility — native cron when available (Bun ≥1.3.12), else interval loop
 // ---------------------------------------------------------------------------
 
-const BUN_CRON_READY = typeof (Bun as Record<string, unknown>).cron === "function";
-
 /**
  * Start a periodic loop using `Bun.cron` when available (Bun ≥1.3.12),
  * falling back to {@link startIntervalLoop} on older runtimes.
@@ -507,7 +505,7 @@ const BUN_CRON_READY = typeof (Bun as Record<string, unknown>).cron === "functio
  * Cron form: in-process, no overlap, UTC, `--hot` safe, disposable via `using`.
  * Interval form: same AbortController-based loop used elsewhere in the codebase.
  *
- * @param cronExpr 6-field cron expression (e.g. `"* * * * * *"` for every second)
+ * @param cronExpr 5-field cron expression (e.g. `"* * * * *"` for every minute)
  * @param intervalMs Fallback interval in milliseconds (used when Bun.cron unavailable)
  * @param tick Async callback — next invocation waits for the previous Promise to settle
  * @returns AbortController — call `.abort()` to stop
@@ -517,10 +515,11 @@ export function startCronLoop(
   intervalMs: number,
   tick: () => void | Promise<void>
 ): AbortController {
-  if (BUN_CRON_READY) {
+  const bunCronReady = typeof (Bun as Record<string, unknown>).cron === "function";
+  if (bunCronReady) {
     const controller = new AbortController();
     const cron = (
-      Bun as unknown as { cron: (expr: string, cb: () => void) => { dispose: () => void } }
+      Bun as unknown as { cron: (expr: string, cb: () => void) => { stop: () => void } }
     ).cron(cronExpr, async () => {
       if (controller.signal.aborted) return;
       try {
@@ -528,10 +527,10 @@ export function startCronLoop(
       } catch {
         // Cron errors are surfaced via unhandledRejection — no crash
       }
-      // Signal may have fired during tick — cron.dispose() won't cancel in-flight ticks
+      // Signal may have fired during tick — cron.stop() won't cancel in-flight ticks
       if (controller.signal.aborted) return;
     });
-    controller.signal.addEventListener("abort", () => cron.dispose(), { once: true });
+    controller.signal.addEventListener("abort", () => cron.stop(), { once: true });
     return controller;
   }
   return startIntervalLoop(intervalMs, tick);

@@ -245,6 +245,7 @@ export const UNIT_TEST_FILES = [
   "test/cloudflare-access-policy.unit.test.ts",
   "test/tool-runner.unit.test.ts",
   "test/tool-registry.unit.test.ts",
+  "test/subagent-orchestrator.unit.test.ts",
   "test/provider-contract.unit.test.ts",
   "test/success-metrics.unit.test.ts",
   "test/unified-shell-bridge.unit.test.ts",
@@ -805,6 +806,7 @@ export const TEST_GROUPS: Record<string, string[] | { include: string[]; exclude
     "test/external-tool-runner.unit.test.ts",
     "test/provider-contract.unit.test.ts",
     "test/unified-shell-bridge.unit.test.ts",
+    "test/subagent-orchestrator.unit.test.ts",
   ],
   webview: [
     "test/webview-*.unit.test.ts",
