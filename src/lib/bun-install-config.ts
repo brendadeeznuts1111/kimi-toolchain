@@ -41,6 +41,7 @@ import {
   type MachineSsotEntry,
   type MachineSsotKey,
 } from "./machine-bun-ssot.ts";
+import type { UserBunfigInstallSnapshot } from "./bunfig-redundancy.ts";
 
 export const BUN_INSTALL_DOC_URL = "https://bun.com/docs/pm/cli/install";
 /** @see https://bun.com/docs/pm/cli/update */
@@ -2845,7 +2846,10 @@ function rowWarnings(row: BunInstallPolicyRow): string[] {
 }
 
 /** Build grouped install policy tables with official | hardened | current | status. */
-export async function buildInstallPolicyReport(projectDir: string): Promise<BunInstallConfigAudit> {
+export async function buildInstallPolicyReport(
+  projectDir: string,
+  machine?: UserBunfigInstallSnapshot
+): Promise<BunInstallConfigAudit> {
   const { bunfigPath, install, cacheDir, packageMeta } = await readProjectInstallMeta(projectDir);
 
   const isToolchainRoot = packageMeta?.name === "kimi-toolchain";
@@ -2880,7 +2884,7 @@ export async function buildInstallPolicyReport(projectDir: string): Promise<BunI
         docsUrl: bunInstallDocAnchor(def.docsAnchor),
       }));
   const bunfigRows = buildPolicyRows(BUN_INSTALL_BUNFIG_POLICY, install, cacheDir, packageMeta);
-  const machineSsot = await readMachineInstallSsot(install);
+  const machineSsot = await readMachineInstallSsot(install, machine);
   applyMachineSsotToPolicyRows(bunfigRows, machineSsot);
   const packageRows = buildPolicyRows(BUN_INSTALL_PACKAGE_POLICY, install, cacheDir, packageMeta);
   const platformRows = buildPolicyRows(BUN_INSTALL_PLATFORM_POLICY, install, cacheDir, packageMeta);
@@ -3838,6 +3842,9 @@ export async function evaluateBunInstallProbeHandoffCondition(
 }
 
 /** Audit install policy: env overrides beat bunfig; flag drift from hardened defaults. */
-export async function auditBunInstallConfig(projectDir: string): Promise<BunInstallConfigAudit> {
-  return buildInstallPolicyReport(projectDir);
+export async function auditBunInstallConfig(
+  projectDir: string,
+  machine?: UserBunfigInstallSnapshot
+): Promise<BunInstallConfigAudit> {
+  return buildInstallPolicyReport(projectDir, machine);
 }

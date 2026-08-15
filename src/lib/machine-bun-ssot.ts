@@ -334,8 +334,9 @@ export function suppressInheritedSsotWarning(
 }
 
 export async function readMachineInstallSsot(
-  projectInstall: BunfigInstallSection | null
+  projectInstall: BunfigInstallSection | null,
+  machine?: UserBunfigInstallSnapshot
 ): Promise<MachineSsotEntry[]> {
-  const machine = await readEffectiveUserBunfigInstall();
-  return resolveMachineInstallSsot(projectInstall, machine);
+  const snap = machine ?? (await readEffectiveUserBunfigInstall());
+  return resolveMachineInstallSsot(projectInstall, snap);
 }

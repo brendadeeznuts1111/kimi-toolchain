@@ -260,23 +260,24 @@ async function auditBunfigPaths(
 
 /** Audit only ./bunfig.toml at project root (kimi-doctor --gate bunfig-policy). */
 export async function auditProjectBunfigRedundancy(
-  projectRoot: string
+  projectRoot: string,
+  machine?: UserBunfigInstallSnapshot
 ): Promise<BunfigRedundancyAudit> {
-  const machine = await readEffectiveUserBunfigInstall();
+  const snap = machine ?? (await readEffectiveUserBunfigInstall());
   const bunfigPath = join(projectRoot, "bunfig.toml");
   const paths = pathExists(bunfigPath) ? [bunfigPath] : [];
-  return auditBunfigPaths(projectRoot, paths, machine);
+  return auditBunfigPaths(projectRoot, paths, snap);
 }
 
 /** Scan project tree for bunfig.toml files duplicating ~/.bunfig.toml install keys. */
 export async function auditWorkspaceBunfigRedundancy(
   projectRoot: string,
-  options: { pruneDirNames?: readonly string[] } = {}
+  options: { pruneDirNames?: readonly string[]; machine?: UserBunfigInstallSnapshot } = {}
 ): Promise<BunfigRedundancyAudit> {
-  const machine = await readEffectiveUserBunfigInstall();
+  const snap = options.machine ?? (await readEffectiveUserBunfigInstall());
   const bunfigPaths = await findWorkspaceBunfigFiles(
     projectRoot,
     options.pruneDirNames ?? DEFAULT_PRUNE
   );
-  return auditBunfigPaths(projectRoot, bunfigPaths, machine);
+  return auditBunfigPaths(projectRoot, bunfigPaths, snap);
 }
