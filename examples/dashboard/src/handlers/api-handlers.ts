@@ -537,19 +537,22 @@ export async function apiBunfig(): Promise<Response> {
     }
     const raw = await file.text();
     const parsed = Bun.TOML.parse(raw) as { install?: Record<string, unknown> };
-    const { readMachineInstallSsot, buildSsotSummary } =
+    const { readMachineInstallSsot, buildSsotSummary, formatMachineBunfigLabel } =
       await import("../../../../src/lib/machine-bun-ssot.ts");
-    const { readUserBunfigInstall } = await import("../../../../src/lib/bunfig-redundancy.ts");
-    const machine = await readUserBunfigInstall();
+    const { readUserBunfigLayers } = await import("../../../../src/lib/bunfig-redundancy.ts");
+    const layers = await readUserBunfigLayers();
     const ssotEntries = await readMachineInstallSsot(
       (parsed.install as import("../../../../src/lib/bun-install-config.ts").BunfigInstallSection) ??
-        null
+        null,
+      layers.effective
     );
     const ssot = buildSsotSummary(ssotEntries);
+    const globalLabel = formatMachineBunfigLabel(layers.effective.bunfigPath);
     return jsonResponse({
       path: "./bunfig.toml",
       sections: parsed,
-      machineBunfigPath: machine.bunfigPath,
+      machineBunfigPath: layers.machine.bunfigPath,
+      effectiveBunfigPath: layers.effective.bunfigPath,
       effectiveInstall: {
         linker: ssot.linker.effective,
         globalStore: ssot.globalStore.effective,
@@ -559,8 +562,7 @@ export async function apiBunfig(): Promise<Response> {
       inherited: ssotEntries
         .filter((entry) => entry.status === "inherited")
         .map((entry) => entry.note),
-      mergeRule:
-        "machine (~/.bunfig.toml) → project (./bunfig.toml) shallow merge → CLI flags override",
+      mergeRule: `machine (${globalLabel}) → project (./bunfig.toml) shallow merge → CLI flags override`,
       import: 'import bunfig from "./bunfig.toml" with { type: "toml" };',
     });
   } catch (e) {
