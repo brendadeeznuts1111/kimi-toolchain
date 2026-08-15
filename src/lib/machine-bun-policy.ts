@@ -6,6 +6,7 @@
  */
 
 import { join } from "path";
+import { lstatSync } from "node:fs";
 import { TOML } from "bun";
 import { pathExists } from "./bun-io.ts";
 import type { BunfigInstallSection } from "./bun-install-config.ts";
@@ -75,6 +76,21 @@ function cacheDirIsAbsolute(raw: string | null | undefined, expanded: string | n
   return !expanded.includes("/~/");
 }
 
+function bunfigPathIsSymlink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+/** Bun 1.3.14 loads `$XDG_CONFIG_HOME/.bunfig.toml` ahead of `$HOME/.bunfig.toml`. */
+export function xdgShadowBunfigPath(env: Record<string, string | undefined>): string | null {
+  const xdg = env.XDG_CONFIG_HOME;
+  if (!xdg || xdg.trim().length === 0) return null;
+  return join(xdg.replace(/\/+$/, ""), ".bunfig.toml");
+}
+
 export async function auditMachineBunPolicy(
   env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
 ): Promise<MachineBunPolicyAudit> {
@@ -87,8 +103,35 @@ export async function auditMachineBunPolicy(
 
   const bunfigPath = join(home, ".bunfig.toml");
   const shellPath = join(home, ".config/shell/path.sh");
+  const xdgShadow = xdgShadowBunfigPath(env);
+  const xdgExists = xdgShadow != null && pathExists(xdgShadow);
+  const homeLinked = bunfigPathIsSymlink(bunfigPath);
+  const homeReadable = pathExists(bunfigPath);
 
-  if (!pathExists(bunfigPath)) {
+  if (!homeReadable) {
+    if (xdgExists) {
+      checks.push({
+        ok: false,
+        id: "xdg.shadow",
+        detail: `$XDG_CONFIG_HOME/.bunfig.toml shadows ~/.bunfig.toml (${xdgShadow})`,
+      });
+      checks.push({
+        ok: false,
+        id: "bunfig",
+        detail: homeLinked
+          ? "dangling symlink ~/.bunfig.toml"
+          : "missing ~/.bunfig.toml while an XDG global bunfig is loaded",
+      });
+      return { ok: false, applicable: true, bunfigPath, shellPath, checks };
+    }
+    if (homeLinked) {
+      checks.push({
+        ok: false,
+        id: "bunfig",
+        detail: "dangling symlink ~/.bunfig.toml",
+      });
+      return { ok: false, applicable: true, bunfigPath, shellPath, checks };
+    }
     checks.push({
       ok: true,
       id: "bunfig",
@@ -104,6 +147,21 @@ export async function auditMachineBunPolicy(
     };
     install = parsed.install ?? null;
     checks.push({ ok: true, id: "bunfig", detail: "~/.bunfig.toml readable" });
+    checks.push(
+      xdgExists
+        ? {
+            ok: false,
+            id: "xdg.shadow",
+            detail: `$XDG_CONFIG_HOME/.bunfig.toml shadows ~/.bunfig.toml (${xdgShadow})`,
+          }
+        : {
+            ok: true,
+            id: "xdg.shadow",
+            detail: xdgShadow
+              ? "no $XDG_CONFIG_HOME/.bunfig.toml shadow"
+              : "XDG_CONFIG_HOME unset — ~/.bunfig.toml is the only global path",
+          },
+    );
   } catch (error) {
     checks.push({
       ok: false,

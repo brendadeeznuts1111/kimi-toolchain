@@ -5,6 +5,7 @@ import {
   estimateEnvBlockChars,
   machineCheckFailures,
   runtimeMeetsBunMin,
+  xdgShadowBunfigPath,
 } from "../src/lib/machine-bun-policy.ts";
 import { signJwt, verifyJwt } from "../src/lib/jwt.ts";
 import { makeDir, writeText } from "../src/lib/bun-io.ts";
@@ -150,5 +151,36 @@ describe("machine-bun-policy", () => {
         machineCheckFailures(audit.checks).some((line) => line.includes("BUN_INSTALL_GLOBAL_STORE"))
       ).toBe(true);
     });
+  });
+
+  test("xdgShadowBunfigPath is $XDG_CONFIG_HOME/.bunfig.toml only", () => {
+    expect(xdgShadowBunfigPath({})).toBeNull();
+    expect(xdgShadowBunfigPath({ XDG_CONFIG_HOME: "/tmp/xdg" })).toBe("/tmp/xdg/.bunfig.toml");
+    expect(xdgShadowBunfigPath({ XDG_CONFIG_HOME: "/tmp/xdg/" })).toBe("/tmp/xdg/.bunfig.toml");
+  });
+
+  test("fails when $XDG_CONFIG_HOME/.bunfig.toml exists", async () => {
+    const home = testTempDir("machine-bun-xdg-home-");
+    const xdg = testTempDir("machine-bun-xdg-config-");
+    writeText(join(home, ".bunfig.toml"), MACHINE_BUNFIG);
+    makeDir(join(home, ".config/shell"), { recursive: true });
+    writeText(join(home, ".config/shell/path.sh"), "# path\n");
+    writeText(join(xdg, ".bunfig.toml"), 'linker = "hoisted"\n');
+
+    const audit = await auditMachineBunPolicy({ HOME: home, XDG_CONFIG_HOME: xdg });
+    expect(audit.ok).toBe(false);
+    expect(machineCheckFailures(audit.checks).some((line) => line.includes("xdg.shadow"))).toBe(
+      true,
+    );
+  });
+
+  test("fails on a dangling ~/.bunfig.toml symlink", async () => {
+    const home = testTempDir("machine-bun-dangling-home-");
+    const { symlinkSync } = await import("node:fs");
+    symlinkSync(join(home, "missing.toml"), join(home, ".bunfig.toml"));
+    const audit = await auditMachineBunPolicy({ HOME: home });
+    expect(audit.applicable).toBe(true);
+    expect(audit.ok).toBe(false);
+    expect(machineCheckFailures(audit.checks).some((line) => line.includes("dangling"))).toBe(true);
   });
 });
