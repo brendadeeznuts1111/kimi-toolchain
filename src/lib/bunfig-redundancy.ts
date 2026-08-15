@@ -104,6 +104,29 @@ export async function readUserBunfigInstall(
   return readBunfigAt(join(home, ".bunfig.toml"), home);
 }
 
+export type UserBunfigLayers = {
+  machine: UserBunfigInstallSnapshot;
+  effective: UserBunfigInstallSnapshot;
+  xdgPath: string | null;
+  xdgLoaded: boolean;
+};
+
+/**
+ * One home read. XDG is inspected only when `XDG_CONFIG_HOME` is set.
+ */
+export async function readUserBunfigLayers(
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
+): Promise<UserBunfigLayers> {
+  const machine = await readUserBunfigInstall(env);
+  const xdgPath = xdgGlobalBunfigPath(env);
+  if (!xdgPath) {
+    return { machine, effective: machine, xdgPath: null, xdgLoaded: false };
+  }
+  const xdg = await readBunfigAt(xdgPath, resolveHome(env));
+  const xdgLoaded = xdg.inode === "file" || xdg.inode === "symlink";
+  return { machine, effective: xdgLoaded ? xdg : machine, xdgPath, xdgLoaded };
+}
+
 /**
  * Global bunfig Bun actually loads: `$XDG_CONFIG_HOME/.bunfig.toml` if present,
  * otherwise `$HOME/.bunfig.toml`.
@@ -111,13 +134,7 @@ export async function readUserBunfigInstall(
 export async function readEffectiveUserBunfigInstall(
   env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
 ): Promise<UserBunfigInstallSnapshot> {
-  const home = resolveHome(env);
-  const xdg = xdgGlobalBunfigPath(env);
-  if (xdg) {
-    const snap = await readBunfigAt(xdg, home);
-    if (snap.inode === "file" || snap.inode === "symlink") return snap;
-  }
-  return readUserBunfigInstall(env);
+  return (await readUserBunfigLayers(env)).effective;
 }
 
 function detectRedundantKeys(

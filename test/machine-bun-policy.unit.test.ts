@@ -173,6 +173,14 @@ describe("machine-bun-policy", () => {
     );
   });
 
+  test("fails when ~/.bunfig.toml is a directory", async () => {
+    const home = testTempDir("machine-bun-dir-");
+    makeDir(join(home, ".bunfig.toml"), { recursive: true });
+    const audit = await auditMachineBunPolicy({ HOME: home });
+    expect(audit.ok).toBe(false);
+    expect(audit.checks.find((c) => c.id === "bunfig")?.detail).toContain("directory");
+  });
+
   test("fails on a dangling ~/.bunfig.toml symlink", async () => {
     const home = testTempDir("machine-bun-dangling-home-");
     const { symlinkSync } = await import("node:fs");

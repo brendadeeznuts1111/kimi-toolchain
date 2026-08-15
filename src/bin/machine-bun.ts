@@ -17,7 +17,7 @@ import {
   machineCheckFailures,
   machineCheckWarnings,
 } from "../lib/machine-bun-policy.ts";
-import { readEffectiveUserBunfigInstall, readUserBunfigInstall } from "../lib/bunfig-redundancy.ts";
+import { readUserBunfigLayers } from "../lib/bunfig-redundancy.ts";
 import { MACHINE_BUNFIG_LABEL } from "../lib/machine-bun-ssot.ts";
 
 const flags = parseCliFlags(Bun.argv, "machine-bun");
@@ -26,9 +26,10 @@ const strict = flags.strict;
 const json = flags.json;
 
 async function main(): Promise<void> {
-  const audit = await auditMachineBunPolicy();
-  const machine = await readUserBunfigInstall();
-  const effective = await readEffectiveUserBunfigInstall();
+  const layers = await readUserBunfigLayers();
+  const audit = await auditMachineBunPolicy(Bun.env as Record<string, string | undefined>, layers);
+  const machine = layers.machine;
+  const effective = layers.effective;
   const failures = machineCheckFailures(audit.checks);
   const warnings = machineCheckWarnings(audit.checks);
   const failed = failures.length;

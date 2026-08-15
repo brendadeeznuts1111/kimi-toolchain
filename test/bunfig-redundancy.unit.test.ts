@@ -5,6 +5,7 @@ import {
   auditWorkspaceBunfigRedundancy,
   readEffectiveUserBunfigInstall,
   readUserBunfigInstall,
+  readUserBunfigLayers,
 } from "../src/lib/bunfig-redundancy.ts";
 import { testTempDir } from "./helpers.ts";
 
@@ -106,6 +107,16 @@ globalStore = true
       const gone = await readUserBunfigInstall({ HOME: home });
       expect(gone.inode).toBe("missing");
       expect(gone.bunfigPath).toBeNull();
+    });
+  });
+
+  test("readUserBunfigLayers reuses the home snapshot when XDG is absent", async () => {
+    await withUniqueHome(async (home) => {
+      writeText(join(home, ".bunfig.toml"), MACHINE_BUNFIG);
+      const layers = await readUserBunfigLayers({ HOME: home });
+      expect(layers.xdgLoaded).toBe(false);
+      expect(layers.effective).toBe(layers.machine);
+      expect(layers.machine.install?.linker).toBe("isolated");
     });
   });
 
