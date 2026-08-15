@@ -113,8 +113,9 @@ export async function readEffectiveUserBunfigInstall(
 ): Promise<UserBunfigInstallSnapshot> {
   const home = resolveHome(env);
   const xdg = xdgGlobalBunfigPath(env);
-  if (xdg && pathExists(xdg)) {
-    return readBunfigAt(xdg, home);
+  if (xdg) {
+    const snap = await readBunfigAt(xdg, home);
+    if (snap.inode === "file" || snap.inode === "symlink") return snap;
   }
   return readUserBunfigInstall(env);
 }

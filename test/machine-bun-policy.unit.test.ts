@@ -115,7 +115,6 @@ describe("machine-bun-policy", () => {
       });
 
       expect(verifyTokenOrNull(token, POLICY_LAYER_SECRET)).toBeTruthy();
-      expect(runtimeMeetsBunMin(Bun.version, "1.4.0")).toBe(true);
 
       setSystemTime(new Date("2026-06-23T00:59:59.000Z"));
       expect(verifyTokenOrNull(token, POLICY_LAYER_SECRET)).toBeTruthy();
