@@ -160,7 +160,7 @@ export async function auditMachineBunPolicy(
             detail: xdgShadow
               ? "no $XDG_CONFIG_HOME/.bunfig.toml shadow"
               : "XDG_CONFIG_HOME unset — ~/.bunfig.toml is the only global path",
-          },
+          }
     );
   } catch (error) {
     checks.push({

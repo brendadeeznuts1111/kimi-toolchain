@@ -170,7 +170,7 @@ describe("machine-bun-policy", () => {
     const audit = await auditMachineBunPolicy({ HOME: home, XDG_CONFIG_HOME: xdg });
     expect(audit.ok).toBe(false);
     expect(machineCheckFailures(audit.checks).some((line) => line.includes("xdg.shadow"))).toBe(
-      true,
+      true
     );
   });
 
