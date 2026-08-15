@@ -93,6 +93,22 @@ globalStore = true
     });
   });
 
+  test("readUserBunfigInstall distinguishes dangling from missing", async () => {
+    await withUniqueHome(async (home) => {
+      const { symlinkSync } = await import("node:fs");
+      symlinkSync(join(home, "missing-target.toml"), join(home, ".bunfig.toml"));
+      const dangling = await readUserBunfigInstall({ HOME: home });
+      expect(dangling.inode).toBe("dangling-symlink");
+      expect(dangling.bunfigPath).toBe(join(home, ".bunfig.toml"));
+      expect(dangling.install).toBeNull();
+    });
+    await withUniqueHome(async (home) => {
+      const gone = await readUserBunfigInstall({ HOME: home });
+      expect(gone.inode).toBe("missing");
+      expect(gone.bunfigPath).toBeNull();
+    });
+  });
+
   test("readEffectiveUserBunfigInstall uses XDG when that file exists", async () => {
     await withUniqueHome(async (home) => {
       writeText(join(home, ".bunfig.toml"), MACHINE_BUNFIG);

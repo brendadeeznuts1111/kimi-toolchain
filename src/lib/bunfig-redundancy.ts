@@ -5,7 +5,7 @@
 
 import { join } from "path";
 import { TOML } from "bun";
-import { pathExists } from "./bun-io.ts";
+import { pathExists, pathLstat } from "./bun-io.ts";
 import type { BunfigInstallSection } from "./bun-install-types.ts";
 
 export interface BunfigRedundancyHit {
@@ -46,18 +46,38 @@ function xdgGlobalBunfigPath(env: Record<string, string | undefined>): string | 
   return join(xdg.replace(/\/+$/, ""), ".bunfig.toml");
 }
 
+export type BunfigInode = "missing" | "file" | "symlink" | "dangling-symlink" | "directory";
+
 export type UserBunfigInstallSnapshot = {
   bunfigPath: string | null;
   install: BunfigInstallSection | null;
   cacheDir: string | null;
+  inode: BunfigInode;
 };
+
+function inspectBunfigInode(path: string): BunfigInode {
+  try {
+    const st = pathLstat(path);
+    if (st.isDirectory()) return "directory";
+    if (st.isSymbolicLink()) {
+      return pathExists(path) ? "symlink" : "dangling-symlink";
+    }
+    return "file";
+  } catch {
+    return "missing";
+  }
+}
 
 async function readBunfigAt(
   bunfigPath: string,
   home: string | null
 ): Promise<UserBunfigInstallSnapshot> {
-  if (!pathExists(bunfigPath)) {
-    return { bunfigPath: null, install: null, cacheDir: null };
+  const inode = inspectBunfigInode(bunfigPath);
+  if (inode === "missing" || inode === "directory") {
+    return { bunfigPath: null, install: null, cacheDir: null, inode };
+  }
+  if (inode === "dangling-symlink") {
+    return { bunfigPath, install: null, cacheDir: null, inode };
   }
 
   try {
@@ -67,9 +87,9 @@ async function readBunfigAt(
     const install = parsed.install ?? null;
     const rawDir = install?.cache?.dir ?? null;
     const cacheDir = rawDir ? expandTildePath(rawDir, home) : null;
-    return { bunfigPath, install, cacheDir };
+    return { bunfigPath, install, cacheDir, inode };
   } catch {
-    return { bunfigPath, install: null, cacheDir: null };
+    return { bunfigPath, install: null, cacheDir: null, inode };
   }
 }
 
@@ -79,7 +99,7 @@ export async function readUserBunfigInstall(
 ): Promise<UserBunfigInstallSnapshot> {
   const home = resolveHome(env);
   if (!home) {
-    return { bunfigPath: null, install: null, cacheDir: null };
+    return { bunfigPath: null, install: null, cacheDir: null, inode: "missing" };
   }
   return readBunfigAt(join(home, ".bunfig.toml"), home);
 }
