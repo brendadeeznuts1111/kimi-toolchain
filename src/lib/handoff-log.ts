@@ -80,7 +80,7 @@ async function rotateIfNeeded() {
   const archiveName = `handoff-history.${date}.${time}.jsonl.gz`;
   const archivePath = `${logPath.slice(0, logPath.lastIndexOf("/"))}/${archiveName}`;
 
-  const raw = new Uint8Array(await Bun.file(logPath).arrayBuffer()) as Uint8Array<ArrayBuffer>;
+  const raw = await Bun.file(logPath).bytes();
   await Bun.write(archivePath, Bun.gzipSync(raw));
   writeText(logPath, "");
 }
@@ -150,7 +150,7 @@ export async function getHandoffHistory(limit = 20): Promise<HandoffLogEntry[]> 
       if (!archivePattern.test(file)) continue;
       try {
         const archivePath = `${logDir}/${file}`;
-        const compressed = new Uint8Array(await Bun.file(archivePath).arrayBuffer());
+        const compressed = await Bun.file(archivePath).bytes();
         const raw = new TextDecoder().decode(Bun.gunzipSync(compressed));
         allEntries.push(...readLogLines(raw));
       } catch {
