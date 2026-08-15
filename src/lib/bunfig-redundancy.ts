@@ -26,8 +26,10 @@ export interface BunfigRedundancyAudit {
 
 const DEFAULT_PRUNE = ["node_modules", ".bun", "herdr-worktrees", ".git"] as const;
 
-function resolveHome(): string | null {
-  return Bun.env.HOME ?? Bun.env.USERPROFILE ?? null;
+function resolveHome(
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
+): string | null {
+  return env.HOME ?? env.USERPROFILE ?? null;
 }
 
 function expandTildePath(value: string, home: string | null): string {
@@ -37,17 +39,23 @@ function expandTildePath(value: string, home: string | null): string {
   return value;
 }
 
-export async function readUserBunfigInstall(): Promise<{
+/** Same path rule as machine-bun-policy.xdgShadowBunfigPath (no import — avoids a cycle). */
+function xdgGlobalBunfigPath(env: Record<string, string | undefined>): string | null {
+  const xdg = env.XDG_CONFIG_HOME;
+  if (!xdg || xdg.trim().length === 0) return null;
+  return join(xdg.replace(/\/+$/, ""), ".bunfig.toml");
+}
+
+export type UserBunfigInstallSnapshot = {
   bunfigPath: string | null;
   install: BunfigInstallSection | null;
   cacheDir: string | null;
-}> {
-  const home = resolveHome();
-  if (!home) {
-    return { bunfigPath: null, install: null, cacheDir: null };
-  }
+};
 
-  const bunfigPath = join(home, ".bunfig.toml");
+async function readBunfigAt(
+  bunfigPath: string,
+  home: string | null
+): Promise<UserBunfigInstallSnapshot> {
   if (!pathExists(bunfigPath)) {
     return { bunfigPath: null, install: null, cacheDir: null };
   }
@@ -63,6 +71,32 @@ export async function readUserBunfigInstall(): Promise<{
   } catch {
     return { bunfigPath, install: null, cacheDir: null };
   }
+}
+
+/** Machine SSOT file: `$HOME/.bunfig.toml` only. */
+export async function readUserBunfigInstall(
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
+): Promise<UserBunfigInstallSnapshot> {
+  const home = resolveHome(env);
+  if (!home) {
+    return { bunfigPath: null, install: null, cacheDir: null };
+  }
+  return readBunfigAt(join(home, ".bunfig.toml"), home);
+}
+
+/**
+ * Global bunfig Bun actually loads: `$XDG_CONFIG_HOME/.bunfig.toml` if present,
+ * otherwise `$HOME/.bunfig.toml`.
+ */
+export async function readEffectiveUserBunfigInstall(
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
+): Promise<UserBunfigInstallSnapshot> {
+  const home = resolveHome(env);
+  const xdg = xdgGlobalBunfigPath(env);
+  if (xdg && pathExists(xdg)) {
+    return readBunfigAt(xdg, home);
+  }
+  return readUserBunfigInstall(env);
 }
 
 function detectRedundantKeys(
@@ -132,7 +166,7 @@ function hitMessages(keys: BunfigRedundancyHit["keys"], machinePath: string): st
 async function auditBunfigPaths(
   projectRoot: string,
   bunfigPaths: string[],
-  machine: Awaited<ReturnType<typeof readUserBunfigInstall>>
+  machine: UserBunfigInstallSnapshot
 ): Promise<BunfigRedundancyAudit> {
   const home = resolveHome();
   const hits: BunfigRedundancyHit[] = [];
@@ -190,7 +224,7 @@ async function auditBunfigPaths(
 export async function auditProjectBunfigRedundancy(
   projectRoot: string
 ): Promise<BunfigRedundancyAudit> {
-  const machine = await readUserBunfigInstall();
+  const machine = await readEffectiveUserBunfigInstall();
   const bunfigPath = join(projectRoot, "bunfig.toml");
   const paths = pathExists(bunfigPath) ? [bunfigPath] : [];
   return auditBunfigPaths(projectRoot, paths, machine);
@@ -201,7 +235,7 @@ export async function auditWorkspaceBunfigRedundancy(
   projectRoot: string,
   options: { pruneDirNames?: readonly string[] } = {}
 ): Promise<BunfigRedundancyAudit> {
-  const machine = await readUserBunfigInstall();
+  const machine = await readEffectiveUserBunfigInstall();
   const bunfigPaths = await findWorkspaceBunfigFiles(
     projectRoot,
     options.pruneDirNames ?? DEFAULT_PRUNE

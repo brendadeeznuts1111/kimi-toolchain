@@ -3,6 +3,7 @@ import { join } from "path";
 import { writeText } from "../src/lib/bun-io.ts";
 import {
   buildSsotSummary,
+  formatMachineBunfigLabel,
   formatSsotDisplayValue,
   inheritedSsotNotes,
   resolveMachineInstallSsot,
@@ -10,7 +11,10 @@ import {
   ssotSatisfiesInstallPolicy,
   suppressInheritedSsotWarning,
 } from "../src/lib/machine-bun-ssot.ts";
-import { readUserBunfigInstall } from "../src/lib/bunfig-redundancy.ts";
+import {
+  readEffectiveUserBunfigInstall,
+  readUserBunfigInstall,
+} from "../src/lib/bunfig-redundancy.ts";
 import { testTempDir } from "./helpers.ts";
 
 const MACHINE_BUNFIG = `[install]
@@ -84,5 +88,22 @@ describe("machine-bun-ssot", () => {
       if (prevHome === undefined) delete Bun.env.HOME;
       else Bun.env.HOME = prevHome;
     }
+  });
+
+  test("inherited notes cite XDG when that is the effective global", async () => {
+    const home = testTempDir("ssot-xdg-home-");
+    const xdg = join(home, "xdg");
+    const { makeDir } = await import("../src/lib/bun-io.ts");
+    makeDir(xdg, { recursive: true });
+    writeText(join(home, ".bunfig.toml"), MACHINE_BUNFIG);
+    writeText(join(xdg, ".bunfig.toml"), `[install]\nlinker = "isolated"\nglobalStore = true\n`);
+    const env = { HOME: home, XDG_CONFIG_HOME: xdg };
+    const effective = await readEffectiveUserBunfigInstall(env);
+    const ssot = resolveMachineInstallSsot({ frozenLockfile: true }, effective, env);
+    expect(formatMachineBunfigLabel(effective.bunfigPath, env)).toBe(
+      "$XDG_CONFIG_HOME/.bunfig.toml"
+    );
+    expect(ssot.find((e) => e.key === "linker")?.note).toContain("$XDG_CONFIG_HOME/.bunfig.toml");
+    expect((await readUserBunfigInstall(env)).bunfigPath).toBe(join(home, ".bunfig.toml"));
   });
 });

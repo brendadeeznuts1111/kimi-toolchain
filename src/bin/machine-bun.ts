@@ -17,7 +17,7 @@ import {
   machineCheckFailures,
   machineCheckWarnings,
 } from "../lib/machine-bun-policy.ts";
-import { readUserBunfigInstall } from "../lib/bunfig-redundancy.ts";
+import { readEffectiveUserBunfigInstall, readUserBunfigInstall } from "../lib/bunfig-redundancy.ts";
 import { MACHINE_BUNFIG_LABEL } from "../lib/machine-bun-ssot.ts";
 
 const flags = parseCliFlags(Bun.argv, "machine-bun");
@@ -28,6 +28,7 @@ const json = flags.json;
 async function main(): Promise<void> {
   const audit = await auditMachineBunPolicy();
   const machine = await readUserBunfigInstall();
+  const effective = await readEffectiveUserBunfigInstall();
   const failures = machineCheckFailures(audit.checks);
   const warnings = machineCheckWarnings(audit.checks);
   const failed = failures.length;
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
     linker: machine.install?.linker ?? null,
     globalStore: machine.install?.globalStore ?? null,
     cacheDir: machine.cacheDir,
+    effectiveBunfigPath: effective.bunfigPath,
   };
 
   if (json) {
@@ -77,6 +79,9 @@ async function main(): Promise<void> {
   logger.info(
     `SSOT — linker=${ssot.linker ?? "unset"} globalStore=${String(ssot.globalStore)} cache.dir=${ssot.cacheDir ?? "unset"}`
   );
+  if (ssot.effectiveBunfigPath && ssot.effectiveBunfigPath !== ssot.bunfigPath) {
+    logger.info(`effective global — ${ssot.effectiveBunfigPath}`);
+  }
   logger.info("────────────────────────────────────");
   for (const check of audit.checks) {
     const isWarn = !check.ok && (check.id === "frozenLockfile" || check.id === "minimumReleaseAge");

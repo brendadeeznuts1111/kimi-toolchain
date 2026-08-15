@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { makeDir, writeText } from "../src/lib/bun-io.ts";
-import { auditWorkspaceBunfigRedundancy } from "../src/lib/bunfig-redundancy.ts";
+import {
+  auditWorkspaceBunfigRedundancy,
+  readEffectiveUserBunfigInstall,
+  readUserBunfigInstall,
+} from "../src/lib/bunfig-redundancy.ts";
 import { testTempDir } from "./helpers.ts";
 
 async function withUniqueHome(fn: (home: string) => void | Promise<void>): Promise<void> {
@@ -86,6 +90,49 @@ globalStore = true
       const audit = await auditWorkspaceBunfigRedundancy(project);
       expect(audit.ok).toBe(true);
       expect(audit.hits).toHaveLength(0);
+    });
+  });
+
+  test("readEffectiveUserBunfigInstall uses XDG when that file exists", async () => {
+    await withUniqueHome(async (home) => {
+      writeText(join(home, ".bunfig.toml"), MACHINE_BUNFIG);
+      const xdg = join(home, "xdg");
+      makeDir(xdg, { recursive: true });
+      writeText(join(xdg, ".bunfig.toml"), `[install]\nlinker = "hoisted"\n`);
+      const env = { HOME: home, XDG_CONFIG_HOME: xdg };
+      const ssot = await readUserBunfigInstall(env);
+      const effective = await readEffectiveUserBunfigInstall(env);
+      expect(ssot.install?.linker).toBe("isolated");
+      expect(ssot.bunfigPath).toBe(join(home, ".bunfig.toml"));
+      expect(effective.bunfigPath).toBe(join(xdg, ".bunfig.toml"));
+      expect(effective.install?.linker).toBe("hoisted");
+    });
+  });
+
+  test("redundancy inherit compares against the XDG global when it exists", async () => {
+    const project = testTempDir("bunfig-redundancy-xdg-project-");
+    writeText(
+      join(project, "bunfig.toml"),
+      `[install]
+linker = "hoisted"
+`
+    );
+
+    await withUniqueHome(async (home) => {
+      writeText(join(home, ".bunfig.toml"), MACHINE_BUNFIG);
+      const xdg = join(home, "xdg");
+      makeDir(xdg, { recursive: true });
+      writeText(join(xdg, ".bunfig.toml"), `[install]\nlinker = "hoisted"\n`);
+      const previousXdg = Bun.env.XDG_CONFIG_HOME;
+      Bun.env.XDG_CONFIG_HOME = xdg;
+      try {
+        const audit = await auditWorkspaceBunfigRedundancy(project);
+        expect(audit.machineBunfigPath).toBe(join(xdg, ".bunfig.toml"));
+        expect(audit.hits[0]?.keys).toEqual(["[install].linker"]);
+      } finally {
+        if (previousXdg === undefined) delete Bun.env.XDG_CONFIG_HOME;
+        else Bun.env.XDG_CONFIG_HOME = previousXdg;
+      }
     });
   });
 });

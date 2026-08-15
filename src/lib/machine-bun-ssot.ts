@@ -2,8 +2,12 @@
  * Machine ~/.bunfig.toml SSOT — project keys unset inherit from machine layer.
  */
 
+import { join } from "path";
 import type { BunfigInstallSection } from "./bun-install-types.ts";
-import { readUserBunfigInstall } from "./bunfig-redundancy.ts";
+import {
+  readEffectiveUserBunfigInstall,
+  type UserBunfigInstallSnapshot,
+} from "./bunfig-redundancy.ts";
 
 export type MachineSsotKey = "linker" | "globalStore" | "cacheDir";
 
@@ -20,6 +24,18 @@ export interface MachineSsotEntry {
 }
 
 export const MACHINE_BUNFIG_LABEL = "~/.bunfig.toml";
+
+/** Operator label for the global bunfig that supplied inherited keys. */
+export function formatMachineBunfigLabel(
+  bunfigPath: string | null,
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
+): string {
+  if (!bunfigPath) return MACHINE_BUNFIG_LABEL;
+  const xdg = env.XDG_CONFIG_HOME?.trim();
+  const xdgPath = xdg ? join(xdg.replace(/\/+$/, ""), ".bunfig.toml") : null;
+  if (xdgPath && bunfigPath === xdgPath) return "$XDG_CONFIG_HOME/.bunfig.toml";
+  return MACHINE_BUNFIG_LABEL;
+}
 
 export type MachineSsotSummary = Record<
   MachineSsotKey,
@@ -79,7 +95,8 @@ export function formatSsotDisplayValue(entry: MachineSsotEntry | undefined): str
 function linkerEntry(
   project: BunfigInstallSection | null,
   machineInstall: BunfigInstallSection | null,
-  machinePath: string | null
+  machinePath: string | null,
+  inheritLabel: string
 ): MachineSsotEntry {
   const machineValue = machineInstall?.linker ?? null;
   const projectValue = project?.linker ?? null;
@@ -117,7 +134,7 @@ function linkerEntry(
       effective: machineValue,
       machineValue,
       projectValue: null,
-      note: `${bunfigKey}: inherited from ${MACHINE_BUNFIG_LABEL} (${machineValue})`,
+      note: `${bunfigKey}: inherited from ${inheritLabel} (${machineValue})`,
     };
   }
 
@@ -135,7 +152,8 @@ function linkerEntry(
 function globalStoreEntry(
   project: BunfigInstallSection | null,
   machineInstall: BunfigInstallSection | null,
-  machinePath: string | null
+  machinePath: string | null,
+  inheritLabel: string
 ): MachineSsotEntry {
   const machineValue =
     machineInstall?.globalStore === true
@@ -179,7 +197,7 @@ function globalStoreEntry(
       effective: machineValue,
       machineValue,
       projectValue: null,
-      note: `${bunfigKey}: inherited from ${MACHINE_BUNFIG_LABEL} (${machineValue})`,
+      note: `${bunfigKey}: inherited from ${inheritLabel} (${machineValue})`,
     };
   }
 
@@ -197,7 +215,8 @@ function globalStoreEntry(
 function cacheDirEntry(
   project: BunfigInstallSection | null,
   machineCacheDir: string | null,
-  machinePath: string | null
+  machinePath: string | null,
+  inheritLabel: string
 ): MachineSsotEntry {
   const machineValue = machineCacheDir;
   const projectValue = project?.cache?.dir ?? null;
@@ -235,7 +254,7 @@ function cacheDirEntry(
       effective: machineValue,
       machineValue,
       projectValue: null,
-      note: `${bunfigKey}: inherited from ${MACHINE_BUNFIG_LABEL} (${machineValue})`,
+      note: `${bunfigKey}: inherited from ${inheritLabel} (${machineValue})`,
     };
   }
 
@@ -252,13 +271,15 @@ function cacheDirEntry(
 
 export function resolveMachineInstallSsot(
   projectInstall: BunfigInstallSection | null,
-  machine: Awaited<ReturnType<typeof readUserBunfigInstall>>
+  machine: UserBunfigInstallSnapshot,
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
 ): MachineSsotEntry[] {
   const machineInstall = machine.install;
+  const inheritLabel = formatMachineBunfigLabel(machine.bunfigPath, env);
   return [
-    linkerEntry(projectInstall, machineInstall, machine.bunfigPath),
-    globalStoreEntry(projectInstall, machineInstall, machine.bunfigPath),
-    cacheDirEntry(projectInstall, machine.cacheDir, machine.bunfigPath),
+    linkerEntry(projectInstall, machineInstall, machine.bunfigPath, inheritLabel),
+    globalStoreEntry(projectInstall, machineInstall, machine.bunfigPath, inheritLabel),
+    cacheDirEntry(projectInstall, machine.cacheDir, machine.bunfigPath, inheritLabel),
   ];
 }
 
@@ -315,6 +336,6 @@ export function suppressInheritedSsotWarning(
 export async function readMachineInstallSsot(
   projectInstall: BunfigInstallSection | null
 ): Promise<MachineSsotEntry[]> {
-  const machine = await readUserBunfigInstall();
+  const machine = await readEffectiveUserBunfigInstall();
   return resolveMachineInstallSsot(projectInstall, machine);
 }
