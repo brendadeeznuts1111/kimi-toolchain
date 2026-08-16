@@ -550,6 +550,7 @@ export async function apiBunfig(): Promise<Response> {
         linker: ssot.linker.effective,
         globalStore: ssot.globalStore.effective,
         cacheDir: ssot.cacheDir.effective,
+        minimumReleaseAge: ssot.minimumReleaseAge.effective,
       },
       ssot,
       inherited: ssotEntries

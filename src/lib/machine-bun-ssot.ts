@@ -9,7 +9,7 @@ import {
   type UserBunfigInstallSnapshot,
 } from "./bunfig-redundancy.ts";
 
-export type MachineSsotKey = "linker" | "globalStore" | "cacheDir";
+export type MachineSsotKey = "linker" | "globalStore" | "cacheDir" | "minimumReleaseAge";
 
 export type MachineSsotStatus = "inherited" | "project" | "override" | "unset";
 
@@ -54,6 +54,7 @@ export function buildSsotSummary(entries: MachineSsotEntry[]): MachineSsotSummar
     linker: pickSsotSummary(entries, "linker"),
     globalStore: pickSsotSummary(entries, "globalStore"),
     cacheDir: pickSsotSummary(entries, "cacheDir"),
+    minimumReleaseAge: pickSsotSummary(entries, "minimumReleaseAge"),
   };
 }
 
@@ -269,6 +270,67 @@ function cacheDirEntry(
   };
 }
 
+function formatAge(value: number | null | undefined): string | null {
+  return value == null ? null : String(value);
+}
+
+function minimumReleaseAgeEntry(
+  project: BunfigInstallSection | null,
+  machineInstall: BunfigInstallSection | null,
+  machinePath: string | null,
+  inheritLabel: string
+): MachineSsotEntry {
+  const machineValue = formatAge(machineInstall?.minimumReleaseAge);
+  const projectValue = formatAge(project?.minimumReleaseAge);
+  const bunfigKey = "[install].minimumReleaseAge";
+
+  if (projectValue != null && machineValue != null && projectValue !== machineValue) {
+    return {
+      key: "minimumReleaseAge",
+      bunfigKey,
+      status: "override",
+      effective: projectValue,
+      machineValue,
+      projectValue,
+      note: `${bunfigKey}: ${projectValue} (project override; machine=${machineValue})`,
+    };
+  }
+
+  if (projectValue != null) {
+    return {
+      key: "minimumReleaseAge",
+      bunfigKey,
+      status: "project",
+      effective: projectValue,
+      machineValue,
+      projectValue,
+      note: `${bunfigKey}: ${projectValue} (project)`,
+    };
+  }
+
+  if (machineValue != null && machinePath) {
+    return {
+      key: "minimumReleaseAge",
+      bunfigKey,
+      status: "inherited",
+      effective: machineValue,
+      machineValue,
+      projectValue: null,
+      note: `${bunfigKey}: inherited from ${inheritLabel} (${machineValue})`,
+    };
+  }
+
+  return {
+    key: "minimumReleaseAge",
+    bunfigKey,
+    status: "unset",
+    effective: null,
+    machineValue,
+    projectValue: null,
+    note: `${bunfigKey}: unset (no project or machine value)`,
+  };
+}
+
 export function resolveMachineInstallSsot(
   projectInstall: BunfigInstallSection | null,
   machine: UserBunfigInstallSnapshot,
@@ -280,6 +342,7 @@ export function resolveMachineInstallSsot(
     linkerEntry(projectInstall, machineInstall, machine.bunfigPath, inheritLabel),
     globalStoreEntry(projectInstall, machineInstall, machine.bunfigPath, inheritLabel),
     cacheDirEntry(projectInstall, machine.cacheDir, machine.bunfigPath, inheritLabel),
+    minimumReleaseAgeEntry(projectInstall, machineInstall, machine.bunfigPath, inheritLabel),
   ];
 }
 
