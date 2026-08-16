@@ -85,7 +85,7 @@ describe("handoff-log", () => {
     // Verify archive content integrity — decompress and check pre-rotation data survived
     const archivePath = join(tempDir, archives[0]!);
     const decompressed = new TextDecoder().decode(
-      Bun.gunzipSync(new Uint8Array(await Bun.file(archivePath).arrayBuffer()))
+      Bun.gunzipSync(await Bun.file(archivePath).bytes())
     );
     expect(decompressed).toContain("x".repeat(300));
     expect(decompressed).toBe(preRotationContent);
