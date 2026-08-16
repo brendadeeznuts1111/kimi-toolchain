@@ -1,6 +1,6 @@
 [install]
 frozenLockfile = true
-linker = "isolated"
+# linker — inherit from ~/.bunfig.toml
 
 [run]
 # Trading gates are short-lived CLI runs — no orphan children.

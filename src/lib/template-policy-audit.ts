@@ -353,6 +353,23 @@ export async function auditTemplateInstallPolicy(root: string): Promise<Template
     }
   }
 
+  const exampleGlob = new Bun.Glob("examples/**/bunfig.toml");
+  for (const path of exampleGlob.scanSync({ cwd: root, absolute: true, onlyFiles: true })) {
+    const text = await Bun.file(path).text();
+    const relPath = rel(root, path);
+    const installMatch = text.match(/\[install\][\s\S]*?(?=\n\[|$)/);
+    if (!installMatch) continue;
+    for (const { key, pattern } of BANNED_MACHINE_INSTALL_FIELDS) {
+      if (pattern.test(installMatch[0])) {
+        violations.push({
+          file: relPath,
+          field: key,
+          message: `Do not restate machine [install].${key} — inherit from ~/.bunfig.toml`,
+        });
+      }
+    }
+  }
+
   return violations;
 }
 
