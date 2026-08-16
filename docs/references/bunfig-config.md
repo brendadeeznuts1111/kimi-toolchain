@@ -11,7 +11,7 @@ Quick reference for `bunfig.toml` fields that affect the Bun runtime, test runne
 | Scope         | Path                                                    | Notes                                           |
 | ------------- | ------------------------------------------------------- | ----------------------------------------------- |
 | Project-local | `<project>/bunfig.toml`                                 | Shallow-merged with global; local wins.         |
-| Global        | `$HOME/.bunfig.toml` or `$XDG_CONFIG_HOME/.bunfig.toml` | Useful for machine-wide defaults.               |
+| Global        | `$XDG_CONFIG_HOME/.bunfig.toml` if that file exists, else `$HOME/.bunfig.toml` | One global. XDG replaces HOME; they do not merge. |
 | CLI flags     | e.g. `--config <path>`                                  | Override `bunfig.toml` values where applicable. |
 
 ## Top-level runtime fields

@@ -6,9 +6,8 @@
  */
 
 import { join } from "path";
-import { TOML } from "bun";
 import { pathExists } from "./bun-io.ts";
-import type { BunfigInstallSection } from "./bun-install-config.ts";
+import { readUserBunfigLayers, type UserBunfigLayers } from "./bunfig-redundancy.ts";
 import {
   BUN_INSTALL_GLOBAL_STORE_ENV,
   BUN_INSTALL_POLICY_MIN_BUN,
@@ -75,8 +74,16 @@ function cacheDirIsAbsolute(raw: string | null | undefined, expanded: string | n
   return !expanded.includes("/~/");
 }
 
+/** Bun 1.3.14 loads `$XDG_CONFIG_HOME/.bunfig.toml` ahead of `$HOME/.bunfig.toml`. */
+export function xdgShadowBunfigPath(env: Record<string, string | undefined>): string | null {
+  const xdg = env.XDG_CONFIG_HOME;
+  if (!xdg || xdg.trim().length === 0) return null;
+  return join(xdg.replace(/\/+$/, ""), ".bunfig.toml");
+}
+
 export async function auditMachineBunPolicy(
-  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>,
+  layers?: UserBunfigLayers
 ): Promise<MachineBunPolicyAudit> {
   const checks: MachineBunCheck[] = [];
   const home = resolveHome(env);
@@ -87,8 +94,46 @@ export async function auditMachineBunPolicy(
 
   const bunfigPath = join(home, ".bunfig.toml");
   const shellPath = join(home, ".config/shell/path.sh");
+  const resolved = layers ?? (await readUserBunfigLayers(env));
+  const xdgShadow = resolved.xdgPath;
+  const xdgExists = resolved.xdgLoaded;
+  const inode = resolved.machine.inode;
+  const homeLinked = inode === "symlink" || inode === "dangling-symlink";
+  const homeReadable = inode === "file" || inode === "symlink";
 
-  if (!pathExists(bunfigPath)) {
+  if (inode === "directory") {
+    checks.push({
+      ok: false,
+      id: "bunfig",
+      detail: "~/.bunfig.toml is a directory",
+    });
+    return { ok: false, applicable: true, bunfigPath, shellPath, checks };
+  }
+
+  if (!homeReadable) {
+    if (xdgExists) {
+      checks.push({
+        ok: false,
+        id: "xdg.shadow",
+        detail: `$XDG_CONFIG_HOME/.bunfig.toml shadows ~/.bunfig.toml (${xdgShadow})`,
+      });
+      checks.push({
+        ok: false,
+        id: "bunfig",
+        detail: homeLinked
+          ? "dangling symlink ~/.bunfig.toml"
+          : "missing ~/.bunfig.toml while an XDG global bunfig is loaded",
+      });
+      return { ok: false, applicable: true, bunfigPath, shellPath, checks };
+    }
+    if (homeLinked) {
+      checks.push({
+        ok: false,
+        id: "bunfig",
+        detail: "dangling symlink ~/.bunfig.toml",
+      });
+      return { ok: false, applicable: true, bunfigPath, shellPath, checks };
+    }
     checks.push({
       ok: true,
       id: "bunfig",
@@ -97,21 +142,23 @@ export async function auditMachineBunPolicy(
     return { ok: true, applicable: false, bunfigPath: null, shellPath, checks };
   }
 
-  let install: BunfigInstallSection | null = null;
-  try {
-    const parsed = TOML.parse(await Bun.file(bunfigPath).text()) as {
-      install?: BunfigInstallSection;
-    };
-    install = parsed.install ?? null;
-    checks.push({ ok: true, id: "bunfig", detail: "~/.bunfig.toml readable" });
-  } catch (error) {
-    checks.push({
-      ok: false,
-      id: "bunfig",
-      detail: `parse error: ${error instanceof Error ? error.message : String(error)}`,
-    });
-    return { ok: false, applicable: true, bunfigPath, shellPath, checks };
-  }
+  const install = resolved.machine.install;
+  checks.push({ ok: true, id: "bunfig", detail: "~/.bunfig.toml readable" });
+  checks.push(
+    xdgExists
+      ? {
+          ok: false,
+          id: "xdg.shadow",
+          detail: `$XDG_CONFIG_HOME/.bunfig.toml shadows ~/.bunfig.toml (${xdgShadow})`,
+        }
+      : {
+          ok: true,
+          id: "xdg.shadow",
+          detail: xdgShadow
+            ? "no $XDG_CONFIG_HOME/.bunfig.toml shadow"
+            : "XDG_CONFIG_HOME unset — ~/.bunfig.toml is the only global path",
+        }
+  );
 
   const linker = install?.linker ?? null;
   checks.push({

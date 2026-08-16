@@ -747,7 +747,7 @@ async function checkCpuProfCapture(): Promise<void> {
     ensureDir(archiveDir);
     const oldPath = join(profDir, latest);
     const newPath = join(archiveDir, latest);
-    await Bun.write(newPath, await Bun.file(oldPath).arrayBuffer());
+    await Bun.write(newPath, Bun.file(oldPath));
     try {
       await Bun.file(oldPath).delete();
     } catch {

@@ -5,6 +5,7 @@ import {
 } from "../lib/bun-install-config.ts";
 import {
   auditProjectBunfigRedundancy,
+  readUserBunfigLayers,
   type BunfigRedundancyAudit,
 } from "../lib/bunfig-redundancy.ts";
 import {
@@ -101,8 +102,9 @@ function unique(lines: string[]): string[] {
 export async function bunfigPolicyGate(
   projectRoot = process.cwd()
 ): Promise<BunfigPolicyGateResult> {
-  const audit = await auditBunInstallConfig(projectRoot);
-  const ssot = await readMachineInstallSsot(audit.bunfigInstall);
+  const layers = await readUserBunfigLayers();
+  const audit = await auditBunInstallConfig(projectRoot, layers.effective);
+  const ssot = await readMachineInstallSsot(audit.bunfigInstall, layers.effective);
   const inherited = inheritedSsotNotes(ssot);
   const failures: string[] = [];
   const warnings: string[] = [];
@@ -166,7 +168,11 @@ export async function bunfigPolicyGate(
     failures.push(`${name} is set; remove the override for reproducible installs`);
   }
 
-  if (minimumReleaseAge && !policyRowOk(minimumReleaseAge)) {
+  if (
+    minimumReleaseAge &&
+    !policyRowOk(minimumReleaseAge) &&
+    !ssotSatisfiesInstallPolicy(ssot, "minimumReleaseAge")
+  ) {
     warnings.push(policyRowMessage(minimumReleaseAge));
   }
 
@@ -197,7 +203,7 @@ export async function bunfigPolicyGate(
     warnings.push(line);
   }
 
-  const redundancy = await auditProjectBunfigRedundancy(projectRoot);
+  const redundancy = await auditProjectBunfigRedundancy(projectRoot, layers.effective);
   const machineBunfigPath = redundancy.machineBunfigPath;
   for (const hit of redundancy.hits) {
     for (const message of hit.messages) {
@@ -205,7 +211,10 @@ export async function bunfigPolicyGate(
     }
   }
 
-  const machine = await auditMachineBunPolicy();
+  const machine = await auditMachineBunPolicy(
+    Bun.env as Record<string, string | undefined>,
+    layers
+  );
   if (machine.applicable) {
     for (const line of machineCheckFailures(machine.checks)) {
       failures.push(`machine.${line}`);

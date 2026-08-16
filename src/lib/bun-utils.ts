@@ -234,11 +234,22 @@ export interface EditorRuntimeSnapshot {
   resolved?: string;
 }
 
-/** Resolve active bunfig.toml (project-local, then ~/.bunfig.toml). */
-export async function resolveActiveBunfigPath(cwd = process.cwd()): Promise<string | null> {
+/**
+ * Resolve the bunfig Bun loads from this cwd: `./bunfig.toml`, else
+ * `$XDG_CONFIG_HOME/.bunfig.toml` when that file exists, else `$HOME/.bunfig.toml`.
+ */
+export async function resolveActiveBunfigPath(
+  cwd = process.cwd(),
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
+): Promise<string | null> {
   const local = join(cwd, "bunfig.toml");
   if (await Bun.file(local).exists()) return local;
-  const home = Bun.env.HOME;
+  const xdg = env.XDG_CONFIG_HOME?.trim();
+  if (xdg) {
+    const xdgPath = join(xdg.replace(/\/+$/, ""), ".bunfig.toml");
+    if (await Bun.file(xdgPath).exists()) return xdgPath;
+  }
+  const home = env.HOME ?? env.USERPROFILE;
   if (home) {
     const globalPath = join(home, ".bunfig.toml");
     if (await Bun.file(globalPath).exists()) return globalPath;

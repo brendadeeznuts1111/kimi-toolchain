@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "path";
 import { makeDir, writeText } from "../src/lib/bun-io.ts";
-import { auditWorkspaceBunfigRedundancy } from "../src/lib/bunfig-redundancy.ts";
+import {
+  auditWorkspaceBunfigRedundancy,
+  readEffectiveUserBunfigInstall,
+  readUserBunfigInstall,
+  readUserBunfigLayers,
+} from "../src/lib/bunfig-redundancy.ts";
 import { testTempDir } from "./helpers.ts";
 
 async function withUniqueHome(fn: (home: string) => void | Promise<void>): Promise<void> {
@@ -54,6 +59,37 @@ linker = "hoisted"
     });
   });
 
+  test("flags restated minimumReleaseAge when it matches the machine gate", async () => {
+    const project = testTempDir("bunfig-redundancy-age-");
+    writeText(
+      join(project, "bunfig.toml"),
+      `[install]
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["bun-types", "@types/bun"]
+`
+    );
+
+    await withUniqueHome(async (home) => {
+      writeText(
+        join(home, ".bunfig.toml"),
+        `[install]
+linker = "isolated"
+globalStore = true
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["bun-types", "@types/bun"]
+
+[install.cache]
+dir = "/tmp/machine-bun-cache"
+`
+      );
+      const audit = await auditWorkspaceBunfigRedundancy(project);
+      expect(audit.hits[0]?.keys).toEqual([
+        "[install].minimumReleaseAge",
+        "[install].minimumReleaseAgeExcludes",
+      ]);
+    });
+  });
+
   test("flags tilde cache.dir in workspace bunfig", async () => {
     const project = testTempDir("bunfig-redundancy-tilde-project-");
     writeText(
@@ -86,6 +122,75 @@ globalStore = true
       const audit = await auditWorkspaceBunfigRedundancy(project);
       expect(audit.ok).toBe(true);
       expect(audit.hits).toHaveLength(0);
+    });
+  });
+
+  test("readUserBunfigInstall distinguishes dangling from missing", async () => {
+    await withUniqueHome(async (home) => {
+      const { symlinkSync } = await import("node:fs");
+      symlinkSync(join(home, "missing-target.toml"), join(home, ".bunfig.toml"));
+      const dangling = await readUserBunfigInstall({ HOME: home });
+      expect(dangling.inode).toBe("dangling-symlink");
+      expect(dangling.bunfigPath).toBe(join(home, ".bunfig.toml"));
+      expect(dangling.install).toBeNull();
+    });
+    await withUniqueHome(async (home) => {
+      const gone = await readUserBunfigInstall({ HOME: home });
+      expect(gone.inode).toBe("missing");
+      expect(gone.bunfigPath).toBeNull();
+    });
+  });
+
+  test("readUserBunfigLayers reuses the home snapshot when XDG is absent", async () => {
+    await withUniqueHome(async (home) => {
+      writeText(join(home, ".bunfig.toml"), MACHINE_BUNFIG);
+      const layers = await readUserBunfigLayers({ HOME: home });
+      expect(layers.xdgLoaded).toBe(false);
+      expect(layers.effective).toBe(layers.machine);
+      expect(layers.machine.install?.linker).toBe("isolated");
+    });
+  });
+
+  test("readEffectiveUserBunfigInstall uses XDG when that file exists", async () => {
+    await withUniqueHome(async (home) => {
+      writeText(join(home, ".bunfig.toml"), MACHINE_BUNFIG);
+      const xdg = join(home, "xdg");
+      makeDir(xdg, { recursive: true });
+      writeText(join(xdg, ".bunfig.toml"), `[install]\nlinker = "hoisted"\n`);
+      const env = { HOME: home, XDG_CONFIG_HOME: xdg };
+      const ssot = await readUserBunfigInstall(env);
+      const effective = await readEffectiveUserBunfigInstall(env);
+      expect(ssot.install?.linker).toBe("isolated");
+      expect(ssot.bunfigPath).toBe(join(home, ".bunfig.toml"));
+      expect(effective.bunfigPath).toBe(join(xdg, ".bunfig.toml"));
+      expect(effective.install?.linker).toBe("hoisted");
+    });
+  });
+
+  test("redundancy inherit compares against the XDG global when it exists", async () => {
+    const project = testTempDir("bunfig-redundancy-xdg-project-");
+    writeText(
+      join(project, "bunfig.toml"),
+      `[install]
+linker = "hoisted"
+`
+    );
+
+    await withUniqueHome(async (home) => {
+      writeText(join(home, ".bunfig.toml"), MACHINE_BUNFIG);
+      const xdg = join(home, "xdg");
+      makeDir(xdg, { recursive: true });
+      writeText(join(xdg, ".bunfig.toml"), `[install]\nlinker = "hoisted"\n`);
+      const previousXdg = Bun.env.XDG_CONFIG_HOME;
+      Bun.env.XDG_CONFIG_HOME = xdg;
+      try {
+        const audit = await auditWorkspaceBunfigRedundancy(project);
+        expect(audit.machineBunfigPath).toBe(join(xdg, ".bunfig.toml"));
+        expect(audit.hits[0]?.keys).toEqual(["[install].linker"]);
+      } finally {
+        if (previousXdg === undefined) delete Bun.env.XDG_CONFIG_HOME;
+        else Bun.env.XDG_CONFIG_HOME = previousXdg;
+      }
     });
   });
 });

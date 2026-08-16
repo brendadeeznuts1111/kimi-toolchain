@@ -1,5 +1,5 @@
 # bunfig.toml — Hardened install policy for kimi-toolchain-dashboard.
-# Merged with $HOME/.bunfig.toml if present. Env vars (BUN_CONFIG_*) override.
+# Project overlay. Global is $XDG_CONFIG_HOME/.bunfig.toml if present, else $HOME/.bunfig.toml.
 # See: https://bun.sh/docs/cli/install#configuring-bun-install-with-bunfig-toml
 
 [install]
@@ -13,12 +13,9 @@ frozenLockfile = false
 exact = false
 ignoreScripts = false
 concurrentScripts = 8
-linker = "isolated"
-globalStore = true
+# linker, globalStore, cache.dir, age — inherit from ~/.bunfig.toml
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
-minimumReleaseAge = 259200
-minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
 

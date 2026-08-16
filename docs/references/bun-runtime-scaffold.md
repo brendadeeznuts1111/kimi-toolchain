@@ -26,19 +26,14 @@ exact = false
 # lifecycle
 ignoreScripts = false
 concurrentScripts = 8
-# linker
-linker = "isolated"
-# Experimental (Bun ≥1.3.14): symlink packages from shared global cache
-globalStore = true
+# linker / globalStore / age / cache.dir belong on the machine bunfig
+# (one global: $XDG_CONFIG_HOME/.bunfig.toml if present, else $HOME/.bunfig.toml).
 # paths
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
-# supply-chain
-minimumReleaseAge = 259200  # 3 days
-minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
-dir = "~/.bun/install/cache"
+# omit dir — machine bunfig owns the absolute cache path
 
 [run]
 # Parent-death detection: child Bun processes auto-exit when the parent dies.
@@ -85,7 +80,7 @@ Key differences from Bun defaults:
 | `frozenLockfile`    | `false`                               | `true`            | Reproducible installs; CI fails on drift             |
 | `linker`            | `configVersion` / workspace dependent | `isolated`        | No phantom dependencies; cleaner `node_modules`      |
 | `concurrentScripts` | 16                                    | 8                 | Avoid thrashing on memory-constrained hosts          |
-| `minimumReleaseAge` | 0                                     | 259200 (3d)       | Supply-chain safety — block brand-new packages       |
+| `minimumReleaseAge` | 0                                     | 259200 (3d)       | Machine bunfig only — project files inherit          |
 | `preload`           | unset                                 | `./test/setup.ts` | HOME isolation + `NODE_ENV=test` via setup           |
 | `noOrphans`         | false                                 | true              | Prevents zombie processes in Herdr panes, CI runners |
 
@@ -132,9 +127,9 @@ Validated on `bun@1.4.0-canary.1`. Use `bun pm pkg get <section>` until scope fl
 | `bun pm pkg get optionalDependencies` | `package.json` section      | (unset)                   | Works  |
 | `bun pm pkg get peerDependencies`     | `package.json` section      | (unset)                   | Works  |
 
-Bun searches for `bunfig.toml` in these paths (merged if both exist):
+Bun loads one global bunfig, then the project file (project overlays the global):
 
-- `$XDG_CONFIG_HOME/.bunfig.toml` or `$HOME/.bunfig.toml`
+- `$XDG_CONFIG_HOME/.bunfig.toml` if that file exists, else `$HOME/.bunfig.toml`
 - `./bunfig.toml` (project-local)
 
 Bun's official `linker` default is conditional: `configVersion = 1` uses `isolated` for workspaces and `hoisted` otherwise; `configVersion = 0` uses `hoisted`. `kimi-toolchain` pins `linker = "isolated"` in scaffolded projects so the install strategy is explicit regardless of Bun's inferred defaults.

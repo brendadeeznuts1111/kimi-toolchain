@@ -7,9 +7,8 @@ trustedDependencies = []
 frozenLockfile = true
 saveTextLockfile = true
 ignoreScripts = false
-minimumReleaseAge = 259200
 
-# linker, globalStore, cache.dir — inherit from ~/.bunfig.toml when present
+# linker, globalStore, cache.dir, age — inherit from ~/.bunfig.toml
 
 [run]
 noOrphans = true

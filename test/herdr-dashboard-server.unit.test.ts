@@ -514,7 +514,7 @@ describe("herdr-dashboard-server", () => {
         expect(res.status).toBe(200);
         expect(res.headers.get("access-control-allow-origin")).toBe("*");
         expect(res.headers.get("content-type")).toContain("image/webp");
-        const bytes = await res.arrayBuffer();
+        const bytes = await res.bytes();
         expect(bytes.byteLength).toBeGreaterThan(0);
         if (bunImageSupported()) {
           expect(bytes.byteLength).toBeGreaterThan(10);

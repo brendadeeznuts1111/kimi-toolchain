@@ -5,7 +5,11 @@ import {
   resolveDashboardProjectRoot,
   resolveDashboardSettings,
 } from "../../../../src/lib/dashboard-settings.ts";
-import { isDirectRun, readableStreamToText } from "../../../../src/lib/bun-utils.ts";
+import {
+  isDirectRun,
+  readableStreamToText,
+  resolveActiveBunfigPath,
+} from "../../../../src/lib/bun-utils.ts";
 import { resolveBin, USER_TOOLCHAIN_BIN } from "../lib/toolchain-paths.ts";
 import { jsonResponse, runDoctorJson } from "./shared.ts";
 
@@ -152,19 +156,15 @@ export async function apiBuildInfo(): Promise<Response> {
   let bunfigDefines: Record<string, string> = {};
   let bunfigPath = "";
   try {
-    const candidates = ["./bunfig.toml", `${Bun.env.HOME}/.bunfig.toml`];
-    for (const candidate of candidates) {
-      const f = Bun.file(candidate);
-      if (await f.exists()) {
-        const parsed = Bun.TOML.parse(await f.text()) as Record<string, unknown>;
-        if (parsed.define && typeof parsed.define === "object") {
-          bunfigDefines = Object.fromEntries(
-            Object.entries(parsed.define as Record<string, unknown>).map(([k, v]) => [k, String(v)])
-          );
-        }
-        bunfigPath = candidate;
-        break;
+    const resolved = await resolveActiveBunfigPath();
+    if (resolved) {
+      const parsed = Bun.TOML.parse(await Bun.file(resolved).text()) as Record<string, unknown>;
+      if (parsed.define && typeof parsed.define === "object") {
+        bunfigDefines = Object.fromEntries(
+          Object.entries(parsed.define as Record<string, unknown>).map(([k, v]) => [k, String(v)])
+        );
       }
+      bunfigPath = resolved;
     }
   } catch {
     /* no bunfig.toml */
@@ -235,15 +235,8 @@ export async function apiRuntimeInfo(): Promise<Response> {
       ? "node"
       : "unknown";
 
-  // Resolve active bunfig.toml path (--config flag or default lookup)
-  const bunfigCandidates = ["./bunfig.toml", `${Bun.env.HOME}/.bunfig.toml`];
-  let activeBunfig: string | null = null;
-  for (const candidate of bunfigCandidates) {
-    if (await Bun.file(candidate).exists()) {
-      activeBunfig = candidate;
-      break;
-    }
-  }
+  // Project bunfig, else XDG global, else $HOME/.bunfig.toml (Bun 1.3.14).
+  const activeBunfig = await resolveActiveBunfigPath();
 
   return jsonResponse({
     runtime,
@@ -537,30 +530,33 @@ export async function apiBunfig(): Promise<Response> {
     }
     const raw = await file.text();
     const parsed = Bun.TOML.parse(raw) as { install?: Record<string, unknown> };
-    const { readMachineInstallSsot, buildSsotSummary } =
+    const { readMachineInstallSsot, buildSsotSummary, formatMachineBunfigLabel } =
       await import("../../../../src/lib/machine-bun-ssot.ts");
-    const { readUserBunfigInstall } = await import("../../../../src/lib/bunfig-redundancy.ts");
-    const machine = await readUserBunfigInstall();
+    const { readUserBunfigLayers } = await import("../../../../src/lib/bunfig-redundancy.ts");
+    const layers = await readUserBunfigLayers();
     const ssotEntries = await readMachineInstallSsot(
       (parsed.install as import("../../../../src/lib/bun-install-config.ts").BunfigInstallSection) ??
-        null
+        null,
+      layers.effective
     );
     const ssot = buildSsotSummary(ssotEntries);
+    const globalLabel = formatMachineBunfigLabel(layers.effective.bunfigPath);
     return jsonResponse({
       path: "./bunfig.toml",
       sections: parsed,
-      machineBunfigPath: machine.bunfigPath,
+      machineBunfigPath: layers.machine.bunfigPath,
+      effectiveBunfigPath: layers.effective.bunfigPath,
       effectiveInstall: {
         linker: ssot.linker.effective,
         globalStore: ssot.globalStore.effective,
         cacheDir: ssot.cacheDir.effective,
+        minimumReleaseAge: ssot.minimumReleaseAge.effective,
       },
       ssot,
       inherited: ssotEntries
         .filter((entry) => entry.status === "inherited")
         .map((entry) => entry.note),
-      mergeRule:
-        "machine (~/.bunfig.toml) → project (./bunfig.toml) shallow merge → CLI flags override",
+      mergeRule: `machine (${globalLabel}) → project (./bunfig.toml) shallow merge → CLI flags override`,
       import: 'import bunfig from "./bunfig.toml" with { type: "toml" };',
     });
   } catch (e) {

@@ -3,6 +3,7 @@ import { join } from "path";
 import { writeText } from "../src/lib/bun-io.ts";
 import {
   buildSsotSummary,
+  formatMachineBunfigLabel,
   formatSsotDisplayValue,
   inheritedSsotNotes,
   resolveMachineInstallSsot,
@@ -10,7 +11,10 @@ import {
   ssotSatisfiesInstallPolicy,
   suppressInheritedSsotWarning,
 } from "../src/lib/machine-bun-ssot.ts";
-import { readUserBunfigInstall } from "../src/lib/bunfig-redundancy.ts";
+import {
+  readEffectiveUserBunfigInstall,
+  readUserBunfigInstall,
+} from "../src/lib/bunfig-redundancy.ts";
 import { testTempDir } from "./helpers.ts";
 
 const MACHINE_BUNFIG = `[install]
@@ -41,6 +45,7 @@ describe("machine-bun-ssot", () => {
       expect(ssot.find((e) => e.key === "linker")?.status).toBe("inherited");
       expect(ssot.find((e) => e.key === "globalStore")?.status).toBe("inherited");
       expect(ssot.find((e) => e.key === "cacheDir")?.status).toBe("inherited");
+      expect(ssot.find((e) => e.key === "minimumReleaseAge")?.status).toBe("project");
       expect(inherited).toHaveLength(3);
       expect(
         suppressInheritedSsotWarning("linker unset — hardened isolated ([install].linker)", ssot)
@@ -63,6 +68,7 @@ describe("machine-bun-ssot", () => {
       expect(summary.linker.status).toBe("inherited");
       expect(summary.globalStore.status).toBe("inherited");
       expect(summary.cacheDir.status).toBe("inherited");
+      expect(summary.minimumReleaseAge.status).toBe("unset");
       expect(formatSsotDisplayValue(ssotEntry(ssot, "linker"))).toBe("isolated (inherited)");
       expect(ssotSatisfiesInstallPolicy(ssot, "linker")).toBe(true);
     } finally {
@@ -80,6 +86,57 @@ describe("machine-bun-ssot", () => {
       const machineAtHome = await readUserBunfigInstall();
       const ssot = resolveMachineInstallSsot({ linker: "hoisted" }, machineAtHome);
       expect(ssot.find((e) => e.key === "linker")?.status).toBe("override");
+    } finally {
+      if (prevHome === undefined) delete Bun.env.HOME;
+      else Bun.env.HOME = prevHome;
+    }
+  });
+
+  test("inherited notes cite XDG when that is the effective global", async () => {
+    const home = testTempDir("ssot-xdg-home-");
+    const xdg = join(home, "xdg");
+    const { makeDir } = await import("../src/lib/bun-io.ts");
+    makeDir(xdg, { recursive: true });
+    writeText(join(home, ".bunfig.toml"), MACHINE_BUNFIG);
+    writeText(join(xdg, ".bunfig.toml"), `[install]\nlinker = "isolated"\nglobalStore = true\n`);
+    const env = { HOME: home, XDG_CONFIG_HOME: xdg };
+    const effective = await readEffectiveUserBunfigInstall(env);
+    const ssot = resolveMachineInstallSsot({ frozenLockfile: true }, effective, env);
+    expect(formatMachineBunfigLabel(effective.bunfigPath, env)).toBe(
+      "$XDG_CONFIG_HOME/.bunfig.toml"
+    );
+    expect(ssot.find((e) => e.key === "linker")?.note).toContain("$XDG_CONFIG_HOME/.bunfig.toml");
+    expect((await readUserBunfigInstall(env)).bunfigPath).toBe(join(home, ".bunfig.toml"));
+  });
+
+  test("minimumReleaseAge is inherited when the project omits it", async () => {
+    const home = testTempDir("ssot-age-home-");
+    writeText(
+      join(home, ".bunfig.toml"),
+      `[install]
+linker = "isolated"
+globalStore = true
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["bun-types", "@types/bun", "@types/node", "typescript"]
+
+[install.cache]
+dir = "/tmp/ssot-machine-cache"
+`
+    );
+    const prevHome = Bun.env.HOME;
+    Bun.env.HOME = home;
+    try {
+      const machineAtHome = await readUserBunfigInstall();
+      const omitted = resolveMachineInstallSsot({ frozenLockfile: true }, machineAtHome);
+      expect(ssotEntry(omitted, "minimumReleaseAge")?.status).toBe("inherited");
+      expect(ssotEntry(omitted, "minimumReleaseAge")?.effective).toBe("259200");
+
+      const restated = resolveMachineInstallSsot(
+        { frozenLockfile: true, minimumReleaseAge: 259200 },
+        machineAtHome
+      );
+      expect(ssotEntry(restated, "minimumReleaseAge")?.status).toBe("project");
+      expect(ssotEntry(omitted, "minimumReleaseAgeExcludes")?.status).toBe("inherited");
     } finally {
       if (prevHome === undefined) delete Bun.env.HOME;
       else Bun.env.HOME = prevHome;

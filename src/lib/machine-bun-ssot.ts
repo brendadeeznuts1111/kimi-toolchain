@@ -2,10 +2,19 @@
  * Machine ~/.bunfig.toml SSOT — project keys unset inherit from machine layer.
  */
 
+import { join } from "path";
 import type { BunfigInstallSection } from "./bun-install-types.ts";
-import { readUserBunfigInstall } from "./bunfig-redundancy.ts";
+import {
+  readEffectiveUserBunfigInstall,
+  type UserBunfigInstallSnapshot,
+} from "./bunfig-redundancy.ts";
 
-export type MachineSsotKey = "linker" | "globalStore" | "cacheDir";
+export type MachineSsotKey =
+  | "linker"
+  | "globalStore"
+  | "cacheDir"
+  | "minimumReleaseAge"
+  | "minimumReleaseAgeExcludes";
 
 export type MachineSsotStatus = "inherited" | "project" | "override" | "unset";
 
@@ -20,6 +29,18 @@ export interface MachineSsotEntry {
 }
 
 export const MACHINE_BUNFIG_LABEL = "~/.bunfig.toml";
+
+/** Operator label for the global bunfig that supplied inherited keys. */
+export function formatMachineBunfigLabel(
+  bunfigPath: string | null,
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
+): string {
+  if (!bunfigPath) return MACHINE_BUNFIG_LABEL;
+  const xdg = env.XDG_CONFIG_HOME?.trim();
+  const xdgPath = xdg ? join(xdg.replace(/\/+$/, ""), ".bunfig.toml") : null;
+  if (xdgPath && bunfigPath === xdgPath) return "$XDG_CONFIG_HOME/.bunfig.toml";
+  return MACHINE_BUNFIG_LABEL;
+}
 
 export type MachineSsotSummary = Record<
   MachineSsotKey,
@@ -38,6 +59,8 @@ export function buildSsotSummary(entries: MachineSsotEntry[]): MachineSsotSummar
     linker: pickSsotSummary(entries, "linker"),
     globalStore: pickSsotSummary(entries, "globalStore"),
     cacheDir: pickSsotSummary(entries, "cacheDir"),
+    minimumReleaseAge: pickSsotSummary(entries, "minimumReleaseAge"),
+    minimumReleaseAgeExcludes: pickSsotSummary(entries, "minimumReleaseAgeExcludes"),
   };
 }
 
@@ -79,7 +102,8 @@ export function formatSsotDisplayValue(entry: MachineSsotEntry | undefined): str
 function linkerEntry(
   project: BunfigInstallSection | null,
   machineInstall: BunfigInstallSection | null,
-  machinePath: string | null
+  machinePath: string | null,
+  inheritLabel: string
 ): MachineSsotEntry {
   const machineValue = machineInstall?.linker ?? null;
   const projectValue = project?.linker ?? null;
@@ -117,7 +141,7 @@ function linkerEntry(
       effective: machineValue,
       machineValue,
       projectValue: null,
-      note: `${bunfigKey}: inherited from ${MACHINE_BUNFIG_LABEL} (${machineValue})`,
+      note: `${bunfigKey}: inherited from ${inheritLabel} (${machineValue})`,
     };
   }
 
@@ -135,7 +159,8 @@ function linkerEntry(
 function globalStoreEntry(
   project: BunfigInstallSection | null,
   machineInstall: BunfigInstallSection | null,
-  machinePath: string | null
+  machinePath: string | null,
+  inheritLabel: string
 ): MachineSsotEntry {
   const machineValue =
     machineInstall?.globalStore === true
@@ -179,7 +204,7 @@ function globalStoreEntry(
       effective: machineValue,
       machineValue,
       projectValue: null,
-      note: `${bunfigKey}: inherited from ${MACHINE_BUNFIG_LABEL} (${machineValue})`,
+      note: `${bunfigKey}: inherited from ${inheritLabel} (${machineValue})`,
     };
   }
 
@@ -197,7 +222,8 @@ function globalStoreEntry(
 function cacheDirEntry(
   project: BunfigInstallSection | null,
   machineCacheDir: string | null,
-  machinePath: string | null
+  machinePath: string | null,
+  inheritLabel: string
 ): MachineSsotEntry {
   const machineValue = machineCacheDir;
   const projectValue = project?.cache?.dir ?? null;
@@ -235,7 +261,7 @@ function cacheDirEntry(
       effective: machineValue,
       machineValue,
       projectValue: null,
-      note: `${bunfigKey}: inherited from ${MACHINE_BUNFIG_LABEL} (${machineValue})`,
+      note: `${bunfigKey}: inherited from ${inheritLabel} (${machineValue})`,
     };
   }
 
@@ -250,15 +276,146 @@ function cacheDirEntry(
   };
 }
 
+function formatAge(value: number | null | undefined): string | null {
+  return value == null ? null : String(value);
+}
+
+function minimumReleaseAgeEntry(
+  project: BunfigInstallSection | null,
+  machineInstall: BunfigInstallSection | null,
+  machinePath: string | null,
+  inheritLabel: string
+): MachineSsotEntry {
+  const machineValue = formatAge(machineInstall?.minimumReleaseAge);
+  const projectValue = formatAge(project?.minimumReleaseAge);
+  const bunfigKey = "[install].minimumReleaseAge";
+
+  if (projectValue != null && machineValue != null && projectValue !== machineValue) {
+    return {
+      key: "minimumReleaseAge",
+      bunfigKey,
+      status: "override",
+      effective: projectValue,
+      machineValue,
+      projectValue,
+      note: `${bunfigKey}: ${projectValue} (project override; machine=${machineValue})`,
+    };
+  }
+
+  if (projectValue != null) {
+    return {
+      key: "minimumReleaseAge",
+      bunfigKey,
+      status: "project",
+      effective: projectValue,
+      machineValue,
+      projectValue,
+      note: `${bunfigKey}: ${projectValue} (project)`,
+    };
+  }
+
+  if (machineValue != null && machinePath) {
+    return {
+      key: "minimumReleaseAge",
+      bunfigKey,
+      status: "inherited",
+      effective: machineValue,
+      machineValue,
+      projectValue: null,
+      note: `${bunfigKey}: inherited from ${inheritLabel} (${machineValue})`,
+    };
+  }
+
+  return {
+    key: "minimumReleaseAge",
+    bunfigKey,
+    status: "unset",
+    effective: null,
+    machineValue,
+    projectValue: null,
+    note: `${bunfigKey}: unset (no project or machine value)`,
+  };
+}
+
+function formatExcludes(value: string[] | undefined): string | null {
+  return value != null && value.length > 0 ? JSON.stringify(value) : null;
+}
+
+function minimumReleaseAgeExcludesEntry(
+  project: BunfigInstallSection | null,
+  machineInstall: BunfigInstallSection | null,
+  machinePath: string | null,
+  inheritLabel: string
+): MachineSsotEntry {
+  const machineValue = formatExcludes(machineInstall?.minimumReleaseAgeExcludes);
+  const projectValue = formatExcludes(project?.minimumReleaseAgeExcludes);
+  const bunfigKey = "[install].minimumReleaseAgeExcludes";
+
+  if (projectValue != null && machineValue != null && projectValue !== machineValue) {
+    return {
+      key: "minimumReleaseAgeExcludes",
+      bunfigKey,
+      status: "override",
+      effective: projectValue,
+      machineValue,
+      projectValue,
+      note: `${bunfigKey}: ${projectValue} (project override; machine=${machineValue})`,
+    };
+  }
+
+  if (projectValue != null) {
+    return {
+      key: "minimumReleaseAgeExcludes",
+      bunfigKey,
+      status: "project",
+      effective: projectValue,
+      machineValue,
+      projectValue,
+      note: `${bunfigKey}: ${projectValue} (project)`,
+    };
+  }
+
+  if (machineValue != null && machinePath) {
+    return {
+      key: "minimumReleaseAgeExcludes",
+      bunfigKey,
+      status: "inherited",
+      effective: machineValue,
+      machineValue,
+      projectValue: null,
+      note: `${bunfigKey}: inherited from ${inheritLabel} (${machineValue})`,
+    };
+  }
+
+  return {
+    key: "minimumReleaseAgeExcludes",
+    bunfigKey,
+    status: "unset",
+    effective: null,
+    machineValue,
+    projectValue: null,
+    note: `${bunfigKey}: unset (no project or machine value)`,
+  };
+}
+
 export function resolveMachineInstallSsot(
   projectInstall: BunfigInstallSection | null,
-  machine: Awaited<ReturnType<typeof readUserBunfigInstall>>
+  machine: UserBunfigInstallSnapshot,
+  env: Record<string, string | undefined> = Bun.env as Record<string, string | undefined>
 ): MachineSsotEntry[] {
   const machineInstall = machine.install;
+  const inheritLabel = formatMachineBunfigLabel(machine.bunfigPath, env);
   return [
-    linkerEntry(projectInstall, machineInstall, machine.bunfigPath),
-    globalStoreEntry(projectInstall, machineInstall, machine.bunfigPath),
-    cacheDirEntry(projectInstall, machine.cacheDir, machine.bunfigPath),
+    linkerEntry(projectInstall, machineInstall, machine.bunfigPath, inheritLabel),
+    globalStoreEntry(projectInstall, machineInstall, machine.bunfigPath, inheritLabel),
+    cacheDirEntry(projectInstall, machine.cacheDir, machine.bunfigPath, inheritLabel),
+    minimumReleaseAgeEntry(projectInstall, machineInstall, machine.bunfigPath, inheritLabel),
+    minimumReleaseAgeExcludesEntry(
+      projectInstall,
+      machineInstall,
+      machine.bunfigPath,
+      inheritLabel
+    ),
   ];
 }
 
@@ -308,13 +465,31 @@ export function suppressInheritedSsotWarning(
         return true;
       }
     }
+    if (entry.key === "minimumReleaseAge") {
+      if (
+        warning.includes("[install].minimumReleaseAge") ||
+        warning.startsWith("minimumReleaseAge unset") ||
+        warning.startsWith("minimumReleaseAge=")
+      ) {
+        return true;
+      }
+    }
+    if (entry.key === "minimumReleaseAgeExcludes") {
+      if (
+        warning.includes("minimumReleaseAgeExcludes unset") ||
+        warning.startsWith("minimumReleaseAgeExcludes=")
+      ) {
+        return true;
+      }
+    }
   }
   return false;
 }
 
 export async function readMachineInstallSsot(
-  projectInstall: BunfigInstallSection | null
+  projectInstall: BunfigInstallSection | null,
+  machine?: UserBunfigInstallSnapshot
 ): Promise<MachineSsotEntry[]> {
-  const machine = await readUserBunfigInstall();
-  return resolveMachineInstallSsot(projectInstall, machine);
+  const snap = machine ?? (await readEffectiveUserBunfigInstall());
+  return resolveMachineInstallSsot(projectInstall, snap);
 }

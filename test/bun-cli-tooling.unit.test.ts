@@ -60,7 +60,7 @@ async function probeBunFileMessage(
 }
 
 async function readable(stream: ReadableStream<Uint8Array>): Promise<string> {
-  return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+  return await new Response(stream).text();
 }
 
 interface NpmPostinstallProbe {

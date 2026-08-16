@@ -167,7 +167,7 @@ function scanSourceFile(
             rel,
             i + 1,
             "sharp import detected",
-            "Use Bun.Image: await Bun.file(path).arrayBuffer() then new Bun.Image(bytes) or Bun.file(path).image()",
+            "Use Bun.Image: await Bun.file(path).bytes() then new Bun.Image(bytes) or Bun.file(path).image()",
             line
           )
         );
@@ -319,36 +319,24 @@ async function scanBunfig(
   const install = parsed?.install;
   if (!install) return [];
 
-  const linker = String(install.linker ?? "").toLowerCase();
-  const usesIsolated = linker.includes("isolated");
-  const globalStore = install.globalStore === true;
+  const restated: string[] = [];
+  if (install.linker != null) restated.push("linker");
+  if (install.globalStore != null) restated.push("globalStore");
+  if (restated.length === 0) return [];
 
-  if (usesIsolated && !globalStore) {
-    const lineIdx = text.split("\n").findIndex((l) => /^\s*linker\s*=/.test(l));
-    return [
-      finding(
-        "global-store-disabled",
-        "bunfig.toml",
-        lineIdx >= 0 ? lineIdx + 1 : 1,
-        'linker = "isolated" without globalStore = true',
-        `Add globalStore = true under [install] (Bun ≥1.3.14).
-
-Official benchmarks (1,400-pkg fixture, Apple Silicon):
-  hoisted:              823 ms
-  isolated (no store):  841 ms
-  isolated + global:    115 ms  → 7.3× faster warm installs
-
-Disk: ~5 MB of symlinks per project instead of 391 MB.
-Break-even at 1 project; every extra checkout is free.
-
-Packages with patches, trustedDependencies, or workspace:/file:/link:
-stay project-local automatically (ineligibility propagates).
-Clear with: bun pm cache rm`,
-        lineIdx >= 0 ? text.split("\n")[lineIdx]! : "[install]"
-      ),
-    ];
-  }
-  return [];
+  const lineIdx = text.split("\n").findIndex((l) => /^\s*(linker|globalStore)\s*=/.test(l));
+  return [
+    finding(
+      "global-store-disabled",
+      "bunfig.toml",
+      lineIdx >= 0 ? lineIdx + 1 : 1,
+      `project restates machine [install] ${restated.join(" / ")}`,
+      `Remove ${restated.join(" and ")} from the project bunfig.toml.
+linker / globalStore belong on ~/.bunfig.toml (or $XDG_CONFIG_HOME/.bunfig.toml).
+Do not add globalStore to the project to "complete" an isolated linker.`,
+      lineIdx >= 0 ? text.split("\n")[lineIdx]! : "[install]"
+    ),
+  ];
 }
 
 async function scanPackageJson(

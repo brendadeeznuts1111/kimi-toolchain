@@ -1,5 +1,5 @@
 # <project>/bunfig.toml — project overrides only
-# Machine install policy (linker, globalStore, cache.dir) inherits from ~/.bunfig.toml
+# Machine install policy (linker, globalStore, cache.dir, age) inherits from ~/.bunfig.toml
 # Doc: https://bun.com/docs/pm/cli/install#configuring-bun-install-with-bunfig-toml
 # Audit: cd ~/projects && bun run audit:bunfig
 
@@ -12,10 +12,9 @@ trustedDependencies = []
 frozenLockfile = false
 saveTextLockfile = true
 ignoreScripts = false
-minimumReleaseAge = 259200
 
 # DO NOT duplicate machine keys here:
-# linker, globalStore, [install.cache].dir
+# linker, globalStore, minimumReleaseAge, minimumReleaseAgeExcludes, [install.cache].dir
 
 [install.cache]
 # Omit dir — ~/.bunfig.toml owns absolute cache path on developer machines

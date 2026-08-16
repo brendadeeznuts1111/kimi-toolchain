@@ -4,6 +4,7 @@
  */
 
 import { pathExists } from "./bun-io.ts";
+import { readUserBunfigLayers } from "./bunfig-redundancy.ts";
 import type { HealthCheck } from "./health-check.ts";
 import { readPackageManifest } from "./utils.ts";
 
@@ -79,10 +80,16 @@ export async function auditTrustedDeps(opts: TrustedDepsAuditOptions = {}): Prom
   const bunfigPath = `${root}/bunfig.toml`;
   const bunfigExists = await Bun.file(bunfigPath).exists();
   const bunfigText = bunfigExists ? await Bun.file(bunfigPath).text() : "";
+  const layers = await readUserBunfigLayers();
+  const machineInstall = layers.effective.install;
   const hasIgnoreScriptsFalse = bunfigText.includes("ignoreScripts = false");
   const hasFrozenLockfile = bunfigText.includes("frozenLockfile = true");
-  const hasIsolatedLinker = bunfigText.includes('linker = "isolated"');
-  const hasMinimumReleaseAge = /minimumReleaseAge\s*=\s*259200/.test(bunfigText);
+  const projectLinkerIsolated = bunfigText.includes('linker = "isolated"');
+  const machineLinkerIsolated = machineInstall?.linker === "isolated";
+  const hasIsolatedLinker = projectLinkerIsolated || machineLinkerIsolated;
+  const projectHasAge = /minimumReleaseAge\s*=\s*259200/.test(bunfigText);
+  const machineHasAge = machineInstall?.minimumReleaseAge === 259200;
+  const hasMinimumReleaseAge = projectHasAge || machineHasAge;
 
   checks.push(
     check(
@@ -113,10 +120,12 @@ export async function auditTrustedDeps(opts: TrustedDepsAuditOptions = {}): Prom
       "trusted-deps:isolated-linker",
       hasIsolatedLinker ? "ok" : "warn",
       hasIsolatedLinker
-        ? "bunfig.toml: linker = isolated (peer-dependency isolation)"
+        ? projectLinkerIsolated
+          ? "bunfig.toml: linker = isolated (peer-dependency isolation)"
+          : "linker = isolated inherited from machine bunfig"
         : "bunfig.toml: isolated linker policy not found",
       !hasIsolatedLinker,
-      'Add linker = "isolated" to [install] in bunfig.toml'
+      'Inherit linker = "isolated" from ~/.bunfig.toml (do not restate in the project)'
     )
   );
 
@@ -125,10 +134,12 @@ export async function auditTrustedDeps(opts: TrustedDepsAuditOptions = {}): Prom
       "trusted-deps:minimum-release-age",
       hasMinimumReleaseAge ? "ok" : "warn",
       hasMinimumReleaseAge
-        ? "bunfig.toml: minimumReleaseAge = 259200 (3-day supply-chain quarantine)"
+        ? projectHasAge
+          ? "bunfig.toml: minimumReleaseAge = 259200 (3-day supply-chain quarantine)"
+          : "minimumReleaseAge = 259200 inherited from machine bunfig"
         : "bunfig.toml: minimumReleaseAge policy not found or misaligned",
       !hasMinimumReleaseAge,
-      "Add minimumReleaseAge = 259200 to [install] in bunfig.toml"
+      "Inherit minimumReleaseAge = 259200 from ~/.bunfig.toml (do not restate in the project)"
     )
   );
 

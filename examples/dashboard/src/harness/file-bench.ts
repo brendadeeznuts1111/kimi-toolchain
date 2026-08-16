@@ -67,7 +67,7 @@ export function stopFileBenchServers(): void {
 export async function benchFileServeFull(server: FileBenchServer): Promise<void> {
   const res = await fetch(new URL("/file", server.url));
   if (!res.ok) throw new Error(`file.serve-full: status ${res.status}`);
-  const body = new Uint8Array(await res.arrayBuffer());
+  const body = await res.bytes();
   if (body.length !== server.fileSize) {
     throw new Error(`file.serve-full: expected ${server.fileSize} bytes, got ${body.length}`);
   }
@@ -80,7 +80,7 @@ export async function benchFileServeRange(server: FileBenchServer): Promise<void
   if (res.status !== 206) {
     throw new Error(`file.serve-range: expected 206, got ${res.status}`);
   }
-  const body = new Uint8Array(await res.arrayBuffer());
+  const body = await res.bytes();
   if (body.length !== 1024) {
     throw new Error(`file.serve-range: expected 1024 bytes, got ${body.length}`);
   }

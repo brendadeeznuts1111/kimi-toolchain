@@ -308,7 +308,7 @@ export async function dashboardThumbnailBytes(
     colors,
     dither,
   });
-  return new Uint8Array(await blob.arrayBuffer());
+  return await blob.bytes();
 }
 
 /** WebP shorthand — CLI `--thumbnail` and runHerdrDashboardAutomation disk output. */

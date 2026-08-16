@@ -17,7 +17,7 @@ export async function apiStreamHash(): Promise<Response> {
   }
   const streamDigest = streamHasher.digest("hex");
 
-  const fileBytes = new Uint8Array(await Bun.file(tmpPath).arrayBuffer());
+  const fileBytes = await Bun.file(tmpPath).bytes();
   const wholeHasher = new Bun.CryptoHasher("sha256");
   wholeHasher.update(fileBytes);
   const wholeDigest = wholeHasher.digest("hex");
@@ -26,7 +26,7 @@ export async function apiStreamHash(): Promise<Response> {
   stringHasher.update(testData);
   const stringDigest = stringHasher.digest("hex");
 
-  const bunHash = Bun.SHA256.hash(await Bun.file(tmpPath).arrayBuffer());
+  const bunHash = Bun.SHA256.hash(await Bun.file(tmpPath).bytes());
   const bunHex = new Uint8Array(bunHash as unknown as ArrayBuffer).toHex();
 
   try {
@@ -42,7 +42,7 @@ export async function apiStreamHash(): Promise<Response> {
     string: { digest: stringDigest.slice(0, 24) + "..." },
     bunNative: {
       digest: bunHex.slice(0, 24) + "...",
-      approach: "Bun.SHA256.hash(arrayBuffer()) — one-liner",
+      approach: "Bun.SHA256.hash(bytes()) — one-liner",
     },
     allMatch:
       streamDigest === wholeDigest && wholeDigest === stringDigest && stringDigest === bunHex,

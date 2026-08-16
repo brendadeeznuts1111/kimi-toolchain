@@ -196,6 +196,7 @@ function renderSchema(container, schema) {
     h += row("Linker", effective.linker ?? install.linker, ssot.linker?.status);
     h += row("Global store", effective.globalStore, ssot.globalStore?.status);
     h += row("Cache dir", effective.cacheDir, ssot.cacheDir?.status);
+    h += row("Release age", effective.minimumReleaseAge, ssot.minimumReleaseAge?.status);
     if (inherited.length) {
       h += `<ul style="margin:4px 0 0 16px;font-size:10px;color:var(--muted)">${inherited
         .map((note) => `<li>${note}</li>`)

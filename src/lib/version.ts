@@ -200,7 +200,7 @@ export async function readManifest(): Promise<ToolchainManifest | null> {
 /** Compute SHA-256 hex digest for a file (Bun-native). */
 export async function hashFile(path: string): Promise<string> {
   const hasher = new Bun.CryptoHasher("sha256");
-  hasher.update(await Bun.file(path).arrayBuffer());
+  hasher.update(await Bun.file(path).bytes());
   return hasher.digest("hex");
 }
 

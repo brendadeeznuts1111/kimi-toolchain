@@ -151,7 +151,7 @@ async function hashConfigs(projectDir: string): Promise<ConfigHash[]> {
     const path = `${projectDir}/${cfg}`;
     if (!pathExists(path)) continue;
     const file = Bun.file(path);
-    const content = await file.arrayBuffer();
+    const content = await file.bytes();
     const hash = new Bun.CryptoHasher("sha256");
     hash.update(content);
     hashes.push({ file: cfg, hash: hash.digest("hex"), mtime: file.lastModified });
