@@ -5,7 +5,11 @@ import {
   resolveDashboardProjectRoot,
   resolveDashboardSettings,
 } from "../../../../src/lib/dashboard-settings.ts";
-import { isDirectRun, readableStreamToText } from "../../../../src/lib/bun-utils.ts";
+import {
+  isDirectRun,
+  readableStreamToText,
+  resolveActiveBunfigPath,
+} from "../../../../src/lib/bun-utils.ts";
 import { resolveBin, USER_TOOLCHAIN_BIN } from "../lib/toolchain-paths.ts";
 import { jsonResponse, runDoctorJson } from "./shared.ts";
 
@@ -152,19 +156,15 @@ export async function apiBuildInfo(): Promise<Response> {
   let bunfigDefines: Record<string, string> = {};
   let bunfigPath = "";
   try {
-    const candidates = ["./bunfig.toml", `${Bun.env.HOME}/.bunfig.toml`];
-    for (const candidate of candidates) {
-      const f = Bun.file(candidate);
-      if (await f.exists()) {
-        const parsed = Bun.TOML.parse(await f.text()) as Record<string, unknown>;
-        if (parsed.define && typeof parsed.define === "object") {
-          bunfigDefines = Object.fromEntries(
-            Object.entries(parsed.define as Record<string, unknown>).map(([k, v]) => [k, String(v)])
-          );
-        }
-        bunfigPath = candidate;
-        break;
+    const resolved = await resolveActiveBunfigPath();
+    if (resolved) {
+      const parsed = Bun.TOML.parse(await Bun.file(resolved).text()) as Record<string, unknown>;
+      if (parsed.define && typeof parsed.define === "object") {
+        bunfigDefines = Object.fromEntries(
+          Object.entries(parsed.define as Record<string, unknown>).map(([k, v]) => [k, String(v)])
+        );
       }
+      bunfigPath = resolved;
     }
   } catch {
     /* no bunfig.toml */
@@ -235,15 +235,8 @@ export async function apiRuntimeInfo(): Promise<Response> {
       ? "node"
       : "unknown";
 
-  // Resolve active bunfig.toml path (--config flag or default lookup)
-  const bunfigCandidates = ["./bunfig.toml", `${Bun.env.HOME}/.bunfig.toml`];
-  let activeBunfig: string | null = null;
-  for (const candidate of bunfigCandidates) {
-    if (await Bun.file(candidate).exists()) {
-      activeBunfig = candidate;
-      break;
-    }
-  }
+  // Project bunfig, else XDG global, else $HOME/.bunfig.toml (Bun 1.3.14).
+  const activeBunfig = await resolveActiveBunfigPath();
 
   return jsonResponse({
     runtime,
