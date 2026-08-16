@@ -295,7 +295,7 @@ describe("herdr-dashboard-automation", () => {
       expect(result.title).toContain("Herdr");
       expect(result.screenshotBytes).toBeGreaterThan(10_000);
       expect(result.outputPath).toBe(outputPath);
-      const file = await Bun.file(outputPath).arrayBuffer();
+      const file = await Bun.file(outputPath).bytes();
       expect(file.byteLength).toBe(result.screenshotBytes);
     });
   }, 20_000);

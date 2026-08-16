@@ -167,7 +167,7 @@ function scanSourceFile(
             rel,
             i + 1,
             "sharp import detected",
-            "Use Bun.Image: await Bun.file(path).arrayBuffer() then new Bun.Image(bytes) or Bun.file(path).image()",
+            "Use Bun.Image: await Bun.file(path).bytes() then new Bun.Image(bytes) or Bun.file(path).image()",
             line
           )
         );

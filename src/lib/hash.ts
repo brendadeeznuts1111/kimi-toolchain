@@ -8,7 +8,7 @@
 /** Compute the SHA-256 hex digest of a file. */
 export async function sha256File(path: string): Promise<string> {
   const file = Bun.file(path);
-  const content = await file.arrayBuffer();
+  const content = await file.bytes();
   const hash = new Bun.CryptoHasher("sha256");
   hash.update(content);
   return hash.digest("hex");

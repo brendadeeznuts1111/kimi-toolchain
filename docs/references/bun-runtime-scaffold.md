@@ -132,9 +132,9 @@ Validated on `bun@1.4.0-canary.1`. Use `bun pm pkg get <section>` until scope fl
 | `bun pm pkg get optionalDependencies` | `package.json` section      | (unset)                   | Works  |
 | `bun pm pkg get peerDependencies`     | `package.json` section      | (unset)                   | Works  |
 
-Bun searches for `bunfig.toml` in these paths (merged if both exist):
+Bun loads one global bunfig, then the project file (project overlays the global):
 
-- `$XDG_CONFIG_HOME/.bunfig.toml` or `$HOME/.bunfig.toml`
+- `$XDG_CONFIG_HOME/.bunfig.toml` if that file exists, else `$HOME/.bunfig.toml`
 - `./bunfig.toml` (project-local)
 
 Bun's official `linker` default is conditional: `configVersion = 1` uses `isolated` for workspaces and `hoisted` otherwise; `configVersion = 0` uses `hoisted`. `kimi-toolchain` pins `linker = "isolated"` in scaffolded projects so the install strategy is explicit regardless of Bun's inferred defaults.

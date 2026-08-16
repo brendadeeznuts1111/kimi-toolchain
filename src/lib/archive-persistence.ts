@@ -107,7 +107,7 @@ export function createCrc32Hasher(): { update(chunk: Uint8Array): void; digest()
 
 /** CRC32 hex for a file on disk — fast dist drift fingerprint. */
 export async function hashFileCrc32(filePath: string): Promise<string> {
-  const bytes = await Bun.file(filePath).arrayBuffer();
+  const bytes = await Bun.file(filePath).bytes();
   return hashArchive(bytes);
 }
 
