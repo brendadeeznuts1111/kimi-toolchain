@@ -168,7 +168,11 @@ export async function bunfigPolicyGate(
     failures.push(`${name} is set; remove the override for reproducible installs`);
   }
 
-  if (minimumReleaseAge && !policyRowOk(minimumReleaseAge)) {
+  if (
+    minimumReleaseAge &&
+    !policyRowOk(minimumReleaseAge) &&
+    !ssotSatisfiesInstallPolicy(ssot, "minimumReleaseAge")
+  ) {
     warnings.push(policyRowMessage(minimumReleaseAge));
   }
 

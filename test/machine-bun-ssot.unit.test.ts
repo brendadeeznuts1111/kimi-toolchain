@@ -117,6 +117,7 @@ describe("machine-bun-ssot", () => {
 linker = "isolated"
 globalStore = true
 minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["bun-types", "@types/bun", "@types/node", "typescript"]
 
 [install.cache]
 dir = "/tmp/ssot-machine-cache"
@@ -135,6 +136,7 @@ dir = "/tmp/ssot-machine-cache"
         machineAtHome
       );
       expect(ssotEntry(restated, "minimumReleaseAge")?.status).toBe("project");
+      expect(ssotEntry(omitted, "minimumReleaseAgeExcludes")?.status).toBe("inherited");
     } finally {
       if (prevHome === undefined) delete Bun.env.HOME;
       else Bun.env.HOME = prevHome;

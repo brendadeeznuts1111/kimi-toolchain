@@ -33,8 +33,6 @@ ignoreScripts = false
 concurrentScripts = 8
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
-minimumReleaseAge = 259200
-minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
 disable = false
@@ -102,16 +100,44 @@ describe("bunfig-policy-gate", () => {
     });
   });
 
-  test.skipIf(skipUnlessHardenedRuntime)("warns when minimum release age is missing", async () => {
-    const dir = testTempDir("bunfig-policy-warn-");
-    writeSecureProject(dir, SECURE_BUNFIG.replace("minimumReleaseAge = 259200\n", ""));
+  test.skipIf(skipUnlessHardenedRuntime)(
+    "inherits minimumReleaseAge from machine SSOT when the project omits it",
+    async () => {
+      const dir = testTempDir("bunfig-policy-age-inherit-");
+      writeSecureProject(dir);
 
-    await withIsolatedCleanInstall(async () => {
-      const result = await bunfigPolicyGate(dir);
-      expect(result.status).toBe("warn");
-      expect(result.warnings.some((line) => line.includes("minimumReleaseAge"))).toBe(true);
-    });
-  });
+      await withIsolatedCleanInstall(async () => {
+        const result = await bunfigPolicyGate(dir);
+        expect(result.status).toBe("pass");
+        expect(result.summary.minimumReleaseAge).toBe(259200);
+        expect(result.summary.ssot.minimumReleaseAge.status).toBe("inherited");
+      });
+    }
+  );
+
+  test.skipIf(skipUnlessHardenedRuntime)(
+    "warns when minimum release age is missing from project and machine",
+    async () => {
+      const dir = testTempDir("bunfig-policy-warn-");
+      writeSecureProject(dir);
+
+      await withIsolatedHome(async (home) => {
+        writeText(
+          join(home, ".bunfig.toml"),
+          `[install]
+linker = "isolated"
+globalStore = true
+
+[install.cache]
+dir = "${home}/.bun-cache"
+`
+        );
+        const result = await withEnv({ ...CLEAN_ENV, HOME: home }, () => bunfigPolicyGate(dir));
+        expect(result.status).toBe("warn");
+        expect(result.warnings.some((line) => line.includes("minimumReleaseAge"))).toBe(true);
+      });
+    }
+  );
 
   test("fails when packageManager or engines.bun drift from hardened policy", async () => {
     const dir = testTempDir("bunfig-policy-version-drift-");

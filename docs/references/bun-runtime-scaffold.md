@@ -26,19 +26,14 @@ exact = false
 # lifecycle
 ignoreScripts = false
 concurrentScripts = 8
-# linker
-linker = "isolated"
-# Experimental (Bun ≥1.3.14): symlink packages from shared global cache
-globalStore = true
+# linker / globalStore / age / cache.dir belong on the machine bunfig
+# (one global: $XDG_CONFIG_HOME/.bunfig.toml if present, else $HOME/.bunfig.toml).
 # paths
 globalDir = "~/.bun/install/global"
 globalBinDir = "~/.bun/bin"
-# supply-chain
-minimumReleaseAge = 259200  # 3 days
-minimumReleaseAgeExcludes = ["@types/bun", "@types/node", "typescript"]
 
 [install.cache]
-dir = "~/.bun/install/cache"
+# omit dir — machine bunfig owns the absolute cache path
 
 [run]
 # Parent-death detection: child Bun processes auto-exit when the parent dies.
@@ -85,7 +80,7 @@ Key differences from Bun defaults:
 | `frozenLockfile`    | `false`                               | `true`            | Reproducible installs; CI fails on drift             |
 | `linker`            | `configVersion` / workspace dependent | `isolated`        | No phantom dependencies; cleaner `node_modules`      |
 | `concurrentScripts` | 16                                    | 8                 | Avoid thrashing on memory-constrained hosts          |
-| `minimumReleaseAge` | 0                                     | 259200 (3d)       | Supply-chain safety — block brand-new packages       |
+| `minimumReleaseAge` | 0                                     | 259200 (3d)       | Machine bunfig only — project files inherit          |
 | `preload`           | unset                                 | `./test/setup.ts` | HOME isolation + `NODE_ENV=test` via setup           |
 | `noOrphans`         | false                                 | true              | Prevents zombie processes in Herdr panes, CI runners |
 

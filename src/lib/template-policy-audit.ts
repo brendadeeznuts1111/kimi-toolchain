@@ -46,7 +46,14 @@ const REQUIRED_INSTALL_FIELDS = [
   { key: "ignoreScripts", pattern: /ignoreScripts\s*=\s*false/ },
   { key: "frozenLockfile", pattern: /frozenLockfile\s*=\s*(?:true|false)/ },
   { key: "saveTextLockfile", pattern: /saveTextLockfile\s*=\s*true/ },
-  { key: "minimumReleaseAge", pattern: /minimumReleaseAge\s*=\s*259200/ },
+] as const;
+
+/** Machine ~/.bunfig.toml owns these. Templates must inherit, not restate. */
+const BANNED_MACHINE_INSTALL_FIELDS = [
+  { key: "linker", pattern: /^\s*linker\s*=/m },
+  { key: "globalStore", pattern: /^\s*globalStore\s*=/m },
+  { key: "minimumReleaseAge", pattern: /^\s*minimumReleaseAge\s*=/m },
+  { key: "minimumReleaseAgeExcludes", pattern: /^\s*minimumReleaseAgeExcludes\s*=/m },
 ] as const;
 
 const TEMPLATE_BANNED_TERMS: Array<{ pattern: RegExp; label: string }> = [
@@ -324,6 +331,15 @@ export async function auditTemplateInstallPolicy(root: string): Promise<Template
           file: relPath,
           field: key,
           message: `Missing or misaligned [install] field: ${key}`,
+        });
+      }
+    }
+    for (const { key, pattern } of BANNED_MACHINE_INSTALL_FIELDS) {
+      if (pattern.test(installBlock)) {
+        violations.push({
+          file: relPath,
+          field: key,
+          message: `Do not restate machine [install].${key} — inherit from ~/.bunfig.toml`,
         });
       }
     }

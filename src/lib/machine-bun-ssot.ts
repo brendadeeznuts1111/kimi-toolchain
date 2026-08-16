@@ -9,7 +9,12 @@ import {
   type UserBunfigInstallSnapshot,
 } from "./bunfig-redundancy.ts";
 
-export type MachineSsotKey = "linker" | "globalStore" | "cacheDir" | "minimumReleaseAge";
+export type MachineSsotKey =
+  | "linker"
+  | "globalStore"
+  | "cacheDir"
+  | "minimumReleaseAge"
+  | "minimumReleaseAgeExcludes";
 
 export type MachineSsotStatus = "inherited" | "project" | "override" | "unset";
 
@@ -55,6 +60,7 @@ export function buildSsotSummary(entries: MachineSsotEntry[]): MachineSsotSummar
     globalStore: pickSsotSummary(entries, "globalStore"),
     cacheDir: pickSsotSummary(entries, "cacheDir"),
     minimumReleaseAge: pickSsotSummary(entries, "minimumReleaseAge"),
+    minimumReleaseAgeExcludes: pickSsotSummary(entries, "minimumReleaseAgeExcludes"),
   };
 }
 
@@ -331,6 +337,67 @@ function minimumReleaseAgeEntry(
   };
 }
 
+function formatExcludes(value: string[] | undefined): string | null {
+  return value != null && value.length > 0 ? JSON.stringify(value) : null;
+}
+
+function minimumReleaseAgeExcludesEntry(
+  project: BunfigInstallSection | null,
+  machineInstall: BunfigInstallSection | null,
+  machinePath: string | null,
+  inheritLabel: string
+): MachineSsotEntry {
+  const machineValue = formatExcludes(machineInstall?.minimumReleaseAgeExcludes);
+  const projectValue = formatExcludes(project?.minimumReleaseAgeExcludes);
+  const bunfigKey = "[install].minimumReleaseAgeExcludes";
+
+  if (projectValue != null && machineValue != null && projectValue !== machineValue) {
+    return {
+      key: "minimumReleaseAgeExcludes",
+      bunfigKey,
+      status: "override",
+      effective: projectValue,
+      machineValue,
+      projectValue,
+      note: `${bunfigKey}: ${projectValue} (project override; machine=${machineValue})`,
+    };
+  }
+
+  if (projectValue != null) {
+    return {
+      key: "minimumReleaseAgeExcludes",
+      bunfigKey,
+      status: "project",
+      effective: projectValue,
+      machineValue,
+      projectValue,
+      note: `${bunfigKey}: ${projectValue} (project)`,
+    };
+  }
+
+  if (machineValue != null && machinePath) {
+    return {
+      key: "minimumReleaseAgeExcludes",
+      bunfigKey,
+      status: "inherited",
+      effective: machineValue,
+      machineValue,
+      projectValue: null,
+      note: `${bunfigKey}: inherited from ${inheritLabel} (${machineValue})`,
+    };
+  }
+
+  return {
+    key: "minimumReleaseAgeExcludes",
+    bunfigKey,
+    status: "unset",
+    effective: null,
+    machineValue,
+    projectValue: null,
+    note: `${bunfigKey}: unset (no project or machine value)`,
+  };
+}
+
 export function resolveMachineInstallSsot(
   projectInstall: BunfigInstallSection | null,
   machine: UserBunfigInstallSnapshot,
@@ -343,6 +410,12 @@ export function resolveMachineInstallSsot(
     globalStoreEntry(projectInstall, machineInstall, machine.bunfigPath, inheritLabel),
     cacheDirEntry(projectInstall, machine.cacheDir, machine.bunfigPath, inheritLabel),
     minimumReleaseAgeEntry(projectInstall, machineInstall, machine.bunfigPath, inheritLabel),
+    minimumReleaseAgeExcludesEntry(
+      projectInstall,
+      machineInstall,
+      machine.bunfigPath,
+      inheritLabel
+    ),
   ];
 }
 
@@ -388,6 +461,23 @@ export function suppressInheritedSsotWarning(
         warning.includes("[install.cache].dir") ||
         warning.startsWith("cacheDir unset") ||
         warning.startsWith("cacheDir=")
+      ) {
+        return true;
+      }
+    }
+    if (entry.key === "minimumReleaseAge") {
+      if (
+        warning.includes("[install].minimumReleaseAge") ||
+        warning.startsWith("minimumReleaseAge unset") ||
+        warning.startsWith("minimumReleaseAge=")
+      ) {
+        return true;
+      }
+    }
+    if (entry.key === "minimumReleaseAgeExcludes") {
+      if (
+        warning.includes("minimumReleaseAgeExcludes unset") ||
+        warning.startsWith("minimumReleaseAgeExcludes=")
       ) {
         return true;
       }

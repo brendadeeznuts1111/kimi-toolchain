@@ -2816,7 +2816,12 @@ function runtimeEnvironmentAdvisories(runtimeEnvironment: BunInstallRuntimeEnvir
   return advisories;
 }
 
-const MACHINE_SSOT_POLICY_KEYS = new Set<MachineSsotKey>(["linker", "globalStore", "cacheDir"]);
+const MACHINE_SSOT_POLICY_KEYS = new Set<MachineSsotKey>([
+  "linker",
+  "globalStore",
+  "cacheDir",
+  "minimumReleaseAge",
+]);
 
 function applyMachineSsotToPolicyRows(rows: BunInstallPolicyRow[], ssot: MachineSsotEntry[]): void {
   for (const row of rows) {
