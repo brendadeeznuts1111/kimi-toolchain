@@ -13,7 +13,8 @@
 /memory/
 /guardian/
 /governor/
-node_modules/
+# no trailing slash: worktree node_modules is often a symlink
+node_modules
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
