@@ -59,6 +59,37 @@ linker = "hoisted"
     });
   });
 
+  test("flags restated minimumReleaseAge when it matches the machine gate", async () => {
+    const project = testTempDir("bunfig-redundancy-age-");
+    writeText(
+      join(project, "bunfig.toml"),
+      `[install]
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["bun-types", "@types/bun"]
+`
+    );
+
+    await withUniqueHome(async (home) => {
+      writeText(
+        join(home, ".bunfig.toml"),
+        `[install]
+linker = "isolated"
+globalStore = true
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = ["bun-types", "@types/bun"]
+
+[install.cache]
+dir = "/tmp/machine-bun-cache"
+`
+      );
+      const audit = await auditWorkspaceBunfigRedundancy(project);
+      expect(audit.hits[0]?.keys).toEqual([
+        "[install].minimumReleaseAge",
+        "[install].minimumReleaseAgeExcludes",
+      ]);
+    });
+  });
+
   test("flags tilde cache.dir in workspace bunfig", async () => {
     const project = testTempDir("bunfig-redundancy-tilde-project-");
     writeText(

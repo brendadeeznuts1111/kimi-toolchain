@@ -11,7 +11,13 @@ import type { BunfigInstallSection } from "./bun-install-types.ts";
 export interface BunfigRedundancyHit {
   bunfigPath: string;
   relativePath: string;
-  keys: Array<"[install].linker" | "[install].globalStore" | "[install.cache].dir">;
+  keys: Array<
+    | "[install].linker"
+    | "[install].globalStore"
+    | "[install.cache].dir"
+    | "[install].minimumReleaseAge"
+    | "[install].minimumReleaseAgeExcludes"
+  >;
   messages: string[];
 }
 
@@ -153,6 +159,24 @@ function detectRedundantKeys(
 
   if (install.globalStore === true && machine.globalStore === true) {
     keys.push("[install].globalStore");
+  }
+
+  if (
+    install.minimumReleaseAge != null &&
+    machine.minimumReleaseAge != null &&
+    install.minimumReleaseAge === machine.minimumReleaseAge
+  ) {
+    keys.push("[install].minimumReleaseAge");
+  }
+
+  const projectExcludes = install.minimumReleaseAgeExcludes;
+  const machineExcludes = machine.minimumReleaseAgeExcludes;
+  if (
+    projectExcludes != null &&
+    machineExcludes != null &&
+    JSON.stringify(projectExcludes) === JSON.stringify(machineExcludes)
+  ) {
+    keys.push("[install].minimumReleaseAgeExcludes");
   }
 
   const projectCacheDir = install.cache?.dir ?? null;

@@ -67,6 +67,22 @@ linker = "isolated"
     const report = await scanUpgradeAdvisor(root, { rules: ["global-store-disabled"] });
     expect(report.findings.length).toBe(1);
     expect(report.findings[0]?.file).toBe("bunfig.toml");
+    expect(report.findings[0]?.suggestion).toContain("Remove linker");
+  });
+
+  test("flags restated linker+globalStore instead of asking to add more machine keys", async () => {
+    const root = testTempDir("upgrade-advisor-");
+    writeText(
+      join(root, "bunfig.toml"),
+      `[install]
+linker = "isolated"
+globalStore = true
+`
+    );
+    const report = await scanUpgradeAdvisor(root, { rules: ["global-store-disabled"] });
+    expect(report.findings.length).toBe(1);
+    expect(report.findings[0]?.message).toContain("linker / globalStore");
+    expect(report.findings[0]?.suggestion).not.toContain("Add globalStore = true");
   });
 
   test("detects missing --no-orphans on dev script", async () => {
